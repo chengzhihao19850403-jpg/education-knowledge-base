@@ -246,7 +246,7 @@ const styles = {
 
   jiaoguanSection: {
     maxWidth: '700px',
-    marginTop: '48px',
+    marginTop: '80px',
     margin: '0 auto 40px',
     padding: '0 24px',
     paddingTop: '0',
