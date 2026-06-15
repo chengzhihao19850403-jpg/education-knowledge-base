@@ -82,6 +82,21 @@ function createResult(item, categoryName, score, isSimilar = false) {
   };
 }
 
+function uniqueResults(items, limit) {
+  const seen = new Set();
+  const output = [];
+
+  for (const item of items) {
+    const key = `${item.question}\n${item.answer}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+    if (output.length >= limit) break;
+  }
+
+  return output;
+}
+
 function searchKnowledge(query) {
   const queryLower = normalizeText(query);
   const results = [];
@@ -105,12 +120,18 @@ function searchKnowledge(query) {
 
       if (score > 0) {
         score += Number(item.quality_score || 0) / 2;
+        if (item.review_status === '最新动态资料') score += 8;
         if (item.review_status === '人工复审') score += 6;
+        if (item.review_status === '历史参考') score -= 10;
         results.push(createResult(item, category.name, score));
       } else {
         const similarScore = similarityScore(query, item, category.name);
         if (similarScore >= 5) {
-          const qualityScore = similarScore + Number(item.quality_score || 0) / 2 + (item.review_status === '人工复审' ? 6 : 0);
+          const qualityScore = similarScore
+            + Number(item.quality_score || 0) / 2
+            + (item.review_status === '最新动态资料' ? 8 : 0)
+            + (item.review_status === '人工复审' ? 6 : 0)
+            - (item.review_status === '历史参考' ? 10 : 0);
           similarResults.push(createResult(item, category.name, qualityScore, true));
         }
       }
@@ -119,13 +140,13 @@ function searchKnowledge(query) {
 
   if (results.length > 0) {
     return {
-      items: results.sort((a, b) => b.score - a.score).slice(0, 50),
+      items: uniqueResults(results.sort((a, b) => b.score - a.score), 50),
       isFallback: false,
     };
   }
 
   return {
-    items: similarResults.sort((a, b) => b.score - a.score).slice(0, 12),
+    items: uniqueResults(similarResults.sort((a, b) => b.score - a.score), 12),
     isFallback: true,
   };
 }
