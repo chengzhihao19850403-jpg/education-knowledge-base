@@ -104,12 +104,12 @@ export default function Home() {
         <div style={styles.jiaoguanCards}>
           <div style={styles.jiaoguanCard} onClick={() => alert('课程列表即将上线')}>
             <div style={styles.jiaoguanIcon}>📚</div>
-            <div style={styles.jiaoguanCardTitle}>20节课程</div>
+            <div style={styles.jiaoguanCardTitle}>学习内容</div>
             <div style={styles.jiaoguanCardDesc}>系统化学习路径</div>
           </div>
           <div style={styles.jiaoguanCard} onClick={() => alert('测试系统即将上线')}>
             <div style={styles.jiaoguanIcon}>📝</div>
-            <div style={styles.jiaoguanCardTitle}>20道测试题</div>
+            <div style={styles.jiaoguanCardTitle}>阶段测试</div>
             <div style={styles.jiaoguanCardDesc}>能力考核验收</div>
           </div>
         </div>
