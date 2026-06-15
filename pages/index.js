@@ -102,6 +102,26 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 学管课堂入口 */}
+      <div style={styles.jiaoguanSection}>
+        <div style={styles.jiaoguanHeader}>
+          <h2 style={styles.jiaoguanTitle}>学管课堂</h2>
+          <p style={styles.jiaoguanSubtitle}>新人培养 · 考核验收</p>
+        </div>
+        <div style={styles.jiaoguanCards}>
+          <div style={styles.jiaoguanCard} onClick={() => alert('课程列表即将上线')}>
+            <div style={styles.jiaoguanIcon}>📚</div>
+            <div style={styles.jiaoguanCardTitle}>20节课程</div>
+            <div style={styles.jiaoguanCardDesc}>系统化学习路径</div>
+          </div>
+          <div style={styles.jiaoguanCard} onClick={() => alert('测试系统即将上线')}>
+            <div style={styles.jiaoguanIcon}>📝</div>
+            <div style={styles.jiaoguanCardTitle}>20道测试题</div>
+            <div style={styles.jiaoguanCardDesc}>能力考核验收</div>
+          </div>
+        </div>
+      </div>
+
       <div style={styles.results}>
         {results.length > 0 ? results.map((item, idx) => (
           <div key={idx} style={styles.resultItem}>
