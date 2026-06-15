@@ -92,14 +92,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div style={styles.quickSection}>
-          <div style={styles.quickTitle}>快捷问题</div>
-          <div style={styles.quickList}>
-            {['学费多少钱', '能退费吗', '孩子几岁能学', '怎么报名', '有优惠吗', '上课时间'].map((text) => (
-              <span key={text} style={styles.quickItem} onClick={() => quickSearch(text)}>{text}</span>
-            ))}
-          </div>
-        </div>
+
       </div>
 
       {/* 学管课堂入口 */}
@@ -208,33 +201,7 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
-  quickSection: {
-    marginTop: '36px',
-    textAlign: 'center',
-  },
-  quickTitle: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#A0AEC0',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    marginBottom: '18px',
-  },
-  quickList: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: '12px',
-  },
-  quickItem: {
-    padding: '10px 20px',
-    background: '#F5F7FA',
-    borderRadius: '24px',
-    fontSize: '14px',
-    color: '#4A5568',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  },
+
   results: {
     maxWidth: '700px',
     margin: '40px auto',
