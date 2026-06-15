@@ -492,37 +492,39 @@ export default function Home() {
         )}
       </div>
 
-      <div style={styles.results}>
-        {results.length > 0 ? (
-          <>
-            <div style={styles.resultSummary}>
-              {isFallback
-                ? `没有找到完全匹配，显示 ${results.length} 条相似问题`
-                : `找到 ${results.length} 条最相关结果`}
+      {!activeTrainingModule && (
+        <div style={styles.results}>
+          {results.length > 0 ? (
+            <>
+              <div style={styles.resultSummary}>
+                {isFallback
+                  ? `没有找到完全匹配，显示 ${results.length} 条相似问题`
+                  : `找到 ${results.length} 条最相关结果`}
+              </div>
+              {results.map((item) => (
+                <div key={item.id} style={styles.resultItem}>
+                  <div style={styles.resultQuestion}>{item.question}</div>
+                  <div style={styles.resultAnswer}>{item.answer}</div>
+                  <div style={styles.metaRow}>
+                    <span style={styles.resultCategory}>{item.category}</span>
+                    {item.isSimilar && <span style={styles.similarTag}>相似问题</span>}
+                    {item.reviewStatus && <span style={styles.statusTag}>{item.reviewStatus}</span>}
+                  </div>
+                  {(item.source || item.sourceSection) && (
+                    <div style={styles.sourceText}>来源：{item.source}{item.sourceSection ? ` · ${item.sourceSection}` : ''}</div>
+                  )}
+                </div>
+              ))}
+            </>
+          ) : query.trim() ? (
+            <div style={styles.noResults}>未找到相关答案</div>
+          ) : (
+            <div style={styles.tipsBox}>
+              输入关键词搜索知识库内容
             </div>
-            {results.map((item) => (
-          <div key={item.id} style={styles.resultItem}>
-            <div style={styles.resultQuestion}>{item.question}</div>
-            <div style={styles.resultAnswer}>{item.answer}</div>
-            <div style={styles.metaRow}>
-              <span style={styles.resultCategory}>{item.category}</span>
-              {item.isSimilar && <span style={styles.similarTag}>相似问题</span>}
-              {item.reviewStatus && <span style={styles.statusTag}>{item.reviewStatus}</span>}
-            </div>
-            {(item.source || item.sourceSection) && (
-              <div style={styles.sourceText}>来源：{item.source}{item.sourceSection ? ` · ${item.sourceSection}` : ''}</div>
-            )}
-          </div>
-            ))}
-          </>
-        ) : query.trim() ? (
-          <div style={styles.noResults}>未找到相关答案</div>
-        ) : (
-          <div style={styles.tipsBox}>
-            输入关键词搜索知识库内容
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
