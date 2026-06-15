@@ -136,6 +136,7 @@ export default function Home() {
   const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id);
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
+  const [activeTrainingModule, setActiveTrainingModule] = useState(null);
 
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
@@ -171,6 +172,7 @@ export default function Home() {
   };
 
   const selectLesson = (lessonId) => {
+    setActiveTrainingModule('lessons');
     setSelectedLessonId(lessonId);
     const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === lessonId);
     if (linkedTest) {
@@ -181,6 +183,7 @@ export default function Home() {
   };
 
   const selectTest = (testId) => {
+    setActiveTrainingModule('tests');
     setSelectedTestId(testId);
     setTestAnswers({});
     setTestSubmitted(false);
@@ -238,129 +241,178 @@ export default function Home() {
           <p style={styles.jiaoguanSubtitle}>20 节新人培训课 · 20 套线上小测试</p>
         </div>
 
-        <div style={styles.trainingShell}>
-          <div style={styles.lessonList}>
-            {(trainingProgram.lessons || []).map((lesson) => (
-              <button
-                key={lesson.id}
-                onClick={() => selectLesson(lesson.id)}
-                style={{
-                  ...styles.lessonButton,
-                  ...(lesson.id === selectedLessonId ? styles.lessonButtonActive : {}),
-                }}
-              >
-                <span style={styles.lessonButtonId}>{lesson.id}</span>
-                <span style={styles.lessonButtonText}>{lesson.title}</span>
-              </button>
-            ))}
+        {!activeTrainingModule ? (
+          <div style={styles.moduleGrid}>
+            <button onClick={() => setActiveTrainingModule('lessons')} style={styles.moduleCard}>
+              <div style={styles.moduleIcon}>📚</div>
+              <div style={styles.moduleTitle}>学习内容</div>
+              <div style={styles.moduleDesc}>20 节系统课程，按新人上岗路径逐课学习</div>
+            </button>
+            <button onClick={() => setActiveTrainingModule('tests')} style={styles.moduleCard}>
+              <div style={styles.moduleIcon}>📝</div>
+              <div style={styles.moduleTitle}>阶段测试</div>
+              <div style={styles.moduleDesc}>20 套线上小测试，提交后显示得分和解析</div>
+            </button>
           </div>
-
-          {selectedLesson && (
-            <div style={styles.lessonDetail}>
-              <div style={styles.lessonMetaRow}>
-                <span style={styles.lessonTag}>{selectedLesson.category}</span>
-                <span style={styles.lessonTag}>{selectedLesson.duration}</span>
+        ) : (
+          <div style={styles.trainingShell}>
+            <div style={styles.moduleToolbar}>
+              <button onClick={() => setActiveTrainingModule(null)} style={styles.backButton}>返回学管课堂</button>
+              <div style={styles.moduleToolbarTitle}>
+                {activeTrainingModule === 'lessons' ? '学习内容' : '阶段测试'}
               </div>
-              <h3 style={styles.lessonTitle}>{selectedLesson.id} {selectedLesson.title}</h3>
+            </div>
 
-              <div style={styles.trainingBlock}>
-                <div style={styles.trainingBlockTitle}>学习目标</div>
-                <ul style={styles.trainingList}>
-                  {selectedLesson.objectives.map((item) => <li key={item}>{item}</li>)}
-                </ul>
-              </div>
-
-              <div style={styles.trainingBlock}>
-                <div style={styles.trainingBlockTitle}>课程内容</div>
-                {selectedLesson.content.map((item) => (
-                  <p key={item} style={styles.lessonParagraph}>{item}</p>
-                ))}
-              </div>
-
-              <div style={styles.trainingBlock}>
-                <div style={styles.trainingBlockTitle}>关键要点</div>
-                <div style={styles.keyPointWrap}>
-                  {selectedLesson.keyPoints.map((item) => <span key={item} style={styles.keyPoint}>{item}</span>)}
+            {activeTrainingModule === 'lessons' && (
+              <>
+                <div style={styles.lessonList}>
+                  {(trainingProgram.lessons || []).map((lesson) => (
+                    <button
+                      key={lesson.id}
+                      onClick={() => selectLesson(lesson.id)}
+                      style={{
+                        ...styles.lessonButton,
+                        ...(lesson.id === selectedLessonId ? styles.lessonButtonActive : {}),
+                      }}
+                    >
+                      <span style={styles.lessonButtonId}>{lesson.id}</span>
+                      <span style={styles.lessonButtonText}>{lesson.title}</span>
+                    </button>
+                  ))}
                 </div>
-              </div>
 
-              <div style={styles.trainingBlock}>
-                <div style={styles.trainingBlockTitle}>课后练习</div>
-                <p style={styles.lessonParagraph}>{selectedLesson.practice}</p>
-              </div>
-            </div>
-          )}
+                {selectedLesson && (
+                  <div style={styles.lessonDetail}>
+                    <div style={styles.lessonMetaRow}>
+                      <span style={styles.lessonTag}>{selectedLesson.category}</span>
+                      <span style={styles.lessonTag}>{selectedLesson.duration}</span>
+                    </div>
+                    <h3 style={styles.lessonTitle}>{selectedLesson.id} {selectedLesson.title}</h3>
 
-          <div style={styles.testPanel}>
-            <div style={styles.testHeader}>
-              <div>
-                <div style={styles.trainingBlockTitle}>线上小测试</div>
-                <div style={styles.testSubtitle}>{selectedTestLesson?.id} {selectedTestLesson?.title}</div>
-              </div>
-              <select
-                value={selectedTestId}
-                onChange={(event) => selectTest(event.target.value)}
-                style={styles.testSelect}
-              >
-                {(trainingProgram.tests || []).map((test) => (
-                  <option key={test.id} value={test.id}>{test.id}</option>
-                ))}
-              </select>
-            </div>
+                    <div style={styles.trainingBlock}>
+                      <div style={styles.trainingBlockTitle}>学习目标</div>
+                      <ul style={styles.trainingList}>
+                        {selectedLesson.objectives.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
 
-            {selectedTest?.questions?.map((question, questionIndex) => (
-              <div key={question.id} style={styles.questionBlock}>
-                <div style={styles.questionTitle}>{questionIndex + 1}. {question.question}</div>
-                <div style={styles.optionList}>
-                  {question.options.map((option, optionIndex) => {
-                    const isChosen = testAnswers[question.id] === optionIndex;
-                    const isCorrect = question.answerIndex === optionIndex;
-                    const showCorrect = testSubmitted && isCorrect;
-                    const showWrong = testSubmitted && isChosen && !isCorrect;
+                    <div style={styles.trainingBlock}>
+                      <div style={styles.trainingBlockTitle}>课程内容</div>
+                      {selectedLesson.content.map((item) => (
+                        <p key={item} style={styles.lessonParagraph}>{item}</p>
+                      ))}
+                    </div>
+
+                    <div style={styles.trainingBlock}>
+                      <div style={styles.trainingBlockTitle}>关键要点</div>
+                      <div style={styles.keyPointWrap}>
+                        {selectedLesson.keyPoints.map((item) => <span key={item} style={styles.keyPoint}>{item}</span>)}
+                      </div>
+                    </div>
+
+                    <div style={styles.trainingBlock}>
+                      <div style={styles.trainingBlockTitle}>课后练习</div>
+                      <p style={styles.lessonParagraph}>{selectedLesson.practice}</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTrainingModule === 'tests' && (
+              <>
+                <div style={styles.lessonList}>
+                  {(trainingProgram.tests || []).map((test) => {
+                    const lesson = (trainingProgram.lessons || []).find((item) => item.id === test.lessonId);
                     return (
                       <button
-                        key={option}
-                        onClick={() => chooseAnswer(question.id, optionIndex)}
+                        key={test.id}
+                        onClick={() => selectTest(test.id)}
                         style={{
-                          ...styles.optionButton,
-                          ...(isChosen ? styles.optionButtonChosen : {}),
-                          ...(showCorrect ? styles.optionButtonCorrect : {}),
-                          ...(showWrong ? styles.optionButtonWrong : {}),
+                          ...styles.lessonButton,
+                          ...(test.id === selectedTestId ? styles.lessonButtonActive : {}),
                         }}
                       >
-                        {String.fromCharCode(65 + optionIndex)}. {option}
+                        <span style={styles.lessonButtonId}>{test.id}</span>
+                        <span style={styles.lessonButtonText}>{lesson?.title || test.title}</span>
                       </button>
                     );
                   })}
                 </div>
-                {testSubmitted && <div style={styles.explanation}>解析：{question.explanation}</div>}
-              </div>
-            ))}
 
-            <div style={styles.testActions}>
-              <button
-                onClick={() => setTestSubmitted(true)}
-                style={styles.testSubmitButton}
-              >
-                提交测试
-              </button>
-              <button
-                onClick={() => {
-                  setTestAnswers({});
-                  setTestSubmitted(false);
-                }}
-                style={styles.testResetButton}
-              >
-                重新作答
-              </button>
-              {testSubmitted && (
-                <div style={styles.scoreText}>
-                  得分：{testScore}/{selectedTest.questions.length}
+                <div style={styles.testPanel}>
+                  <div style={styles.testHeader}>
+                    <div>
+                      <div style={styles.trainingBlockTitle}>线上小测试</div>
+                      <div style={styles.testSubtitle}>{selectedTestLesson?.id} {selectedTestLesson?.title}</div>
+                    </div>
+                    <select
+                      value={selectedTestId}
+                      onChange={(event) => selectTest(event.target.value)}
+                      style={styles.testSelect}
+                    >
+                      {(trainingProgram.tests || []).map((test) => (
+                        <option key={test.id} value={test.id}>{test.id}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedTest?.questions?.map((question, questionIndex) => (
+                    <div key={question.id} style={styles.questionBlock}>
+                      <div style={styles.questionTitle}>{questionIndex + 1}. {question.question}</div>
+                      <div style={styles.optionList}>
+                        {question.options.map((option, optionIndex) => {
+                          const isChosen = testAnswers[question.id] === optionIndex;
+                          const isCorrect = question.answerIndex === optionIndex;
+                          const showCorrect = testSubmitted && isCorrect;
+                          const showWrong = testSubmitted && isChosen && !isCorrect;
+                          return (
+                            <button
+                              key={option}
+                              onClick={() => chooseAnswer(question.id, optionIndex)}
+                              style={{
+                                ...styles.optionButton,
+                                ...(isChosen ? styles.optionButtonChosen : {}),
+                                ...(showCorrect ? styles.optionButtonCorrect : {}),
+                                ...(showWrong ? styles.optionButtonWrong : {}),
+                              }}
+                            >
+                              {String.fromCharCode(65 + optionIndex)}. {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {testSubmitted && <div style={styles.explanation}>解析：{question.explanation}</div>}
+                    </div>
+                  ))}
+
+                  <div style={styles.testActions}>
+                    <button
+                      onClick={() => setTestSubmitted(true)}
+                      style={styles.testSubmitButton}
+                    >
+                      提交测试
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTestAnswers({});
+                        setTestSubmitted(false);
+                      }}
+                      style={styles.testResetButton}
+                    >
+                      重新作答
+                    </button>
+                    {testSubmitted && (
+                      <div style={styles.scoreText}>
+                        得分：{testScore}/{selectedTest.questions.length}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       <div style={styles.results}>
@@ -592,11 +644,63 @@ const styles = {
     color: '#A0AEC0',
     margin: '0',
   },
+  moduleGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: '16px',
+  },
+  moduleCard: {
+    minHeight: '160px',
+    padding: '28px 24px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+    color: '#1A202C',
+    textAlign: 'center',
+    cursor: 'pointer',
+  },
+  moduleIcon: {
+    fontSize: '36px',
+    marginBottom: '12px',
+  },
+  moduleTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    marginBottom: '8px',
+  },
+  moduleDesc: {
+    color: '#718096',
+    fontSize: '14px',
+    lineHeight: '1.6',
+  },
   trainingShell: {
     display: 'flex',
     gap: '18px',
     flexWrap: 'wrap',
     alignItems: 'flex-start',
+  },
+  moduleToolbar: {
+    flex: '1 1 100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginBottom: '2px',
+  },
+  backButton: {
+    padding: '9px 12px',
+    border: '1px solid #D7E8E5',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+    color: '#0D9488',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  moduleToolbarTitle: {
+    color: '#1A202C',
+    fontSize: '18px',
+    fontWeight: '700',
   },
   lessonList: {
     flex: '0 1 280px',
