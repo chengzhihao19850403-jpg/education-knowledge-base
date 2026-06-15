@@ -21,9 +21,82 @@ function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, '');
 }
 
+function getSearchTokens(value) {
+  const normalized = normalizeText(value).replace(/[^\u4e00-\u9fa5a-z0-9]/g, '');
+  const ignoredTokens = new Set(['完全', '不', '无', '有', '没有', '多少', '怎么', '什么', '问题', '答案']);
+  const tokens = new Set();
+
+  for (const char of normalized) {
+    if (!ignoredTokens.has(char)) tokens.add(char);
+  }
+
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    const token = normalized.slice(index, index + 2);
+    if (!ignoredTokens.has(token)) tokens.add(token);
+  }
+
+  return tokens;
+}
+
+function getTokenWeight(token) {
+  return token.length === 1 ? 1 : 3;
+}
+
+function weightedOverlap(queryTokens, targetTokens) {
+  let overlap = 0;
+
+  for (const token of queryTokens) {
+    if (targetTokens.has(token)) overlap += getTokenWeight(token);
+  }
+
+  return overlap;
+}
+
+function similarityScore(query, item, categoryName) {
+  const queryTokens = getSearchTokens(query);
+  if (queryTokens.size === 0) return 0;
+
+  const maxScore = Array.from(queryTokens).reduce((sum, token) => sum + getTokenWeight(token), 0);
+  const questionOverlap = weightedOverlap(queryTokens, getSearchTokens(item.q));
+  const keywordOverlap = weightedOverlap(queryTokens, getSearchTokens((item.keywords || []).join(' ')));
+  const answerOverlap = weightedOverlap(queryTokens, getSearchTokens(item.a));
+  const sourceOverlap = weightedOverlap(queryTokens, getSearchTokens(`${item.source || ''} ${item.source_section || ''}`));
+  const categoryOverlap = weightedOverlap(queryTokens, getSearchTokens(categoryName));
+  const coverage = Math.max(questionOverlap, keywordOverlap, answerOverlap, sourceOverlap, categoryOverlap) / maxScore;
+  const question = normalizeText(item.q);
+  const answer = normalizeText(item.a);
+  const category = normalizeText(categoryName);
+  const queryLower = normalizeText(query);
+  let overlap = questionOverlap * 4 + keywordOverlap * 3 + answerOverlap + sourceOverlap + categoryOverlap;
+
+  if (coverage < 0.25) return 0;
+
+  if (question.includes(queryLower.slice(0, 2))) overlap += 2;
+  if (answer.includes(queryLower.slice(0, 2))) overlap += 1;
+  if (category.includes(queryLower.slice(0, 2))) overlap += 1;
+
+  return overlap;
+}
+
+function createResult(item, categoryName, score, isSimilar = false) {
+  return {
+    id: item.id,
+    question: item.q,
+    answer: item.a,
+    category: categoryName,
+    keywords: item.keywords || [],
+    source: item.source,
+    sourceSection: item.source_section,
+    reviewStatus: item.review_status,
+    score,
+    isSimilar,
+  };
+}
+
 function searchKnowledge(query) {
   const queryLower = normalizeText(query);
   const results = [];
+  const similarResults = [];
 
   for (const category of knowledgeBase.categories || []) {
     for (const item of category.questions || []) {
@@ -42,36 +115,44 @@ function searchKnowledge(query) {
       if (['小学课本目录', '初中课本目录'].includes(category.name) && score > 0) score += 8;
 
       if (score > 0) {
-        results.push({
-          id: item.id,
-          question: item.q,
-          answer: item.a,
-          category: category.name,
-          keywords: item.keywords || [],
-          source: item.source,
-          sourceSection: item.source_section,
-          reviewStatus: item.review_status,
-          score,
-        });
+        results.push(createResult(item, category.name, score));
+      } else {
+        const similarScore = similarityScore(query, item, category.name);
+        if (similarScore >= 5) {
+          similarResults.push(createResult(item, category.name, similarScore, true));
+        }
       }
     }
   }
 
-  return results.sort((a, b) => b.score - a.score).slice(0, 50);
+  if (results.length > 0) {
+    return {
+      items: results.sort((a, b) => b.score - a.score).slice(0, 50),
+      isFallback: false,
+    };
+  }
+
+  return {
+    items: similarResults.sort((a, b) => b.score - a.score).slice(0, 12),
+    isFallback: true,
+  };
 }
 
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [isFallback, setIsFallback] = useState(false);
   const [focused, setFocused] = useState(false);
 
   const handleSearch = () => {
     if (!query.trim()) {
       setResults([]);
+      setIsFallback(false);
       return;
     }
     const searchResults = searchKnowledge(query);
-    setResults(searchResults);
+    setResults(searchResults.items);
+    setIsFallback(searchResults.isFallback);
   };
 
   const handleKeyPress = (e) => {
@@ -84,7 +165,8 @@ export default function Home() {
     setQuery(q);
     setTimeout(() => {
       const searchResults = searchKnowledge(q);
-      setResults(searchResults);
+      setResults(searchResults.items);
+      setIsFallback(searchResults.isFallback);
     }, 50);
   };
 
@@ -150,13 +232,18 @@ export default function Home() {
       <div style={styles.results}>
         {results.length > 0 ? (
           <>
-            <div style={styles.resultSummary}>找到 {results.length} 条最相关结果</div>
+            <div style={styles.resultSummary}>
+              {isFallback
+                ? `没有找到完全匹配，显示 ${results.length} 条相似问题`
+                : `找到 ${results.length} 条最相关结果`}
+            </div>
             {results.map((item) => (
           <div key={item.id} style={styles.resultItem}>
             <div style={styles.resultQuestion}>{item.question}</div>
             <div style={styles.resultAnswer}>{item.answer}</div>
             <div style={styles.metaRow}>
               <span style={styles.resultCategory}>{item.category}</span>
+              {item.isSimilar && <span style={styles.similarTag}>相似问题</span>}
               {item.reviewStatus && <span style={styles.statusTag}>{item.reviewStatus}</span>}
             </div>
             {(item.source || item.sourceSection) && (
@@ -324,6 +411,15 @@ const styles = {
     padding: '4px 10px',
     background: '#F7FAFC',
     color: '#718096',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '500',
+  },
+  similarTag: {
+    display: 'inline-block',
+    padding: '4px 10px',
+    background: '#FFF7ED',
+    color: '#C2410C',
     borderRadius: '12px',
     fontSize: '12px',
     fontWeight: '500',
