@@ -232,12 +232,10 @@ export default function Home() {
             <button onClick={() => setActiveTrainingModule('lessons')} style={styles.moduleCard}>
               <div style={styles.moduleIcon}>📚</div>
               <div style={styles.moduleTitle}>学习内容</div>
-              <div style={styles.moduleDesc}>20 节系统课程，按新人上岗路径逐课学习</div>
             </button>
             <button onClick={() => setActiveTrainingModule('tests')} style={styles.moduleCard}>
               <div style={styles.moduleIcon}>📝</div>
               <div style={styles.moduleTitle}>阶段测试</div>
-              <div style={styles.moduleDesc}>20 套线上小测试，提交后显示得分和解析</div>
             </button>
           </div>
         ) : (
@@ -614,32 +612,31 @@ const styles = {
   },
   moduleGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '16px',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: '12px',
+    maxWidth: '600px',
+    margin: '0 auto',
   },
   moduleCard: {
-    minHeight: '160px',
-    padding: '28px 24px',
+    minHeight: '52px',
+    padding: '12px 16px',
     border: '1px solid #E2E8F0',
     borderRadius: '8px',
     background: '#FFFFFF',
     color: '#1A202C',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
     cursor: 'pointer',
   },
   moduleIcon: {
-    fontSize: '36px',
-    marginBottom: '12px',
+    fontSize: '18px',
+    lineHeight: '1',
   },
   moduleTitle: {
-    fontSize: '18px',
+    fontSize: '15px',
     fontWeight: '700',
-    marginBottom: '8px',
-  },
-  moduleDesc: {
-    color: '#718096',
-    fontSize: '14px',
-    lineHeight: '1.6',
   },
   trainingShell: {
     display: 'flex',
