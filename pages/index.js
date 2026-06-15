@@ -3,19 +3,8 @@
 import { useState } from 'react';
 
 import knowledgeBase from '../data/knowledge_base.json';
+import trainingProgram from '../data/training_program.json';
 
-
-// 学管课堂 - 课程与测试数据占位符
-const jiaoguanCourses = {
-  courses: [
-    { id: 1, name: "课程名称待定", description: "课程简介待定" },
-    // 20节课占位符
-  ],
-  tests: [
-    { id: 1, question: "测试题题目待定", answer: "测试题答案待定" },
-    // 20道测试题占位符
-  ]
-};
 
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, '');
@@ -143,6 +132,17 @@ export default function Home() {
   const [results, setResults] = useState([]);
   const [isFallback, setIsFallback] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id);
+  const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id);
+  const [testAnswers, setTestAnswers] = useState({});
+  const [testSubmitted, setTestSubmitted] = useState(false);
+
+  const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
+  const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
+  const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
+  const testScore = selectedTest?.questions?.reduce((score, question) => {
+    return score + (testAnswers[question.id] === question.answerIndex ? 1 : 0);
+  }, 0) || 0;
 
   const handleSearch = () => {
     if (!query.trim()) {
@@ -168,6 +168,29 @@ export default function Home() {
       setResults(searchResults.items);
       setIsFallback(searchResults.isFallback);
     }, 50);
+  };
+
+  const selectLesson = (lessonId) => {
+    setSelectedLessonId(lessonId);
+    const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === lessonId);
+    if (linkedTest) {
+      setSelectedTestId(linkedTest.id);
+      setTestAnswers({});
+      setTestSubmitted(false);
+    }
+  };
+
+  const selectTest = (testId) => {
+    setSelectedTestId(testId);
+    setTestAnswers({});
+    setTestSubmitted(false);
+    const linkedTest = (trainingProgram.tests || []).find((test) => test.id === testId);
+    if (linkedTest) setSelectedLessonId(linkedTest.lessonId);
+  };
+
+  const chooseAnswer = (questionId, answerIndex) => {
+    if (testSubmitted) return;
+    setTestAnswers((current) => ({ ...current, [questionId]: answerIndex }));
   };
 
   return (
@@ -209,22 +232,133 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 学管课堂入口 */}
       <div style={styles.jiaoguanSection}>
         <div style={styles.jiaoguanHeader}>
           <h2 style={styles.jiaoguanTitle}>学管课堂</h2>
-          <p style={styles.jiaoguanSubtitle}>新人培养 · 考核验收</p>
+          <p style={styles.jiaoguanSubtitle}>20 节新人培训课 · 20 套线上小测试</p>
         </div>
-        <div style={styles.jiaoguanCards}>
-          <div style={styles.jiaoguanCard} onClick={() => alert('课程列表即将上线')}>
-            <div style={styles.jiaoguanIcon}>📚</div>
-            <div style={styles.jiaoguanCardTitle}>学习内容</div>
-            <div style={styles.jiaoguanCardDesc}>系统化学习路径</div>
+
+        <div style={styles.trainingShell}>
+          <div style={styles.lessonList}>
+            {(trainingProgram.lessons || []).map((lesson) => (
+              <button
+                key={lesson.id}
+                onClick={() => selectLesson(lesson.id)}
+                style={{
+                  ...styles.lessonButton,
+                  ...(lesson.id === selectedLessonId ? styles.lessonButtonActive : {}),
+                }}
+              >
+                <span style={styles.lessonButtonId}>{lesson.id}</span>
+                <span style={styles.lessonButtonText}>{lesson.title}</span>
+              </button>
+            ))}
           </div>
-          <div style={styles.jiaoguanCard} onClick={() => alert('测试系统即将上线')}>
-            <div style={styles.jiaoguanIcon}>📝</div>
-            <div style={styles.jiaoguanCardTitle}>阶段测试</div>
-            <div style={styles.jiaoguanCardDesc}>能力考核验收</div>
+
+          {selectedLesson && (
+            <div style={styles.lessonDetail}>
+              <div style={styles.lessonMetaRow}>
+                <span style={styles.lessonTag}>{selectedLesson.category}</span>
+                <span style={styles.lessonTag}>{selectedLesson.duration}</span>
+              </div>
+              <h3 style={styles.lessonTitle}>{selectedLesson.id} {selectedLesson.title}</h3>
+
+              <div style={styles.trainingBlock}>
+                <div style={styles.trainingBlockTitle}>学习目标</div>
+                <ul style={styles.trainingList}>
+                  {selectedLesson.objectives.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+
+              <div style={styles.trainingBlock}>
+                <div style={styles.trainingBlockTitle}>课程内容</div>
+                {selectedLesson.content.map((item) => (
+                  <p key={item} style={styles.lessonParagraph}>{item}</p>
+                ))}
+              </div>
+
+              <div style={styles.trainingBlock}>
+                <div style={styles.trainingBlockTitle}>关键要点</div>
+                <div style={styles.keyPointWrap}>
+                  {selectedLesson.keyPoints.map((item) => <span key={item} style={styles.keyPoint}>{item}</span>)}
+                </div>
+              </div>
+
+              <div style={styles.trainingBlock}>
+                <div style={styles.trainingBlockTitle}>课后练习</div>
+                <p style={styles.lessonParagraph}>{selectedLesson.practice}</p>
+              </div>
+            </div>
+          )}
+
+          <div style={styles.testPanel}>
+            <div style={styles.testHeader}>
+              <div>
+                <div style={styles.trainingBlockTitle}>线上小测试</div>
+                <div style={styles.testSubtitle}>{selectedTestLesson?.id} {selectedTestLesson?.title}</div>
+              </div>
+              <select
+                value={selectedTestId}
+                onChange={(event) => selectTest(event.target.value)}
+                style={styles.testSelect}
+              >
+                {(trainingProgram.tests || []).map((test) => (
+                  <option key={test.id} value={test.id}>{test.id}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedTest?.questions?.map((question, questionIndex) => (
+              <div key={question.id} style={styles.questionBlock}>
+                <div style={styles.questionTitle}>{questionIndex + 1}. {question.question}</div>
+                <div style={styles.optionList}>
+                  {question.options.map((option, optionIndex) => {
+                    const isChosen = testAnswers[question.id] === optionIndex;
+                    const isCorrect = question.answerIndex === optionIndex;
+                    const showCorrect = testSubmitted && isCorrect;
+                    const showWrong = testSubmitted && isChosen && !isCorrect;
+                    return (
+                      <button
+                        key={option}
+                        onClick={() => chooseAnswer(question.id, optionIndex)}
+                        style={{
+                          ...styles.optionButton,
+                          ...(isChosen ? styles.optionButtonChosen : {}),
+                          ...(showCorrect ? styles.optionButtonCorrect : {}),
+                          ...(showWrong ? styles.optionButtonWrong : {}),
+                        }}
+                      >
+                        {String.fromCharCode(65 + optionIndex)}. {option}
+                      </button>
+                    );
+                  })}
+                </div>
+                {testSubmitted && <div style={styles.explanation}>解析：{question.explanation}</div>}
+              </div>
+            ))}
+
+            <div style={styles.testActions}>
+              <button
+                onClick={() => setTestSubmitted(true)}
+                style={styles.testSubmitButton}
+              >
+                提交测试
+              </button>
+              <button
+                onClick={() => {
+                  setTestAnswers({});
+                  setTestSubmitted(false);
+                }}
+                style={styles.testResetButton}
+              >
+                重新作答
+              </button>
+              {testSubmitted && (
+                <div style={styles.scoreText}>
+                  得分：{testScore}/{selectedTest.questions.length}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -437,7 +571,7 @@ const styles = {
   },
 
   jiaoguanSection: {
-    maxWidth: '700px',
+    maxWidth: '1100px',
     marginTop: '120px',
     margin: '0 auto 40px',
     padding: '0 24px',
@@ -458,34 +592,216 @@ const styles = {
     color: '#A0AEC0',
     margin: '0',
   },
-  jiaoguanCards: {
+  trainingShell: {
     display: 'flex',
-    gap: '16px',
-    justifyContent: 'center',
+    gap: '18px',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
   },
-  jiaoguanCard: {
-    flex: 1,
-    maxWidth: '280px',
-    padding: '28px 24px',
-    background: '#F5F7FA',
-    borderRadius: '16px',
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
+  lessonList: {
+    flex: '0 1 280px',
+    display: 'grid',
+    gap: '8px',
   },
-  jiaoguanIcon: {
-    fontSize: '36px',
-    marginBottom: '12px',
-  },
-  jiaoguanCardTitle: {
-    fontSize: '17px',
-    fontWeight: '600',
+  lessonButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    width: '100%',
+    minHeight: '44px',
+    padding: '10px 12px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
     color: '#1A202C',
-    marginBottom: '6px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: '13px',
   },
-  jiaoguanCardDesc: {
-    fontSize: '14px',
+  lessonButtonActive: {
+    borderColor: '#0D9488',
+    background: '#EFF7F6',
+  },
+  lessonButtonId: {
+    flex: '0 0 auto',
+    color: '#0D9488',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  lessonButtonText: {
+    lineHeight: '1.35',
+  },
+  lessonDetail: {
+    flex: '1 1 420px',
+    minWidth: '280px',
+    padding: '22px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+  },
+  lessonMetaRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '10px',
+  },
+  lessonTag: {
+    display: 'inline-block',
+    padding: '4px 10px',
+    borderRadius: '12px',
+    background: '#F7FAFC',
     color: '#718096',
+    fontSize: '12px',
+  },
+  lessonTitle: {
+    margin: '0 0 16px',
+    color: '#1A202C',
+    fontSize: '22px',
+    lineHeight: '1.35',
+  },
+  trainingBlock: {
+    marginTop: '16px',
+  },
+  trainingBlockTitle: {
+    color: '#1A202C',
+    fontSize: '15px',
+    fontWeight: '700',
+    marginBottom: '8px',
+  },
+  trainingList: {
+    margin: '0',
+    paddingLeft: '20px',
+    color: '#4A5568',
+    fontSize: '14px',
+    lineHeight: '1.7',
+  },
+  lessonParagraph: {
+    margin: '0 0 10px',
+    color: '#4A5568',
+    fontSize: '14px',
+    lineHeight: '1.8',
+  },
+  keyPointWrap: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  keyPoint: {
+    display: 'inline-block',
+    padding: '5px 10px',
+    borderRadius: '12px',
+    background: '#EFF7F6',
+    color: '#0D9488',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  testPanel: {
+    flex: '1 1 100%',
+    padding: '22px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+  },
+  testHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: '16px',
+  },
+  testSubtitle: {
+    color: '#718096',
+    fontSize: '13px',
+  },
+  testSelect: {
+    minWidth: '110px',
+    padding: '9px 10px',
+    border: '1px solid #CBD5E0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+    color: '#1A202C',
+  },
+  questionBlock: {
+    padding: '16px 0',
+    borderTop: '1px solid #EDF2F7',
+  },
+  questionTitle: {
+    color: '#1A202C',
+    fontSize: '15px',
+    fontWeight: '600',
+    lineHeight: '1.5',
+    marginBottom: '10px',
+  },
+  optionList: {
+    display: 'grid',
+    gap: '8px',
+  },
+  optionButton: {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+    color: '#4A5568',
+    textAlign: 'left',
+    fontSize: '14px',
+    lineHeight: '1.45',
+    cursor: 'pointer',
+  },
+  optionButtonChosen: {
+    borderColor: '#0D9488',
+    background: '#EFF7F6',
+    color: '#1A202C',
+  },
+  optionButtonCorrect: {
+    borderColor: '#16A34A',
+    background: '#F0FDF4',
+    color: '#166534',
+  },
+  optionButtonWrong: {
+    borderColor: '#DC2626',
+    background: '#FEF2F2',
+    color: '#991B1B',
+  },
+  explanation: {
+    marginTop: '8px',
+    color: '#718096',
+    fontSize: '13px',
+    lineHeight: '1.6',
+  },
+  testActions: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingTop: '16px',
+    borderTop: '1px solid #EDF2F7',
+  },
+  testSubmitButton: {
+    padding: '10px 16px',
+    border: 'none',
+    borderRadius: '8px',
+    background: '#0D9488',
+    color: '#FFFFFF',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  testResetButton: {
+    padding: '10px 16px',
+    border: '1px solid #D7E8E5',
+    borderRadius: '8px',
+    background: '#FFFFFF',
+    color: '#0D9488',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  scoreText: {
+    color: '#1A202C',
+    fontSize: '15px',
+    fontWeight: '700',
   },
   tipsBox: {
     textAlign: 'center',
