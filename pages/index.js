@@ -248,8 +248,7 @@ const styles = {
     maxWidth: '700px',
     margin: '0 auto 40px',
     padding: '0 24px',
-    borderTop: '1px solid #E2E8F0',
-    paddingTop: '40px',
+    paddingTop: '0',
   },
   jiaoguanHeader: {
     textAlign: 'center',
