@@ -31,13 +31,15 @@ function searchKnowledge(query) {
       const answer = normalizeText(item.a);
       const keywords = normalizeText((item.keywords || []).join(' '));
       const source = normalizeText(`${item.source || ''} ${item.source_section || ''}`);
+      const categoryName = normalizeText(category.name);
       let score = 0;
 
       if (question.includes(queryLower)) score += 10;
+      if (categoryName.includes(queryLower)) score += 7;
       if (keywords.includes(queryLower)) score += 6;
       if (answer.includes(queryLower)) score += 3;
       if (source.includes(queryLower)) score += 1;
-      if (category.name === '小学课本目录' && score > 0) score += 8;
+      if (['小学课本目录', '初中课本目录'].includes(category.name) && score > 0) score += 8;
 
       if (score > 0) {
         results.push({
@@ -119,7 +121,7 @@ export default function Home() {
         </div>
 
         <div style={styles.quickSearches}>
-          {['学费多少钱', '圆柱与圆锥', '小学课本目录', '强基计划', '课后反馈'].map((item) => (
+          {['学费多少钱', '圆柱与圆锥', '初中课本目录', '二次函数', '勾股定理'].map((item) => (
             <button key={item} onClick={() => quickSearch(item)} style={styles.quickButton}>{item}</button>
           ))}
         </div>
