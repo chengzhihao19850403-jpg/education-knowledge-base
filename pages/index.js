@@ -162,15 +162,6 @@ export default function Home() {
     }
   };
 
-  const quickSearch = (q) => {
-    setQuery(q);
-    setTimeout(() => {
-      const searchResults = searchKnowledge(q);
-      setResults(searchResults.items);
-      setIsFallback(searchResults.isFallback);
-    }, 50);
-  };
-
   const selectLesson = (lessonId) => {
     setActiveTrainingModule('lessons');
     setSelectedLessonId(lessonId);
@@ -228,11 +219,6 @@ export default function Home() {
           </button>
         </div>
 
-        <div style={styles.quickSearches}>
-          {['学费多少钱', '圆柱与圆锥', '初中课本目录', '二次函数', '勾股定理'].map((item) => (
-            <button key={item} onClick={() => quickSearch(item)} style={styles.quickButton}>{item}</button>
-          ))}
-        </div>
       </div>
 
       <div style={styles.jiaoguanSection}>
@@ -442,7 +428,7 @@ export default function Home() {
           <div style={styles.noResults}>未找到相关答案</div>
         ) : (
           <div style={styles.tipsBox}>
-            💡 点击上方快捷问题，或输入关键词搜索
+            输入关键词搜索知识库内容
           </div>
         )}
       </div>
@@ -527,23 +513,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
-  quickSearches: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px',
-    marginTop: '16px',
-    justifyContent: 'center',
-  },
-  quickButton: {
-    border: '1px solid #D7E8E5',
-    background: '#FFFFFF',
-    color: '#0D9488',
-    borderRadius: '999px',
-    padding: '8px 12px',
-    fontSize: '13px',
-    cursor: 'pointer',
-  },
-
   results: {
     maxWidth: '700px',
     margin: '40px auto',
