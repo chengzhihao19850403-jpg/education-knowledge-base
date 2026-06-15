@@ -127,6 +127,25 @@ function searchKnowledge(query) {
   };
 }
 
+function getLessonKnowledgeModules(lesson) {
+  if (!lesson) return [];
+
+  const categories = knowledgeBase.categories || knowledgeBase.bd || [];
+
+  return (lesson.sources || [])
+    .map((sourceName) => {
+      const category = categories.find((item) => item.name === sourceName);
+      const questions = category?.questions || [];
+
+      return {
+        name: sourceName,
+        count: questions.length,
+        questions,
+      };
+    })
+    .filter((module) => module.count > 0);
+}
+
 export default function Home() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -141,6 +160,8 @@ export default function Home() {
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
   const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
+  const lessonKnowledgeModules = getLessonKnowledgeModules(selectedLesson);
+  const lessonKnowledgeCount = lessonKnowledgeModules.reduce((count, module) => count + module.count, 0);
   const testScore = selectedTest?.questions?.reduce((score, question) => {
     return score + (testAnswers[question.id] === question.answerIndex ? 1 : 0);
   }, 0) || 0;
@@ -307,9 +328,9 @@ export default function Home() {
 
                     {(selectedLesson.referenceQa || []).length > 0 && (
                       <div style={styles.trainingBlock}>
-                        <div style={styles.trainingBlockTitle}>参考问答</div>
+                        <div style={styles.trainingBlockTitle}>本节重点参考问答</div>
                         <div style={styles.referenceQaList}>
-                          {selectedLesson.referenceQa.slice(0, 10).map((item, index) => (
+                          {selectedLesson.referenceQa.map((item, index) => (
                             <div key={`${item.question}-${index}`} style={styles.referenceQaItem}>
                               <div style={styles.referenceQuestion}>问：{item.question}</div>
                               <div style={styles.referenceAnswer}>答：{item.answer}</div>
@@ -327,6 +348,42 @@ export default function Home() {
                             <li key={`trainer-note-${index}`}>{item}</li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {lessonKnowledgeModules.length > 0 && (
+                      <div style={styles.trainingBlock}>
+                        <div style={styles.trainingBlockTitle}>本节全量知识库明细</div>
+                        <p style={styles.lessonParagraph}>
+                          本节关联 {lessonKnowledgeModules.length} 个知识模块，共 {lessonKnowledgeCount} 条问答。以下内容是新员工必须逐条学习和熟悉的完整资料。
+                        </p>
+
+                        <div style={styles.sourceModuleList}>
+                          {lessonKnowledgeModules.map((module) => (
+                            <div key={module.name} style={styles.sourceModule}>
+                              <div style={styles.sourceModuleHeader}>
+                                <span>{module.name}</span>
+                                <span style={styles.sourceModuleCount}>{module.count} 条</span>
+                              </div>
+
+                              <div style={styles.referenceQaList}>
+                                {module.questions.map((item, index) => (
+                                  <div key={`${module.name}-${item.id || index}`} style={styles.referenceQaItem}>
+                                    <div style={styles.referenceQuestion}>问：{item.q}</div>
+                                    <div style={styles.referenceAnswer}>答：{item.a}</div>
+                                    {(item.source || item.source_section || item.review_status) && (
+                                      <div style={styles.referenceMeta}>
+                                        来源：{item.source || module.name}
+                                        {item.source_section ? ` · ${item.source_section}` : ''}
+                                        {item.review_status ? ` · ${item.review_status}` : ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -821,6 +878,42 @@ const styles = {
     color: '#4A5568',
     fontSize: '13px',
     lineHeight: '1.7',
+  },
+  referenceMeta: {
+    marginTop: '8px',
+    color: '#A0AEC0',
+    fontSize: '12px',
+    lineHeight: '1.5',
+  },
+  sourceModuleList: {
+    display: 'grid',
+    gap: '18px',
+    marginTop: '12px',
+  },
+  sourceModule: {
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    padding: '14px',
+    background: '#FFFFFF',
+  },
+  sourceModuleHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '12px',
+    alignItems: 'center',
+    color: '#1A202C',
+    fontSize: '15px',
+    fontWeight: '700',
+    marginBottom: '12px',
+  },
+  sourceModuleCount: {
+    flex: '0 0 auto',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    background: '#EFF7F6',
+    color: '#0D9488',
+    fontSize: '12px',
+    fontWeight: '700',
   },
   testPanel: {
     flex: '1 1 100%',
