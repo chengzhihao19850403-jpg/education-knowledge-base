@@ -104,11 +104,14 @@ function searchKnowledge(query) {
       if (['小学课本目录', '初中课本目录'].includes(category.name) && score > 0) score += 8;
 
       if (score > 0) {
+        score += Number(item.quality_score || 0) / 2;
+        if (item.review_status === '人工复审') score += 6;
         results.push(createResult(item, category.name, score));
       } else {
         const similarScore = similarityScore(query, item, category.name);
         if (similarScore >= 5) {
-          similarResults.push(createResult(item, category.name, similarScore, true));
+          const qualityScore = similarScore + Number(item.quality_score || 0) / 2 + (item.review_status === '人工复审' ? 6 : 0);
+          similarResults.push(createResult(item, category.name, qualityScore, true));
         }
       }
     }
