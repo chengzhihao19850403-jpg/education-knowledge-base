@@ -282,17 +282,53 @@ export default function Home() {
 
                     <div style={styles.trainingBlock}>
                       <div style={styles.trainingBlockTitle}>课程内容</div>
-                      {selectedLesson.content.map((item) => (
-                        <p key={item} style={styles.lessonParagraph}>{item}</p>
+                      {selectedLesson.content.map((item, index) => (
+                        <p key={`${item}-${index}`} style={styles.lessonParagraph}>{item}</p>
                       ))}
                     </div>
+
+                    {(selectedLesson.expandedSections || []).map((section) => (
+                      <div key={section.title} style={styles.trainingBlock}>
+                        <div style={styles.trainingBlockTitle}>{section.title}</div>
+                        <ul style={styles.trainingList}>
+                          {(section.items || []).map((item, index) => (
+                            <li key={`${section.title}-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
 
                     <div style={styles.trainingBlock}>
                       <div style={styles.trainingBlockTitle}>关键要点</div>
                       <div style={styles.keyPointWrap}>
-                        {selectedLesson.keyPoints.map((item) => <span key={item} style={styles.keyPoint}>{item}</span>)}
+                        {selectedLesson.keyPoints.map((item, index) => <span key={`${item}-${index}`} style={styles.keyPoint}>{item}</span>)}
                       </div>
                     </div>
+
+                    {(selectedLesson.referenceQa || []).length > 0 && (
+                      <div style={styles.trainingBlock}>
+                        <div style={styles.trainingBlockTitle}>参考问答</div>
+                        <div style={styles.referenceQaList}>
+                          {selectedLesson.referenceQa.slice(0, 10).map((item, index) => (
+                            <div key={`${item.question}-${index}`} style={styles.referenceQaItem}>
+                              <div style={styles.referenceQuestion}>问：{item.question}</div>
+                              <div style={styles.referenceAnswer}>答：{item.answer}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(selectedLesson.trainerNotes || []).length > 0 && (
+                      <div style={styles.trainingBlock}>
+                        <div style={styles.trainingBlockTitle}>讲师提示</div>
+                        <ul style={styles.trainingList}>
+                          {selectedLesson.trainerNotes.map((item, index) => (
+                            <li key={`trainer-note-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     <div style={styles.trainingBlock}>
                       <div style={styles.trainingBlockTitle}>课后练习</div>
@@ -763,6 +799,28 @@ const styles = {
     color: '#0D9488',
     fontSize: '12px',
     fontWeight: '600',
+  },
+  referenceQaList: {
+    display: 'grid',
+    gap: '10px',
+  },
+  referenceQaItem: {
+    padding: '12px',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    background: '#FAFCFC',
+  },
+  referenceQuestion: {
+    color: '#1A202C',
+    fontSize: '13px',
+    fontWeight: '700',
+    lineHeight: '1.6',
+    marginBottom: '6px',
+  },
+  referenceAnswer: {
+    color: '#4A5568',
+    fontSize: '13px',
+    lineHeight: '1.7',
   },
   testPanel: {
     flex: '1 1 100%',
