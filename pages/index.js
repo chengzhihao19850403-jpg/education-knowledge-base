@@ -10,6 +10,10 @@ function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, '');
 }
 
+function normalizeLoose(value) {
+  return String(value || '').toLowerCase().replace(/[\s、,，.。:：;；!?？！()（）【】\[\]《》"'“”‘’\-—_/\\]/g, '');
+}
+
 function getSearchTokens(value) {
   const normalized = normalizeText(value).replace(/[^\u4e00-\u9fa5a-z0-9]/g, '');
   const ignoredTokens = new Set(['完全', '不', '无', '有', '没有', '多少', '怎么', '什么', '问题', '答案']);
@@ -27,6 +31,21 @@ function getSearchTokens(value) {
   return tokens;
 }
 
+function getPhrases(value) {
+  const text = normalizeLoose(value);
+  const phrases = new Set();
+
+  for (let index = 0; index < text.length - 1; index += 1) {
+    phrases.add(text.slice(index, index + 2));
+  }
+
+  for (let index = 0; index < text.length - 2; index += 1) {
+    phrases.add(text.slice(index, index + 3));
+  }
+
+  return phrases;
+}
+
 function getTokenWeight(token) {
   return token.length === 1 ? 1 : 3;
 }
@@ -41,8 +60,46 @@ function weightedOverlap(queryTokens, targetTokens) {
   return overlap;
 }
 
+function weightedPhraseOverlap(queryPhrases, targetPhrases) {
+  let overlap = 0;
+
+  for (const phrase of queryPhrases) {
+    if (targetPhrases.has(phrase)) overlap += phrase.length === 2 ? 2 : 3;
+  }
+
+  return overlap;
+}
+
+function inferQueryIntent(query) {
+  const text = normalizeLoose(query);
+
+  if (/学费|费用|收费|价格|多少钱|优惠|折扣|退费|转账/.test(text)) return 'pricing';
+  if (/试听|预约|到校|地址|上楼|接孩子|带什么|准备/.test(text)) return 'trial';
+  if (/跟不上|听不懂|基础弱|基础差|分班|哪个班|快班|慢班|小课|补弱|适合/.test(text)) return 'placement';
+  if (/考虑|犹豫|嫌贵|太贵|异议|不想报|没时间|时间冲突/.test(text)) return 'objection';
+  if (/反馈|课后|学情|表现|优秀|一般|中等|偏弱|错题|专注/.test(text)) return 'feedback';
+  if (/续报|转介绍|推荐朋友|朋友圈|早鸟/.test(text)) return 'retention';
+  if (/中考|强基|定向|统招|重高|升学|志愿|学籍|综评/.test(text)) return 'policy';
+  if (/学到|进度|课表|上课时间|周[一二三四五六日天]|课程体系/.test(text)) return 'course';
+  if (/课本|目录|哪一册|章节|知识点|浙教版|人教版/.test(text)) return 'catalog';
+  if (/学而思|机构|区别|优势|品牌|普通补课/.test(text)) return 'brand';
+
+  return '';
+}
+
+function applyIntentScore(score, queryIntent, item) {
+  if (!queryIntent) return score;
+  if (item.intent === queryIntent) return score + 120;
+  if (queryIntent === 'brand' && item.intent === 'objection') return score + 40;
+  if (queryIntent === 'objection' && item.intent === 'brand') return score + 25;
+  if (queryIntent === 'course' && item.intent === 'catalog') return score + 20;
+  if (queryIntent === 'catalog' && item.intent === 'course') return score + 20;
+  return score - 80;
+}
+
 function similarityScore(query, item, categoryName) {
   const queryTokens = getSearchTokens(query);
+  const queryPhrases = getPhrases(query);
   if (queryTokens.size === 0) return 0;
 
   const maxScore = Array.from(queryTokens).reduce((sum, token) => sum + getTokenWeight(token), 0);
@@ -51,12 +108,49 @@ function similarityScore(query, item, categoryName) {
   const answerOverlap = weightedOverlap(queryTokens, getSearchTokens(item.a));
   const sourceOverlap = weightedOverlap(queryTokens, getSearchTokens(`${item.source || ''} ${item.source_section || ''}`));
   const categoryOverlap = weightedOverlap(queryTokens, getSearchTokens(categoryName));
-  const coverage = Math.max(questionOverlap, keywordOverlap, answerOverlap, sourceOverlap, categoryOverlap) / maxScore;
+  const aliasOverlap = weightedOverlap(queryTokens, getSearchTokens((item.aliases || []).join(' ')));
+  const teacherOverlap = weightedOverlap(queryTokens, getSearchTokens((item.teacher_questions || []).join(' ')));
+  const intentOverlap = weightedOverlap(queryTokens, getSearchTokens(item.intent_label || ''));
+  const scenarioOverlap = weightedOverlap(queryTokens, getSearchTokens(item.scenario || ''));
+  const stepOverlap = weightedOverlap(queryTokens, getSearchTokens((item.steps || []).join(' ')));
+  const followupOverlap = weightedOverlap(queryTokens, getSearchTokens((item.followups || []).join(' ')));
+  const boundaryOverlap = weightedOverlap(queryTokens, getSearchTokens((item.boundaries || []).join(' ')));
+  const phraseOverlap = weightedPhraseOverlap(
+    queryPhrases,
+    getPhrases(`${item.q} ${item.a} ${(item.aliases || []).join(' ')} ${(item.teacher_questions || []).join(' ')} ${item.scenario || ''}`)
+  );
+  const coverage = Math.max(
+    questionOverlap,
+    keywordOverlap,
+    answerOverlap,
+    sourceOverlap,
+    categoryOverlap,
+    aliasOverlap,
+    teacherOverlap,
+    intentOverlap,
+    scenarioOverlap,
+    stepOverlap,
+    followupOverlap,
+    boundaryOverlap,
+    phraseOverlap
+  ) / maxScore;
   const question = normalizeText(item.q);
   const answer = normalizeText(item.a);
   const category = normalizeText(categoryName);
   const queryLower = normalizeText(query);
-  let overlap = questionOverlap * 4 + keywordOverlap * 3 + answerOverlap + sourceOverlap + categoryOverlap;
+  let overlap = questionOverlap * 4
+    + keywordOverlap * 3
+    + answerOverlap
+    + sourceOverlap
+    + categoryOverlap
+    + aliasOverlap * 4
+    + teacherOverlap * 4
+    + intentOverlap * 3
+    + scenarioOverlap * 3
+    + stepOverlap * 2
+    + followupOverlap * 2
+    + boundaryOverlap * 2
+    + phraseOverlap * 3;
 
   if (coverage < 0.25) return 0;
 
@@ -74,6 +168,14 @@ function createResult(item, categoryName, score, isSimilar = false) {
     answer: item.a,
     category: categoryName,
     keywords: item.keywords || [],
+    aliases: item.aliases || [],
+    teacherQuestions: item.teacher_questions || [],
+    intent: item.intent,
+    intentLabel: item.intent_label,
+    scenario: item.scenario,
+    steps: item.steps || [],
+    followups: item.followups || [],
+    boundaries: item.boundaries || [],
     source: item.source,
     sourceSection: item.source_section,
     reviewStatus: item.review_status,
@@ -99,6 +201,7 @@ function uniqueResults(items, limit) {
 
 function searchKnowledge(query) {
   const queryLower = normalizeText(query);
+  const queryIntent = inferQueryIntent(query);
   const results = [];
   const similarResults = [];
 
@@ -107,13 +210,27 @@ function searchKnowledge(query) {
       const question = normalizeText(item.q);
       const answer = normalizeText(item.a);
       const keywords = normalizeText((item.keywords || []).join(' '));
+      const aliases = normalizeText((item.aliases || []).join(' '));
+      const teacherQuestions = normalizeText((item.teacher_questions || []).join(' '));
+      const scenario = normalizeText(item.scenario || '');
+      const steps = normalizeText((item.steps || []).join(' '));
+      const followups = normalizeText((item.followups || []).join(' '));
+      const boundaries = normalizeText((item.boundaries || []).join(' '));
+      const intentLabel = normalizeText(item.intent_label || '');
       const source = normalizeText(`${item.source || ''} ${item.source_section || ''}`);
       const categoryName = normalizeText(category.name);
       let score = 0;
 
       if (question.includes(queryLower)) score += 10;
+      if (aliases.includes(queryLower)) score += 9;
+      if (teacherQuestions.includes(queryLower)) score += 9;
       if (categoryName.includes(queryLower)) score += 7;
+      if (intentLabel.includes(queryLower)) score += 6;
+      if (scenario.includes(queryLower)) score += 5;
       if (keywords.includes(queryLower)) score += 6;
+      if (steps.includes(queryLower)) score += 4;
+      if (followups.includes(queryLower)) score += 4;
+      if (boundaries.includes(queryLower)) score += 4;
       if (answer.includes(queryLower)) score += 3;
       if (source.includes(queryLower)) score += 1;
       if (['小学课本目录', '初中课本目录'].includes(category.name) && score > 0) score += 8;
@@ -122,16 +239,20 @@ function searchKnowledge(query) {
         score += Number(item.quality_score || 0) / 2;
         if (item.review_status === '最新动态资料') score += 8;
         if (item.review_status === '人工复审') score += 6;
+        if (item.review_status === '人工精修') score += 12;
         if (item.review_status === '历史参考') score -= 10;
+        score = applyIntentScore(score, queryIntent, item);
         results.push(createResult(item, category.name, score));
       } else {
         const similarScore = similarityScore(query, item, category.name);
         if (similarScore >= 5) {
-          const qualityScore = similarScore
+          let qualityScore = similarScore
             + Number(item.quality_score || 0) / 2
             + (item.review_status === '最新动态资料' ? 8 : 0)
             + (item.review_status === '人工复审' ? 6 : 0)
+            + (item.review_status === '人工精修' ? 12 : 0)
             - (item.review_status === '历史参考' ? 10 : 0);
+          qualityScore = applyIntentScore(qualityScore, queryIntent, item);
           similarResults.push(createResult(item, category.name, qualityScore, true));
         }
       }
@@ -149,6 +270,24 @@ function searchKnowledge(query) {
     items: uniqueResults(similarResults.sort((a, b) => b.score - a.score), 12),
     isFallback: true,
   };
+}
+
+function formatAnswer(item) {
+  const sections = [item.answer];
+
+  if (item.steps?.length) {
+    sections.push(`处理步骤：${item.steps.map((step, index) => `${index + 1}. ${step}`).join(' ')}`);
+  }
+
+  if (item.followups?.length) {
+    sections.push(`建议追问：${item.followups.slice(0, 4).join('；')}`);
+  }
+
+  if (item.boundaries?.length) {
+    sections.push(`边界提醒：${item.boundaries.join(' ')}`);
+  }
+
+  return sections.join('\n\n');
 }
 
 function getLessonKnowledgeModules(lesson) {
@@ -528,7 +667,11 @@ export default function Home() {
               {results.map((item) => (
                 <div key={item.id} style={styles.resultItem}>
                   <div style={styles.resultQuestion}>{item.question}</div>
-                  <div style={styles.resultAnswer}>{item.answer}</div>
+                  <div style={styles.resultIntentRow}>
+                    {item.intentLabel && <span style={styles.intentTag}>{item.intentLabel}</span>}
+                    {item.scenario && <span style={styles.scenarioTag}>{item.scenario}</span>}
+                  </div>
+                  <div style={styles.resultAnswer}>{formatAnswer(item)}</div>
                   <div style={styles.metaRow}>
                     <span style={styles.resultCategory}>{item.category}</span>
                     {item.isSimilar && <span style={styles.similarTag}>相似问题</span>}
@@ -661,6 +804,31 @@ const styles = {
     color: '#4A5568',
     lineHeight: '1.7',
     marginBottom: '12px',
+    whiteSpace: 'pre-line',
+  },
+  resultIntentRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '10px',
+  },
+  intentTag: {
+    display: 'inline-block',
+    padding: '4px 10px',
+    background: '#E6FFFA',
+    color: '#0F766E',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  scenarioTag: {
+    display: 'inline-block',
+    padding: '4px 10px',
+    background: '#F8FAFC',
+    color: '#475569',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
   },
   resultCategory: {
     display: 'inline-block',
