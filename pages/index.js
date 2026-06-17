@@ -5,6 +5,11 @@ import { useState } from 'react';
 import knowledgeBase from '../data/knowledge_base.json';
 import trainingProgram from '../data/training_program.json';
 
+const TRAINING_LOGIN = {
+  username: 'teacher',
+  password: 'jrc2026',
+  storageKey: 'jrcedu_training_authed',
+};
 
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, '');
@@ -319,6 +324,10 @@ export default function Home() {
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
   const [activeTrainingModule, setActiveTrainingModule] = useState(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [pendingTrainingModule, setPendingTrainingModule] = useState(null);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
 
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
@@ -344,6 +353,48 @@ export default function Home() {
     if (e.key === 'Enter') {
       handleSearch();
     }
+  };
+
+  const isTrainingAuthed = () => {
+    if (typeof window === 'undefined') return false;
+    return window.sessionStorage.getItem(TRAINING_LOGIN.storageKey) === '1';
+  };
+
+  const openTrainingModule = (moduleName) => {
+    if (isTrainingAuthed()) {
+      setActiveTrainingModule(moduleName);
+      return;
+    }
+
+    setPendingTrainingModule(moduleName);
+    setLoginForm({ username: '', password: '' });
+    setLoginError('');
+    setLoginOpen(true);
+  };
+
+  const submitTrainingLogin = (event) => {
+    event.preventDefault();
+    const username = loginForm.username.trim();
+    const password = loginForm.password;
+
+    if (username === TRAINING_LOGIN.username && password === TRAINING_LOGIN.password) {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(TRAINING_LOGIN.storageKey, '1');
+      }
+      setLoginOpen(false);
+      setLoginError('');
+      setActiveTrainingModule(pendingTrainingModule || 'lessons');
+      setPendingTrainingModule(null);
+      return;
+    }
+
+    setLoginError('用户名或密码不正确');
+  };
+
+  const closeTrainingLogin = () => {
+    setLoginOpen(false);
+    setPendingTrainingModule(null);
+    setLoginError('');
   };
 
   const selectLesson = (lessonId) => {
@@ -413,11 +464,11 @@ export default function Home() {
 
         {!activeTrainingModule ? (
           <div style={styles.moduleGrid}>
-            <button onClick={() => setActiveTrainingModule('lessons')} style={styles.moduleCard}>
+            <button onClick={() => openTrainingModule('lessons')} style={styles.moduleCard}>
               <div style={styles.moduleIcon}>📚</div>
               <div style={styles.moduleTitle}>学习内容</div>
             </button>
-            <button onClick={() => setActiveTrainingModule('tests')} style={styles.moduleCard}>
+            <button onClick={() => openTrainingModule('tests')} style={styles.moduleCard}>
               <div style={styles.moduleIcon}>📝</div>
               <div style={styles.moduleTitle}>阶段测试</div>
             </button>
@@ -654,6 +705,34 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {loginOpen && (
+        <div style={styles.loginOverlay}>
+          <form onSubmit={submitTrainingLogin} style={styles.loginModal}>
+            <div style={styles.loginTitle}>学管课堂登录</div>
+            <input
+              type="text"
+              value={loginForm.username}
+              onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))}
+              placeholder="用户名"
+              autoFocus
+              style={styles.loginInput}
+            />
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="密码"
+              style={styles.loginInput}
+            />
+            {loginError && <div style={styles.loginError}>{loginError}</div>}
+            <div style={styles.loginActions}>
+              <button type="button" onClick={closeTrainingLogin} style={styles.loginCancelButton}>取消</button>
+              <button type="submit" style={styles.loginSubmitButton}>登录</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {!activeTrainingModule && (
         <div style={styles.results}>
@@ -1222,5 +1301,75 @@ const styles = {
     padding: '60px 24px',
     color: '#A0AEC0',
     fontSize: '15px',
+  },
+  loginOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15, 23, 42, 0.42)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    zIndex: 50,
+  },
+  loginModal: {
+    width: '100%',
+    maxWidth: '360px',
+    background: '#FFFFFF',
+    borderRadius: '12px',
+    padding: '22px',
+    boxShadow: '0 18px 45px rgba(15, 23, 42, 0.22)',
+    border: '1px solid #E2E8F0',
+  },
+  loginTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#1A202C',
+    marginBottom: '16px',
+  },
+  loginInput: {
+    width: '100%',
+    height: '44px',
+    padding: '0 12px',
+    borderRadius: '8px',
+    border: '1px solid #CBD5E0',
+    marginBottom: '10px',
+    fontSize: '14px',
+    outline: 'none',
+    color: '#1A202C',
+  },
+  loginError: {
+    color: '#C53030',
+    fontSize: '13px',
+    marginTop: '4px',
+    marginBottom: '10px',
+  },
+  loginActions: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'flex-end',
+    marginTop: '8px',
+  },
+  loginCancelButton: {
+    height: '40px',
+    padding: '0 14px',
+    borderRadius: '8px',
+    border: '1px solid #D7E8E5',
+    background: '#FFFFFF',
+    color: '#0D9488',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  loginSubmitButton: {
+    height: '40px',
+    padding: '0 14px',
+    borderRadius: '8px',
+    border: 'none',
+    background: '#0D9488',
+    color: '#FFFFFF',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
   },
 };
