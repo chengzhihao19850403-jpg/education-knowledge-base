@@ -189,6 +189,18 @@ function createResult(item, categoryName, score, isSimilar = false) {
   };
 }
 
+function getPriorityBoost(item) {
+  let boost = Number(item.priority || 0) / 2;
+
+  if (item.review_status === '原文最高优先级') boost += 600;
+  if (item.source_section?.includes('最高优先级原文15条')) boost += 400;
+  if (String(item.id || '').startsWith('CORE015')) boost += 300;
+  if (item.review_status === '拆分检索') boost -= 120;
+  if (String(item.id || '').startsWith('HQ015')) boost -= 80;
+
+  return boost;
+}
+
 function uniqueResults(items, limit) {
   const seen = new Set();
   const output = [];
@@ -242,6 +254,7 @@ function searchKnowledge(query) {
 
       if (score > 0) {
         score += Number(item.quality_score || 0) / 2;
+        score += getPriorityBoost(item);
         if (item.review_status === '最新动态资料') score += 8;
         if (item.review_status === '人工复审') score += 6;
         if (item.review_status === '人工精修') score += 12;
@@ -253,6 +266,7 @@ function searchKnowledge(query) {
         if (similarScore >= 5) {
           let qualityScore = similarScore
             + Number(item.quality_score || 0) / 2
+            + getPriorityBoost(item)
             + (item.review_status === '最新动态资料' ? 8 : 0)
             + (item.review_status === '人工复审' ? 6 : 0)
             + (item.review_status === '人工精修' ? 12 : 0)
