@@ -276,6 +276,21 @@ const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
+const JRC_PERMISSION_OPTIONS = [
+  ["paike.access", "排课查看"],
+  ["paike.edit", "排课修改"],
+  ["knowledge.access", "知识库进入"],
+  ["knowledge.edit", "知识库管理"],
+  ["suggestions.access", "建议系统进入"],
+  ["suggestions.edit", "建议系统管理"],
+  ["admissions.access", "招生进入"],
+  ["admissions.edit", "招生录入修改"],
+  ["admissions.import", "招生批量导入"],
+  ["admissions.finance", "招生财务归因"],
+  ["finance.access", "财务进入"],
+  ["finance.edit", "财务修改"],
+  ["admin.access", "系统管理"]
+];
 
 function jrcReadCustomEmployees() {
   try {
@@ -391,6 +406,7 @@ function jrcGetPermissions(subject) {
     permissions.add("finance.access");
     permissions.add("finance.edit");
   }
+  (subject.permissions || []).forEach((permission) => permissions.add(permission));
 
   return Array.from(permissions);
 }
@@ -470,7 +486,8 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
     const tags = [
       employee.role || "",
       employee.subject || employee.scope || "",
-      employee.commissionRate ? `提成 ${employee.commissionRate}` : ""
+      employee.commissionRate ? `提成 ${employee.commissionRate}` : "",
+      employee.permissions?.length ? `自定义权限 ${employee.permissions.length} 项` : ""
     ].filter(Boolean);
 
     return `
@@ -540,6 +557,20 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
           <label><span>入职日期</span><input name="hireDate" placeholder="2026-06-21"></label>
           <label><span>转正日期</span><input name="regularDate" placeholder="2026-07-21"></label>
           <label><span>提成比例</span><input name="commissionRate" placeholder="20%"></label>
+        </div>
+        <div class="jrc-employee-permission-box">
+          <div class="jrc-employee-permission-box__head">
+            <strong>系统权限</strong>
+            <span>岗位会自动带基础权限；这里可以给新员工额外开放系统或修改能力。</span>
+          </div>
+          <div class="jrc-employee-permission-grid">
+            ${JRC_PERMISSION_OPTIONS.map(([key, label]) => `
+              <label>
+                <input type="checkbox" name="permissions" value="${key}">
+                <span>${label}</span>
+              </label>
+            `).join("")}
+          </div>
         </div>
         <div class="jrc-employee-form__actions">
           <button type="submit" class="jrc-employee-form__submit">保存新增员工</button>
@@ -623,6 +654,7 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
     }
 
     const customEmployees = jrcReadCustomEmployees();
+    const permissions = formData.getAll("permissions").map((permission) => String(permission).trim()).filter(Boolean);
     customEmployees.push({
       name,
       username,
@@ -634,9 +666,11 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
       hireDate: String(formData.get("hireDate") || "").trim(),
       regularDate: String(formData.get("regularDate") || "").trim(),
       subject: String(formData.get("subject") || "").trim(),
-      commissionRate: String(formData.get("commissionRate") || "").trim()
+      commissionRate: String(formData.get("commissionRate") || "").trim(),
+      permissions
     });
     jrcWriteCustomEmployees(customEmployees);
+    window.JRC_EMPLOYEES = jrcGetAllEmployees();
     message.textContent = `已新增 ${name}，初始密码 10281028。`;
     form.reset();
     jrcEnsureEmployeeSummary();
@@ -998,11 +1032,54 @@ function jrcInjectStyles() {
       color: #64748b;
       font-size: 13px;
     }
+    .jrc-employee-permission-box {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    .jrc-employee-permission-box__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .jrc-employee-permission-box__head strong {
+      color: #172132;
+    }
+    .jrc-employee-permission-box__head span {
+      color: #64748b;
+      font-size: 13px;
+    }
+    .jrc-employee-permission-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .jrc-employee-permission-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      color: #172132;
+      font-size: 13px;
+    }
+    .jrc-employee-permission-grid input {
+      width: auto;
+      min-height: 0;
+      padding: 0;
+    }
     @media (max-width: 900px) {
       .jrc-employee-directory__tools,
       .jrc-employee-grid,
       .jrc-employee-card__meta,
-      .jrc-employee-form__grid {
+      .jrc-employee-form__grid,
+      .jrc-employee-permission-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -1120,7 +1197,7 @@ function jrcShowLoginOverlay() {
 function jrcBootstrapAuth() {
   jrcInjectStyles();
   jrcEnsureEmployeeSummary();
-  window.JRC_EMPLOYEES = JRC_EMPLOYEES;
+  window.JRC_EMPLOYEES = jrcGetAllEmployees();
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
   const currentEmployee = jrcResolveCurrentEmployee();
