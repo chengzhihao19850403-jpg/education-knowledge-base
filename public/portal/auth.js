@@ -102,6 +102,44 @@ const JRC_EMPLOYEES = [
     subject: "科学"
   },
   {
+    name: "程志豪",
+    username: "chengzhihao",
+    password: "10281028",
+    role: "管理员",
+    phone: "15888003051",
+    wechat: "jrc-math",
+    scope: "1-9年级",
+    hireDate: "2016-06-20",
+    regularDate: "2016-07-20",
+    subject: "数学",
+    commissionRate: "100%"
+  },
+  {
+    name: "陈雨晴",
+    username: "chenyuqing",
+    password: "10281028",
+    role: "财务",
+    phone: "15259085997",
+    wechat: "YQZH5208598",
+    scope: "1-9",
+    hireDate: "2020-10-02",
+    regularDate: "2020-11-02",
+    subject: ""
+  },
+  {
+    name: "海滢滢",
+    username: "haiyingying",
+    password: "10281028",
+    role: "授课老师",
+    phone: "18758400721",
+    wechat: "cathy125805",
+    scope: "3-8年级",
+    hireDate: "2021-03-20",
+    regularDate: "2021-04-20",
+    subject: "科学",
+    commissionRate: "50%"
+  },
+  {
     name: "李舒",
     username: "lishu",
     password: "10281028",
