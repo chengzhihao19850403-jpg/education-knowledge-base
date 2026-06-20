@@ -35,6 +35,61 @@
         padding: 32px 0 48px;
       }
 
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        background: rgba(255, 252, 247, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .brand {
+        min-width: 0;
+      }
+
+      .brand-name {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .brand-subtitle {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+
+      .nav-link.active {
+        color: #fff;
+        background: linear-gradient(135deg, var(--brand) 0%, #0f766e 100%);
+        border-color: transparent;
+      }
+
       .hero,
       .card,
       .note {
@@ -79,6 +134,29 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
         margin-top: 20px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .summary-card {
+        padding: 18px;
+      }
+
+      .summary-card strong {
+        display: block;
+        font-size: 20px;
+        margin-bottom: 6px;
+      }
+
+      .summary-card span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
       }
 
       .card {
@@ -171,7 +249,22 @@
       }
 
       @media (max-width: 900px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
         .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 560px) {
+        .summary-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -179,10 +272,43 @@
   </head>
   <body>
     <main class="shell">
+      <section class="topbar">
+        <div class="brand">
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">统一入口版 · 一个网址进入四个业务系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link active" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./knowledge.html">知识库</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+        </nav>
+      </section>
+
       <section class="hero">
         <p class="eyebrow">JRC EDU Portal</p>
         <h1>匠人程工作台</h1>
         <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库与学管课堂、建议管理、财务。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
+      </section>
+
+      <section class="summary-grid">
+        <article class="hero summary-card">
+          <strong>4 个系统</strong>
+          <span>排课、知识库、建议、财务统一进一个首页。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>1 个网址</strong>
+          <span>员工以后只记总站地址，不再到处找入口。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>2 类能力</strong>
+          <span>公网展示型系统和局域网业务型系统分开处理。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>持续优化</strong>
+          <span>排课和财务后续还能继续单独增强，不影响其他系统。</span>
+        </article>
       </section>
 
       <section class="grid">

@@ -25,6 +25,40 @@
           linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
       }
       .shell { width: min(960px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        background: rgba(255,255,255,0.84);
+        border: 1px solid rgba(255,255,255,0.7);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+      .brand-name { font-size: 18px; font-weight: 700; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        border-color: transparent;
+      }
       .card {
         background: var(--panel);
         border: 1px solid rgba(255,255,255,0.7);
@@ -74,10 +108,53 @@
         font-weight: 700;
         margin-top: 14px;
       }
+      .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+      }
+      .mini-card {
+        background: rgba(255,255,255,0.76);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .mini-card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      .mini-card p {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      @media (max-width: 760px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .panel-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
     <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 04 · 财务系统入口</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./knowledge.html">知识库</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link active" href="./finance.html">财务系统</a>
+        </nav>
+      </section>
+
       <section class="card">
         <p class="eyebrow">System 04</p>
         <h1>财务系统</h1>
@@ -98,6 +175,17 @@
           <a class="button" href="/paike/prototype/index.html">先从现有财务能力进入</a>
           <a class="button button-secondary" href="./index.html">返回总站首页</a>
         </div>
+      </section>
+
+      <section class="panel-grid">
+        <article class="mini-card">
+          <h3>财务系统后面会怎么接</h3>
+          <p>先吃排课系统沉淀下来的真实课表和教师数据，再逐步独立出课时费、分红、利润核对和异常说明，减少重复录入。</p>
+        </article>
+        <article class="mini-card">
+          <h3>为什么现在先做独立入口</h3>
+          <p>先把名字、入口和边界固定住，老师和管理层使用时会更清楚。后面无论逻辑怎么扩展，都不会再反复改访问习惯。</p>
+        </article>
       </section>
 
       <section class="card">
