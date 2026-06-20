@@ -449,7 +449,7 @@ function jrcRenderEmployeeDirectory() {
     ].filter(Boolean);
 
     return `
-      <article class="jrc-employee-card">
+      <article class="jrc-employee-card" data-employee-name="${[employee.name, employee.username, employee.phone, employee.wechat, employee.subject, employee.scope].filter(Boolean).join(" ").toLowerCase()}" data-employee-role="${(employee.role || "").toLowerCase()}">
         <div class="jrc-employee-card__head">
           <div>
             <strong>${employee.name}</strong>
@@ -475,6 +475,16 @@ function jrcRenderEmployeeDirectory() {
       <strong>全员名单</strong>
       <span>后续新增员工账号后，这里会自动同步显示。</span>
     </div>
+    <div class="jrc-employee-directory__tools">
+      <input type="search" class="jrc-employee-search" data-employee-search placeholder="搜索姓名 / 拼音 / 手机 / 微信">
+      <select class="jrc-employee-filter" data-employee-role-filter>
+        <option value="">全部岗位</option>
+        <option value="管理员">管理员</option>
+        <option value="学管">学管</option>
+        <option value="财务">财务</option>
+        <option value="授课老师">授课老师</option>
+      </select>
+    </div>
     <div class="jrc-employee-grid">${rows}</div>
   `;
 }
@@ -492,6 +502,29 @@ function jrcBindEmployeeDirectoryToggle() {
     button.setAttribute("aria-expanded", String(nextExpanded));
     button.textContent = nextExpanded ? "收起名单" : "全员名单";
   });
+}
+
+function jrcBindEmployeeDirectoryFilters() {
+  const panel = document.querySelector("[data-employee-directory]");
+  const search = document.querySelector("[data-employee-search]");
+  const roleFilter = document.querySelector("[data-employee-role-filter]");
+  if (!panel || !search || !roleFilter) return;
+
+  const applyFilter = () => {
+    const keyword = search.value.trim().toLowerCase();
+    const role = roleFilter.value.trim().toLowerCase();
+
+    panel.querySelectorAll(".jrc-employee-card").forEach((card) => {
+      const haystack = card.getAttribute("data-employee-name") || "";
+      const cardRole = card.getAttribute("data-employee-role") || "";
+      const matchKeyword = !keyword || haystack.includes(keyword);
+      const matchRole = !role || cardRole === role;
+      card.hidden = !(matchKeyword && matchRole);
+    });
+  };
+
+  search.addEventListener("input", applyFilter);
+  roleFilter.addEventListener("change", applyFilter);
 }
 
 function jrcApplyPermissionDecorations(currentEmployee) {
@@ -696,6 +729,23 @@ function jrcInjectStyles() {
       gap: 12px;
       margin-top: 14px;
     }
+    .jrc-employee-directory__tools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .jrc-employee-search,
+    .jrc-employee-filter {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: rgba(255,255,255,0.92);
+      color: #172132;
+      padding: 0 12px;
+      font: inherit;
+    }
     .jrc-employee-card {
       padding: 14px;
       border-radius: 16px;
@@ -752,6 +802,7 @@ function jrcInjectStyles() {
       word-break: break-all;
     }
     @media (max-width: 900px) {
+      .jrc-employee-directory__tools,
       .jrc-employee-grid,
       .jrc-employee-card__meta {
         grid-template-columns: 1fr;
@@ -873,6 +924,7 @@ function jrcBootstrapAuth() {
   jrcEnsureEmployeeSummary();
   jrcRenderEmployeeDirectory();
   jrcBindEmployeeDirectoryToggle();
+  jrcBindEmployeeDirectoryFilters();
   window.JRC_EMPLOYEES = JRC_EMPLOYEES;
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
