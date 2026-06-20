@@ -1,8 +1,397 @@
-<!DOCTYPE html><html><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="next-head-count" content="2"/><noscript data-n-css=""></noscript><script defer="" nomodule="" src="/jrcedu/_next/static/chunks/polyfills-78c92fac7aa8fdd8.js"></script><script src="/jrcedu/_next/static/chunks/webpack-62fdea85860f4796.js" defer=""></script><script src="/jrcedu/_next/static/chunks/framework-ecc4130bc7a58a64.js" defer=""></script><script src="/jrcedu/_next/static/chunks/main-275da06c29ea879b.js" defer=""></script><script src="/jrcedu/_next/static/chunks/pages/_app-753213cf38d40131.js" defer=""></script><script src="/jrcedu/_next/static/chunks/pages/index-bb9d488e32ae94e8.js" defer=""></script><script src="/jrcedu/_next/static/LOTQIJw_pox0G0sMqI8Fe/_buildManifest.js" defer=""></script><script src="/jrcedu/_next/static/LOTQIJw_pox0G0sMqI8Fe/_ssgManifest.js" defer=""></script></head><body><div id="__next"><div style="min-height:100vh;background:#FFFFFF;padding-bottom:80px"><div style="text-align:center;padding:80px 24px 48px"><h1 style="font-size:36px;font-weight:700;color:#1A202C;letter-spacing:-0.02em;margin-bottom:10px">匠人程学校知识库</h1><p style="font-size:24px;font-weight:400;color:#718096;margin-top:0">输入问题，快速找到答案</p><div style="display:inline-block;margin-top:18px;padding:6px 12px;border-radius:999px;background:#EFF7F6;color:#0D9488;font-size:13px;font-weight:600">知识库 <!-- -->v015 上传版问答库<!-- --> · <!-- -->254<!-- --> 条问答</div></div><div style="max-width:600px;margin:0 auto;padding:0 24px"><div style="display:flex;background:#F5F7FA;border-radius:22px;padding:6px;transition:box-shadow 0.3s ease;box-shadow:0 2px 20px rgba(0,0,0,0.04)"><input type="text" placeholder="搜索问题..." style="flex:1;padding:16px 24px;border:none;background:transparent;font-size:17px;outline:none;color:#1A202C" value=""/><button style="display:flex;align-items:center;gap:8px;padding:14px 26px;background:#0D9488;color:#FFFFFF;border:none;border-radius:18px;font-size:16px;font-weight:500;cursor:pointer;transition:all 0.2s ease"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>查询</button></div></div><div style="max-width:1100px;margin:88px auto 40px;padding:0 24px;padding-top:0"><div style="text-align:center;margin-bottom:24px"><h2 style="font-size:24px;font-weight:700;color:#1A202C;margin-bottom:8px">学管课堂</h2><p style="font-size:14px;color:#A0AEC0;margin:0">20 节新人培训课 · 20 套线上小测试</p></div><div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;max-width:600px;margin:0 auto"><button style="min-height:52px;padding:12px 16px;border:1px solid #E2E8F0;border-radius:8px;background:#FFFFFF;color:#1A202C;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><div style="font-size:18px;line-height:1">📚</div><div style="font-size:15px;font-weight:700">学习内容</div></button><button style="min-height:52px;padding:12px 16px;border:1px solid #E2E8F0;border-radius:8px;background:#FFFFFF;color:#1A202C;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><div style="font-size:18px;line-height:1">📝</div><div style="font-size:15px;font-weight:700">阶段测试</div></button></div></div><div style="max-width:700px;margin:40px auto;padding:0 24px"><div style="text-align:center;padding:60px 24px;color:#A0AEC0;font-size:15px">输入关键词搜索知识库内容</div></div><style>
-        @import url(&#x27;https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap&#x27;);
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: &#x27;Inter&#x27;, &#x27;-apple-system&#x27;, &#x27;BlinkMacSystemFont&#x27;, &#x27;Segoe UI&#x27;, sans-serif; }
-        input::placeholder { color: #A0AEC0; }
-        button:hover { opacity: 0.9; }
-        button:active { transform: scale(0.98); }
-      </style></div></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{}},"page":"/","query":{},"buildId":"LOTQIJw_pox0G0sMqI8Fe","assetPrefix":"/jrcedu","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台</title>
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --panel: rgba(255, 252, 247, 0.96);
+        --ink: #1f2933;
+        --muted: #66717c;
+        --line: rgba(31, 41, 51, 0.08);
+        --brand: #0d9488;
+        --brand-soft: rgba(13, 148, 136, 0.1);
+        --accent: #bc582e;
+        --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(13, 148, 136, 0.12), transparent 28%),
+          radial-gradient(circle at top right, rgba(188, 88, 46, 0.10), transparent 24%),
+          linear-gradient(180deg, #faf7f2 0%, #f0e7db 100%);
+      }
+
+      .shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        background: rgba(255, 252, 247, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .brand {
+        min-width: 0;
+      }
+
+      .brand-name {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .brand-subtitle {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+
+      .nav-link.active {
+        color: #fff;
+        background: linear-gradient(135deg, var(--brand) 0%, #0f766e 100%);
+        border-color: transparent;
+      }
+
+      .hero,
+      .card,
+      .note {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .hero {
+        padding: 30px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1, h2, h3, p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(30px, 4vw, 42px);
+        line-height: 1.08;
+      }
+
+      .hero p {
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.7;
+        max-width: 860px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 20px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .summary-card {
+        padding: 18px;
+      }
+
+      .summary-card strong {
+        display: block;
+        font-size: 20px;
+        margin-bottom: 6px;
+      }
+
+      .summary-card span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .card {
+        padding: 24px;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .card h2 {
+        font-size: 24px;
+      }
+
+      .card p {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .list {
+        margin: 14px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .button,
+      .text-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        font: inherit;
+      }
+
+      .button {
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--brand) 0%, #0f766e 100%);
+        color: #fff;
+      }
+
+      .button-secondary {
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .text-link {
+        color: var(--accent);
+      }
+
+      .note {
+        margin-top: 20px;
+        padding: 22px 24px;
+      }
+
+      .note p {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .note strong {
+        color: var(--ink);
+      }
+
+      @media (max-width: 900px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 560px) {
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div class="brand">
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">统一入口版 · 一个网址进入四个业务系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link active" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./knowledge.html">知识库</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+        </nav>
+      </section>
+
+      <section class="hero">
+        <p class="eyebrow">JRC EDU Portal</p>
+        <h1>匠人程工作台</h1>
+        <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库与学管课堂、建议管理、财务。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
+      </section>
+
+      <section class="summary-grid">
+        <article class="hero summary-card">
+          <strong>4 个系统</strong>
+          <span>排课、知识库、建议、财务统一进一个首页。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>1 个网址</strong>
+          <span>员工以后只记总站地址，不再到处找入口。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>2 类能力</strong>
+          <span>公网展示型系统和局域网业务型系统分开处理。</span>
+        </article>
+        <article class="hero summary-card">
+          <strong>持续优化</strong>
+          <span>排课和财务后续还能继续单独增强，不影响其他系统。</span>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 01</p>
+              <h2>排课系统</h2>
+            </div>
+            <span class="badge">当前重点</span>
+          </div>
+          <p>负责 6 月平时课与 7、8 月暑假课排课。支持老师继续按 Excel 工作习惯录入，再在系统里逐步补教室、班名和规范字段。</p>
+          <ul class="list">
+            <li>先上传老师最新总表</li>
+            <li>平时模式处理 6 月和平时课</li>
+            <li>暑假模式处理 7、8 月排课</li>
+          </ul>
+          <div class="actions">
+            <a class="button" href="./paike.html">进入排课系统</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 02</p>
+              <h2>知识库问答 + 学管课堂</h2>
+            </div>
+            <span class="badge">已上线</span>
+          </div>
+          <p>负责老师和员工日常问答查询、新人培训、阶段测试。保留现有线上版本，作为统一门户下的第二个系统继续使用。</p>
+          <ul class="list">
+            <li>知识库快速检索</li>
+            <li>学管课堂学习内容</li>
+            <li>阶段测试与培训验收</li>
+          </ul>
+          <div class="actions">
+            <a class="button" href="./knowledge.html">进入知识库与学管课堂</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 03</p>
+              <h2>建议管理系统</h2>
+            </div>
+            <span class="badge">已接入</span>
+          </div>
+          <p>负责员工建议、匿名反馈、投票和管理改进意见汇总。后续可以继续加权限、分类、审核和统计能力。</p>
+          <ul class="list">
+            <li>提交管理建议</li>
+            <li>查看投票与反馈</li>
+            <li>沉淀团队改进事项</li>
+          </ul>
+          <div class="actions">
+            <a class="button" href="./suggestions.html">进入建议管理系统</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 04</p>
+              <h2>财务系统</h2>
+            </div>
+            <span class="badge">后续独立</span>
+          </div>
+          <p>负责老师课时费结算、分红结算、利润与结算核对。后续从现有排课系统里的财务与结算能力单独抽成独立入口。</p>
+          <ul class="list">
+            <li>课时费与提成结算</li>
+            <li>分红计算与核对</li>
+            <li>财务与结算数据沉淀</li>
+          </ul>
+          <div class="actions">
+            <a class="button button-secondary" href="./finance.html">进入财务系统</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="note">
+        <p><strong>当前整合策略：</strong> 网址不换，先把现在已经能用的知识库网站升级成统一门户。这样员工只记一个地址，四个系统分别进入；后面哪个系统成熟了，就继续单独优化，不会互相拖累。</p>
+      </section>
+    </main>
+  </body>
+</html>
