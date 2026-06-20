@@ -419,6 +419,15 @@ function jrcEnsureTopbar(currentEmployee) {
 function jrcEnsureEmployeeSummary() {
   const holder = document.querySelector("[data-employee-summary]");
   if (!holder) return;
+
+  if (!document.querySelector("[data-employee-directory]")) {
+    const panel = document.createElement("div");
+    panel.className = "auth-note";
+    panel.hidden = true;
+    panel.setAttribute("data-employee-directory", "");
+    holder.insertAdjacentElement("afterend", panel);
+  }
+
   holder.innerHTML = `
     <div class="jrc-employee-summary__head">
       <strong>当前已录入 ${JRC_EMPLOYEES.length} 名员工账号</strong>
@@ -475,6 +484,7 @@ function jrcBindEmployeeDirectoryToggle() {
   const panel = document.querySelector("[data-employee-directory]");
   if (!button || !panel) return;
 
+  button.setAttribute("aria-expanded", "false");
   button.addEventListener("click", () => {
     const expanded = button.getAttribute("aria-expanded") === "true";
     const nextExpanded = !expanded;
@@ -875,6 +885,10 @@ function jrcBootstrapAuth() {
   window.JRC_CURRENT_EMPLOYEE = currentEmployee;
   jrcApplyPermissionDecorations(currentEmployee);
   jrcEnforcePagePermission(currentEmployee);
+
+  document.querySelectorAll("[data-open-admissions-direct]").forEach((node) => {
+    node.setAttribute("href", "/jrcedu/advice-system/index.html");
+  });
 }
 
 jrcBootstrapAuth();

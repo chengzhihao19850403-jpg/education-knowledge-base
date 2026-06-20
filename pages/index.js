@@ -402,6 +402,7 @@ export default function Home() {
         <div style={styles.versionInfo}>知识库 {knowledgeBase.version} · {knowledgeBase.total} 条问答</div>
         <div style={styles.portalActions}>
           <button onClick={openUnifiedPortal} style={styles.portalButton}>进入员工统一工作台</button>
+          <button onClick={() => setActiveTrainingModule(null)} style={styles.portalGhostButton}>返回知识库首页</button>
         </div>
       </div>
 
@@ -768,6 +769,8 @@ const styles = {
     marginTop: '18px',
     display: 'flex',
     justifyContent: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
   },
   portalButton: {
     minHeight: '42px',
@@ -776,6 +779,17 @@ const styles = {
     border: '1px solid #D7E8E5',
     background: '#FFFFFF',
     color: '#0D9488',
+    fontSize: '14px',
+    fontWeight: '700',
+    cursor: 'pointer',
+  },
+  portalGhostButton: {
+    minHeight: '42px',
+    padding: '0 18px',
+    borderRadius: '999px',
+    border: '1px solid #E2E8F0',
+    background: '#F8FAFC',
+    color: '#475569',
     fontSize: '14px',
     fontWeight: '700',
     cursor: 'pointer',
