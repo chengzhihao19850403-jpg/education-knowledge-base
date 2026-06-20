@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜建议管理系统</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+        background: linear-gradient(180deg, #fffaf7 0%, #f6ede7 100%);
+        color: #172132;
+      }
+      .shell {
+        width: min(960px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+      .card {
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(23,33,50,0.08);
+        border-radius: 24px;
+        box-shadow: 0 18px 50px rgba(23,33,50,0.12);
+        padding: 28px;
+      }
+      .card + .card { margin-top: 18px; }
+      h1, h2, p, li { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      p, li { color: #627086; line-height: 1.75; }
+      ul { margin: 14px 0 0; padding-left: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #bc582e;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        background: linear-gradient(135deg, #bc582e 0%, #8c3f24 100%);
+        color: #fff;
+      }
+      .button-secondary {
+        background: #fff;
+        color: #172132;
+        border: 1px solid rgba(23,33,50,0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <p class="eyebrow">System 03</p>
+        <h1>建议管理系统</h1>
+        <p style="margin-top: 12px;">建议系统入口已经在统一门户里保留。当前先把登录、统一入口、员工身份和后续权限框架接进来，后面再继续补表单、匿名反馈和管理统计。</p>
+      </section>
+      <section class="card">
+        <p class="eyebrow">Next Step</p>
+        <h2>下一步会补的能力</h2>
+        <ul>
+          <li>员工提交建议与改进事项</li>
+          <li>分类、状态、处理进度</li>
+          <li>按身份控制查看和处理权限</li>
+        </ul>
+        <div class="actions">
+          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        </div>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js"></script>
+  </body>
+</html>

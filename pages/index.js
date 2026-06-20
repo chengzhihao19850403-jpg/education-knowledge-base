@@ -343,6 +343,12 @@ export default function Home() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
 
+  const openUnifiedPortal = () => {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/jrcedu/portal/index.html';
+    }
+  };
+
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
   const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
@@ -442,6 +448,9 @@ export default function Home() {
         <h1 style={styles.title}>匠人程学校知识库</h1>
         <p style={styles.subtitle}>输入问题，快速找到答案</p>
         <div style={styles.versionInfo}>知识库 {knowledgeBase.version} · {knowledgeBase.total} 条问答</div>
+        <div style={styles.portalActions}>
+          <button onClick={openUnifiedPortal} style={styles.portalButton}>进入员工统一工作台</button>
+        </div>
       </div>
 
       <div style={styles.searchContainer}>
@@ -830,6 +839,22 @@ const styles = {
     color: '#0D9488',
     fontSize: '13px',
     fontWeight: '600',
+  },
+  portalActions: {
+    marginTop: '18px',
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  portalButton: {
+    minHeight: '42px',
+    padding: '0 18px',
+    borderRadius: '999px',
+    border: '1px solid #D7E8E5',
+    background: '#FFFFFF',
+    color: '#0D9488',
+    fontSize: '14px',
+    fontWeight: '700',
+    cursor: 'pointer',
   },
   searchContainer: {
     maxWidth: '600px',

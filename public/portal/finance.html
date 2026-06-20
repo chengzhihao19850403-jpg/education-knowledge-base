@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜财务系统</title>
+    <style>
+      :root {
+        --bg: #f4f7f8;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #16202a;
+        --muted: #62707d;
+        --line: rgba(22, 32, 42, 0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --shadow: 0 18px 50px rgba(22, 32, 42, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(13, 148, 136, 0.14), transparent 30%),
+          linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
+      }
+      .shell { width: min(960px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.7);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        padding: 28px;
+      }
+      .card + .card { margin-top: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, p, li { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      p, li { color: var(--muted); line-height: 1.75; }
+      ul { margin: 14px 0 0; padding-left: 18px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+      }
+      .button-secondary {
+        background: rgba(255,255,255,0.82);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(13, 148, 136, 0.1);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <p class="eyebrow">System 04</p>
+        <h1>财务系统</h1>
+        <p style="margin-top: 12px;">财务系统后续用于承接老师课时费结算、分红结算、利润核对和历史财务沉淀。当前它还在从现有排课系统里的财务能力独立抽离，因此先在总站中保留为独立入口。</p>
+        <div class="tag">后续重点：课时费结算 + 分红结算</div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Planned Modules</p>
+        <h2>后续会逐步独立出来的内容</h2>
+        <ul>
+          <li>老师课时费与提成计算</li>
+          <li>分红计算与月度利润核对</li>
+          <li>财务历史查询与复核</li>
+          <li>结算异常项说明与跟进</li>
+        </ul>
+        <div class="actions">
+          <a class="button" href="/paike/prototype/index.html">先从现有财务能力进入</a>
+          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Current Strategy</p>
+        <h2>为什么先独立命名、后独立系统</h2>
+        <p style="margin-top: 12px;">因为财务相关内容已经在现有系统里有真实数据和逻辑，但业务边界还在持续确认。先在总站里把“财务系统”作为独立入口命名清楚，后面再逐步把课时费结算和分红结算真正抽成独立系统，是现在最稳的推进方式。</p>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js"></script>
+  </body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜知识库与学管课堂</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+        background: linear-gradient(180deg, #fbfcff 0%, #edf3fb 100%);
+        color: #172132;
+      }
+      .shell {
+        width: min(960px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+      .card {
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(23,33,50,0.08);
+        border-radius: 24px;
+        box-shadow: 0 18px 50px rgba(23,33,50,0.12);
+        padding: 28px;
+      }
+      .card + .card { margin-top: 18px; }
+      h1, h2, p, li { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      p, li { color: #627086; line-height: 1.75; }
+      ul { margin: 14px 0 0; padding-left: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #0d9488;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+        color: #fff;
+      }
+      .button-secondary {
+        background: #fff;
+        color: #172132;
+        border: 1px solid rgba(23,33,50,0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <p class="eyebrow">System 02</p>
+        <h1>知识库问答 + 学管课堂</h1>
+        <p style="margin-top: 12px;">这个入口继续使用你们已经在线的知识库官网能力。后面统一门户和权限体系稳定后，再把视觉和导航进一步整合进来。</p>
+      </section>
+      <section class="card">
+        <p class="eyebrow">Current Route</p>
+        <h2>当前使用方式</h2>
+        <ul>
+          <li>继续使用现有知识库问答与学管课堂页面</li>
+          <li>统一门户现在先承担登录与总入口职责</li>
+          <li>后面再逐步做成真正的一个站内子系统</li>
+        </ul>
+        <div class="actions">
+          <a class="button" href="/jrcedu/">打开现有知识库首页</a>
+          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        </div>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js"></script>
+  </body>
+</html>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜排课系统</title>
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --panel: rgba(255, 252, 247, 0.96);
+        --ink: #1f2933;
+        --muted: #66717c;
+        --line: rgba(31, 41, 51, 0.08);
+        --brand: #bc582e;
+        --brand-dark: #8c3f24;
+        --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(188, 88, 46, 0.16), transparent 30%),
+          linear-gradient(180deg, #faf7f2 0%, #f0e7db 100%);
+      }
+      .shell { width: min(960px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.65);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        padding: 28px;
+      }
+      .card + .card { margin-top: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, p, li { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      p, li { color: var(--muted); line-height: 1.75; }
+      ul { margin: 14px 0 0; padding-left: 18px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+      }
+      .button-secondary {
+        background: rgba(255,255,255,0.8);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(188, 88, 46, 0.1);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <p class="eyebrow">System 01</p>
+        <h1>排课系统</h1>
+        <p style="margin-top: 12px;">排课系统目前不是纯静态网页，它依赖主控电脑后台、局域网访问、Excel 导入和本地数据库。所以统一总站里先提供清晰入口和使用说明，真正操作时仍进入实际运行中的排课系统。</p>
+        <div class="tag">当前重点：6 月、7 月、8 月排课</div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">How To Use</p>
+        <h2>老师和员工现在这样进入最稳</h2>
+        <ul>
+          <li>先在主控电脑或同一局域网环境里打开排课系统</li>
+          <li>首页先上传老师最新 Excel 总表</li>
+          <li>改 6 月和平时课进平时模式</li>
+          <li>改 7、8 月暑假课进暑假模式</li>
+          <li>缺教室、缺标准班名可以先保留课程事实，后面再逐步补规范</li>
+        </ul>
+        <div class="actions">
+          <a class="button" href="/paike/">打开排课系统入口</a>
+          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Note</p>
+        <h2>为什么这里不直接做成纯网页版</h2>
+        <p style="margin-top: 12px;">因为排课系统现在已经接入了真实业务数据：老师表格上传、后台 SQLite、局域网访问限制、平时模式与暑假模式拆分、以及后续财务联动。为了保证数据准确和安全，排课系统继续保持独立运行更合理，总站只负责统一入口。</p>
+        <p style="margin-top: 12px;">后续如果要做成完全公网版本，也必须重新处理后台、权限和数据同步，不适合直接把现有内网排课页面原样搬到公网。</p>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js"></script>
+  </body>
+</html>
