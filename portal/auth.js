@@ -1,4 +1,5 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
+const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_ROLE_PERMISSIONS = {
   管理员: [
     "portal.access",
@@ -276,6 +277,23 @@ const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
 
+function jrcReadCustomEmployees() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function jrcWriteCustomEmployees(employees) {
+  localStorage.setItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, JSON.stringify(employees));
+}
+
+function jrcGetAllEmployees() {
+  return [...JRC_EMPLOYEES, ...jrcReadCustomEmployees()];
+}
+
 function jrcReadSession() {
   try {
     return JSON.parse(localStorage.getItem(JRC_AUTH_STORAGE_KEY) || "null");
@@ -300,7 +318,7 @@ function jrcClearSession() {
 }
 
 function jrcFindEmployeeByUsername(username) {
-  return JRC_EMPLOYEES.find((employee) => employee.username === username);
+  return jrcGetAllEmployees().find((employee) => employee.username === username);
 }
 
 function jrcResolveCurrentEmployee() {
@@ -394,6 +412,11 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   return summaries.join(" / ") || "仅登录访问";
 }
 
+function jrcCanManageEmployees(employee = jrcResolveCurrentEmployee()) {
+  if (!employee?.username) return false;
+  return JRC_SUPER_ADMIN_USERNAMES.includes(employee.username);
+}
+
 function jrcEnsureTopbar(currentEmployee) {
   const topbar = document.createElement("div");
   topbar.className = "jrc-auth-bar";
@@ -419,6 +442,7 @@ function jrcEnsureTopbar(currentEmployee) {
 function jrcEnsureEmployeeSummary() {
   const holder = document.querySelector("[data-employee-summary]");
   if (!holder) return;
+  const employeeCount = jrcGetAllEmployees().length;
 
   if (!document.querySelector("[data-employee-directory]")) {
     const panel = document.createElement("div");
@@ -430,18 +454,19 @@ function jrcEnsureEmployeeSummary() {
 
   holder.innerHTML = `
     <div class="jrc-employee-summary__head">
-      <strong>当前已录入 ${JRC_EMPLOYEES.length} 名员工账号</strong>
+      <strong>当前已录入 ${employeeCount} 名员工账号</strong>
       <button type="button" class="jrc-employee-directory-toggle" data-employee-directory-toggle>全员名单</button>
     </div>
     <span>用户名统一用姓名拼音；初始密码统一为 10281028。当前已经接入基础岗位权限，不同岗位看到的系统入口会开始区分。</span>
   `;
 }
 
-function jrcRenderEmployeeDirectory() {
+function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee()) {
   const holder = document.querySelector("[data-employee-directory]");
   if (!holder) return;
 
-  const rows = JRC_EMPLOYEES.map((employee) => {
+  const allEmployees = jrcGetAllEmployees();
+  const rows = allEmployees.map((employee) => {
     const tags = [
       employee.role || "",
       employee.subject || employee.scope || "",
@@ -473,7 +498,7 @@ function jrcRenderEmployeeDirectory() {
   holder.innerHTML = `
     <div class="jrc-employee-directory__head">
       <strong>全员名单</strong>
-      <span>后续新增员工账号后，这里会自动同步显示。</span>
+      <span>${jrcCanManageEmployees(currentEmployee) ? "你当前可以直接新增员工基础账号。" : "后续新增员工账号后，这里会自动同步显示。"}</span>
     </div>
     <div class="jrc-employee-directory__tools">
       <input type="search" class="jrc-employee-search" data-employee-search placeholder="搜索姓名 / 拼音 / 手机 / 微信">
@@ -487,9 +512,41 @@ function jrcRenderEmployeeDirectory() {
     </div>
     <div class="jrc-employee-grid">${rows}</div>
     <div class="jrc-employee-directory__footer">
-      <button type="button" class="jrc-employee-add-placeholder">新增员工入口（管理员）</button>
-      <span>后面正式接管理员录入后，这里会直接新增员工姓名、岗位、手机号、权限和初始账号。</span>
+      ${jrcCanManageEmployees(currentEmployee) ? `
+        <button type="button" class="jrc-employee-add-placeholder" data-employee-add-toggle>新增员工</button>
+        <span>新增后会立刻进入账号名单，并使用统一初始密码 10281028。</span>
+      ` : `
+        <button type="button" class="jrc-employee-add-placeholder">新增员工入口（仅管理员）</button>
+        <span>后面正式接管理员录入后，这里会直接新增员工姓名、岗位、手机号、权限和初始账号。</span>
+      `}
     </div>
+    ${jrcCanManageEmployees(currentEmployee) ? `
+      <form class="jrc-employee-form" data-employee-form hidden>
+        <div class="jrc-employee-form__grid">
+          <label><span>老师姓名</span><input name="name" required></label>
+          <label><span>用户名拼音</span><input name="username" required></label>
+          <label><span>岗位</span>
+            <select name="role">
+              <option value="学管">学管</option>
+              <option value="财务">财务</option>
+              <option value="授课老师">授课老师</option>
+              <option value="管理员">管理员</option>
+            </select>
+          </label>
+          <label><span>手机号</span><input name="phone"></label>
+          <label><span>微信号</span><input name="wechat"></label>
+          <label><span>负责范围</span><input name="scope"></label>
+          <label><span>任教学科</span><input name="subject"></label>
+          <label><span>入职日期</span><input name="hireDate" placeholder="2026-06-21"></label>
+          <label><span>转正日期</span><input name="regularDate" placeholder="2026-07-21"></label>
+          <label><span>提成比例</span><input name="commissionRate" placeholder="20%"></label>
+        </div>
+        <div class="jrc-employee-form__actions">
+          <button type="submit" class="jrc-employee-form__submit">保存新增员工</button>
+          <span data-employee-form-message>保存后自动使用统一初始密码 10281028。</span>
+        </div>
+      </form>
+    ` : ""}
   `;
 }
 
@@ -529,6 +586,65 @@ function jrcBindEmployeeDirectoryFilters() {
 
   search.addEventListener("input", applyFilter);
   roleFilter.addEventListener("change", applyFilter);
+}
+
+function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
+  if (!jrcCanManageEmployees(currentEmployee)) return;
+
+  const toggle = document.querySelector("[data-employee-add-toggle]");
+  const form = document.querySelector("[data-employee-form]");
+  const message = document.querySelector("[data-employee-form-message]");
+  if (!toggle || !form || !message) return;
+
+  toggle.addEventListener("click", () => {
+    const hidden = form.hasAttribute("hidden");
+    if (hidden) {
+      form.removeAttribute("hidden");
+      toggle.textContent = "收起新增员工";
+    } else {
+      form.setAttribute("hidden", "");
+      toggle.textContent = "新增员工";
+    }
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const username = String(formData.get("username") || "").trim().toLowerCase();
+    const name = String(formData.get("name") || "").trim();
+
+    if (!name || !username) {
+      message.textContent = "老师姓名和用户名拼音必须填写。";
+      return;
+    }
+    if (jrcFindEmployeeByUsername(username)) {
+      message.textContent = "这个用户名已经存在，请换一个拼音。";
+      return;
+    }
+
+    const customEmployees = jrcReadCustomEmployees();
+    customEmployees.push({
+      name,
+      username,
+      password: "10281028",
+      role: String(formData.get("role") || "授课老师").trim(),
+      phone: String(formData.get("phone") || "").trim(),
+      wechat: String(formData.get("wechat") || "").trim(),
+      scope: String(formData.get("scope") || "").trim(),
+      hireDate: String(formData.get("hireDate") || "").trim(),
+      regularDate: String(formData.get("regularDate") || "").trim(),
+      subject: String(formData.get("subject") || "").trim(),
+      commissionRate: String(formData.get("commissionRate") || "").trim()
+    });
+    jrcWriteCustomEmployees(customEmployees);
+    message.textContent = `已新增 ${name}，初始密码 10281028。`;
+    form.reset();
+    jrcEnsureEmployeeSummary();
+    jrcRenderEmployeeDirectory(currentEmployee);
+    jrcBindEmployeeDirectoryToggle();
+    jrcBindEmployeeDirectoryFilters();
+    jrcBindEmployeeAddForm(currentEmployee);
+  });
 }
 
 function jrcApplyPermissionDecorations(currentEmployee) {
@@ -827,10 +943,66 @@ function jrcInjectStyles() {
       color: #64748b;
       font-size: 13px;
     }
+    .jrc-employee-form {
+      margin-top: 14px;
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    .jrc-employee-form__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+    .jrc-employee-form label {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .jrc-employee-form label span {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .jrc-employee-form input,
+    .jrc-employee-form select {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: #fff;
+      color: #172132;
+      padding: 0 12px;
+      font: inherit;
+    }
+    .jrc-employee-form__actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .jrc-employee-form__submit {
+      min-height: 40px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 0;
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+    .jrc-employee-form__actions span {
+      color: #64748b;
+      font-size: 13px;
+    }
     @media (max-width: 900px) {
       .jrc-employee-directory__tools,
       .jrc-employee-grid,
-      .jrc-employee-card__meta {
+      .jrc-employee-card__meta,
+      .jrc-employee-form__grid {
         grid-template-columns: 1fr;
       }
     }
@@ -948,13 +1120,14 @@ function jrcShowLoginOverlay() {
 function jrcBootstrapAuth() {
   jrcInjectStyles();
   jrcEnsureEmployeeSummary();
-  jrcRenderEmployeeDirectory();
-  jrcBindEmployeeDirectoryToggle();
-  jrcBindEmployeeDirectoryFilters();
   window.JRC_EMPLOYEES = JRC_EMPLOYEES;
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
   const currentEmployee = jrcResolveCurrentEmployee();
+  jrcRenderEmployeeDirectory(currentEmployee);
+  jrcBindEmployeeDirectoryToggle();
+  jrcBindEmployeeDirectoryFilters();
+  jrcBindEmployeeAddForm(currentEmployee);
   if (!currentEmployee) {
     jrcShowLoginOverlay();
     return;
