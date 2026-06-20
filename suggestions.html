@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理建议与投票</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .portal-bar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+
+        .portal-bar-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .portal-meta {
+            min-width: 0;
+        }
+
+        .portal-meta .kicker {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #0071e3;
+        }
+
+        .portal-meta .title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .portal-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .portal-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1d1d1f;
+            background: #f5f5f7;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .portal-link.primary {
+            background: #0071e3;
+            color: white;
+            border-color: #0071e3;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: #86868b;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .my-stats {
+            display: flex;
+            background: linear-gradient(135deg, #0071e3 0%, #0055b3 100%);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .my-stats .stat {
+            flex: 1;
+            text-align: center;
+        }
+
+        .my-stats .stat .num {
+            font-size: 22px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .my-stats .stat .label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 2px;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #86868b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: #f5f5f7;
+            color: #1d1d1f;
+            font-weight: 500;
+        }
+
+        .tab .badge {
+            display: inline-block;
+            background: #ff3b30;
+            color: white;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+
+        .submit-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .submit-card .type-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .submit-card .type-chip {
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            background: #f5f5f7;
+            color: #515154;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .submit-card .type-chip.selected {
+            background: #e8f0fe;
+            color: #0071e3;
+            border-color: #0071e3;
+        }
+
+        .submit-card textarea {
+            width: 100%;
+            border: none;
+            resize: none;
+            font-size: 15px;
+            line-height: 1.6;
+            outline: none;
+            min-height: 80px;
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .submit-card textarea::placeholder {
+            color: #86868b;
+        }
+
+        .submit-card .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .submit-card .anonymous-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #86868b;
+            cursor: pointer;
+        }
+
+        .submit-card .toggle {
+            width: 40px;
+            height: 22px;
+            background: #e5e5ea;
+            border-radius: 11px;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .submit-card .toggle.on {
+            background: #34c759;
+        }
+
+        .submit-card .toggle::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .submit-card .toggle.on::after {
+            transform: translateX(18px);
+        }
+
+        .submit-card .submit-btn {
+            background: #0071e3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-left: auto;
+            transition: background 0.2s;
+        }
+
+        .submit-card .submit-btn:hover {
+            background: #0077ED;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-header .avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .card-header .avatar.anonymous {
+            background: linear-gradient(135deg, #86868b 0%, #636366 100%);
+        }
+
+        .card-header .info {
+            flex: 1;
+        }
+
+        .card-header .name {
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-header .name .type-tag {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #f5f5f7;
+            color: #86868b;
+            font-weight: 400;
+        }
+
+        .card-header .time {
+            font-size: 12px;
+            color: #86868b;
+        }
+
+        .card-header .status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .status.pending { background: #fff3e0; color: #e65100; }
+        .status.considering { background: #e3f2fd; color: #1565c0; }
+        .status.adopted { background: #e8f5e9; color: #2e7d32; }
+        .status.declined { background: #fce4ec; color: #c62828; }
+
+        .card-content {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1d1d1f;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #f5f5f7;
+        }
+
+        .card-actions button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #86868b;
+            font-size: 13px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 6px 0;
+        }
+
+        .card-actions button.liked { color: #ff3b30; }
+        .card-actions button.liked svg { fill: #ff3b30; }
+
+        .card-comments {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f5f5f7;
+        }
+
+        .card-comment {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .card-comment .avatar {
+            width: 26px;
+            height: 26px;
+            font-size: 10px;
+        }
+
+        .card-comment .content {
+            flex: 1;
+            background: #f5f5f7;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        .card-comment .author {
+            font-weight: 500;
+            margin-right: 4px;
+        }
+
+        .comment-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .comment-input input {
+            flex: 1;
+            border: none;
+            background: #f5f5f7;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .comment-input button {
+            background: #0071e3;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 18px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .vote-section {
+            margin-top: 12px;
+            padding: 14px;
+            background: #f5f5f7;
+            border-radius: 12px;
+        }
+
+        .vote-section .vote-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .vote-section .vote-title svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .vote-section .vote-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .vote-section .vote-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .vote-section .vote-option .radio {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d1d6;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .vote-section .vote-option.selected .radio {
+            border-color: #0071e3;
+            background: #0071e3;
+            box-shadow: inset 0 0 0 3px white;
+        }
+
+        .vote-section .vote-option .label {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .vote-section .vote-option .percent {
+            font-size: 13px;
+            font-weight: 500;
+            color: #0071e3;
+        }
+
+        .vote-section .vote-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #86868b;
+        }
+
+        .vote-section .vote-btn {
+            width: 100%;
+            background: #0071e3;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .vote-section .vote-btn:disabled {
+            background: #e5e5ea;
+            color: #86868b;
+            cursor: not-allowed;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e5e5e5;
+            padding: 8px 0;
+            padding-bottom: env(safe-area-inset-bottom, 8px);
+        }
+
+        .bottom-nav-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: #86868b;
+            font-size: 10px;
+            text-decoration: none;
+            padding: 4px 16px;
+            cursor: pointer;
+        }
+
+        .bottom-nav .nav-item.active {
+            color: #0071e3;
+        }
+
+        .bottom-nav .nav-item svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: #1d1d1f;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 100;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        .modal {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            max-width: 480px;
+            margin: 0 auto;
+            z-index: 101;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.show {
+            transform: translateY(0);
+        }
+
+        .modal h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .modal .modal-type-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .modal .modal-type-chip {
+            padding: 8px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            background: #f5f5f7;
+            color: #515154;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .modal .modal-type-chip.selected {
+            background: #e8f0fe;
+            color: #0071e3;
+            border-color: #0071e3;
+        }
+
+        .modal textarea {
+            width: 100%;
+            border: none;
+            background: #f5f5f7;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: none;
+            min-height: 100px;
+            outline: none;
+        }
+
+        .modal .modal-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            margin-bottom: 14px;
+        }
+
+        .modal .modal-row label {
+            font-size: 13px;
+            color: #515154;
+        }
+
+        .modal .modal-toggle {
+            width: 40px;
+            height: 22px;
+            background: #e5e5ea;
+            border-radius: 11px;
+            position: relative;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .modal .modal-toggle.on {
+            background: #34c759;
+        }
+
+        .modal .modal-toggle::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .modal .modal-toggle.on::after {
+            transform: translateX(18px);
+        }
+
+        .modal .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal .modal-btns button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+        }
+
+        .modal .modal-btns .cancel {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .modal .modal-btns .confirm {
+            background: #0071e3;
+            color: white;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f5f5f7;
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-item .rank {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .leaderboard-item .rank.r1 { background: linear-gradient(135deg, #f5d742 0%, #f79d3c 100%); color: white; }
+        .leaderboard-item .rank.r2 { background: linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%); color: #333; }
+        .leaderboard-item .rank.r3 { background: linear-gradient(135deg, #e4b4a1 0%, #c9855a 100%); color: white; }
+        .leaderboard-item .rank.r4, .leaderboard-item .rank.r5 { background: #f5f5f7; color: #86868b; }
+
+        .leaderboard-item .name {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .leaderboard-item .score {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0071e3;
+        }
+
+        .leaderboard-item .avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 12px;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="portal-bar">
+        <div class="portal-bar-inner">
+            <div class="portal-meta">
+                <div class="kicker">JRC EDU Portal</div>
+                <div class="title">建议管理系统</div>
+            </div>
+            <div class="portal-actions">
+                <a class="portal-link" href="./index.html">总站首页</a>
+                <a class="portal-link primary" href="./knowledge.html">知识库</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>管理建议</h1>
+            <p>让机构变得更好的每一个想法</p>
+        </header>
+
+        <div class="my-stats">
+            <div class="stat">
+                <div class="num" id="mySuggestions">3</div>
+                <div class="label">我的建议</div>
+            </div>
+            <div class="stat">
+                <div class="num" id="myAdopted">1</div>
+                <div class="label">已采纳</div>
+            </div>
+            <div class="stat">
+                <div class="num" id="myScore">85</div>
+                <div class="label">我的积分</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="suggestions">建议</div>
+            <div class="tab" data-tab="votes">投票<span class="badge" id="voteBadge">2</span></div>
+            <div class="tab" data-tab="ranking">排行</div>
+            <div class="tab" data-tab="my">我的</div>
+        </div>
+
+        <!-- 建议列表 -->
+        <div id="suggestionsView">
+            <div class="submit-card">
+                <div class="type-select" id="typeSelect">
+                    <div class="type-chip selected" data-type="流程优化">流程优化</div>
+                    <div class="type-chip" data-type="成本控制">成本控制</div>
+                    <div class="type-chip" data-type="教学质量">教学质量</div>
+                    <div class="type-chip" data-type="员工关怀">员工关怀</div>
+                    <div class="type-chip" data-type="营销招生">营销招生</div>
+                    <div class="type-chip" data-type="团队建设">团队建设</div>
+                    <div class="type-chip" data-type="技术工具">技术工具</div>
+                    <div class="type-chip" data-type="其他">其他</div>
+                </div>
+                <textarea id="suggestionInput" placeholder="分享你的想法或建议..."></textarea>
+                <div class="row">
+                    <div class="anonymous-toggle" onclick="toggleAnonymous('suggestion')">
+                        <div class="toggle" id="suggestionAnonToggle"></div>
+                        <span>匿名提交</span>
+                    </div>
+                    <button class="submit-btn" onclick="submitSuggestion()">提交</button>
+                </div>
+            </div>
+
+            <div id="suggestionList"></div>
+        </div>
+
+        <!-- 投票列表 -->
+        <div id="votesView" class="hidden">
+            <div class="submit-card" style="margin-bottom: 16px;">
+                <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px;">发起新投票</div>
+                <textarea id="voteQuestionInput" placeholder="输入投票议题..." style="margin-bottom: 12px;"></textarea>
+                <div id="voteOptionsInput">
+                    <input type="text" placeholder="选项1" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
+                    <input type="text" placeholder="选项2" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
+                </div>
+                <div class="row">
+                    <div class="anonymous-toggle" onclick="toggleAnonymous('vote')">
+                        <div class="toggle on" id="voteAnonToggle"></div>
+                        <span>匿名投票</span>
+                    </div>
+                    <button class="submit-btn" onclick="addVoteOption()">+ 添加选项</button>
+                </div>
+                <button class="submit-btn" style="width: 100%; margin-top: 12px;" onclick="createVote()">发起投票</button>
+            </div>
+            <div id="voteList"></div>
+        </div>
+
+        <!-- 排行榜 -->
+        <div id="rankingView" class="hidden">
+            <div class="card">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 14px;">本月积分排行</h4>
+                <div id="leaderboard"></div>
+            </div>
+        </div>
+
+        <!-- 我的 -->
+        <div id="myView" class="hidden">
+            <div class="card">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 14px;">我提交的</h4>
+                <div id="mySuggestionsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="bottom-nav-inner">
+            <div class="nav-item active" data-view="suggestions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                建议
+            </div>
+            <div class="nav-item" data-view="votes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 20V10M12 20V4M6 20v-6"/>
+                </svg>
+                投票
+            </div>
+            <div class="nav-item" data-view="ranking">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 15l-3 3V4M12 15l3 3V4M4 9h16M4 15h16"/>
+                </svg>
+                排行
+            </div>
+            <div class="nav-item" data-view="my">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                我的
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let currentTab = 'suggestions';
+        let suggestionAnon = false;
+        let voteAnon = true;
+        let selectedType = '流程优化';
+
+        const currentUser = '我';
+        const currentUserInitials = '我';
+
+        // 从localStorage加载数据
+        function loadData() {
+            const saved = localStorage.getItem('adviceSystem');
+            if (saved) {
+                const data = JSON.parse(saved);
+                suggestions = data.suggestions || [];
+                votes = data.votes || [];
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('adviceSystem', JSON.stringify({ suggestions, votes }));
+        }
+
+        const leaders = [
+            { name: '张老师', initials: '张', score: 280, avatar: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+            { name: '李老师', initials: '李', score: 245, avatar: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+            { name: '周老师', initials: '周', score: 210, avatar: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+            { name: '王老师', initials: '王', score: 185, avatar: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+            { name: '刘老师', initials: '刘', score: 150, avatar: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+        ];
+
+        let suggestions = [
+            {
+                id: 1,
+                type: '流程优化',
+                author: '张老师',
+                initials: '张',
+                anonymous: false,
+                content: '建议每周五下午3点后不排新班，让老师们有时间处理行政事务。很多时候周五下午临时通知改课表很被动。',
+                time: '10分钟前',
+                likes: 12,
+                liked: false,
+                status: 'adopted',
+                comments: [
+                    { author: '王校长', initials: '王', content: '已采纳，下周开始执行。' }
+                ]
+            },
+            {
+                id: 2,
+                type: '员工关怀',
+                author: '匿名',
+                initials: '匿',
+                anonymous: true,
+                content: '能不能给每个教室门口放一个小白板？方便老师之间传递信息，比如临时换教室的通知。',
+                time: '30分钟前',
+                likes: 8,
+                liked: false,
+                status: 'considering',
+                comments: []
+            },
+            {
+                id: 3,
+                type: '技术工具',
+                author: '我',
+                initials: '我',
+                anonymous: false,
+                content: '暑假班教室分配方案已经实施了2周，整体效果不错。但发现三楼5号教室的投影仪亮度不够，建议更换。',
+                time: '2小时前',
+                likes: 5,
+                liked: true,
+                status: 'pending',
+                comments: []
+            }
+        ];
+
+        let votes = [
+            {
+                id: 1,
+                question: '暑假班是否提前到7月1日开始？',
+                options: [
+                    { label: '支持，7月1日开始', votes: 6, percent: 55 },
+                    { label: '保持7月4日', votes: 4, percent: 36 },
+                    { label: '无所谓', votes: 1, percent: 9 }
+                ],
+                totalVotes: 11,
+                voted: false,
+                userVoted: null,
+                anonymous: true,
+                createdBy: '王校长',
+                time: '1小时前'
+            },
+            {
+                id: 2,
+                question: '本周五下午是否安排团建活动？',
+                options: [
+                    { label: '去外面吃饭', votes: 5, percent: 42 },
+                    { label: '室内游戏', votes: 4, percent: 33 },
+                    { label: '不团建', votes: 3, percent: 25 }
+                ],
+                totalVotes: 12,
+                voted: false,
+                userVoted: null,
+                anonymous: true,
+                createdBy: '我',
+                time: '3小时前'
+            }
+        ];
+
+        function showNotification(text) {
+            const el = document.getElementById('notification');
+            el.textContent = text;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2500);
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+
+            document.getElementById('suggestionsView').classList.toggle('hidden', tab !== 'suggestions');
+            document.getElementById('votesView').classList.toggle('hidden', tab !== 'votes');
+            document.getElementById('rankingView').classList.toggle('hidden', tab !== 'ranking');
+            document.getElementById('myView').classList.toggle('hidden', tab !== 'my');
+
+            if (tab === 'votes') {
+                document.getElementById('voteBadge').style.display = 'none';
+                renderVotes();
+            }
+            if (tab === 'ranking') renderLeaderboard();
+            if (tab === 'my') renderMySuggestions();
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+                switchTab(item.dataset.view);
+            });
+        });
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
+
+        function toggleAnonymous(type) {
+            if (type === 'suggestion') {
+                suggestionAnon = !suggestionAnon;
+                document.getElementById('suggestionAnonToggle').classList.toggle('on', suggestionAnon);
+            } else {
+                voteAnon = !voteAnon;
+                document.getElementById('voteAnonToggle').classList.toggle('on', voteAnon);
+            }
+        }
+
+        document.querySelectorAll('#typeSelect .type-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('#typeSelect .type-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+                selectedType = chip.dataset.type;
+            });
+        });
+
+        function submitSuggestion() {
+            const input = document.getElementById('suggestionInput');
+            const text = input.value.trim();
+            if (!text) {
+                showNotification('请输入建议内容');
+                return;
+            }
+
+            const newSuggestion = {
+                id: Date.now(),
+                type: selectedType,
+                author: suggestionAnon ? '匿名' : currentUser,
+                initials: suggestionAnon ? '匿' : currentUserInitials,
+                anonymous: suggestionAnon,
+                content: text,
+                time: '刚刚',
+                likes: 0,
+                liked: false,
+                status: 'pending',
+                comments: []
+            };
+
+            suggestions.unshift(newSuggestion);
+            saveData();
+            input.value = '';
+            renderSuggestions();
+            updateMyStats();
+            showNotification('建议已提交，感谢分享！');
+        }
+
+        function toggleLike(id) {
+            const s = suggestions.find(x => x.id === id);
+            s.liked = !s.liked;
+            s.likes += s.liked ? 1 : -1;
+            saveData();
+            renderSuggestions();
+        }
+
+        function toggleComments(id) {
+            const el = document.getElementById(`comments-${id}`);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addComment(id) {
+            const input = document.getElementById(`comment-input-${id}`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            const s = suggestions.find(x => x.id === id);
+            s.comments.push({
+                author: currentUser,
+                initials: currentUserInitials,
+                content: text
+            });
+            saveData();
+            input.value = '';
+            renderSuggestions();
+        }
+
+        function vote(voteId, optionIndex) {
+            const v = votes.find(x => x.id === voteId);
+            if (v.voted) return;
+
+            v.options[optionIndex].votes++;
+            v.totalVotes++;
+            v.voted = true;
+            v.userVoted = optionIndex;
+
+            v.options.forEach((opt, i) => {
+                opt.percent = Math.round((opt.votes / v.totalVotes) * 100);
+            });
+
+            saveData();
+            renderVotes();
+        }
+
+        function renderVotes() {
+            const list = document.getElementById('voteList');
+            list.innerHTML = votes.map(v => `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="avatar" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            ${v.createdBy === '我' ? '我' : v.createdBy[0]}
+                        </div>
+                        <div class="info">
+                            <div class="name">
+                                ${v.question}
+                                <span class="type-tag">${v.anonymous ? '匿名投票' : '公开投票'}</span>
+                            </div>
+                            <div class="time">${v.time} · ${v.totalVotes}人投票</div>
+                        </div>
+                    </div>
+                    <div class="vote-section">
+                        <div class="vote-options">
+                            ${v.options.map((opt, i) => `
+                                <div class="vote-option ${v.userVoted === i ? 'selected' : ''}" onclick="${v.voted ? '' : `vote(${v.id}, ${i})`}">
+                                    <div class="radio"></div>
+                                    <span class="label">${opt.label}</span>
+                                    ${v.voted ? `<span class="percent">${opt.percent}%</span>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${v.voted ? `<div style="margin-top: 10px; font-size: 12px; color: #34c759;">✓ 你已投票</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderLeaderboard() {
+            const list = document.getElementById('leaderboard');
+            list.innerHTML = leaders.map((l, i) => `
+                <div class="leaderboard-item">
+                    <div class="rank ${'r' + (i + 1)}">${i + 1}</div>
+                    <div class="avatar" style="background: ${l.avatar}; color: white;">${l.initials}</div>
+                    <div class="name">${l.name}</div>
+                    <div class="score">${l.score}分</div>
+                </div>
+            `).join('');
+        }
+
+        function renderMySuggestions() {
+            const myList = suggestions.filter(s => s.author === currentUser || (s.anonymous && s.author === '匿名'));
+            const list = document.getElementById('mySuggestionsList');
+            if (myList.length === 0) {
+                list.innerHTML = '<div style="color: #86868b; text-align: center; padding: 20px;">暂无建议</div>';
+                return;
+            }
+            list.innerHTML = myList.map(s => `
+                <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f7;">
+                    <div style="font-size: 13px; color: #86868b; margin-bottom: 4px;">${s.type} · ${s.time}</div>
+                    <div style="font-size: 14px;">${s.content}</div>
+                    <div style="margin-top: 6px;">
+                        <span class="status ${s.status}">${getStatusText(s.status)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusText(status) {
+            const map = { pending: '待处理', considering: '考虑中', adopted: '已采纳', declined: '暂不采纳' };
+            return map[status] || status;
+        }
+
+        function updateMyStats() {
+            const mySuggestions = suggestions.filter(s => s.author === currentUser);
+            const myAdopted = suggestions.filter(s => s.author === currentUser && s.status === 'adopted').length;
+            document.getElementById('mySuggestions').textContent = mySuggestions.length;
+            document.getElementById('myAdopted').textContent = myAdopted;
+            document.getElementById('myScore').textContent = 85 + myAdopted * 50;
+        }
+
+        function renderSuggestions() {
+            const list = document.getElementById('suggestionList');
+            list.innerHTML = suggestions.map(s => `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="avatar ${s.anonymous ? 'anonymous' : ''}" style="${s.anonymous ? '' : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);'}">
+                            ${s.initials}
+                        </div>
+                        <div class="info">
+                            <div class="name">
+                                ${s.anonymous ? '匿名' : s.author}
+                                <span class="type-tag">${s.type}</span>
+                            </div>
+                            <div class="time">${s.time}</div>
+                        </div>
+                        <span class="status ${s.status}">${getStatusText(s.status)}</span>
+                    </div>
+                    <div class="card-content">${s.content}</div>
+                    <div class="card-actions">
+                        <button class="${s.liked ? 'liked' : ''}" onclick="toggleLike(${s.id})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="${s.liked ? '#ff3b30' : 'none'}" stroke="${s.liked ? '#ff3b30' : 'currentColor'}" stroke-width="2">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                            ${s.likes}
+                        </button>
+                        <button onclick="toggleComments(${s.id})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                            </svg>
+                            ${s.comments.length}
+                        </button>
+                    </div>
+                    <div class="card-comments" id="comments-${s.id}" style="display: none;">
+                        ${s.comments.map(c => `
+                            <div class="card-comment">
+                                <div class="avatar">${c.initials}</div>
+                                <div class="content">
+                                    <span class="author">${c.author}:</span>${c.content}
+                                </div>
+                            </div>
+                        `).join('')}
+                        <div class="comment-input">
+                            <input type="text" placeholder="写下你的评论..." id="comment-input-${s.id}">
+                            <button onclick="addComment(${s.id})">发送</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        let voteOptionCount = 2;
+        function addVoteOption() {
+            voteOptionCount++;
+            const container = document.getElementById('voteOptionsInput');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = `选项${voteOptionCount}`;
+            input.style.cssText = 'width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;';
+            container.appendChild(input);
+        }
+
+        function createVote() {
+            const question = document.getElementById('voteQuestionInput').value.trim();
+            const options = document.querySelectorAll('#voteOptionsInput input');
+            const optionTexts = Array.from(options).map(o => o.value.trim()).filter(Boolean);
+
+            if (!question) {
+                showNotification('请输入投票议题');
+                return;
+            }
+            if (optionTexts.length < 2) {
+                showNotification('请至少填写2个选项');
+                return;
+            }
+
+            const newVote = {
+                id: Date.now(),
+                question: question,
+                options: optionTexts.map(label => ({ label, votes: 0, percent: 0 })),
+                totalVotes: 0,
+                voted: false,
+                userVoted: null,
+                anonymous: voteAnon,
+                createdBy: currentUser,
+                time: '刚刚'
+            };
+
+            votes.unshift(newVote);
+            saveData();
+            document.getElementById('voteQuestionInput').value = '';
+            document.getElementById('voteOptionsInput').innerHTML = `
+                <input type="text" placeholder="选项1" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
+                <input type="text" placeholder="选项2" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
+            `;
+            voteOptionCount = 2;
+            renderVotes();
+            showNotification('投票已发起！');
+        }
+
+        loadData();
+        renderSuggestions();
+        updateMyStats();
+    </script>
+</body>
+</html>
