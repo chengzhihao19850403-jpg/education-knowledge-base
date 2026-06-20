@@ -13,6 +13,9 @@
         --line: rgba(22, 32, 42, 0.08);
         --brand: #0d9488;
         --brand-dark: #0f766e;
+        --brand-soft: rgba(13, 148, 136, 0.1);
+        --danger: #b91c1c;
+        --warn: #b45309;
         --shadow: 0 18px 50px rgba(22, 32, 42, 0.12);
       }
       * { box-sizing: border-box; }
@@ -24,7 +27,22 @@
           radial-gradient(circle at top left, rgba(13, 148, 136, 0.14), transparent 30%),
           linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
       }
-      .shell { width: min(960px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+      button, input, select, textarea {
+        font: inherit;
+      }
+      .shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+      .topbar,
+      .card,
+      .summary-card {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.7);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
       .topbar {
         display: flex;
         align-items: center;
@@ -32,10 +50,6 @@
         gap: 14px;
         margin-bottom: 18px;
         padding: 14px 18px;
-        background: rgba(255,255,255,0.84);
-        border: 1px solid rgba(255,255,255,0.7);
-        border-radius: 20px;
-        box-shadow: var(--shadow);
         backdrop-filter: blur(10px);
       }
       .brand-name { font-size: 18px; font-weight: 700; }
@@ -54,19 +68,26 @@
         border: 1px solid var(--line);
         font-size: 13px;
       }
-      .nav-link.active {
+      .nav-link.active,
+      .button {
         background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
         color: #fff;
         border-color: transparent;
       }
       .card {
-        background: var(--panel);
-        border: 1px solid rgba(255,255,255,0.7);
-        border-radius: 24px;
-        box-shadow: var(--shadow);
-        padding: 28px;
+        padding: 24px;
       }
-      .card + .card { margin-top: 18px; }
+      .card + .card,
+      .grid + .card,
+      .card + .grid {
+        margin-top: 18px;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+        gap: 18px;
+        align-items: stretch;
+      }
       .eyebrow {
         margin: 0 0 10px;
         color: var(--brand);
@@ -75,124 +96,787 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
-      h1, h2, p, li { margin: 0; }
-      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
       h2 { font-size: 22px; }
-      p, li { color: var(--muted); line-height: 1.75; }
-      ul { margin: 14px 0 0; padding-left: 18px; }
-      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        padding: 0 18px;
-        border-radius: 999px;
-        text-decoration: none;
-        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-        color: #fff;
-      }
-      .button-secondary {
-        background: rgba(255,255,255,0.82);
-        color: var(--ink);
-        border: 1px solid var(--line);
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
       }
       .tag {
         display: inline-flex;
         align-items: center;
         border-radius: 999px;
         padding: 6px 10px;
-        background: rgba(13, 148, 136, 0.1);
+        background: var(--brand-soft);
         color: var(--brand-dark);
         font-size: 12px;
         font-weight: 700;
-        margin-top: 14px;
       }
-      .panel-grid {
+      .tag.warn {
+        background: rgba(180, 83, 9, 0.1);
+        color: var(--warn);
+      }
+      .period-panel {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
+        gap: 12px;
+        align-content: start;
+      }
+      .period-panel label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .period-panel input {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        color: var(--ink);
+        background: rgba(255,255,255,0.88);
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
         margin-top: 18px;
       }
-      .mini-card {
-        background: rgba(255,255,255,0.76);
-        border: 1px solid var(--line);
-        border-radius: 18px;
+      .summary-card {
         padding: 18px;
       }
-      .mini-card h3 {
-        margin: 0 0 8px;
-        font-size: 18px;
-      }
-      .mini-card p {
+      .summary-label {
         color: var(--muted);
-        line-height: 1.7;
+        font-size: 13px;
       }
-      @media (max-width: 760px) {
-        .topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .panel-grid {
+      .summary-value {
+        display: block;
+        margin-top: 8px;
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+      .summary-note {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+        gap: 18px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+      label.field {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .field input,
+      .field select,
+      .field textarea {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        color: var(--ink);
+        background: rgba(255,255,255,0.9);
+      }
+      .field textarea {
+        min-height: 84px;
+        padding: 10px 12px;
+        resize: vertical;
+      }
+      .span-2 { grid-column: span 2; }
+      .span-3 { grid-column: 1 / -1; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 999px;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .button.secondary {
+        background: rgba(255,255,255,0.82);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .button.danger {
+        background: rgba(185, 28, 28, 0.1);
+        color: var(--danger);
+      }
+      .button:disabled,
+      input:disabled,
+      select:disabled,
+      textarea:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+      .mini-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .mini-item {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.72);
+      }
+      .mini-item strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.72);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+      th, td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 13px;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 700;
+        background: rgba(13, 148, 136, 0.05);
+      }
+      tr:last-child td { border-bottom: 0; }
+      .money-cell {
+        font-weight: 800;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .empty {
+        padding: 22px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 9px;
+        background: var(--brand-soft);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .status-pill.pending {
+        background: rgba(180, 83, 9, 0.1);
+        color: var(--warn);
+      }
+      .status-pill.paid {
+        background: rgba(13, 148, 136, 0.13);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.08);
+        border: 1px solid rgba(13, 148, 136, 0.16);
+        color: var(--muted);
+      }
+      .edit-warning {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(180, 83, 9, 0.1);
+        color: var(--warn);
+        line-height: 1.6;
+      }
+      @media (max-width: 980px) {
+        .hero,
+        .grid {
           grid-template-columns: 1fr;
+        }
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .summary-grid,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .span-2,
+        .span-3 {
+          grid-column: auto;
         }
       }
     </style>
   </head>
-  <body>
+  <body data-page-permission="finance.access">
     <main class="shell">
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 04 · 财务系统入口</div>
+          <div class="brand-subtitle">System 04 · 财务系统</div>
         </div>
         <nav class="nav">
           <a class="nav-link" href="./index.html">总站首页</a>
-          <a class="nav-link" href="./knowledge.html">知识库</a>
-          <a class="nav-link" href="./suggestions.html">建议系统</a>
           <a class="nav-link" href="./paike.html">排课系统</a>
           <a class="nav-link active" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
         </nav>
       </section>
 
-      <section class="card">
-        <p class="eyebrow">System 04</p>
-        <h1>财务系统</h1>
-        <p style="margin-top: 12px;">财务系统后续用于承接老师课时费结算、分红结算、利润核对和历史财务沉淀。当前它还在从现有排课系统里的财务能力独立抽离，因此先在总站中保留为独立入口。</p>
-        <div class="tag">后续重点：课时费结算 + 分红结算</div>
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Finance Desk</p>
+          <h1>财务系统</h1>
+          <p class="hero-text">这里先承接你们 Excel 里的核心财务口径：课时收入、老师结算成本、日常消费/报销、经营毛利润、分红池和留存利润。后面再逐步接排课、招生和后台数据库。</p>
+          <div class="tag-row">
+            <span class="tag">日常支出/报销</span>
+            <span class="tag">成本与毛利润</span>
+            <span class="tag">分红测算</span>
+            <span class="tag warn">数据先保存在本机浏览器</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+          <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
+        </article>
+
+        <aside class="card period-panel">
+          <p class="eyebrow">Current Month</p>
+          <h2>当前核算月份</h2>
+          <label>
+            选择月份
+            <input id="periodInput" type="month" value="2026-06">
+          </label>
+          <p>分红比例默认沿用已整理口径：2026-05 从 15.5% 起算，之后每月 +0.5%，30% 封顶；页面里也允许财务临时修正。</p>
+        </aside>
+      </section>
+
+      <section class="summary-grid" aria-label="财务汇总">
+        <article class="summary-card">
+          <span class="summary-label">收入合计</span>
+          <strong class="summary-value" id="incomeTotal">¥0</strong>
+          <div class="summary-note">课时收入 + 其他收入</div>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">成本合计</span>
+          <strong class="summary-value" id="costTotal">¥0</strong>
+          <div class="summary-note">老师结算成本 + 已确认日常支出</div>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">经营毛利润</span>
+          <strong class="summary-value" id="grossProfit">¥0</strong>
+          <div class="summary-note">收入合计 - 成本合计</div>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">分红池 / 留存</span>
+          <strong class="summary-value" id="dividendPool">¥0</strong>
+          <div class="summary-note" id="retainedProfit">留存 ¥0</div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <p class="eyebrow">Monthly Inputs</p>
+          <h2>月度收入与老师结算成本</h2>
+          <p style="margin-top: 8px;">这块对应你们 Excel 的“小课产值”汇总页。先录月度总数，后面再从排课和课时费明细自动汇总。</p>
+          <form id="monthlyForm" class="form-grid">
+            <label class="field">
+              课时总收入
+              <input name="lessonIncome" type="number" min="0" step="0.01" placeholder="例如 120000">
+            </label>
+            <label class="field">
+              其他收入
+              <input name="otherIncome" type="number" min="0" step="0.01" placeholder="报名杂费/资料收入等">
+            </label>
+            <label class="field">
+              分红比例（%）
+              <input name="dividendRate" type="number" min="0" max="100" step="0.01">
+            </label>
+            <label class="field">
+              基础工资
+              <input name="baseSalary" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              社保
+              <input name="socialInsurance" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              公积金
+              <input name="housingFund" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              课时提成
+              <input name="teachingCommission" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              补课提成
+              <input name="makeupCommission" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              答疑提成
+              <input name="qaCommission" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              补贴
+              <input name="subsidy" type="number" min="0" step="0.01">
+            </label>
+            <label class="field">
+              其他老师结算成本
+              <input name="otherTeacherCost" type="number" min="0" step="0.01" placeholder="人工调整/特殊项">
+            </label>
+            <label class="field">
+              课时剩余（Excel 原值，可选）
+              <input name="classHourBalance" type="number" step="0.01" placeholder="用于和老表核对">
+            </label>
+          </form>
+          <div class="actions">
+            <button class="button" type="button" id="saveMonthlyButton">保存本月数据</button>
+            <button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button>
+          </div>
+        </article>
+
+        <aside class="card">
+          <p class="eyebrow">Excel Mapping</p>
+          <h2>先按现有表格习惯收口</h2>
+          <div class="mini-list">
+            <div class="mini-item">
+              <strong>小课产值</strong>
+              <p>课时总收入、基础工资、社保、公积金、课时提成、补课提成、答疑提成、补贴、课时剩余。</p>
+            </div>
+            <div class="mini-item">
+              <strong>日常消费表</strong>
+              <p>日常报销、校区开销、办公成本、投放成本先统一进入“日常支出/报销”。</p>
+            </div>
+            <div class="mini-item">
+              <strong>利润和分红</strong>
+              <p>先用系统统一公式算经营毛利润、分红池、留存利润；遇到特殊口径再加人工调整。</p>
+            </div>
+          </div>
+        </aside>
       </section>
 
       <section class="card">
-        <p class="eyebrow">Planned Modules</p>
-        <h2>后续会逐步独立出来的内容</h2>
-        <ul>
-          <li>老师课时费与提成计算</li>
-          <li>分红计算与月度利润核对</li>
-          <li>财务历史查询与复核</li>
-          <li>结算异常项说明与跟进</li>
-        </ul>
+        <p class="eyebrow">Expense Records</p>
+        <h2>日常支出 / 报销 / 工作成本</h2>
+        <p style="margin-top: 8px;">这里以后替代 Excel 的“日常消费表”。待审核支出会显示在表格里，但暂不计入毛利润；已确认、已支付才进入成本合计。</p>
+        <form id="expenseForm" class="form-grid">
+          <label class="field">
+            日期
+            <input name="date" type="date">
+          </label>
+          <label class="field">
+            类别
+            <select name="category">
+              <option value="老师报销">老师报销</option>
+              <option value="教材资料">教材资料</option>
+              <option value="办公用品">办公用品</option>
+              <option value="房租物业">房租物业</option>
+              <option value="水电网络">水电网络</option>
+              <option value="招生成本">招生成本</option>
+              <option value="活动支出">活动支出</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label class="field">
+            金额
+            <input name="amount" type="number" min="0" step="0.01" required>
+          </label>
+          <label class="field">
+            经办/报销人
+            <input name="operator" placeholder="例如 陈雨晴">
+          </label>
+          <label class="field">
+            状态
+            <select name="status">
+              <option value="待审核">待审核</option>
+              <option value="已确认">已确认</option>
+              <option value="已支付">已支付</option>
+            </select>
+          </label>
+          <label class="field">
+            支付方式
+            <select name="paymentMethod">
+              <option value="未填">未填</option>
+              <option value="微信">微信</option>
+              <option value="支付宝">支付宝</option>
+              <option value="银行卡">银行卡</option>
+              <option value="现金">现金</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label class="field span-3">
+            说明
+            <textarea name="notes" placeholder="写清楚用途、对应班级/老师/活动，方便月底核对"></textarea>
+          </label>
+        </form>
         <div class="actions">
-          <a class="button" href="/paike/prototype/index.html">先从现有财务能力进入</a>
-          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+          <button class="button" type="button" id="addExpenseButton">新增支出</button>
+          <button class="button secondary" type="button" id="exportExpensesButton">导出支出 CSV</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>类别</th>
+                <th>金额</th>
+                <th>经办/报销人</th>
+                <th>状态</th>
+                <th>说明</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="expenseTableBody"></tbody>
+          </table>
         </div>
       </section>
-
-      <section class="panel-grid">
-        <article class="mini-card">
-          <h3>财务系统后面会怎么接</h3>
-          <p>先吃排课系统沉淀下来的真实课表和教师数据，再逐步独立出课时费、分红、利润核对和异常说明，减少重复录入。</p>
-        </article>
-        <article class="mini-card">
-          <h3>为什么现在先做独立入口</h3>
-          <p>先把名字、入口和边界固定住，老师和管理层使用时会更清楚。后面无论逻辑怎么扩展，都不会再反复改访问习惯。</p>
-        </article>
-      </section>
-
-      <section class="card">
-        <p class="eyebrow">Current Strategy</p>
-        <h2>为什么先独立命名、后独立系统</h2>
-        <p style="margin-top: 12px;">因为财务相关内容已经在现有系统里有真实数据和逻辑，但业务边界还在持续确认。先在总站里把“财务系统”作为独立入口命名清楚，后面再逐步把课时费结算和分红结算真正抽成独立系统，是现在最稳的推进方式。</p>
-      </section>
     </main>
+
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
+    <script>
+      const FINANCE_STORAGE_KEY = "jrc-finance-ledger-v1";
+      const MONEY_FIELDS = [
+        "lessonIncome",
+        "otherIncome",
+        "dividendRate",
+        "baseSalary",
+        "socialInsurance",
+        "housingFund",
+        "teachingCommission",
+        "makeupCommission",
+        "qaCommission",
+        "subsidy",
+        "otherTeacherCost",
+        "classHourBalance"
+      ];
+
+      const byId = (id) => document.getElementById(id);
+      const money = (value) => new Intl.NumberFormat("zh-CN", {
+        style: "currency",
+        currency: "CNY",
+        maximumFractionDigits: 0
+      }).format(Number(value) || 0);
+      const toNumber = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      const todayText = () => new Date().toISOString().slice(0, 10);
+
+      function monthDiff(start, current) {
+        const [sy, sm] = String(start).split("-").map(Number);
+        const [cy, cm] = String(current).split("-").map(Number);
+        if (!sy || !sm || !cy || !cm) return 0;
+        return (cy - sy) * 12 + (cm - sm);
+      }
+
+      function defaultDividendRate(periodName) {
+        const months = Math.max(0, monthDiff("2026-05", periodName));
+        return Math.min(30, 15.5 + months * 0.5);
+      }
+
+      function createPeriod(periodName) {
+        return {
+          periodName,
+          lessonIncome: 0,
+          otherIncome: 0,
+          dividendRate: defaultDividendRate(periodName),
+          baseSalary: 0,
+          socialInsurance: 0,
+          housingFund: 0,
+          teachingCommission: 0,
+          makeupCommission: 0,
+          qaCommission: 0,
+          subsidy: 0,
+          otherTeacherCost: 0,
+          classHourBalance: "",
+          expenses: []
+        };
+      }
+
+      function readState() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(FINANCE_STORAGE_KEY) || "{}");
+          if (parsed && parsed.periods) return parsed;
+        } catch (error) {
+          console.warn("Failed to read finance state", error);
+        }
+        return { periods: {} };
+      }
+
+      function writeState(nextState) {
+        localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(nextState));
+      }
+
+      let state = readState();
+      let currentPeriod = byId("periodInput")?.value || "2026-06";
+
+      function getPeriod(periodName = currentPeriod) {
+        if (!state.periods[periodName]) {
+          state.periods[periodName] = createPeriod(periodName);
+          writeState(state);
+        }
+        return state.periods[periodName];
+      }
+
+      function calculate(period) {
+        const incomeTotal = toNumber(period.lessonIncome) + toNumber(period.otherIncome);
+        const teacherCost =
+          toNumber(period.baseSalary) +
+          toNumber(period.socialInsurance) +
+          toNumber(period.housingFund) +
+          toNumber(period.teachingCommission) +
+          toNumber(period.makeupCommission) +
+          toNumber(period.qaCommission) +
+          toNumber(period.subsidy) +
+          toNumber(period.otherTeacherCost);
+        const confirmedExpenseTotal = (period.expenses || [])
+          .filter((expense) => ["已确认", "已支付"].includes(expense.status))
+          .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+        const pendingExpenseTotal = (period.expenses || [])
+          .filter((expense) => expense.status === "待审核")
+          .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+        const costTotal = teacherCost + confirmedExpenseTotal;
+        const grossProfit = incomeTotal - costTotal;
+        const dividendRate = toNumber(period.dividendRate);
+        const dividendPool = Math.max(0, grossProfit) * dividendRate / 100;
+        const retainedProfit = grossProfit - dividendPool;
+        return {
+          incomeTotal,
+          teacherCost,
+          confirmedExpenseTotal,
+          pendingExpenseTotal,
+          costTotal,
+          grossProfit,
+          dividendRate,
+          dividendPool,
+          retainedProfit
+        };
+      }
+
+      function syncFormFromPeriod() {
+        const period = getPeriod();
+        const form = byId("monthlyForm");
+        MONEY_FIELDS.forEach((field) => {
+          if (form.elements[field]) form.elements[field].value = period[field] ?? "";
+        });
+        byId("expenseForm").elements.date.value = todayText();
+        render();
+      }
+
+      function syncPeriodFromForm() {
+        const period = getPeriod();
+        const form = byId("monthlyForm");
+        MONEY_FIELDS.forEach((field) => {
+          period[field] = form.elements[field]?.value ?? "";
+        });
+        writeState(state);
+        render();
+      }
+
+      function renderSummary(period) {
+        const totals = calculate(period);
+        byId("incomeTotal").textContent = money(totals.incomeTotal);
+        byId("costTotal").textContent = money(totals.costTotal);
+        byId("grossProfit").textContent = money(totals.grossProfit);
+        byId("dividendPool").textContent = money(totals.dividendPool);
+        byId("retainedProfit").textContent = `留存 ${money(totals.retainedProfit)}｜待审核支出 ${money(totals.pendingExpenseTotal)}`;
+      }
+
+      function renderExpenses(period) {
+        const body = byId("expenseTableBody");
+        const expenses = [...(period.expenses || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        if (!expenses.length) {
+          body.innerHTML = `<tr><td colspan="7"><div class="empty">本月还没有录入日常支出或报销。</div></td></tr>`;
+          return;
+        }
+        body.innerHTML = expenses.map((expense) => `
+          <tr>
+            <td>${escapeHtml(expense.date || "-")}</td>
+            <td>${escapeHtml(expense.category || "-")}</td>
+            <td class="money-cell">${money(expense.amount)}</td>
+            <td>${escapeHtml(expense.operator || "-")}</td>
+            <td><span class="status-pill ${expense.status === "待审核" ? "pending" : expense.status === "已支付" ? "paid" : ""}">${escapeHtml(expense.status || "待审核")}</span></td>
+            <td>${escapeHtml(expense.notes || "-")}</td>
+            <td><button class="button danger" type="button" data-delete-expense="${escapeHtml(expense.id)}">删除</button></td>
+          </tr>
+        `).join("");
+      }
+
+      function render() {
+        const period = getPeriod();
+        renderSummary(period);
+        renderExpenses(period);
+      }
+
+      function addExpense() {
+        const period = getPeriod();
+        const form = byId("expenseForm");
+        const amount = toNumber(form.elements.amount.value);
+        if (!amount) {
+          form.elements.amount.focus();
+          return;
+        }
+        period.expenses = period.expenses || [];
+        period.expenses.push({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          date: form.elements.date.value || todayText(),
+          category: form.elements.category.value,
+          amount,
+          operator: form.elements.operator.value.trim(),
+          status: form.elements.status.value,
+          paymentMethod: form.elements.paymentMethod.value,
+          notes: form.elements.notes.value.trim()
+        });
+        writeState(state);
+        form.reset();
+        form.elements.date.value = todayText();
+        render();
+      }
+
+      function deleteExpense(id) {
+        const period = getPeriod();
+        period.expenses = (period.expenses || []).filter((expense) => expense.id !== id);
+        writeState(state);
+        render();
+      }
+
+      function csvEscape(value) {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function downloadCsv(filename, rows) {
+        const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportSummary() {
+        const period = getPeriod();
+        const totals = calculate(period);
+        downloadCsv(`财务月度汇总-${currentPeriod}.csv`, [
+          ["月份", "课时总收入", "其他收入", "老师结算成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
+          [
+            currentPeriod,
+            period.lessonIncome,
+            period.otherIncome,
+            totals.teacherCost,
+            totals.confirmedExpenseTotal,
+            totals.pendingExpenseTotal,
+            totals.incomeTotal,
+            totals.costTotal,
+            totals.grossProfit,
+            `${totals.dividendRate}%`,
+            totals.dividendPool,
+            totals.retainedProfit,
+            period.classHourBalance || ""
+          ]
+        ]);
+      }
+
+      function exportExpenses() {
+        const period = getPeriod();
+        const rows = [
+          ["月份", "日期", "类别", "金额", "经办/报销人", "状态", "支付方式", "说明"],
+          ...(period.expenses || []).map((expense) => [
+            currentPeriod,
+            expense.date,
+            expense.category,
+            expense.amount,
+            expense.operator,
+            expense.status,
+            expense.paymentMethod,
+            expense.notes
+          ])
+        ];
+        downloadCsv(`日常支出明细-${currentPeriod}.csv`, rows);
+      }
+
+      function applyEditPermission() {
+        const canEdit = window.jrcHasPermission ? window.jrcHasPermission("finance.edit") : true;
+        byId("editWarning").hidden = canEdit;
+        document.querySelectorAll("main input, main select, main textarea, main button").forEach((node) => {
+          const keepEnabled = ["periodInput", "exportSummaryButton", "exportExpensesButton"].includes(node.id);
+          if (!canEdit && !keepEnabled) node.disabled = true;
+        });
+      }
+
+      byId("periodInput").addEventListener("change", (event) => {
+        currentPeriod = event.target.value || "2026-06";
+        getPeriod(currentPeriod);
+        syncFormFromPeriod();
+      });
+      byId("monthlyForm").addEventListener("input", syncPeriodFromForm);
+      byId("saveMonthlyButton").addEventListener("click", syncPeriodFromForm);
+      byId("addExpenseButton").addEventListener("click", addExpense);
+      byId("exportSummaryButton").addEventListener("click", exportSummary);
+      byId("exportExpensesButton").addEventListener("click", exportExpenses);
+      byId("expenseTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-delete-expense]");
+        if (!button) return;
+        deleteExpense(button.getAttribute("data-delete-expense"));
+      });
+
+      getPeriod(currentPeriod);
+      syncFormFromPeriod();
+      applyEditPermission();
+    </script>
   </body>
 </html>
