@@ -420,9 +420,68 @@ function jrcEnsureEmployeeSummary() {
   const holder = document.querySelector("[data-employee-summary]");
   if (!holder) return;
   holder.innerHTML = `
-    <strong>当前已录入 ${JRC_EMPLOYEES.length} 名员工账号</strong>
+    <div class="jrc-employee-summary__head">
+      <strong>当前已录入 ${JRC_EMPLOYEES.length} 名员工账号</strong>
+      <button type="button" class="jrc-employee-directory-toggle" data-employee-directory-toggle>全员名单</button>
+    </div>
     <span>用户名统一用姓名拼音；初始密码统一为 10281028。当前已经接入基础岗位权限，不同岗位看到的系统入口会开始区分。</span>
   `;
+}
+
+function jrcRenderEmployeeDirectory() {
+  const holder = document.querySelector("[data-employee-directory]");
+  if (!holder) return;
+
+  const rows = JRC_EMPLOYEES.map((employee) => {
+    const tags = [
+      employee.role || "",
+      employee.subject || employee.scope || "",
+      employee.commissionRate ? `提成 ${employee.commissionRate}` : ""
+    ].filter(Boolean);
+
+    return `
+      <article class="jrc-employee-card">
+        <div class="jrc-employee-card__head">
+          <div>
+            <strong>${employee.name}</strong>
+            <span>@${employee.username}</span>
+          </div>
+          <div class="jrc-employee-card__tags">
+            ${tags.map((tag) => `<span>${tag}</span>`).join("")}
+          </div>
+        </div>
+        <dl class="jrc-employee-card__meta">
+          <div><dt>手机号</dt><dd>${employee.phone || "-"}</dd></div>
+          <div><dt>微信号</dt><dd>${employee.wechat || "-"}</dd></div>
+          <div><dt>负责范围</dt><dd>${employee.scope || "-"}</dd></div>
+          <div><dt>入职日期</dt><dd>${employee.hireDate || "-"}</dd></div>
+          <div><dt>转正日期</dt><dd>${employee.regularDate || "-"}</dd></div>
+        </dl>
+      </article>
+    `;
+  }).join("");
+
+  holder.innerHTML = `
+    <div class="jrc-employee-directory__head">
+      <strong>全员名单</strong>
+      <span>后续新增员工账号后，这里会自动同步显示。</span>
+    </div>
+    <div class="jrc-employee-grid">${rows}</div>
+  `;
+}
+
+function jrcBindEmployeeDirectoryToggle() {
+  const button = document.querySelector("[data-employee-directory-toggle]");
+  const panel = document.querySelector("[data-employee-directory]");
+  if (!button || !panel) return;
+
+  button.addEventListener("click", () => {
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    const nextExpanded = !expanded;
+    panel.hidden = !nextExpanded;
+    button.setAttribute("aria-expanded", String(nextExpanded));
+    button.textContent = nextExpanded ? "收起名单" : "全员名单";
+  });
 }
 
 function jrcApplyPermissionDecorations(currentEmployee) {
@@ -603,6 +662,91 @@ function jrcInjectStyles() {
       flex-direction: column;
       gap: 8px;
     }
+    .jrc-employee-summary__head,
+    .jrc-employee-directory__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .jrc-employee-directory-toggle {
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(13, 148, 136, 0.18);
+      background: rgba(255,255,255,0.82);
+      color: #0f766e;
+      font: inherit;
+      cursor: pointer;
+    }
+    .jrc-employee-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .jrc-employee-card {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    .jrc-employee-card__head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .jrc-employee-card__head strong,
+    .jrc-employee-card__head span {
+      display: block;
+    }
+    .jrc-employee-card__head span {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .jrc-employee-card__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .jrc-employee-card__tags span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(13, 148, 136, 0.08);
+      color: #0f766e;
+      font-size: 12px;
+    }
+    .jrc-employee-card__meta {
+      margin: 12px 0 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+    .jrc-employee-card__meta div {
+      min-width: 0;
+    }
+    .jrc-employee-card__meta dt {
+      color: #64748b;
+      font-size: 12px;
+    }
+    .jrc-employee-card__meta dd {
+      margin: 4px 0 0;
+      color: #172132;
+      word-break: break-all;
+    }
+    @media (max-width: 900px) {
+      .jrc-employee-grid,
+      .jrc-employee-card__meta {
+        grid-template-columns: 1fr;
+      }
+    }
     .jrc-locked {
       opacity: 0.55;
       cursor: not-allowed !important;
@@ -717,6 +861,8 @@ function jrcShowLoginOverlay() {
 function jrcBootstrapAuth() {
   jrcInjectStyles();
   jrcEnsureEmployeeSummary();
+  jrcRenderEmployeeDirectory();
+  jrcBindEmployeeDirectoryToggle();
   window.JRC_EMPLOYEES = JRC_EMPLOYEES;
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
