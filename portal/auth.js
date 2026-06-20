@@ -275,6 +275,7 @@ const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
+const JRC_ADMISSIONS_VIEW_USERNAMES = ["zhoushan", "xujiali", "zhangyan"];
 
 function jrcReadSession() {
   try {
@@ -362,6 +363,9 @@ function jrcGetPermissions(subject) {
     permissions.add("admissions.edit");
     permissions.add("admissions.import");
     permissions.add("admissions.finance");
+  }
+  if (JRC_ADMISSIONS_VIEW_USERNAMES.includes(username)) {
+    permissions.add("admissions.access");
   }
   if (JRC_FINANCE_ADMIN_USERNAMES.includes(username)) {
     permissions.add("finance.access");
