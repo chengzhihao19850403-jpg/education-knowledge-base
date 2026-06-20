@@ -5,12 +5,6 @@ import { useState } from 'react';
 import knowledgeBase from '../data/knowledge_base.json';
 import trainingProgram from '../data/training_program.json';
 
-const TRAINING_LOGIN = {
-  username: 'teacher',
-  password: 'jrc2026',
-  storageKey: 'jrcedu_training_authed',
-};
-
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, '');
 }
@@ -338,10 +332,6 @@ export default function Home() {
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
   const [activeTrainingModule, setActiveTrainingModule] = useState(null);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [pendingTrainingModule, setPendingTrainingModule] = useState(null);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
 
   const openUnifiedPortal = () => {
     if (typeof window !== 'undefined') {
@@ -375,46 +365,8 @@ export default function Home() {
     }
   };
 
-  const isTrainingAuthed = () => {
-    if (typeof window === 'undefined') return false;
-    return window.sessionStorage.getItem(TRAINING_LOGIN.storageKey) === '1';
-  };
-
   const openTrainingModule = (moduleName) => {
-    if (isTrainingAuthed()) {
-      setActiveTrainingModule(moduleName);
-      return;
-    }
-
-    setPendingTrainingModule(moduleName);
-    setLoginForm({ username: '', password: '' });
-    setLoginError('');
-    setLoginOpen(true);
-  };
-
-  const submitTrainingLogin = (event) => {
-    event.preventDefault();
-    const username = loginForm.username.trim();
-    const password = loginForm.password;
-
-    if (username === TRAINING_LOGIN.username && password === TRAINING_LOGIN.password) {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(TRAINING_LOGIN.storageKey, '1');
-      }
-      setLoginOpen(false);
-      setLoginError('');
-      setActiveTrainingModule(pendingTrainingModule || 'lessons');
-      setPendingTrainingModule(null);
-      return;
-    }
-
-    setLoginError('用户名或密码不正确');
-  };
-
-  const closeTrainingLogin = () => {
-    setLoginOpen(false);
-    setPendingTrainingModule(null);
-    setLoginError('');
+    setActiveTrainingModule(moduleName);
   };
 
   const selectLesson = (lessonId) => {
@@ -728,34 +680,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {loginOpen && (
-        <div style={styles.loginOverlay}>
-          <form onSubmit={submitTrainingLogin} style={styles.loginModal}>
-            <div style={styles.loginTitle}>学管课堂登录</div>
-            <input
-              type="text"
-              value={loginForm.username}
-              onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))}
-              placeholder="用户名"
-              autoFocus
-              style={styles.loginInput}
-            />
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
-              placeholder="密码"
-              style={styles.loginInput}
-            />
-            {loginError && <div style={styles.loginError}>{loginError}</div>}
-            <div style={styles.loginActions}>
-              <button type="button" onClick={closeTrainingLogin} style={styles.loginCancelButton}>取消</button>
-              <button type="submit" style={styles.loginSubmitButton}>登录</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {!activeTrainingModule && (
         <div style={styles.results}>
