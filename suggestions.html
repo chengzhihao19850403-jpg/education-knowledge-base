@@ -1,1336 +1,865 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理建议与投票</title>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜建议管理系统</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f5f5f7;
-            color: #1d1d1f;
-            line-height: 1.5;
-            min-height: 100vh;
-        }
-
-        .portal-bar {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background: rgba(255,255,255,0.92);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid rgba(0,0,0,0.06);
-        }
-
-        .portal-bar-inner {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .portal-meta {
-            min-width: 0;
-        }
-
-        .portal-meta .kicker {
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #0071e3;
-        }
-
-        .portal-meta .title {
-            font-size: 15px;
-            font-weight: 600;
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .portal-actions {
-            display: flex;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-
-        .portal-link {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 34px;
-            padding: 0 12px;
-            border-radius: 999px;
-            text-decoration: none;
-            font-size: 12px;
-            font-weight: 500;
-            color: #1d1d1f;
-            background: #f5f5f7;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .portal-link.primary {
-            background: #0071e3;
-            color: white;
-            border-color: #0071e3;
-        }
-
-        .container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 100px;
-        }
-
-        header {
-            text-align: center;
-            padding: 30px 0;
-        }
-
-        header h1 {
-            font-size: 24px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-        }
-
-        header p {
-            color: #86868b;
-            font-size: 13px;
-            margin-top: 6px;
-        }
-
-        .my-stats {
-            display: flex;
-            background: linear-gradient(135deg, #0071e3 0%, #0055b3 100%);
-            border-radius: 16px;
-            padding: 16px 20px;
-            margin-bottom: 20px;
-            gap: 20px;
-        }
-
-        .my-stats .stat {
-            flex: 1;
-            text-align: center;
-        }
-
-        .my-stats .stat .num {
-            font-size: 22px;
-            font-weight: 600;
-            color: white;
-        }
-
-        .my-stats .stat .label {
-            font-size: 11px;
-            color: rgba(255,255,255,0.7);
-            margin-top: 2px;
-        }
-
-        .tabs {
-            display: flex;
-            background: white;
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 16px;
-        }
-
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            color: #86868b;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .tab.active {
-            background: #f5f5f7;
-            color: #1d1d1f;
-            font-weight: 500;
-        }
-
-        .tab .badge {
-            display: inline-block;
-            background: #ff3b30;
-            color: white;
-            font-size: 10px;
-            padding: 1px 6px;
-            border-radius: 10px;
-            margin-left: 4px;
-        }
-
-        .submit-card {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .submit-card .type-select {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 14px;
-        }
-
-        .submit-card .type-chip {
-            padding: 6px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            background: #f5f5f7;
-            color: #515154;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .submit-card .type-chip.selected {
-            background: #e8f0fe;
-            color: #0071e3;
-            border-color: #0071e3;
-        }
-
-        .submit-card textarea {
-            width: 100%;
-            border: none;
-            resize: none;
-            font-size: 15px;
-            line-height: 1.6;
-            outline: none;
-            min-height: 80px;
-            background: #f5f5f7;
-            border-radius: 12px;
-            padding: 14px;
-        }
-
-        .submit-card textarea::placeholder {
-            color: #86868b;
-        }
-
-        .submit-card .row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-top: 12px;
-        }
-
-        .submit-card .anonymous-toggle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #86868b;
-            cursor: pointer;
-        }
-
-        .submit-card .toggle {
-            width: 40px;
-            height: 22px;
-            background: #e5e5ea;
-            border-radius: 11px;
-            position: relative;
-            transition: background 0.2s;
-        }
-
-        .submit-card .toggle.on {
-            background: #34c759;
-        }
-
-        .submit-card .toggle::after {
-            content: '';
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-
-        .submit-card .toggle.on::after {
-            transform: translateX(18px);
-        }
-
-        .submit-card .submit-btn {
-            background: #0071e3;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            margin-left: auto;
-            transition: background 0.2s;
-        }
-
-        .submit-card .submit-btn:hover {
-            background: #0077ED;
-        }
-
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 18px;
-            margin-bottom: 14px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .card-header .avatar {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .card-header .avatar.anonymous {
-            background: linear-gradient(135deg, #86868b 0%, #636366 100%);
-        }
-
-        .card-header .info {
-            flex: 1;
-        }
-
-        .card-header .name {
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .card-header .name .type-tag {
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            background: #f5f5f7;
-            color: #86868b;
-            font-weight: 400;
-        }
-
-        .card-header .time {
-            font-size: 12px;
-            color: #86868b;
-        }
-
-        .card-header .status {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        .status.pending { background: #fff3e0; color: #e65100; }
-        .status.considering { background: #e3f2fd; color: #1565c0; }
-        .status.adopted { background: #e8f5e9; color: #2e7d32; }
-        .status.declined { background: #fce4ec; color: #c62828; }
-
-        .card-content {
-            font-size: 15px;
-            line-height: 1.6;
-            color: #1d1d1f;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 16px;
-            margin-top: 14px;
-            padding-top: 12px;
-            border-top: 1px solid #f5f5f7;
-        }
-
-        .card-actions button {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #86868b;
-            font-size: 13px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 6px 0;
-        }
-
-        .card-actions button.liked { color: #ff3b30; }
-        .card-actions button.liked svg { fill: #ff3b30; }
-
-        .card-comments {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f5f5f7;
-        }
-
-        .card-comment {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .card-comment .avatar {
-            width: 26px;
-            height: 26px;
-            font-size: 10px;
-        }
-
-        .card-comment .content {
-            flex: 1;
-            background: #f5f5f7;
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 13px;
-        }
-
-        .card-comment .author {
-            font-weight: 500;
-            margin-right: 4px;
-        }
-
-        .comment-input {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .comment-input input {
-            flex: 1;
-            border: none;
-            background: #f5f5f7;
-            padding: 10px 14px;
-            border-radius: 18px;
-            font-size: 13px;
-            outline: none;
-        }
-
-        .comment-input button {
-            background: #0071e3;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 18px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .vote-section {
-            margin-top: 12px;
-            padding: 14px;
-            background: #f5f5f7;
-            border-radius: 12px;
-        }
-
-        .vote-section .vote-title {
-            font-size: 13px;
-            font-weight: 500;
-            color: #1d1d1f;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .vote-section .vote-title svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        .vote-section .vote-options {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .vote-section .vote-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-        }
-
-        .vote-section .vote-option .radio {
-            width: 18px;
-            height: 18px;
-            border: 2px solid #d1d1d6;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .vote-section .vote-option.selected .radio {
-            border-color: #0071e3;
-            background: #0071e3;
-            box-shadow: inset 0 0 0 3px white;
-        }
-
-        .vote-section .vote-option .label {
-            flex: 1;
-            font-size: 14px;
-        }
-
-        .vote-section .vote-option .percent {
-            font-size: 13px;
-            font-weight: 500;
-            color: #0071e3;
-        }
-
-        .vote-section .vote-meta {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-            font-size: 11px;
-            color: #86868b;
-        }
-
-        .vote-section .vote-btn {
-            width: 100%;
-            background: #0071e3;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .vote-section .vote-btn:disabled {
-            background: #e5e5ea;
-            color: #86868b;
-            cursor: not-allowed;
-        }
-
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-top: 1px solid #e5e5e5;
-            padding: 8px 0;
-            padding-bottom: env(safe-area-inset-bottom, 8px);
-        }
-
-        .bottom-nav-inner {
-            max-width: 480px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-around;
-        }
-
-        .bottom-nav .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-            color: #86868b;
-            font-size: 10px;
-            text-decoration: none;
-            padding: 4px 16px;
-            cursor: pointer;
-        }
-
-        .bottom-nav .nav-item.active {
-            color: #0071e3;
-        }
-
-        .bottom-nav .nav-item svg {
-            width: 22px;
-            height: 22px;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            background: #1d1d1f;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 13px;
-            z-index: 1000;
-            transition: transform 0.3s ease;
-        }
-
-        .notification.show {
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 100;
-            display: none;
-        }
-
-        .overlay.show {
-            display: block;
-        }
-
-        .modal {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-radius: 20px 20px 0 0;
-            padding: 20px;
-            max-width: 480px;
-            margin: 0 auto;
-            z-index: 101;
-            transform: translateY(100%);
-            transition: transform 0.3s ease;
-        }
-
-        .modal.show {
-            transform: translateY(0);
-        }
-
-        .modal h3 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-
-        .modal .modal-type-select {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .modal .modal-type-chip {
-            padding: 8px 14px;
-            border-radius: 16px;
-            font-size: 13px;
-            background: #f5f5f7;
-            color: #515154;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-
-        .modal .modal-type-chip.selected {
-            background: #e8f0fe;
-            color: #0071e3;
-            border-color: #0071e3;
-        }
-
-        .modal textarea {
-            width: 100%;
-            border: none;
-            background: #f5f5f7;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            resize: none;
-            min-height: 100px;
-            outline: none;
-        }
-
-        .modal .modal-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 14px;
-            margin-bottom: 14px;
-        }
-
-        .modal .modal-row label {
-            font-size: 13px;
-            color: #515154;
-        }
-
-        .modal .modal-toggle {
-            width: 40px;
-            height: 22px;
-            background: #e5e5ea;
-            border-radius: 11px;
-            position: relative;
-            transition: background 0.2s;
-            cursor: pointer;
-        }
-
-        .modal .modal-toggle.on {
-            background: #34c759;
-        }
-
-        .modal .modal-toggle::after {
-            content: '';
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-
-        .modal .modal-toggle.on::after {
-            transform: translateX(18px);
-        }
-
-        .modal .modal-btns {
-            display: flex;
-            gap: 10px;
-        }
-
-        .modal .modal-btns button {
-            flex: 1;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-        }
-
-        .modal .modal-btns .cancel {
-            background: #f5f5f7;
-            color: #1d1d1f;
-        }
-
-        .modal .modal-btns .confirm {
-            background: #0071e3;
-            color: white;
-        }
-
-        .leaderboard-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #f5f5f7;
-        }
-
-        .leaderboard-item:last-child {
-            border-bottom: none;
-        }
-
-        .leaderboard-item .rank {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .leaderboard-item .rank.r1 { background: linear-gradient(135deg, #f5d742 0%, #f79d3c 100%); color: white; }
-        .leaderboard-item .rank.r2 { background: linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%); color: #333; }
-        .leaderboard-item .rank.r3 { background: linear-gradient(135deg, #e4b4a1 0%, #c9855a 100%); color: white; }
-        .leaderboard-item .rank.r4, .leaderboard-item .rank.r5 { background: #f5f5f7; color: #86868b; }
-
-        .leaderboard-item .name {
-            flex: 1;
-            font-size: 14px;
-        }
-
-        .leaderboard-item .score {
-            font-size: 14px;
-            font-weight: 600;
-            color: #0071e3;
-        }
-
-        .leaderboard-item .avatar {
-            width: 32px;
-            height: 32px;
-            font-size: 12px;
-        }
-
-        .hidden { display: none; }
+      :root {
+        --bg: #f6f3ee;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #1f2933;
+        --muted: #66717c;
+        --line: rgba(31, 41, 51, 0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --orange: #bc582e;
+        --blue: #2563eb;
+        --red: #b91c1c;
+        --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(13, 148, 136, 0.12), transparent 28%),
+          radial-gradient(circle at top right, rgba(188, 88, 46, 0.10), transparent 24%),
+          linear-gradient(180deg, #faf7f2 0%, #f0e7db 100%);
+      }
+      button, input, select, textarea { font: inherit; }
+      .shell {
+        width: min(1280px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+      .topbar,
+      .card,
+      .stat-card,
+      .pipeline-column {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.66);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+      }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: var(--ink);
+        text-decoration: none;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        border-color: transparent;
+      }
+      .card { padding: 24px; }
+      .card + .card,
+      .grid + .card,
+      .card + .grid { margin-top: 18px; }
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .tag,
+      .status-pill,
+      .priority-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .tag {
+        background: rgba(13, 148, 136, 0.10);
+        color: var(--brand-dark);
+      }
+      .tag.orange {
+        background: rgba(188, 88, 46, 0.10);
+        color: var(--orange);
+      }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.08);
+        border: 1px solid rgba(13, 148, 136, 0.16);
+        color: var(--muted);
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .stat-card { padding: 18px; }
+      .stat-card span { color: var(--muted); font-size: 13px; }
+      .stat-card strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 30px;
+        line-height: 1;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+        gap: 18px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+      label.field {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .field input,
+      .field select,
+      .field textarea,
+      .filters input,
+      .filters select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        color: var(--ink);
+        background: rgba(255,255,255,0.9);
+      }
+      .field textarea {
+        min-height: 104px;
+        resize: vertical;
+        padding: 10px 12px;
+      }
+      .span-2 { grid-column: 1 / -1; }
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .check-row input { width: 16px; height: 16px; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 800;
+      }
+      .button.secondary {
+        background: rgba(255,255,255,0.82);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .button.danger {
+        background: rgba(185, 28, 28, 0.1);
+        color: var(--red);
+      }
+      .button:disabled,
+      input:disabled,
+      select:disabled,
+      textarea:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+      .filters {
+        display: grid;
+        grid-template-columns: 1fr 150px 150px;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .suggestion-list {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .suggestion-card {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 18px;
+        background: rgba(255,255,255,0.78);
+      }
+      .suggestion-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .suggestion-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--ink);
+      }
+      .suggestion-meta {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .suggestion-content {
+        margin-top: 12px;
+        color: var(--ink);
+        line-height: 1.75;
+      }
+      .card-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .status-pill.new { background: rgba(188, 88, 46, 0.12); color: var(--orange); }
+      .status-pill.triage { background: rgba(37, 99, 235, 0.12); color: var(--blue); }
+      .status-pill.approved { background: rgba(13, 148, 136, 0.12); color: var(--brand-dark); }
+      .status-pill.doing { background: rgba(124, 58, 237, 0.12); color: #6d28d9; }
+      .status-pill.launched { background: rgba(22, 163, 74, 0.14); color: #15803d; }
+      .status-pill.paused { background: rgba(100, 116, 139, 0.14); color: #475569; }
+      .priority-pill.high { background: rgba(185, 28, 28, 0.10); color: var(--red); }
+      .priority-pill.medium { background: rgba(188, 88, 46, 0.12); color: var(--orange); }
+      .priority-pill.low { background: rgba(100, 116, 139, 0.12); color: #475569; }
+      .manager-panel {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(13, 148, 136, 0.05);
+      }
+      .manager-panel textarea {
+        min-height: 74px;
+      }
+      .comment-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .comment-item {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.88);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .pipeline-column {
+        padding: 14px;
+        min-height: 190px;
+      }
+      .pipeline-column h3 {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 14px;
+      }
+      .pipeline-item {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+      }
+      .pipeline-item strong {
+        display: block;
+        font-size: 13px;
+      }
+      .pipeline-item span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .module-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .module-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255,255,255,0.76);
+      }
+      .module-card strong { display: block; margin-bottom: 8px; }
+      .empty {
+        padding: 24px;
+        color: var(--muted);
+        text-align: center;
+      }
+      @media (max-width: 1080px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .stat-grid,
+        .pipeline,
+        .module-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .stat-grid,
+        .form-grid,
+        .filters,
+        .manager-panel,
+        .pipeline,
+        .module-grid {
+          grid-template-columns: 1fr;
+        }
+        .span-2 { grid-column: auto; }
+      }
     </style>
-</head>
-<body>
-    <div class="portal-bar">
-        <div class="portal-bar-inner">
-            <div class="portal-meta">
-                <div class="kicker">JRC EDU Portal</div>
-                <div class="title">建议管理系统</div>
-            </div>
-            <div class="portal-actions">
-                <a class="portal-link" href="./index.html">总站首页</a>
-                <a class="portal-link" href="./paike.html">排课系统</a>
-                <a class="portal-link primary" href="./knowledge.html">知识库</a>
-                <a class="portal-link" href="./finance.html">财务系统</a>
-            </div>
+  </head>
+  <body data-page-permission="suggestions.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 03 · 建议管理系统</div>
         </div>
-    </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link active" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+        </nav>
+      </section>
 
-    <div class="container">
-        <header>
-            <h1>管理建议</h1>
-            <p>让机构变得更好的每一个想法</p>
-        </header>
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Management Loop</p>
+          <h1>建议管理系统</h1>
+          <p class="hero-text">这个系统不只是收集意见，而是把员工建议变成管理动作：分类、评估、立项、分配负责人、跟进截止日期、落地复盘。普通员工可以放心提交，管理层可以把事情真正推下去。</p>
+          <div class="tag-row">
+            <span class="tag">全员可提交</span>
+            <span class="tag">管理层可分派</span>
+            <span class="tag">状态闭环</span>
+            <span class="tag orange">沉淀改进记录</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+        </article>
 
-        <div class="my-stats">
-            <div class="stat">
-                <div class="num" id="mySuggestions">3</div>
-                <div class="label">我的建议</div>
-            </div>
-            <div class="stat">
-                <div class="num" id="myAdopted">1</div>
-                <div class="label">已采纳</div>
-            </div>
-            <div class="stat">
-                <div class="num" id="myScore">85</div>
-                <div class="label">我的积分</div>
-            </div>
+        <aside class="card">
+          <p class="eyebrow">Operating Rule</p>
+          <h2>建议处理规则</h2>
+          <p style="margin-top: 10px;">建议先进入“待评估”。管理层每周集中看一次：能做的立项，不能做的写明原因，重要事项分配负责人和截止日期。这样员工不会觉得建议石沉大海，管理层也能看到组织问题的趋势。</p>
+        </aside>
+      </section>
+
+      <section class="stat-grid" aria-label="建议统计">
+        <article class="stat-card"><span>全部建议</span><strong id="statTotal">0</strong></article>
+        <article class="stat-card"><span>待评估</span><strong id="statNew">0</strong></article>
+        <article class="stat-card"><span>推进中</span><strong id="statDoing">0</strong></article>
+        <article class="stat-card"><span>已落地</span><strong id="statLaunched">0</strong></article>
+        <article class="stat-card"><span>临近/逾期</span><strong id="statDue">0</strong></article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <p class="eyebrow">Submit</p>
+          <h2>提交建议或管理改进事项</h2>
+          <form id="suggestionForm" class="form-grid">
+            <label class="field">
+              分类
+              <select name="category">
+                <option value="流程优化">流程优化</option>
+                <option value="教学质量">教学质量</option>
+                <option value="招生转化">招生转化</option>
+                <option value="家长服务">家长服务</option>
+                <option value="成本控制">成本控制</option>
+                <option value="员工关怀">员工关怀</option>
+                <option value="技术工具">技术工具</option>
+                <option value="校区运营">校区运营</option>
+              </select>
+            </label>
+            <label class="field">
+              影响程度
+              <select name="impact">
+                <option value="high">高：影响收入/安全/家长体验</option>
+                <option value="medium" selected>中：影响效率或质量</option>
+                <option value="low">低：局部优化</option>
+              </select>
+            </label>
+            <label class="field span-2">
+              标题
+              <input name="title" required placeholder="例如：暑假班教室调换需要提前一天确认">
+            </label>
+            <label class="field span-2">
+              具体说明
+              <textarea name="content" required placeholder="写清楚现象、影响、建议怎么改。越具体，越容易被采纳。"></textarea>
+            </label>
+            <label class="field">
+              建议负责人
+              <input name="owner" placeholder="可不填，由管理层分配">
+            </label>
+            <label class="field">
+              希望完成时间
+              <input name="dueDate" type="date">
+            </label>
+            <label class="check-row span-2">
+              <input name="anonymous" type="checkbox">
+              匿名提交给管理层
+            </label>
+          </form>
+          <div class="actions">
+            <button class="button" type="button" id="submitSuggestionButton">提交建议</button>
+            <button class="button secondary" type="button" id="exportSuggestionsButton">导出建议 CSV</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <p class="eyebrow">Control Panel</p>
+          <h2>管理筛选</h2>
+          <div class="filters">
+            <input id="searchInput" type="search" placeholder="搜索标题、内容、负责人">
+            <select id="statusFilter">
+              <option value="">全部状态</option>
+              <option value="new">待评估</option>
+              <option value="triage">已评估</option>
+              <option value="approved">已立项</option>
+              <option value="doing">推进中</option>
+              <option value="launched">已落地</option>
+              <option value="paused">暂缓</option>
+            </select>
+            <select id="categoryFilter">
+              <option value="">全部分类</option>
+              <option value="流程优化">流程优化</option>
+              <option value="教学质量">教学质量</option>
+              <option value="招生转化">招生转化</option>
+              <option value="家长服务">家长服务</option>
+              <option value="成本控制">成本控制</option>
+              <option value="员工关怀">员工关怀</option>
+              <option value="技术工具">技术工具</option>
+              <option value="校区运营">校区运营</option>
+            </select>
+          </div>
+          <div class="suggestion-list" id="suggestionList"></div>
+        </article>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Pipeline</p>
+        <h2>建议处理看板</h2>
+        <div class="pipeline" id="pipelineBoard"></div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Missing Systems</p>
+        <h2>除了现有五个系统，后续建议补的企业管理板块</h2>
+        <p style="margin-top: 10px;">从教培机构经营角度看，除了排课、知识库、建议、财务、招生，后面最值得补的是下面这些。不是马上都做，而是先放进路线图，避免以后公司管理只靠微信群和表格。</p>
+        <div class="module-grid">
+          <article class="module-card"><strong>人事与培训系统</strong><p>员工档案、入职转正、权限、提成档位、培训记录、考核结果。</p></article>
+          <article class="module-card"><strong>学生与家长服务系统</strong><p>学生档案、学习跟踪、课后反馈、家长沟通、续费风险。</p></article>
+          <article class="module-card"><strong>教研与课程产品系统</strong><p>课程大纲、讲义题库、班型产品、老师备课资料、版本管理。</p></article>
+          <article class="module-card"><strong>资产与采购系统</strong><p>教材、教具、设备、投影仪、电脑、采购申请、维修记录。</p></article>
+          <article class="module-card"><strong>校区运营系统</strong><p>教室、卫生、安全检查、值班、门店日常事务和异常记录。</p></article>
+          <article class="module-card"><strong>经营驾驶舱</strong><p>招生、排课、收入、成本、利润、续费、老师产能的总看板。</p></article>
         </div>
+      </section>
+    </main>
 
-        <div class="tabs">
-            <div class="tab active" data-tab="suggestions">建议</div>
-            <div class="tab" data-tab="votes">投票<span class="badge" id="voteBadge">2</span></div>
-            <div class="tab" data-tab="ranking">排行</div>
-            <div class="tab" data-tab="my">我的</div>
-        </div>
-
-        <!-- 建议列表 -->
-        <div id="suggestionsView">
-            <div class="submit-card">
-                <div class="type-select" id="typeSelect">
-                    <div class="type-chip selected" data-type="流程优化">流程优化</div>
-                    <div class="type-chip" data-type="成本控制">成本控制</div>
-                    <div class="type-chip" data-type="教学质量">教学质量</div>
-                    <div class="type-chip" data-type="员工关怀">员工关怀</div>
-                    <div class="type-chip" data-type="营销招生">营销招生</div>
-                    <div class="type-chip" data-type="团队建设">团队建设</div>
-                    <div class="type-chip" data-type="技术工具">技术工具</div>
-                    <div class="type-chip" data-type="其他">其他</div>
-                </div>
-                <textarea id="suggestionInput" placeholder="分享你的想法或建议..."></textarea>
-                <div class="row">
-                    <div class="anonymous-toggle" onclick="toggleAnonymous('suggestion')">
-                        <div class="toggle" id="suggestionAnonToggle"></div>
-                        <span>匿名提交</span>
-                    </div>
-                    <button class="submit-btn" onclick="submitSuggestion()">提交</button>
-                </div>
-            </div>
-
-            <div id="suggestionList"></div>
-        </div>
-
-        <!-- 投票列表 -->
-        <div id="votesView" class="hidden">
-            <div class="submit-card" style="margin-bottom: 16px;">
-                <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px;">发起新投票</div>
-                <textarea id="voteQuestionInput" placeholder="输入投票议题..." style="margin-bottom: 12px;"></textarea>
-                <div id="voteOptionsInput">
-                    <input type="text" placeholder="选项1" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
-                    <input type="text" placeholder="选项2" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
-                </div>
-                <div class="row">
-                    <div class="anonymous-toggle" onclick="toggleAnonymous('vote')">
-                        <div class="toggle on" id="voteAnonToggle"></div>
-                        <span>匿名投票</span>
-                    </div>
-                    <button class="submit-btn" onclick="addVoteOption()">+ 添加选项</button>
-                </div>
-                <button class="submit-btn" style="width: 100%; margin-top: 12px;" onclick="createVote()">发起投票</button>
-            </div>
-            <div id="voteList"></div>
-        </div>
-
-        <!-- 排行榜 -->
-        <div id="rankingView" class="hidden">
-            <div class="card">
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 14px;">本月积分排行</h4>
-                <div id="leaderboard"></div>
-            </div>
-        </div>
-
-        <!-- 我的 -->
-        <div id="myView" class="hidden">
-            <div class="card">
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 14px;">我提交的</h4>
-                <div id="mySuggestionsList"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="bottom-nav">
-        <div class="bottom-nav-inner">
-            <div class="nav-item active" data-view="suggestions">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-                建议
-            </div>
-            <div class="nav-item" data-view="votes">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 20V10M12 20V4M6 20v-6"/>
-                </svg>
-                投票
-            </div>
-            <div class="nav-item" data-view="ranking">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 15l-3 3V4M12 15l3 3V4M4 9h16M4 15h16"/>
-                </svg>
-                排行
-            </div>
-            <div class="nav-item" data-view="my">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-                我的
-            </div>
-        </div>
-    </div>
-
-    <div class="notification" id="notification"></div>
-
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
     <script>
-        let currentTab = 'suggestions';
-        let suggestionAnon = false;
-        let voteAnon = true;
-        let selectedType = '流程优化';
+      const STORAGE_KEY = "jrc-suggestion-management-v2";
+      const statusMap = {
+        new: "待评估",
+        triage: "已评估",
+        approved: "已立项",
+        doing: "推进中",
+        launched: "已落地",
+        paused: "暂缓"
+      };
+      const statusOrder = ["new", "triage", "approved", "doing", "launched"];
+      const impactMap = {
+        high: "高影响",
+        medium: "中影响",
+        low: "低影响"
+      };
+      const byId = (id) => document.getElementById(id);
+      const today = () => new Date().toISOString().slice(0, 10);
+      const currentEmployee = window.JRC_CURRENT_EMPLOYEE || null;
+      const currentName = currentEmployee?.name || "员工";
+      const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
 
-        const currentUser = '我';
-        const currentUserInitials = '我';
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
 
-        // 从localStorage加载数据
-        function loadData() {
-            const saved = localStorage.getItem('adviceSystem');
-            if (saved) {
-                const data = JSON.parse(saved);
-                suggestions = data.suggestions || [];
-                votes = data.votes || [];
-            }
-        }
-
-        function saveData() {
-            localStorage.setItem('adviceSystem', JSON.stringify({ suggestions, votes }));
-        }
-
-        const leaders = [
-            { name: '张老师', initials: '张', score: 280, avatar: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-            { name: '李老师', initials: '李', score: 245, avatar: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-            { name: '周老师', initials: '周', score: 210, avatar: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-            { name: '王老师', initials: '王', score: 185, avatar: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-            { name: '刘老师', initials: '刘', score: 150, avatar: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+      function defaultSuggestions() {
+        return [
+          {
+            id: "s1",
+            title: "每周固定一次排课变更收口",
+            category: "流程优化",
+            impact: "high",
+            content: "建议每周固定一个时间处理下周排课变更，避免老师临时在微信群里反复确认，减少漏课和教室冲突。",
+            author: "周珊",
+            anonymous: false,
+            createdAt: "2026-06-18",
+            status: "doing",
+            owner: "周珊",
+            dueDate: "2026-06-24",
+            votes: 12,
+            liked: false,
+            decision: "先按一周试运行，收集老师反馈。",
+            comments: [
+              { author: "程志豪", text: "这个可以和排课系统待确认事项合并。", time: "2026-06-19" }
+            ]
+          },
+          {
+            id: "s2",
+            title: "投影仪亮度不足要纳入设备台账",
+            category: "校区运营",
+            impact: "medium",
+            content: "三楼 5 号教室投影仪亮度不够，影响暑假班看板书。建议设备问题统一登记，月底安排维修或采购。",
+            author: "海滢滢",
+            anonymous: false,
+            createdAt: "2026-06-17",
+            status: "approved",
+            owner: "陈雨晴",
+            dueDate: "2026-06-28",
+            votes: 8,
+            liked: false,
+            decision: "进入资产与采购系统候选需求。",
+            comments: []
+          },
+          {
+            id: "s3",
+            title: "新老师培训内容需要测试闭环",
+            category: "员工关怀",
+            impact: "medium",
+            content: "建议新人看完学管课堂后必须完成阶段测试，避免只看不掌握。",
+            author: "匿名",
+            anonymous: true,
+            createdAt: "2026-06-16",
+            status: "triage",
+            owner: "颜雨涵",
+            dueDate: "",
+            votes: 6,
+            liked: false,
+            decision: "和知识库+学管课堂合并设计。",
+            comments: []
+          }
         ];
+      }
 
-        let suggestions = [
-            {
-                id: 1,
-                type: '流程优化',
-                author: '张老师',
-                initials: '张',
-                anonymous: false,
-                content: '建议每周五下午3点后不排新班，让老师们有时间处理行政事务。很多时候周五下午临时通知改课表很被动。',
-                time: '10分钟前',
-                likes: 12,
-                liked: false,
-                status: 'adopted',
-                comments: [
-                    { author: '王校长', initials: '王', content: '已采纳，下周开始执行。' }
-                ]
-            },
-            {
-                id: 2,
-                type: '员工关怀',
-                author: '匿名',
-                initials: '匿',
-                anonymous: true,
-                content: '能不能给每个教室门口放一个小白板？方便老师之间传递信息，比如临时换教室的通知。',
-                time: '30分钟前',
-                likes: 8,
-                liked: false,
-                status: 'considering',
-                comments: []
-            },
-            {
-                id: 3,
-                type: '技术工具',
-                author: '我',
-                initials: '我',
-                anonymous: false,
-                content: '暑假班教室分配方案已经实施了2周，整体效果不错。但发现三楼5号教室的投影仪亮度不够，建议更换。',
-                time: '2小时前',
-                likes: 5,
-                liked: true,
-                status: 'pending',
-                comments: []
-            }
+      function readSuggestions() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (Array.isArray(parsed)) return parsed;
+        } catch (error) {
+          console.warn("Failed to read suggestions", error);
+        }
+        return defaultSuggestions();
+      }
+
+      function writeSuggestions() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+      }
+
+      let suggestions = readSuggestions();
+
+      function isDueSoon(item) {
+        if (!item.dueDate || ["launched", "paused"].includes(item.status)) return false;
+        const due = new Date(item.dueDate + "T00:00:00");
+        const now = new Date(today() + "T00:00:00");
+        const diffDays = Math.ceil((due - now) / 86400000);
+        return diffDays <= 3;
+      }
+
+      function filteredSuggestions() {
+        const keyword = byId("searchInput").value.trim().toLowerCase();
+        const status = byId("statusFilter").value;
+        const category = byId("categoryFilter").value;
+        return suggestions.filter((item) => {
+          const haystack = [item.title, item.content, item.owner, item.author, item.category].join(" ").toLowerCase();
+          return (!keyword || haystack.includes(keyword)) &&
+            (!status || item.status === status) &&
+            (!category || item.category === category);
+        });
+      }
+
+      function renderStats() {
+        byId("statTotal").textContent = suggestions.length;
+        byId("statNew").textContent = suggestions.filter((item) => item.status === "new").length;
+        byId("statDoing").textContent = suggestions.filter((item) => item.status === "doing").length;
+        byId("statLaunched").textContent = suggestions.filter((item) => item.status === "launched").length;
+        byId("statDue").textContent = suggestions.filter(isDueSoon).length;
+      }
+
+      function renderPipeline() {
+        byId("pipelineBoard").innerHTML = statusOrder.map((status) => {
+          const items = suggestions.filter((item) => item.status === status).slice(0, 4);
+          return `
+            <section class="pipeline-column">
+              <h3>${statusMap[status]} <span>${suggestions.filter((item) => item.status === status).length}</span></h3>
+              ${items.length ? items.map((item) => `
+                <div class="pipeline-item">
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <span>${escapeHtml(item.owner || "未分配")}｜${escapeHtml(item.dueDate || "无截止")}</span>
+                </div>
+              `).join("") : `<div class="empty">暂无</div>`}
+            </section>
+          `;
+        }).join("");
+      }
+
+      function renderList() {
+        const list = filteredSuggestions();
+        byId("suggestionList").innerHTML = list.length ? list.map((item) => `
+          <article class="suggestion-card" data-id="${escapeHtml(item.id)}">
+            <div class="suggestion-head">
+              <div>
+                <div class="suggestion-title">${escapeHtml(item.title)}</div>
+                <div class="suggestion-meta">
+                  ${escapeHtml(item.category)}｜${escapeHtml(item.anonymous ? "匿名" : item.author)}｜${escapeHtml(item.createdAt)}
+                  ${item.owner ? `｜负责人 ${escapeHtml(item.owner)}` : "｜未分配负责人"}
+                  ${item.dueDate ? `｜截止 ${escapeHtml(item.dueDate)}` : ""}
+                </div>
+              </div>
+              <div class="card-tools">
+                <span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(statusMap[item.status] || item.status)}</span>
+                <span class="priority-pill ${escapeHtml(item.impact)}">${escapeHtml(impactMap[item.impact] || "中影响")}</span>
+              </div>
+            </div>
+            <p class="suggestion-content">${escapeHtml(item.content)}</p>
+            <div class="card-tools">
+              <button class="button secondary" type="button" data-action="vote">支持 ${Number(item.votes || 0)}</button>
+              <button class="button secondary" type="button" data-action="comment">添加跟进</button>
+              ${canManage ? `<button class="button danger" type="button" data-action="delete">删除</button>` : ""}
+            </div>
+            ${item.decision ? `<div class="comment-item"><strong>处理结论：</strong>${escapeHtml(item.decision)}</div>` : ""}
+            <div class="comment-list">
+              ${(item.comments || []).map((comment) => `
+                <div class="comment-item"><strong>${escapeHtml(comment.author)}：</strong>${escapeHtml(comment.text)} <span class="muted">${escapeHtml(comment.time || "")}</span></div>
+              `).join("")}
+            </div>
+            ${canManage ? `
+              <div class="manager-panel">
+                <label class="field">
+                  状态
+                  <select data-manager-field="status">
+                    ${Object.entries(statusMap).map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}
+                  </select>
+                </label>
+                <label class="field">
+                  负责人
+                  <input data-manager-field="owner" value="${escapeHtml(item.owner || "")}">
+                </label>
+                <label class="field">
+                  截止日期
+                  <input data-manager-field="dueDate" type="date" value="${escapeHtml(item.dueDate || "")}">
+                </label>
+                <label class="field span-2">
+                  处理结论 / 下一步
+                  <textarea data-manager-field="decision">${escapeHtml(item.decision || "")}</textarea>
+                </label>
+                <div class="actions">
+                  <button class="button" type="button" data-action="save-management">保存处理</button>
+                </div>
+              </div>
+            ` : ""}
+          </article>
+        `).join("") : `<div class="empty">没有符合筛选条件的建议。</div>`;
+      }
+
+      function renderAll() {
+        renderStats();
+        renderPipeline();
+        renderList();
+      }
+
+      function addSuggestion() {
+        const form = byId("suggestionForm");
+        const data = new FormData(form);
+        const title = String(data.get("title") || "").trim();
+        const content = String(data.get("content") || "").trim();
+        if (!title || !content) return;
+        const anonymous = data.get("anonymous") === "on";
+        suggestions.unshift({
+          id: `s-${Date.now()}`,
+          title,
+          category: String(data.get("category") || "流程优化"),
+          impact: String(data.get("impact") || "medium"),
+          content,
+          author: anonymous ? "匿名" : currentName,
+          anonymous,
+          createdAt: today(),
+          status: "new",
+          owner: String(data.get("owner") || "").trim(),
+          dueDate: String(data.get("dueDate") || "").trim(),
+          votes: 0,
+          liked: false,
+          decision: "",
+          comments: []
+        });
+        writeSuggestions();
+        form.reset();
+        renderAll();
+      }
+
+      function findCardSuggestion(target) {
+        const card = target.closest("[data-id]");
+        if (!card) return null;
+        return suggestions.find((item) => item.id === card.getAttribute("data-id"));
+      }
+
+      function saveManagement(button) {
+        const card = button.closest("[data-id]");
+        const item = findCardSuggestion(button);
+        if (!item || !card) return;
+        card.querySelectorAll("[data-manager-field]").forEach((field) => {
+          item[field.getAttribute("data-manager-field")] = field.value;
+        });
+        if (!item.owner && item.status !== "new") item.owner = currentName;
+        writeSuggestions();
+        renderAll();
+      }
+
+      function addComment(item) {
+        const text = prompt("填写跟进记录或补充说明");
+        if (!text || !text.trim()) return;
+        item.comments = item.comments || [];
+        item.comments.push({ author: currentName, text: text.trim(), time: today() });
+        writeSuggestions();
+        renderAll();
+      }
+
+      function exportCsv() {
+        const rows = [
+          ["标题", "分类", "影响程度", "状态", "提交人", "负责人", "截止日期", "支持数", "内容", "处理结论"],
+          ...suggestions.map((item) => [
+            item.title,
+            item.category,
+            impactMap[item.impact] || item.impact,
+            statusMap[item.status] || item.status,
+            item.author,
+            item.owner,
+            item.dueDate,
+            item.votes,
+            item.content,
+            item.decision
+          ])
         ];
+        const csv = rows.map((row) => row.map((cell) => {
+          const text = String(cell ?? "");
+          return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }).join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `建议管理台账-${today()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
 
-        let votes = [
-            {
-                id: 1,
-                question: '暑假班是否提前到7月1日开始？',
-                options: [
-                    { label: '支持，7月1日开始', votes: 6, percent: 55 },
-                    { label: '保持7月4日', votes: 4, percent: 36 },
-                    { label: '无所谓', votes: 1, percent: 9 }
-                ],
-                totalVotes: 11,
-                voted: false,
-                userVoted: null,
-                anonymous: true,
-                createdBy: '王校长',
-                time: '1小时前'
-            },
-            {
-                id: 2,
-                question: '本周五下午是否安排团建活动？',
-                options: [
-                    { label: '去外面吃饭', votes: 5, percent: 42 },
-                    { label: '室内游戏', votes: 4, percent: 33 },
-                    { label: '不团建', votes: 3, percent: 25 }
-                ],
-                totalVotes: 12,
-                voted: false,
-                userVoted: null,
-                anonymous: true,
-                createdBy: '我',
-                time: '3小时前'
-            }
-        ];
-
-        function showNotification(text) {
-            const el = document.getElementById('notification');
-            el.textContent = text;
-            el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 2500);
+      byId("submitSuggestionButton").addEventListener("click", addSuggestion);
+      byId("exportSuggestionsButton").addEventListener("click", exportCsv);
+      ["searchInput", "statusFilter", "categoryFilter"].forEach((id) => {
+        byId(id).addEventListener("input", renderList);
+        byId(id).addEventListener("change", renderList);
+      });
+      byId("suggestionList").addEventListener("click", (event) => {
+        const actionButton = event.target.closest("[data-action]");
+        if (!actionButton) return;
+        const item = findCardSuggestion(actionButton);
+        if (!item) return;
+        const action = actionButton.getAttribute("data-action");
+        if (action === "vote") item.votes = Number(item.votes || 0) + 1;
+        if (action === "comment") addComment(item);
+        if (action === "delete" && canManage) suggestions = suggestions.filter((candidate) => candidate.id !== item.id);
+        if (action === "save-management" && canManage) {
+          saveManagement(actionButton);
+          return;
         }
+        writeSuggestions();
+        renderAll();
+      });
 
-        function switchTab(tab) {
-            currentTab = tab;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
-
-            document.getElementById('suggestionsView').classList.toggle('hidden', tab !== 'suggestions');
-            document.getElementById('votesView').classList.toggle('hidden', tab !== 'votes');
-            document.getElementById('rankingView').classList.toggle('hidden', tab !== 'ranking');
-            document.getElementById('myView').classList.toggle('hidden', tab !== 'my');
-
-            if (tab === 'votes') {
-                document.getElementById('voteBadge').style.display = 'none';
-                renderVotes();
-            }
-            if (tab === 'ranking') renderLeaderboard();
-            if (tab === 'my') renderMySuggestions();
-        }
-
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                item.classList.add('active');
-                switchTab(item.dataset.view);
-            });
-        });
-
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-        });
-
-        function toggleAnonymous(type) {
-            if (type === 'suggestion') {
-                suggestionAnon = !suggestionAnon;
-                document.getElementById('suggestionAnonToggle').classList.toggle('on', suggestionAnon);
-            } else {
-                voteAnon = !voteAnon;
-                document.getElementById('voteAnonToggle').classList.toggle('on', voteAnon);
-            }
-        }
-
-        document.querySelectorAll('#typeSelect .type-chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                document.querySelectorAll('#typeSelect .type-chip').forEach(c => c.classList.remove('selected'));
-                chip.classList.add('selected');
-                selectedType = chip.dataset.type;
-            });
-        });
-
-        function submitSuggestion() {
-            const input = document.getElementById('suggestionInput');
-            const text = input.value.trim();
-            if (!text) {
-                showNotification('请输入建议内容');
-                return;
-            }
-
-            const newSuggestion = {
-                id: Date.now(),
-                type: selectedType,
-                author: suggestionAnon ? '匿名' : currentUser,
-                initials: suggestionAnon ? '匿' : currentUserInitials,
-                anonymous: suggestionAnon,
-                content: text,
-                time: '刚刚',
-                likes: 0,
-                liked: false,
-                status: 'pending',
-                comments: []
-            };
-
-            suggestions.unshift(newSuggestion);
-            saveData();
-            input.value = '';
-            renderSuggestions();
-            updateMyStats();
-            showNotification('建议已提交，感谢分享！');
-        }
-
-        function toggleLike(id) {
-            const s = suggestions.find(x => x.id === id);
-            s.liked = !s.liked;
-            s.likes += s.liked ? 1 : -1;
-            saveData();
-            renderSuggestions();
-        }
-
-        function toggleComments(id) {
-            const el = document.getElementById(`comments-${id}`);
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function addComment(id) {
-            const input = document.getElementById(`comment-input-${id}`);
-            const text = input.value.trim();
-            if (!text) return;
-
-            const s = suggestions.find(x => x.id === id);
-            s.comments.push({
-                author: currentUser,
-                initials: currentUserInitials,
-                content: text
-            });
-            saveData();
-            input.value = '';
-            renderSuggestions();
-        }
-
-        function vote(voteId, optionIndex) {
-            const v = votes.find(x => x.id === voteId);
-            if (v.voted) return;
-
-            v.options[optionIndex].votes++;
-            v.totalVotes++;
-            v.voted = true;
-            v.userVoted = optionIndex;
-
-            v.options.forEach((opt, i) => {
-                opt.percent = Math.round((opt.votes / v.totalVotes) * 100);
-            });
-
-            saveData();
-            renderVotes();
-        }
-
-        function renderVotes() {
-            const list = document.getElementById('voteList');
-            list.innerHTML = votes.map(v => `
-                <div class="card">
-                    <div class="card-header">
-                        <div class="avatar" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                            ${v.createdBy === '我' ? '我' : v.createdBy[0]}
-                        </div>
-                        <div class="info">
-                            <div class="name">
-                                ${v.question}
-                                <span class="type-tag">${v.anonymous ? '匿名投票' : '公开投票'}</span>
-                            </div>
-                            <div class="time">${v.time} · ${v.totalVotes}人投票</div>
-                        </div>
-                    </div>
-                    <div class="vote-section">
-                        <div class="vote-options">
-                            ${v.options.map((opt, i) => `
-                                <div class="vote-option ${v.userVoted === i ? 'selected' : ''}" onclick="${v.voted ? '' : `vote(${v.id}, ${i})`}">
-                                    <div class="radio"></div>
-                                    <span class="label">${opt.label}</span>
-                                    ${v.voted ? `<span class="percent">${opt.percent}%</span>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                        ${v.voted ? `<div style="margin-top: 10px; font-size: 12px; color: #34c759;">✓ 你已投票</div>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderLeaderboard() {
-            const list = document.getElementById('leaderboard');
-            list.innerHTML = leaders.map((l, i) => `
-                <div class="leaderboard-item">
-                    <div class="rank ${'r' + (i + 1)}">${i + 1}</div>
-                    <div class="avatar" style="background: ${l.avatar}; color: white;">${l.initials}</div>
-                    <div class="name">${l.name}</div>
-                    <div class="score">${l.score}分</div>
-                </div>
-            `).join('');
-        }
-
-        function renderMySuggestions() {
-            const myList = suggestions.filter(s => s.author === currentUser || (s.anonymous && s.author === '匿名'));
-            const list = document.getElementById('mySuggestionsList');
-            if (myList.length === 0) {
-                list.innerHTML = '<div style="color: #86868b; text-align: center; padding: 20px;">暂无建议</div>';
-                return;
-            }
-            list.innerHTML = myList.map(s => `
-                <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f7;">
-                    <div style="font-size: 13px; color: #86868b; margin-bottom: 4px;">${s.type} · ${s.time}</div>
-                    <div style="font-size: 14px;">${s.content}</div>
-                    <div style="margin-top: 6px;">
-                        <span class="status ${s.status}">${getStatusText(s.status)}</span>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function getStatusText(status) {
-            const map = { pending: '待处理', considering: '考虑中', adopted: '已采纳', declined: '暂不采纳' };
-            return map[status] || status;
-        }
-
-        function updateMyStats() {
-            const mySuggestions = suggestions.filter(s => s.author === currentUser);
-            const myAdopted = suggestions.filter(s => s.author === currentUser && s.status === 'adopted').length;
-            document.getElementById('mySuggestions').textContent = mySuggestions.length;
-            document.getElementById('myAdopted').textContent = myAdopted;
-            document.getElementById('myScore').textContent = 85 + myAdopted * 50;
-        }
-
-        function renderSuggestions() {
-            const list = document.getElementById('suggestionList');
-            list.innerHTML = suggestions.map(s => `
-                <div class="card">
-                    <div class="card-header">
-                        <div class="avatar ${s.anonymous ? 'anonymous' : ''}" style="${s.anonymous ? '' : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);'}">
-                            ${s.initials}
-                        </div>
-                        <div class="info">
-                            <div class="name">
-                                ${s.anonymous ? '匿名' : s.author}
-                                <span class="type-tag">${s.type}</span>
-                            </div>
-                            <div class="time">${s.time}</div>
-                        </div>
-                        <span class="status ${s.status}">${getStatusText(s.status)}</span>
-                    </div>
-                    <div class="card-content">${s.content}</div>
-                    <div class="card-actions">
-                        <button class="${s.liked ? 'liked' : ''}" onclick="toggleLike(${s.id})">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="${s.liked ? '#ff3b30' : 'none'}" stroke="${s.liked ? '#ff3b30' : 'currentColor'}" stroke-width="2">
-                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                            </svg>
-                            ${s.likes}
-                        </button>
-                        <button onclick="toggleComments(${s.id})">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                            </svg>
-                            ${s.comments.length}
-                        </button>
-                    </div>
-                    <div class="card-comments" id="comments-${s.id}" style="display: none;">
-                        ${s.comments.map(c => `
-                            <div class="card-comment">
-                                <div class="avatar">${c.initials}</div>
-                                <div class="content">
-                                    <span class="author">${c.author}:</span>${c.content}
-                                </div>
-                            </div>
-                        `).join('')}
-                        <div class="comment-input">
-                            <input type="text" placeholder="写下你的评论..." id="comment-input-${s.id}">
-                            <button onclick="addComment(${s.id})">发送</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        let voteOptionCount = 2;
-        function addVoteOption() {
-            voteOptionCount++;
-            const container = document.getElementById('voteOptionsInput');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = `选项${voteOptionCount}`;
-            input.style.cssText = 'width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;';
-            container.appendChild(input);
-        }
-
-        function createVote() {
-            const question = document.getElementById('voteQuestionInput').value.trim();
-            const options = document.querySelectorAll('#voteOptionsInput input');
-            const optionTexts = Array.from(options).map(o => o.value.trim()).filter(Boolean);
-
-            if (!question) {
-                showNotification('请输入投票议题');
-                return;
-            }
-            if (optionTexts.length < 2) {
-                showNotification('请至少填写2个选项');
-                return;
-            }
-
-            const newVote = {
-                id: Date.now(),
-                question: question,
-                options: optionTexts.map(label => ({ label, votes: 0, percent: 0 })),
-                totalVotes: 0,
-                voted: false,
-                userVoted: null,
-                anonymous: voteAnon,
-                createdBy: currentUser,
-                time: '刚刚'
-            };
-
-            votes.unshift(newVote);
-            saveData();
-            document.getElementById('voteQuestionInput').value = '';
-            document.getElementById('voteOptionsInput').innerHTML = `
-                <input type="text" placeholder="选项1" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
-                <input type="text" placeholder="选项2" style="width: 100%; border: none; background: #f5f5f7; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; outline: none;">
-            `;
-            voteOptionCount = 2;
-            renderVotes();
-            showNotification('投票已发起！');
-        }
-
-        loadData();
-        renderSuggestions();
-        updateMyStats();
+      renderAll();
     </script>
-</body>
+  </body>
 </html>
