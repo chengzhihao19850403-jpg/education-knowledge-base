@@ -138,6 +138,28 @@
       .metric {
         padding: 16px;
       }
+      .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .quick-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        padding: 16px;
+      }
+      .quick-card strong {
+        display: block;
+        color: var(--ink);
+        font-size: 15px;
+        margin-bottom: 8px;
+      }
+      .quick-card p {
+        font-size: 13px;
+        line-height: 1.7;
+      }
       .metric strong {
         display: block;
         margin-top: 8px;
@@ -358,7 +380,8 @@
         }
       }
       @media (max-width: 640px) {
-        .metrics {
+        .metrics,
+        .quick-actions {
           grid-template-columns: 1fr;
         }
       }
@@ -449,6 +472,24 @@
                 <div class="metric-meta">高意向未成交</div>
                 <strong id="highIntentCount">0</strong>
                 <div class="metric-meta">适合进入第二阶段 SOP 跟进</div>
+              </div>
+            </div>
+            <div class="quick-actions">
+              <div class="quick-card">
+                <strong>先清新线索</strong>
+                <p>先处理“新建未联系”和“已沟通待邀约”，不要让新线索过夜没人接。</p>
+              </div>
+              <div class="quick-card">
+                <strong>再定试听</strong>
+                <p>把今天有希望推进的家长先约试听，优先锁定老师和时间段。</p>
+              </div>
+              <div class="quick-card">
+                <strong>回填反馈</strong>
+                <p>试听结束当天必须回填课堂吸收、家长异议、意向等级和是否进群。</p>
+              </div>
+              <div class="quick-card">
+                <strong>追报名方案</strong>
+                <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
               </div>
             </div>
           </section>

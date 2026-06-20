@@ -486,6 +486,10 @@ function jrcRenderEmployeeDirectory() {
       </select>
     </div>
     <div class="jrc-employee-grid">${rows}</div>
+    <div class="jrc-employee-directory__footer">
+      <button type="button" class="jrc-employee-add-placeholder">新增员工入口（管理员）</button>
+      <span>后面正式接管理员录入后，这里会直接新增员工姓名、岗位、手机号、权限和初始账号。</span>
+    </div>
   `;
 }
 
@@ -800,6 +804,28 @@ function jrcInjectStyles() {
       margin: 4px 0 0;
       color: #172132;
       word-break: break-all;
+    }
+    .jrc-employee-directory__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .jrc-employee-add-placeholder {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px dashed rgba(13, 148, 136, 0.35);
+      background: rgba(255,255,255,0.84);
+      color: #0f766e;
+      font: inherit;
+      cursor: default;
+    }
+    .jrc-employee-directory__footer span {
+      color: #64748b;
+      font-size: 13px;
     }
     @media (max-width: 900px) {
       .jrc-employee-directory__tools,
