@@ -59,14 +59,23 @@
         color: #172132;
         border: 1px solid rgba(23,33,50,0.08);
       }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.08);
+        border: 1px solid rgba(13, 148, 136, 0.16);
+        color: #627086;
+      }
     </style>
   </head>
-  <body>
+  <body data-page-permission="knowledge.access">
     <main class="shell">
       <section class="card">
         <p class="eyebrow">System 02</p>
         <h1>知识库问答 + 学管课堂</h1>
         <p style="margin-top: 12px;">这个入口继续使用你们已经在线的知识库官网能力。后面统一门户和权限体系稳定后，再把视觉和导航进一步整合进来。</p>
+        <div class="auth-note" data-role-greeting></div>
       </section>
       <section class="card">
         <p class="eyebrow">Current Route</p>

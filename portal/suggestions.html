@@ -59,14 +59,23 @@
         color: #172132;
         border: 1px solid rgba(23,33,50,0.08);
       }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(188, 88, 46, 0.08);
+        border: 1px solid rgba(188, 88, 46, 0.16);
+        color: #627086;
+      }
     </style>
   </head>
-  <body>
+  <body data-page-permission="suggestions.access">
     <main class="shell">
       <section class="card">
         <p class="eyebrow">System 03</p>
         <h1>建议管理系统</h1>
         <p style="margin-top: 12px;">建议系统入口已经在统一门户里保留。当前先把登录、统一入口、员工身份和后续权限框架接进来，后面再继续补表单、匿名反馈和管理统计。</p>
+        <div class="auth-note" data-role-greeting></div>
       </section>
       <section class="card">
         <p class="eyebrow">Next Step</p>

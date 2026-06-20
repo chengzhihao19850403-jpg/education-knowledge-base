@@ -74,15 +74,24 @@
         font-weight: 700;
         margin-top: 14px;
       }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.08);
+        border: 1px solid rgba(13, 148, 136, 0.16);
+        color: var(--muted);
+      }
     </style>
   </head>
-  <body>
+  <body data-page-permission="finance.access">
     <main class="shell">
       <section class="card">
         <p class="eyebrow">System 04</p>
         <h1>财务系统</h1>
         <p style="margin-top: 12px;">财务系统后续用于承接老师课时费结算、分红结算、利润核对和历史财务沉淀。当前它还在从现有排课系统里的财务能力独立抽离，因此先在总站中保留为独立入口。</p>
         <div class="tag">后续重点：课时费结算 + 分红结算</div>
+        <div class="auth-note" data-role-greeting></div>
       </section>
 
       <section class="card">

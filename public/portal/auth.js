@@ -354,6 +354,34 @@ function jrcApplyPermissionDecorations(currentEmployee) {
   });
 }
 
+function jrcEnforcePagePermission(currentEmployee) {
+  const requiredPermission =
+    document.body?.getAttribute("data-page-permission") ||
+    document.documentElement?.getAttribute("data-page-permission");
+  if (!requiredPermission) return true;
+  if (jrcHasPermission(requiredPermission, currentEmployee)) return true;
+
+  const main = document.querySelector("main");
+  if (main) {
+    main.style.display = "none";
+  }
+
+  const blocker = document.createElement("div");
+  blocker.className = "jrc-page-block";
+  blocker.innerHTML = `
+    <div class="jrc-page-block__card">
+      <p class="jrc-page-block__eyebrow">Access Restricted</p>
+      <h2>当前岗位暂未开放这个系统</h2>
+      <p>你已经成功登录，但当前账号没有进入这个页面的权限。请返回工作台，使用已开放的系统入口，或者后续再由管理员调整岗位权限。</p>
+      <div class="jrc-page-block__actions">
+        <a href="/jrcedu/portal/index.html">返回统一工作台</a>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(blocker);
+  return false;
+}
+
 function jrcInjectStyles() {
   const style = document.createElement("style");
   style.textContent = `
@@ -487,6 +515,53 @@ function jrcInjectStyles() {
       background: rgba(15, 23, 42, 0.08);
       color: #475569;
     }
+    .jrc-page-block {
+      min-height: calc(100vh - 52px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    }
+    .jrc-page-block__card {
+      width: min(560px, 100%);
+      background: rgba(255,255,255,0.98);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+      padding: 28px;
+      color: #172132;
+    }
+    .jrc-page-block__eyebrow {
+      margin: 0 0 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0d9488;
+      font-weight: 700;
+    }
+    .jrc-page-block__card h2,
+    .jrc-page-block__card p {
+      margin: 0;
+    }
+    .jrc-page-block__card p {
+      margin-top: 12px;
+      color: #5b6778;
+      line-height: 1.7;
+    }
+    .jrc-page-block__actions {
+      margin-top: 18px;
+    }
+    .jrc-page-block__actions a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      color: #fff;
+      text-decoration: none;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -546,6 +621,7 @@ function jrcBootstrapAuth() {
   jrcEnsureTopbar(currentEmployee);
   window.JRC_CURRENT_EMPLOYEE = currentEmployee;
   jrcApplyPermissionDecorations(currentEmployee);
+  jrcEnforcePagePermission(currentEmployee);
 }
 
 jrcBootstrapAuth();

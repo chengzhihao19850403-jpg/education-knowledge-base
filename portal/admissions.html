@@ -119,18 +119,27 @@
         background: rgba(255,255,255,0.74);
       }
       .flow-card p + p { margin-top: 8px; }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(124, 58, 237, 0.08);
+        border: 1px solid rgba(124, 58, 237, 0.16);
+        color: var(--muted);
+      }
       @media (max-width: 900px) {
         .grid, .flow { grid-template-columns: 1fr; }
       }
     </style>
   </head>
-  <body>
+  <body data-page-permission="admissions.access">
     <main class="shell">
       <section class="card">
         <p class="eyebrow">System 05</p>
         <h1>招生管理系统</h1>
         <p style="margin-top: 12px;">这个系统不是普通 CRM，而是面向中小学数学教培机构的招生闭环系统。它要把线索来源、试听、报名、转介绍、提成归因和沉睡客户运营全部串起来，让以后每一个学生从“怎么来的”到“为什么成交或没成交”都能查清楚。</p>
         <div class="tag">当前策略：先做主干，再分两轮增强</div>
+        <div class="auth-note" data-role-greeting></div>
       </section>
 
         <section class="card">

@@ -74,15 +74,24 @@
         font-weight: 700;
         margin-top: 14px;
       }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(188, 88, 46, 0.08);
+        border: 1px solid rgba(188, 88, 46, 0.16);
+        color: var(--muted);
+      }
     </style>
   </head>
-  <body>
+  <body data-page-permission="paike.access">
     <main class="shell">
       <section class="card">
         <p class="eyebrow">System 01</p>
         <h1>排课系统</h1>
         <p style="margin-top: 12px;">排课系统目前不是纯静态网页，它依赖主控电脑后台、局域网访问、Excel 导入和本地数据库。所以统一总站里先提供清晰入口和使用说明，真正操作时仍进入实际运行中的排课系统。</p>
         <div class="tag">当前重点：6 月、7 月、8 月排课</div>
+        <div class="auth-note" data-role-greeting></div>
       </section>
 
       <section class="card">
