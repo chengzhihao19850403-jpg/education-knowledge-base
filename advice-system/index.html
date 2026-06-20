@@ -295,6 +295,44 @@
         border-radius: 14px;
         background: #f8fafc;
       }
+      .operator-strip,
+      .readonly-note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .operator-strip {
+        background: rgba(124, 58, 237, 0.08);
+        color: #5b21b6;
+      }
+      .readonly-note {
+        background: rgba(185, 28, 28, 0.08);
+        color: #991b1b;
+      }
+      .audit-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .audit-item {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        background: #fff;
+      }
+      .audit-item strong {
+        display: block;
+        color: var(--ink);
+        font-size: 13px;
+      }
+      .audit-item p {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
       ul {
         padding-left: 18px;
         margin-top: 10px;
@@ -333,6 +371,8 @@
           <p>Stage 1 Prototype</p>
           <h1>招生管理系统</h1>
           <div class="hint">第一阶段先把线索、跟进、试听、报名、渠道归属五条主链跑通，后续再继续加转介绍、提成、沉睡召回。</div>
+          <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
+          <div class="readonly-note" id="permissionNotice" hidden></div>
         </div>
         <div class="top-actions">
           <a class="button" href="/jrcedu/portal/admissions.html">查看阶段说明</a>
@@ -1916,6 +1956,21 @@
         <aside class="panel">
           <h2>待办与后续增强</h2>
           <div class="stack-list">
+            <div class="list-card">
+              <h3>当前登录员工</h3>
+              <p><strong id="operatorName">未登录</strong></p>
+              <p id="operatorMeta">读取中</p>
+              <p id="operatorPermissionSummary">读取中</p>
+            </div>
+            <div class="list-card">
+              <h3>最近操作留痕</h3>
+              <div class="audit-list" id="auditLogList">
+                <div class="audit-item">
+                  <strong>暂无操作记录</strong>
+                  <p>后续这里会显示谁修改了线索、试听、报名、续费、导入和归属链。</p>
+                </div>
+              </div>
+            </div>
             <div class="list-card">
               <h3>今天必须处理</h3>
               <p>1. 4 个试听已完成但还没填反馈。</p>

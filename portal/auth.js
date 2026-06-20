@@ -1,4 +1,44 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
+const JRC_ROLE_PERMISSIONS = {
+  管理员: [
+    "portal.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "admissions.edit",
+    "admissions.import",
+    "admissions.finance",
+    "finance.access",
+    "finance.edit",
+    "admin.access"
+  ],
+  学管: [
+    "portal.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "admissions.edit",
+    "admissions.import",
+    "admissions.finance"
+  ],
+  财务: [
+    "portal.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "admissions.finance",
+    "finance.access",
+    "finance.edit"
+  ],
+  授课老师: [
+    "portal.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access"
+  ]
+};
 
 const JRC_EMPLOYEES = [
   {
@@ -226,6 +266,27 @@ function jrcResolveCurrentEmployee() {
   return jrcFindEmployeeByUsername(session.username) || null;
 }
 
+function jrcGetPermissions(role) {
+  return JRC_ROLE_PERMISSIONS[role] || [];
+}
+
+function jrcHasPermission(permissionKey, employee = jrcResolveCurrentEmployee()) {
+  if (!employee) return false;
+  return jrcGetPermissions(employee.role).includes(permissionKey);
+}
+
+function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
+  if (!employee) return "";
+  const permissions = jrcGetPermissions(employee.role);
+  const summaries = [];
+  if (permissions.includes("paike.access")) summaries.push("排课");
+  if (permissions.includes("admissions.access")) summaries.push("招生");
+  if (permissions.includes("finance.access")) summaries.push("财务");
+  if (permissions.includes("knowledge.access")) summaries.push("知识库");
+  if (permissions.includes("suggestions.access")) summaries.push("建议");
+  return summaries.join(" / ") || "仅登录访问";
+}
+
 function jrcEnsureTopbar(currentEmployee) {
   const topbar = document.createElement("div");
   topbar.className = "jrc-auth-bar";
@@ -233,7 +294,7 @@ function jrcEnsureTopbar(currentEmployee) {
     <div class="jrc-auth-bar__inner">
       <div>
         <strong>${currentEmployee.name}</strong>
-        <span>${currentEmployee.role} · 用户名 ${currentEmployee.username}</span>
+        <span>${currentEmployee.role} · 用户名 ${currentEmployee.username} · 当前开放：${jrcGetRoleSummary(currentEmployee)}</span>
       </div>
       <div class="jrc-auth-bar__actions">
         <span>统一初始密码：10281028</span>
@@ -253,8 +314,44 @@ function jrcEnsureEmployeeSummary() {
   if (!holder) return;
   holder.innerHTML = `
     <strong>当前已录入 ${JRC_EMPLOYEES.length} 名员工账号</strong>
-    <span>用户名统一用姓名拼音；初始密码统一为 10281028。权限先预留，后面再按岗位细分。</span>
+    <span>用户名统一用姓名拼音；初始密码统一为 10281028。当前已经接入基础岗位权限，不同岗位看到的系统入口会开始区分。</span>
   `;
+}
+
+function jrcApplyPermissionDecorations(currentEmployee) {
+  document.querySelectorAll("[data-requires-permission]").forEach((node) => {
+    const permission = node.getAttribute("data-requires-permission");
+    if (!permission) return;
+    const allowed = jrcHasPermission(permission, currentEmployee);
+    if (allowed) return;
+
+    const isLink = node.tagName === "A";
+    node.classList.add("jrc-locked");
+    node.setAttribute("aria-disabled", "true");
+    node.setAttribute("title", "当前岗位暂未开放");
+    if (isLink) {
+      node.setAttribute("data-jrc-href", node.getAttribute("href") || "");
+      node.setAttribute("href", "javascript:void(0)");
+    } else if ("disabled" in node) {
+      node.disabled = true;
+    }
+  });
+
+  document.querySelectorAll("[data-requires-permission-card]").forEach((node) => {
+    const permission = node.getAttribute("data-requires-permission-card");
+    if (!permission) return;
+    const allowed = jrcHasPermission(permission, currentEmployee);
+    if (allowed) return;
+    node.classList.add("jrc-card-locked");
+    const note = document.createElement("div");
+    note.className = "jrc-card-lock-note";
+    note.textContent = "当前岗位暂未开放";
+    node.appendChild(note);
+  });
+
+  document.querySelectorAll("[data-role-greeting]").forEach((node) => {
+    node.textContent = `${currentEmployee.name}｜${currentEmployee.role}｜当前开放：${jrcGetRoleSummary(currentEmployee)}`;
+  });
 }
 
 function jrcInjectStyles() {
@@ -371,6 +468,25 @@ function jrcInjectStyles() {
       flex-direction: column;
       gap: 8px;
     }
+    .jrc-locked {
+      opacity: 0.55;
+      cursor: not-allowed !important;
+      pointer-events: none;
+    }
+    .jrc-card-locked {
+      position: relative;
+    }
+    .jrc-card-lock-note {
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(15, 23, 42, 0.08);
+      color: #475569;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -419,6 +535,9 @@ function jrcShowLoginOverlay() {
 function jrcBootstrapAuth() {
   jrcInjectStyles();
   jrcEnsureEmployeeSummary();
+  window.JRC_EMPLOYEES = JRC_EMPLOYEES;
+  window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
+  window.jrcHasPermission = jrcHasPermission;
   const currentEmployee = jrcResolveCurrentEmployee();
   if (!currentEmployee) {
     jrcShowLoginOverlay();
@@ -426,7 +545,7 @@ function jrcBootstrapAuth() {
   }
   jrcEnsureTopbar(currentEmployee);
   window.JRC_CURRENT_EMPLOYEE = currentEmployee;
-  window.JRC_EMPLOYEES = JRC_EMPLOYEES;
+  jrcApplyPermissionDecorations(currentEmployee);
 }
 
 jrcBootstrapAuth();

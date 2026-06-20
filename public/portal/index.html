@@ -191,10 +191,11 @@
         <h1>匠人程工作台</h1>
         <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库与学管课堂、建议管理、财务、招生管理。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
         <div class="auth-note" data-employee-summary></div>
+        <div class="auth-note" data-role-greeting></div>
       </section>
 
       <section class="grid">
-        <article class="card">
+        <article class="card" data-requires-permission-card="paike.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 01</p>
@@ -209,11 +210,11 @@
             <li>暑假模式处理 7、8 月排课</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./paike.html">进入排课系统</a>
+            <a class="button" data-requires-permission="paike.access" href="./paike.html">进入排课系统</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="finance.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 02</p>
@@ -266,11 +267,11 @@
             <li>财务与结算数据沉淀</li>
           </ul>
           <div class="actions">
-            <a class="button button-secondary" href="./finance.html">进入财务系统</a>
+            <a class="button button-secondary" data-requires-permission="finance.access" href="./finance.html">进入财务系统</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="admissions.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 05</p>
@@ -285,7 +286,7 @@
             <li>后续再加短信、二维码、批量运营和看板深化</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./admissions.html">进入招生管理系统</a>
+            <a class="button" data-requires-permission="admissions.access" href="./admissions.html">进入招生管理系统</a>
           </div>
         </article>
       </section>

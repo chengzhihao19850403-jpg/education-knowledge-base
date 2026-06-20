@@ -4,6 +4,7 @@ const defaultState = {
   activeLeadFilter: "all",
   selectedLeadName: "张同学",
   employees: [],
+  auditLogs: [],
   importSummary: {
     added: 0,
     duplicates: 0,
@@ -154,6 +155,59 @@ function persistState() {
   } catch {}
 }
 
+function getCurrentEmployee() {
+  return window.JRC_CURRENT_EMPLOYEE || null;
+}
+
+function hasPermission(permissionKey) {
+  if (typeof window.jrcHasPermission === "function") {
+    return window.jrcHasPermission(permissionKey, getCurrentEmployee());
+  }
+  return true;
+}
+
+function canEditAdmissions() {
+  return hasPermission("admissions.edit");
+}
+
+function canImportAdmissions() {
+  return hasPermission("admissions.import");
+}
+
+function canViewAdmissionFinance() {
+  return hasPermission("admissions.finance") || hasPermission("finance.access");
+}
+
+function formatNowStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hour = String(now.getHours()).padStart(2, "0");
+  const minute = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
+function getOperatorLabel() {
+  const employee = getCurrentEmployee();
+  if (!employee) return "系统访客";
+  return `${employee.name}（${employee.role}）`;
+}
+
+function logAudit(action, studentName, detail) {
+  if (!Array.isArray(state.auditLogs)) {
+    state.auditLogs = [];
+  }
+  state.auditLogs.unshift({
+    time: formatNowStamp(),
+    operator: getOperatorLabel(),
+    action,
+    studentName: studentName || "-",
+    detail
+  });
+  state.auditLogs = state.auditLogs.slice(0, 120);
+}
+
 function formatTrialDisplay(trialTime) {
   if (!trialTime) return "待确认时间";
   return trialTime.replace("T", " ");
@@ -285,6 +339,7 @@ function syncSelectedLead(leadName) {
 function renderLeadTable() {
   const body = byId("leadTableBody");
   if (!body) return;
+  const editable = canEditAdmissions();
   const filteredLeads = state.leads.filter((lead) => {
     if (state.activeLeadFilter === "new") return lead.status === "新建未联系";
     if (state.activeLeadFilter === "trial")
@@ -300,7 +355,7 @@ function renderLeadTable() {
           <td><span class="tag ${lead.channel.includes("转介绍") ? "green" : lead.channel.includes("自然") ? "red" : ""}">${lead.channel}</span><br>${lead.channelMeta}</td>
           <td>
             <div>招生顾问：${lead.owner}</div>
-            <select data-owner-select="${lead.studentName}">
+            <select data-owner-select="${lead.studentName}" ${editable ? "" : "disabled"}>
               ${ownerOptions
                 .map(
                   (owner) =>
@@ -317,10 +372,10 @@ function renderLeadTable() {
           <td>${lead.nextAction}</td>
           <td>
             <button class="button small secondary" type="button" data-action="view-detail" data-student="${lead.studentName}">查看详情</button>
-            <button class="button small" type="button" data-action="advance-status" data-student="${lead.studentName}">推进状态</button>
-            <button class="button small secondary" type="button" data-action="assign-trial" data-student="${lead.studentName}">预约试听</button>
-            <button class="button small secondary" type="button" data-action="complete-trial" data-student="${lead.studentName}">完成试听</button>
-            <button class="button small secondary" type="button" data-action="reassign-owner" data-student="${lead.studentName}">重分配</button>
+            <button class="button small" type="button" data-action="advance-status" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>推进状态</button>
+            <button class="button small secondary" type="button" data-action="assign-trial" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>预约试听</button>
+            <button class="button small secondary" type="button" data-action="complete-trial" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>完成试听</button>
+            <button class="button small secondary" type="button" data-action="reassign-owner" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>重分配</button>
           </td>
         </tr>
       `
@@ -448,6 +503,7 @@ function renderImportSummary() {
 function renderPendingLeadFixes() {
   const body = byId("pendingLeadFixBody");
   if (!body) return;
+  const editable = canEditAdmissions();
   const pendingLeads = state.leads
     .map((lead) => ({ lead, missing: collectMissingLeadFields(lead) }))
     .filter((item) => item.missing.length > 0);
@@ -463,7 +519,7 @@ function renderPendingLeadFixes() {
               <td>
                 <div class="section-actions">
                   <button class="button small secondary" type="button" data-action="focus-pending-lead" data-student="${lead.studentName}">定位线索</button>
-                  <select data-pending-owner-select="${lead.studentName}">
+                  <select data-pending-owner-select="${lead.studentName}" ${editable ? "" : "disabled"}>
                     ${ownerOptions
                       .map(
                         (owner) =>
@@ -471,10 +527,10 @@ function renderPendingLeadFixes() {
                       )
                       .join("")}
                   </select>
-                  <button class="button small" type="button" data-action="apply-pending-owner" data-student="${lead.studentName}">补负责人</button>
+                  <button class="button small" type="button" data-action="apply-pending-owner" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>补负责人</button>
                 </div>
                 <div class="section-actions">
-                  <select data-pending-channel-select="${lead.studentName}">
+                  <select data-pending-channel-select="${lead.studentName}" ${editable ? "" : "disabled"}>
                     ${channelOptions
                       .map(
                         (channel) =>
@@ -482,10 +538,10 @@ function renderPendingLeadFixes() {
                       )
                       .join("")}
                   </select>
-                  <button class="button small secondary" type="button" data-action="apply-pending-channel" data-student="${lead.studentName}">补来源</button>
+                  <button class="button small secondary" type="button" data-action="apply-pending-channel" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>补来源</button>
                 </div>
                 <div class="section-actions">
-                  <select data-pending-channel-owner-select="${lead.studentName}">
+                  <select data-pending-channel-owner-select="${lead.studentName}" ${editable ? "" : "disabled"}>
                     ${channelOwnerOptions
                       .map(
                         (channelOwner) =>
@@ -493,15 +549,15 @@ function renderPendingLeadFixes() {
                       )
                       .join("")}
                   </select>
-                  <button class="button small secondary" type="button" data-action="apply-pending-channel-owner" data-student="${lead.studentName}">补渠道归属</button>
+                  <button class="button small secondary" type="button" data-action="apply-pending-channel-owner" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>补渠道归属</button>
                 </div>
                 <div class="section-actions">
-                  <input data-pending-referrer-input="${lead.studentName}" value="${lead.referrerName || ""}">
-                  <button class="button small secondary" type="button" data-action="apply-pending-referrer" data-student="${lead.studentName}">补推荐人</button>
+                  <input data-pending-referrer-input="${lead.studentName}" value="${lead.referrerName || ""}" ${editable ? "" : "disabled"}>
+                  <button class="button small secondary" type="button" data-action="apply-pending-referrer" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>补推荐人</button>
                 </div>
                 <div class="section-actions">
-                  <input data-pending-note-input="${lead.studentName}" value="${lead.note === "待补首条记录" ? "" : lead.note}">
-                  <button class="button small secondary" type="button" data-action="apply-pending-note" data-student="${lead.studentName}">补备注</button>
+                  <input data-pending-note-input="${lead.studentName}" value="${lead.note === "待补首条记录" ? "" : lead.note}" ${editable ? "" : "disabled"}>
+                  <button class="button small secondary" type="button" data-action="apply-pending-note" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>补备注</button>
                 </div>
               </td>
             </tr>
@@ -534,6 +590,7 @@ function bindPendingLeadFixActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const ownerSelect = document.querySelector(
         `[data-pending-owner-select="${studentName}"]`
       );
@@ -547,6 +604,7 @@ function bindPendingLeadFixActions() {
         time: "刚刚",
         text: `在待补字段处理中补齐负责人：${nextOwner}。`,
       });
+      logAudit("待补字段-补负责人", target.studentName, `改为 ${nextOwner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -557,6 +615,7 @@ function bindPendingLeadFixActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const channelSelect = document.querySelector(
         `[data-pending-channel-select="${studentName}"]`
       );
@@ -569,6 +628,7 @@ function bindPendingLeadFixActions() {
         time: "刚刚",
         text: `在待补字段处理中补齐来源渠道：${nextChannel}。`,
       });
+      logAudit("待补字段-补来源", target.studentName, `改为 ${nextChannel}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -579,6 +639,7 @@ function bindPendingLeadFixActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const noteInput = document.querySelector(
         `[data-pending-note-input="${studentName}"]`
       );
@@ -591,6 +652,7 @@ function bindPendingLeadFixActions() {
         time: "刚刚",
         text: `在待补字段处理中补齐首条备注：${nextNote}。`,
       });
+      logAudit("待补字段-补备注", target.studentName, nextNote);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -601,6 +663,7 @@ function bindPendingLeadFixActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const input = document.querySelector(
         `[data-pending-channel-owner-select="${studentName}"]`
       );
@@ -613,6 +676,7 @@ function bindPendingLeadFixActions() {
         time: "刚刚",
         text: `在待补字段处理中补齐渠道归属：${nextChannelOwner}。`,
       });
+      logAudit("待补字段-补渠道归属", target.studentName, `改为 ${nextChannelOwner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -623,6 +687,7 @@ function bindPendingLeadFixActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const input = document.querySelector(
         `[data-pending-referrer-input="${studentName}"]`
       );
@@ -636,6 +701,7 @@ function bindPendingLeadFixActions() {
         time: "刚刚",
         text: `在待补字段处理中补齐推荐人：${nextReferrer}。`,
       });
+      logAudit("待补字段-补推荐人", target.studentName, nextReferrer);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -751,6 +817,18 @@ function renderStudentArchive() {
     </tr>
   `;
 
+  if (!canViewAdmissionFinance()) {
+    byId("archiveFinanceTitle").textContent = "受限";
+    byId("archiveFinanceMeta").textContent = "当前岗位可以看招生流程，但不能查看财务结算口径。";
+    byId("financeCandidateBody").innerHTML = `
+      <tr>
+        <td>财务结算候选项</td>
+        <td>当前登录岗位未开放查看。需要学管、财务或管理员账号。</td>
+      </tr>
+    `;
+    return;
+  }
+
   byId("financeCandidateBody").innerHTML = `
     <tr>
       <td>首报实收</td>
@@ -834,6 +912,7 @@ function renderFollowups() {
 function renderPublicPool() {
   const box = byId("publicPoolList");
   if (!box) return;
+  const editable = canEditAdmissions();
   const publicPool = state.leads.filter(
     (lead) =>
       lead.status === "新建未联系" ||
@@ -845,7 +924,7 @@ function renderPublicPool() {
           (lead) => `
             <p>${lead.studentName} / ${lead.channel} / ${lead.lastFollowup} / ${lead.nextAction}</p>
             <div class="section-actions">
-              <select data-public-owner-select="${lead.studentName}">
+              <select data-public-owner-select="${lead.studentName}" ${editable ? "" : "disabled"}>
                 ${ownerOptions
                   .map(
                     (owner) =>
@@ -853,7 +932,7 @@ function renderPublicPool() {
                   )
                   .join("")}
               </select>
-              <button class="button small secondary" type="button" data-action="public-reassign" data-student="${lead.studentName}">重新分配</button>
+              <button class="button small secondary" type="button" data-action="public-reassign" data-student="${lead.studentName}" ${editable ? "" : "disabled"}>重新分配</button>
             </div>
           `
         )
@@ -888,6 +967,7 @@ function bindLeadCreate() {
   const button = byId("createLeadButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const studentName = byId("leadStudentName").value.trim();
     const parentPhone = byId("leadPhone").value.trim();
     if (!studentName || !parentPhone) {
@@ -919,6 +999,7 @@ function bindLeadCreate() {
     byId("leadReferrer").value = "";
     byId("leadNote").value = "";
     state.selectedLeadName = studentName;
+    logAudit("新增线索", studentName, `来源 ${byId("leadChannel").value}，负责人 ${byId("leadOwner").value || "待分配"}。`);
     renderAll();
   });
 }
@@ -927,6 +1008,7 @@ function bindFeedbackSave() {
   const button = byId("saveFeedbackButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const targetName = byId("followupLeadSelect")?.value;
     const feedbackLeadName = byId("feedbackLeadSelect")?.value || targetName;
     if (!feedbackLeadName) return;
@@ -944,6 +1026,7 @@ function bindFeedbackSave() {
     target.inGroup = byId("detailInGroupSelect")?.value || target.inGroup;
     target.status = "试听完成待转化";
     state.selectedLeadName = target.studentName;
+    logAudit("保存试听反馈", target.studentName, `意向改为 ${target.intent}，下次跟进 ${byId("feedbackNextDate").value || "待定"}。`);
     renderAll();
   });
 }
@@ -958,6 +1041,7 @@ function bindEnrollmentCreate() {
   });
 
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const name = byId("enrollStudentName").value.trim();
     const amount = Number(byId("enrollReceived").value || 0);
     if (!name || !amount) {
@@ -982,6 +1066,7 @@ function bindEnrollmentCreate() {
         time: "刚刚",
         text: `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`,
       });
+      logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
     }
     renderAll();
   });
@@ -991,6 +1076,7 @@ function bindFollowupCreate() {
   const button = byId("addFollowupButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const leadName = byId("followupLeadSelect").value;
     const text = byId("followupInput").value.trim();
     if (!text) return;
@@ -1003,6 +1089,7 @@ function bindFollowupCreate() {
     if (target) {
       target.lastFollowup = "刚刚";
       target.note = text;
+      logAudit("新增跟进", target.studentName, text);
     }
     byId("followupInput").value = "";
     renderAll();
@@ -1018,6 +1105,7 @@ function bindRenewalCreate() {
   const button = byId("createRenewalButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const studentName = byId("renewStudentName").value.trim();
     const amount = Number(byId("renewAmount").value || 0);
     if (!studentName || !amount) return;
@@ -1054,6 +1142,7 @@ function bindRenewalCreate() {
     });
     target.lastFollowup = "刚刚登记续费/扩科";
     target.nextAction = `${renewalRecord.type}已登记，继续按既有归属链结算`;
+    logAudit(`登记${renewalRecord.type}`, target.studentName, `${renewalRecord.courseName} / 实收 ${amount} / 继承 ${formatAttributionSnapshot(inheritedSnapshot)}。`);
     renderAll();
   });
 }
@@ -1062,6 +1151,7 @@ function bindBatchImport() {
   const button = byId("importBatchButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canImportAdmissions()) return;
     const raw = byId("importBatchInput").value.trim();
     const defaultStatus = byId("importDefaultStatus").value;
     const summary = {
@@ -1212,6 +1302,7 @@ function bindBatchImport() {
     });
 
     state.importSummary = summary;
+    logAudit("批量导入线索", state.selectedLeadName || "本批线索", `新增 ${summary.added}，重复 ${summary.duplicates}，缺负责人 ${summary.missingOwner}，缺字段 ${summary.missingFields}。`);
     renderAll();
   });
 }
@@ -1220,6 +1311,7 @@ function bindTrialCreate() {
   const button = byId("saveTrialButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const studentName = byId("trialLeadSelect").value;
     if (!studentName) return;
     const target = state.leads.find((lead) => lead.studentName === studentName);
@@ -1233,6 +1325,7 @@ function bindTrialCreate() {
     target.lastFollowup = "刚刚预约试听";
     target.note = `已安排试听：${target.trialTeacher} / ${target.trial}`;
     state.selectedLeadName = target.studentName;
+    logAudit("预约试听", target.studentName, `${target.trialTeacher} / ${target.trial}`);
     renderAll();
   });
 
@@ -1250,8 +1343,10 @@ function bindDetailSave() {
   const button = byId("saveDetailButton");
   if (!button) return;
   button.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
     const target = getSelectedLead();
     if (!target) return;
+    const beforeSnapshot = formatAttributionSnapshot(target.attributionLocked && target.attributionSnapshot ? target.attributionSnapshot : buildAttributionSnapshot(target));
     target.owner = byId("detailOwnerSelect").value;
     target.status = byId("detailStatusSelect").value;
     target.intent = byId("detailIntentSelect").value;
@@ -1262,6 +1357,7 @@ function bindDetailSave() {
     target.nextAction = byId("detailNextActionInput").value.trim() || target.nextAction;
     target.note = byId("detailNoteInput").value.trim() || target.note;
     target.lastFollowup = "刚刚修改";
+    logAudit("修改线索详情", target.studentName, `状态 ${target.status}，负责人 ${target.owner}，当前归属链 ${beforeSnapshot}。`);
     renderAll();
   });
 }
@@ -1288,8 +1384,10 @@ function bindLeadActions() {
       const studentName = select.getAttribute("data-owner-select");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       target.owner = select.value;
       target.lastFollowup = "刚刚重分配";
+      logAudit("调整负责人", target.studentName, `改为 ${select.value}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -1300,11 +1398,13 @@ function bindLeadActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       if (target.status === "新建未联系") target.status = "已沟通待邀约";
       else if (target.status === "已沟通待邀约") target.status = "持续跟进中";
       else if (target.status === "试听完成待转化") target.status = "持续跟进中";
       target.lastFollowup = "刚刚推进";
       target.nextAction = "继续跟进并补下一步动作";
+      logAudit("推进线索状态", target.studentName, `推进后状态 ${target.status}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -1330,10 +1430,12 @@ function bindLeadActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       target.status = "试听完成待转化";
       target.trial = "已试听";
       target.nextAction = "48 小时内给报名方案";
       target.lastFollowup = "刚刚完成试听";
+      logAudit("完成试听", target.studentName, "已转入试听完成待转化。");
       syncSelectedLead(target.studentName);
       renderAll();
     };
@@ -1362,15 +1464,110 @@ function bindLeadActions() {
       const studentName = button.getAttribute("data-student");
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
+      if (!canEditAdmissions()) return;
       const ownerSelect = document.querySelector(
         `[data-public-owner-select="${studentName}"]`
       );
       target.owner = ownerSelect?.value || ownerOptions[0];
       target.nextAction = "已重新分配，尽快首联";
       target.lastFollowup = "刚刚重分配";
+      logAudit("公海线索重分配", target.studentName, `改为 ${target.owner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
     };
+  });
+}
+
+function renderOperatorContext() {
+  const employee = getCurrentEmployee();
+  const operatorHint = byId("operatorHint");
+  const permissionNotice = byId("permissionNotice");
+  const operatorName = byId("operatorName");
+  const operatorMeta = byId("operatorMeta");
+  const operatorPermissionSummary = byId("operatorPermissionSummary");
+
+  if (employee) {
+    const financeSummary = canViewAdmissionFinance() ? "可查看财务口径" : "不可查看财务口径";
+    const editSummary = canEditAdmissions() ? "当前账号可录入和修改招生数据。" : "当前账号为只读，只能查看，不能修改招生数据。";
+    if (operatorHint) {
+      operatorHint.textContent = `${employee.name}｜${employee.role}｜${editSummary}`;
+    }
+    if (operatorName) operatorName.textContent = employee.name;
+    if (operatorMeta) operatorMeta.textContent = `${employee.role}｜用户名 ${employee.username}`;
+    if (operatorPermissionSummary) {
+      operatorPermissionSummary.textContent = `招生编辑：${canEditAdmissions() ? "已开放" : "未开放"}｜导入：${canImportAdmissions() ? "已开放" : "未开放"}｜${financeSummary}`;
+    }
+    if (permissionNotice) {
+      permissionNotice.hidden = canEditAdmissions();
+      permissionNotice.textContent = "当前登录账号没有招生编辑权限。你现在可以查看流程和数据，但不会允许录入、导入、重分配或修改。";
+    }
+    return;
+  }
+
+  if (operatorHint) operatorHint.textContent = "当前没有识别到登录员工信息。";
+  if (operatorName) operatorName.textContent = "未识别";
+  if (operatorMeta) operatorMeta.textContent = "请先从统一工作台登录";
+  if (operatorPermissionSummary) operatorPermissionSummary.textContent = "暂未加载权限";
+  if (permissionNotice) {
+    permissionNotice.hidden = false;
+    permissionNotice.textContent = "当前页面未识别登录信息，默认按只读处理。";
+  }
+}
+
+function renderAuditLogs() {
+  const box = byId("auditLogList");
+  if (!box) return;
+  const logs = Array.isArray(state.auditLogs) ? state.auditLogs.slice(0, 8) : [];
+  box.innerHTML = logs.length
+    ? logs
+        .map(
+          (item) => `
+            <div class="audit-item">
+              <strong>${item.action}｜${item.studentName}</strong>
+              <p>${item.time}｜${item.operator}<br>${item.detail}</p>
+            </div>
+          `
+        )
+        .join("")
+    : `
+      <div class="audit-item">
+        <strong>暂无操作记录</strong>
+        <p>后续这里会显示谁修改了线索、试听、报名、续费、导入和归属链。</p>
+      </div>
+    `;
+}
+
+function applyPermissionState() {
+  const editable = canEditAdmissions();
+  const importable = canImportAdmissions();
+  const editSelectors = [
+    '[id^="lead"]',
+    '[id^="detail"]',
+    '[id^="trial"]',
+    '[id^="feedback"]',
+    '[id^="enroll"]',
+    '[id^="renew"]',
+    '[id^="followup"]',
+    '#createLeadButton',
+    '#saveFeedbackButton',
+    '#createEnrollmentButton',
+    '#addFollowupButton',
+    '#createRenewalButton',
+    '#saveTrialButton',
+    '#saveDetailButton'
+  ];
+  document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
+    if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
+    if (node.id === "detailAttributionLock" || node.id === "renewStudentName" || node.id === "renewAttributionPreview" || node.id === "enrollAttributionPreview") {
+      node.disabled = true;
+      return;
+    }
+    node.disabled = !editable;
+  });
+
+  const importNodes = document.querySelectorAll("#importBatchInput, #importDefaultStatus, #importBatchButton");
+  importNodes.forEach((node) => {
+    node.disabled = !importable;
   });
 }
 
@@ -1393,6 +1590,7 @@ function bindLeadFilters() {
 
 function renderAll() {
   persistState();
+  renderOperatorContext();
   renderLeadTable();
   renderTrialTable();
   renderFollowups();
@@ -1406,6 +1604,8 @@ function renderAll() {
   renderPendingLeadFixes();
   renderStudentArchive();
   renderMetrics();
+  renderAuditLogs();
+  applyPermissionState();
 }
 
 bindLeadCreate();
