@@ -3,40 +3,25 @@ const JRC_ROLE_PERMISSIONS = {
   管理员: [
     "portal.access",
     "paike.access",
-    "knowledge.access",
     "suggestions.access",
-    "admissions.access",
-    "admissions.edit",
-    "admissions.import",
-    "admissions.finance",
-    "finance.access",
-    "finance.edit",
     "admin.access"
   ],
   学管: [
     "portal.access",
     "paike.access",
     "knowledge.access",
-    "suggestions.access",
-    "admissions.access",
-    "admissions.edit",
-    "admissions.import",
-    "admissions.finance"
+    "suggestions.access"
   ],
   财务: [
     "portal.access",
-    "knowledge.access",
     "suggestions.access",
-    "admissions.access",
-    "admissions.finance",
     "finance.access",
     "finance.edit"
   ],
   授课老师: [
     "portal.access",
-    "knowledge.access",
-    "suggestions.access",
-    "admissions.access"
+    "paike.access",
+    "suggestions.access"
   ]
 };
 
@@ -138,6 +123,19 @@ const JRC_EMPLOYEES = [
     regularDate: "2021-04-20",
     subject: "科学",
     commissionRate: "50%"
+  },
+  {
+    name: "叶源泽",
+    username: "yeyuanze",
+    password: "10281028",
+    role: "授课老师",
+    phone: "",
+    wechat: "",
+    scope: "",
+    hireDate: "",
+    regularDate: "",
+    subject: "",
+    commissionRate: ""
   },
   {
     name: "李舒",
@@ -244,7 +242,7 @@ const JRC_EMPLOYEES = [
     commissionRate: "20%"
   },
   {
-    name: "何建君",
+    name: "何建军",
     username: "hejianjun",
     password: "10281028",
     role: "授课老师",
@@ -270,6 +268,13 @@ const JRC_EMPLOYEES = [
     commissionRate: "20%"
   }
 ];
+
+const JRC_SUPER_ADMIN_USERNAMES = ["chengzhihao", "chenyuqing", "haiyingying"];
+const JRC_FINANCE_ADMIN_USERNAMES = ["chenyuqing", "liudajun", "chengzhihao"];
+const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
+const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
+const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
+const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
 
 function jrcReadSession() {
   try {
@@ -304,18 +309,76 @@ function jrcResolveCurrentEmployee() {
   return jrcFindEmployeeByUsername(session.username) || null;
 }
 
-function jrcGetPermissions(role) {
-  return JRC_ROLE_PERMISSIONS[role] || [];
+function jrcGetPermissions(subject) {
+  if (!subject) return [];
+  if (typeof subject === "string") {
+    return JRC_ROLE_PERMISSIONS[subject] || [];
+  }
+
+  const permissions = new Set(JRC_ROLE_PERMISSIONS[subject.role] || []);
+  const username = subject.username;
+
+  if (!username) return Array.from(permissions);
+
+  permissions.add("portal.access");
+  permissions.add("paike.access");
+  permissions.add("suggestions.access");
+
+  if (subject.role !== "授课老师") {
+    permissions.add("knowledge.access");
+  }
+
+  if (JRC_SUPER_ADMIN_USERNAMES.includes(username)) {
+    [
+      "portal.access",
+      "paike.access",
+      "paike.edit",
+      "knowledge.access",
+      "knowledge.edit",
+      "suggestions.access",
+      "suggestions.edit",
+      "admissions.access",
+      "admissions.edit",
+      "admissions.import",
+      "admissions.finance",
+      "finance.access",
+      "finance.edit",
+      "admin.access"
+    ].forEach((permission) => permissions.add(permission));
+  }
+
+  if (JRC_PAIKE_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("paike.edit");
+  }
+  if (JRC_KNOWLEDGE_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("knowledge.access");
+    permissions.add("knowledge.edit");
+  }
+  if (JRC_SUGGESTION_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("suggestions.edit");
+  }
+  if (JRC_ADMISSIONS_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("admissions.access");
+    permissions.add("admissions.edit");
+    permissions.add("admissions.import");
+    permissions.add("admissions.finance");
+  }
+  if (JRC_FINANCE_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("finance.access");
+    permissions.add("finance.edit");
+  }
+
+  return Array.from(permissions);
 }
 
 function jrcHasPermission(permissionKey, employee = jrcResolveCurrentEmployee()) {
   if (!employee) return false;
-  return jrcGetPermissions(employee.role).includes(permissionKey);
+  return jrcGetPermissions(employee).includes(permissionKey);
 }
 
 function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   if (!employee) return "";
-  const permissions = jrcGetPermissions(employee.role);
+  const permissions = jrcGetPermissions(employee);
   const summaries = [];
   if (permissions.includes("paike.access")) summaries.push("排课");
   if (permissions.includes("admissions.access")) summaries.push("招生");
