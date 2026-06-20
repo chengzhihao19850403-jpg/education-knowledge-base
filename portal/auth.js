@@ -129,13 +129,13 @@ const JRC_EMPLOYEES = [
     username: "yeyuanze",
     password: "10281028",
     role: "授课老师",
-    phone: "",
-    wechat: "",
-    scope: "",
-    hireDate: "",
-    regularDate: "",
-    subject: "",
-    commissionRate: ""
+    phone: "13738807822",
+    wechat: "YYZ-May-19",
+    scope: "初一",
+    hireDate: "2025-05-09",
+    regularDate: "2025-06-09",
+    subject: "数学",
+    commissionRate: "23%"
   },
   {
     name: "李舒",
