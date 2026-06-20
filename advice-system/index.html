@@ -302,6 +302,79 @@
       .tag.green { background: rgba(15, 118, 110, 0.10); color: var(--green); }
       .tag.amber { background: rgba(180, 83, 9, 0.10); color: var(--amber); }
       .tag.red { background: rgba(185, 28, 28, 0.10); color: var(--red); }
+      .quality-score {
+        display: grid;
+        gap: 8px;
+        min-width: 140px;
+      }
+      .quality-score strong {
+        font-size: 22px;
+        color: var(--ink);
+      }
+      .score-bar {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #edf1f8;
+      }
+      .score-bar span {
+        display: block;
+        height: 100%;
+        width: var(--score-width, 0%);
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--green), var(--brand));
+      }
+      .quality-grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        min-height: 30px;
+        border-radius: 10px;
+        font-weight: 800;
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+      .quality-grade.grade-s { background: rgba(15, 118, 110, 0.12); color: var(--green); }
+      .quality-grade.grade-a { background: rgba(124, 58, 237, 0.12); color: var(--brand); }
+      .quality-grade.grade-b { background: rgba(180, 83, 9, 0.12); color: var(--amber); }
+      .quality-grade.grade-c { background: rgba(185, 28, 28, 0.12); color: var(--red); }
+      .dimension-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .dimension-row {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr) 44px;
+        gap: 10px;
+        align-items: center;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .template-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .template-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        padding: 16px;
+      }
+      .template-card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--ink);
+      }
+      .linkage-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
       .list-card {
         padding: 14px;
       }
@@ -374,6 +447,10 @@
         .form-grid {
           grid-template-columns: 1fr;
         }
+        .template-grid,
+        .linkage-grid {
+          grid-template-columns: 1fr;
+        }
         .span-2,
         .span-3 {
           grid-column: auto;
@@ -427,6 +504,10 @@
             <div class="nav-item" data-nav-target="insights">
               <h3>渠道与看板</h3>
               <p>先做基础渠道漏斗，后面再接 ROI、提成和裂变分析。</p>
+            </div>
+            <div class="nav-item" data-nav-target="teachingQuality">
+              <h3>教学质量</h3>
+              <p>抽样巡课、匿名问卷、教师评分、整改闭环和绩效预核算。</p>
             </div>
           </div>
           <div class="inline-note">
@@ -1869,6 +1950,284 @@
                 <label>后续说明</label>
                 <textarea>后面生成专属二维码或推荐码。新家长扫码进入后，系统自动绑定推荐人，避免老师手工登记遗漏。</textarea>
               </div>
+            </div>
+          </section>
+
+          <section class="panel content-section hidden-section" data-section-group="teachingQuality">
+            <div class="section-head">
+              <div>
+                <h2>教学质量月度总览</h2>
+                <div class="hint">第一阶段只采用少量教务抽样巡课、学生匿名问卷、家长匿名问卷和系统客观数据，不做视频监控和复杂审批。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">巡课 35%</span>
+                <span class="status-chip">学生问卷 20%</span>
+                <span class="status-chip">家长问卷 35%</span>
+                <span class="status-chip">客观数据 10%</span>
+              </div>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-meta">本月教师均分</div>
+                <strong id="qualityAverageScore">0</strong>
+                <div class="metric-meta">按当前权重自动计算</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">S / A 级教师</div>
+                <strong id="qualityStrongTeacherCount">0</strong>
+                <div class="metric-meta">优先分配优质试听班</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">B / C 预警</div>
+                <strong id="qualityAlertTeacherCount">0</strong>
+                <div class="metric-meta">自动提高抽样听课频次</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">未闭环整改</div>
+                <strong id="qualityOpenTicketCount">0</strong>
+                <div class="metric-meta">到期前提醒教务复查</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>教师</th>
+                    <th>综合评分</th>
+                    <th>等级</th>
+                    <th>绩效系数</th>
+                    <th>巡课</th>
+                    <th>学生问卷</th>
+                    <th>家长问卷</th>
+                    <th>客观数据</th>
+                    <th>管理建议</th>
+                  </tr>
+                </thead>
+                <tbody id="qualityTeacherRankingBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel content-section hidden-section" data-section-group="teachingQuality">
+            <div class="section-head">
+              <div>
+                <h2>教务抽样巡课录入</h2>
+                <div class="hint">只做随机抽样，不要求每节课巡课。单次记录永久存档，低分或重大问题会自动生成整改待办。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">满分 100</span>
+                <span class="status-chip">支持简易图片备注</span>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>授课教师</label>
+                <select id="qualityInspectionTeacher"></select>
+              </div>
+              <div class="field">
+                <label>班级 / 课程</label>
+                <input id="qualityInspectionClass" value="暑假数学小班">
+              </div>
+              <div class="field">
+                <label>课程类型</label>
+                <select id="qualityInspectionType">
+                  <option>在读班</option>
+                  <option>试听课</option>
+                  <option>暑假班</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>巡课日期</label>
+                <input id="qualityInspectionDate" type="date" value="2026-06-21">
+              </div>
+              <div class="field">
+                <label>备课与课堂逻辑</label>
+                <input id="qualityScoreLogic" type="number" min="0" max="100" value="86">
+              </div>
+              <div class="field">
+                <label>互动与分层关注</label>
+                <input id="qualityScoreInteraction" type="number" min="0" max="100" value="86">
+              </div>
+              <div class="field">
+                <label>课堂秩序管理</label>
+                <input id="qualityScoreOrder" type="number" min="0" max="100" value="86">
+              </div>
+              <div class="field">
+                <label>课堂时间规范</label>
+                <input id="qualityScoreTime" type="number" min="0" max="100" value="86">
+              </div>
+              <div class="field">
+                <label>授课服务仪态</label>
+                <input id="qualityScoreService" type="number" min="0" max="100" value="86">
+              </div>
+              <div class="field">
+                <label>课堂记录图片</label>
+                <input id="qualityInspectionAttachment" value="板书照片 / 课堂记录截图">
+              </div>
+              <div class="field">
+                <label>是否重点整改</label>
+                <select id="qualityInspectionFocus">
+                  <option>否</option>
+                  <option>是</option>
+                </select>
+              </div>
+              <div class="field span-3">
+                <label>巡课备注</label>
+                <textarea id="qualityInspectionNote">记录课堂亮点、扣分原因和教务建议。</textarea>
+              </div>
+            </div>
+            <div class="section-actions">
+              <button class="button small" id="qualitySaveInspectionButton" type="button">保存巡课记录</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>教师</th>
+                    <th>班级</th>
+                    <th>单次均分</th>
+                    <th>标签</th>
+                    <th>备注</th>
+                  </tr>
+                </thead>
+                <tbody id="qualityInspectionBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel content-section hidden-section" data-section-group="teachingQuality">
+            <div class="section-head">
+              <div>
+                <h2>匿名问卷与整改闭环</h2>
+                <div class="hint">学生、家长只汇总匿名结果；教务看高频问题，老师看改进方向，不公开具体学生身份。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">在读问卷</span>
+                <span class="status-chip">试听问卷</span>
+                <span class="status-chip">整改复查</span>
+              </div>
+            </div>
+            <div class="template-grid" id="qualityTemplateGrid"></div>
+            <div class="linkage-grid">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>家长高频异议</th>
+                      <th>出现次数</th>
+                      <th>建议动作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="qualityTagFrequencyBody"></tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>整改工单</th>
+                      <th>教师</th>
+                      <th>状态</th>
+                      <th>截止</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="qualityTicketBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel content-section hidden-section" data-section-group="teachingQuality">
+            <div class="section-head">
+              <div>
+                <h2>教师个人教学质量档案</h2>
+                <div class="hint">给老师看清楚自己哪里强、哪里要改；给教务保留月度、季度和年度考核依据。</div>
+              </div>
+              <div class="filters">
+                <select id="qualityTeacherProfileSelect"></select>
+              </div>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-meta">当前综合评分</div>
+                <strong id="qualityProfileScore">0</strong>
+                <div class="metric-meta" id="qualityProfileGrade">等级待计算</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">课堂巡课表现</div>
+                <strong id="qualityProfileInspection">0</strong>
+                <div class="metric-meta">取本月抽样均分</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">家长评价短板</div>
+                <strong id="qualityProfileWeakTag">暂无</strong>
+                <div class="metric-meta">来自匿名问卷标签</div>
+              </div>
+              <div class="metric">
+                <div class="metric-meta">整改状态</div>
+                <strong id="qualityProfileTicket">0</strong>
+                <div class="metric-meta">未闭环工单</div>
+              </div>
+            </div>
+            <div class="dimension-list" id="qualityDimensionList"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>档案项目</th>
+                    <th>当前记录</th>
+                    <th>管理用途</th>
+                  </tr>
+                </thead>
+                <tbody id="qualityProfileArchiveBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel content-section hidden-section" data-section-group="teachingQuality">
+            <div class="section-head">
+              <div>
+                <h2>试听转化与财务绩效联动</h2>
+                <div class="hint">把试听授课教师评分、试听成交率和教师月度绩效系数放在一起看，后续可直接对接财务薪酬模块。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">招生联动</span>
+                <span class="status-chip">财务预核算</span>
+              </div>
+            </div>
+            <div class="linkage-grid">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>试听教师</th>
+                      <th>试听线索</th>
+                      <th>已成交</th>
+                      <th>转化率</th>
+                      <th>质量评分</th>
+                    </tr>
+                  </thead>
+                  <tbody id="qualityTrialLinkBody"></tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>教师</th>
+                      <th>评级</th>
+                      <th>绩效系数</th>
+                      <th>财务建议</th>
+                    </tr>
+                  </thead>
+                  <tbody id="qualityFinanceBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="inline-note">
+              <p><strong>本阶段明确不开发：</strong>课堂实时视频监控、课堂全程录制、每节课强制巡课、课前教案多级线上审核、复杂教研审批流。先用低成本采样和问卷把管理闭环跑起来。</p>
             </div>
           </section>
 

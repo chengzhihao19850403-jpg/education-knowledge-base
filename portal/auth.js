@@ -5,13 +5,17 @@ const JRC_ROLE_PERMISSIONS = {
     "portal.access",
     "paike.access",
     "suggestions.access",
+    "teachingQuality.access",
+    "teachingQuality.edit",
     "admin.access"
   ],
   学管: [
     "portal.access",
     "paike.access",
     "knowledge.access",
-    "suggestions.access"
+    "suggestions.access",
+    "teachingQuality.access",
+    "teachingQuality.edit"
   ],
   财务: [
     "portal.access",
@@ -22,7 +26,8 @@ const JRC_ROLE_PERMISSIONS = {
   授课老师: [
     "portal.access",
     "paike.access",
-    "suggestions.access"
+    "suggestions.access",
+    "teachingQuality.access"
   ]
 };
 
@@ -287,6 +292,8 @@ const JRC_PERMISSION_OPTIONS = [
   ["admissions.edit", "招生录入修改"],
   ["admissions.import", "招生批量导入"],
   ["admissions.finance", "招生财务归因"],
+  ["teachingQuality.access", "教学质量查看"],
+  ["teachingQuality.edit", "教学质量管理"],
   ["finance.access", "财务进入"],
   ["finance.edit", "财务修改"],
   ["admin.access", "系统管理"]
@@ -365,6 +372,8 @@ function jrcGetPermissions(subject) {
     permissions.add("admissions.access");
     permissions.add("admissions.edit");
     permissions.add("admissions.import");
+    permissions.add("teachingQuality.access");
+    permissions.add("teachingQuality.edit");
   }
 
   if (JRC_SUPER_ADMIN_USERNAMES.includes(username)) {
@@ -380,6 +389,8 @@ function jrcGetPermissions(subject) {
       "admissions.edit",
       "admissions.import",
       "admissions.finance",
+      "teachingQuality.access",
+      "teachingQuality.edit",
       "finance.access",
       "finance.edit",
       "admin.access"
@@ -422,6 +433,7 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   const summaries = [];
   if (permissions.includes("paike.access")) summaries.push("排课");
   if (permissions.includes("admissions.access")) summaries.push("招生");
+  if (permissions.includes("teachingQuality.access")) summaries.push("教学质量");
   if (permissions.includes("finance.access")) summaries.push("财务");
   if (permissions.includes("knowledge.access")) summaries.push("知识库");
   if (permissions.includes("suggestions.access")) summaries.push("建议");
