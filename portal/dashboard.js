@@ -250,8 +250,10 @@
     const visible = isAdminLike();
     const localDataCard = $("portalLocalDataCard");
     const dataStateSection = $("portalDataStateSection");
+    const dataSyncSection = $("dataSyncSection");
     if (localDataCard) localDataCard.hidden = !visible;
     if (dataStateSection) dataStateSection.hidden = !visible;
+    if (dataSyncSection) dataSyncSection.hidden = !visible;
   }
 
   function renderPortalDashboard() {
