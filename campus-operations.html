@@ -140,6 +140,9 @@
           </div>
           <div class="actions" style="margin:0 0 14px;">
             <input id="campusFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索事项 / 类型 / 责任人 / 范围">
+            <select id="campusSortSelect" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="status">未完成优先</option></select>
+            <button class="button secondary" id="campusImportButton" type="button">导入数据</button>
+            <input id="campusImportInput" type="file" accept="application/json,.json" hidden>
           </div>
           <div class="table-wrap">
             <table>
@@ -173,6 +176,6 @@
       </section>
     </main>
     <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260621b"></script>
   </body>
 </html>

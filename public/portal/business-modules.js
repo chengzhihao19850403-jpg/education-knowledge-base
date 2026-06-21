@@ -45,6 +45,82 @@
     URL.revokeObjectURL(url);
   }
 
+  function parseDateValue(value) {
+    const time = Date.parse(String(value || "").replace(/\//g, "-"));
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function statusRank(value, priority) {
+    const text = String(value || "");
+    const index = priority.findIndex((item) => text.includes(item));
+    return index >= 0 ? index : priority.length;
+  }
+
+  function getSortedEntries(rows, keyword, sortValue, statusSelector, priority) {
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => rowMatches(row, keyword))
+      .sort((left, right) => {
+        if (sortValue === "oldest") return parseDateValue(left.row.createdAt) - parseDateValue(right.row.createdAt);
+        if (sortValue === "status") {
+          return statusRank(statusSelector(left.row), priority) - statusRank(statusSelector(right.row), priority);
+        }
+        return parseDateValue(right.row.createdAt) - parseDateValue(left.row.createdAt);
+      });
+  }
+
+  function tag(label, tone = "neutral") {
+    const palette = {
+      neutral: "background:rgba(23,33,50,0.07); color:#334155;",
+      good: "background:rgba(15,118,110,0.10); color:#0f766e;",
+      warn: "background:rgba(180,83,9,0.12); color:#b45309;",
+      danger: "background:rgba(185,28,28,0.10); color:#b91c1c;",
+      info: "background:rgba(37,99,235,0.10); color:#1d4ed8;"
+    };
+    return `<span style="display:inline-flex; align-items:center; min-height:24px; padding:0 9px; border-radius:999px; font-size:12px; font-weight:800; ${palette[tone] || palette.neutral}">${escapeHtml(label)}</span>`;
+  }
+
+  function riskTag(value) {
+    if (value === "高风险") return tag(value, "danger");
+    if (value === "关注") return tag(value, "warn");
+    return tag(value || "正常", "good");
+  }
+
+  function workStatusTag(value) {
+    if (value === "已完成" || value === "已录入") return tag(value, "good");
+    if (value === "处理中") return tag(value, "info");
+    if (value === "需复盘") return tag(value, "danger");
+    return tag(value || "待处理", "warn");
+  }
+
+  function bindJsonImport({ buttonId, inputId, getRows, setRows, normalizeRow, onDone, onError }) {
+    const button = $(buttonId);
+    const input = $(inputId);
+    if (!button || !input) return;
+
+    button.addEventListener("click", () => input.click());
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || "[]"));
+          if (!Array.isArray(parsed)) throw new Error("JSON root is not an array");
+          const imported = parsed.map(normalizeRow).filter(Boolean);
+          if (imported.length === 0) throw new Error("No valid rows");
+          setRows([...imported, ...getRows()]);
+          onDone(imported.length);
+        } catch {
+          onError();
+        } finally {
+          input.value = "";
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
   function rowMatches(row, keyword) {
     if (!keyword) return true;
     return Object.values(row).some((value) => String(value || "").toLowerCase().includes(keyword));
@@ -110,9 +186,8 @@
 
     function render() {
       const keyword = $("studentFilterInput")?.value.trim().toLowerCase() || "";
-      $("studentServiceTableBody").innerHTML = rows
-        .map((row, index) => ({ row, index }))
-        .filter(({ row }) => rowMatches(row, keyword))
+      const sortValue = $("studentSortSelect")?.value || "newest";
+      $("studentServiceTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.risk, ["高风险", "关注", "正常"])
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.student)}</td>
@@ -120,7 +195,7 @@
             <td>${escapeHtml(row.teacher)}</td>
             <td>${escapeHtml(row.type)}<br>${escapeHtml(row.content)}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
-            <td>${escapeHtml(row.risk)}</td>
+            <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
             <td>${actionButtons(index)}</td>
           </tr>
@@ -145,7 +220,8 @@
         risk: $("studentRiskInput")?.value || "正常",
         content: $("studentContentInput")?.value.trim() || "-",
         next: $("studentNextActionInput")?.value.trim() || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText()
+        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
+        updatedAt: nowText()
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
@@ -159,6 +235,7 @@
       render();
     });
     $("studentFilterInput")?.addEventListener("input", render);
+    $("studentSortSelect")?.addEventListener("change", render);
     $("studentExportButton")?.addEventListener("click", () => downloadJson("学生与家长服务数据.json", rows));
     $("studentResetButton")?.addEventListener("click", () => {
       rows = samples.map((row) => ({ ...row }));
@@ -181,6 +258,37 @@
         if (editingIndex === index) resetForm();
         render();
         setText("studentServiceMessage", `已删除 ${removed.student} 的记录。`);
+      }
+    });
+    bindJsonImport({
+      buttonId: "studentImportButton",
+      inputId: "studentImportInput",
+      getRows: () => rows,
+      setRows(nextRows) {
+        rows = nextRows;
+        writeStore(key, rows);
+        resetForm();
+        render();
+      },
+      normalizeRow(row) {
+        if (!row?.student) return null;
+        return {
+          student: String(row.student),
+          className: String(row.className || "-"),
+          teacher: String(row.teacher || "-"),
+          type: String(row.type || "学习跟踪"),
+          risk: String(row.risk || "正常"),
+          content: String(row.content || "-"),
+          next: String(row.next || "-"),
+          createdAt: String(row.createdAt || nowText()),
+          updatedAt: String(row.updatedAt || nowText())
+        };
+      },
+      onDone(count) {
+        setText("studentServiceMessage", `已导入 ${count} 条学生服务记录。`);
+      },
+      onError() {
+        setText("studentServiceMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
       }
     });
     resetForm();
@@ -225,15 +333,14 @@
 
     function render() {
       const keyword = $("curriculumFilterInput")?.value.trim().toLowerCase() || "";
-      $("curriculumTableBody").innerHTML = rows
-        .map((row, index) => ({ row, index }))
-        .filter(({ row }) => rowMatches(row, keyword))
+      const sortValue = $("curriculumSortSelect")?.value || "newest";
+      $("curriculumTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待导入", "待整理", "待上传", "已录入"])
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.name)}</td>
             <td>${escapeHtml(row.subject)}</td>
             <td>${escapeHtml(row.classType)}</td>
-            <td>${escapeHtml(row.type)} / ${escapeHtml(row.status)}</td>
+            <td>${tag(row.type, "info")} ${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.version)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.note)}</td>
@@ -261,7 +368,8 @@
         version: $("curriculumVersionInput")?.value.trim() || "V0.1",
         owner: $("curriculumOwnerInput")?.value.trim() || "-",
         note: $("curriculumNoteInput")?.value.trim() || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText()
+        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
+        updatedAt: nowText()
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
@@ -275,6 +383,7 @@
       render();
     });
     $("curriculumFilterInput")?.addEventListener("input", render);
+    $("curriculumSortSelect")?.addEventListener("change", render);
     $("curriculumExportButton")?.addEventListener("click", () => downloadJson("教研与课程产品数据.json", rows));
     $("curriculumResetButton")?.addEventListener("click", () => {
       rows = samples.map((row) => ({ ...row }));
@@ -297,6 +406,38 @@
         if (editingIndex === index) resetForm();
         render();
         setText("curriculumMessage", `已删除 ${removed.name}。`);
+      }
+    });
+    bindJsonImport({
+      buttonId: "curriculumImportButton",
+      inputId: "curriculumImportInput",
+      getRows: () => rows,
+      setRows(nextRows) {
+        rows = nextRows;
+        writeStore(key, rows);
+        resetForm();
+        render();
+      },
+      normalizeRow(row) {
+        if (!row?.name) return null;
+        return {
+          name: String(row.name),
+          subject: String(row.subject || "-"),
+          type: String(row.type || "备课资料"),
+          classType: String(row.classType || "-"),
+          status: String(row.status || "已录入"),
+          version: String(row.version || "V0.1"),
+          owner: String(row.owner || "-"),
+          note: String(row.note || "-"),
+          createdAt: String(row.createdAt || nowText()),
+          updatedAt: String(row.updatedAt || nowText())
+        };
+      },
+      onDone(count) {
+        setText("curriculumMessage", `已导入 ${count} 条课程资料。`);
+      },
+      onError() {
+        setText("curriculumMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
       }
     });
     resetForm();
@@ -341,15 +482,14 @@
 
     function render() {
       const keyword = $("hrFilterInput")?.value.trim().toLowerCase() || "";
-      $("hrTaskTableBody").innerHTML = rows
-        .map((row, index) => ({ row, index }))
-        .filter(({ row }) => rowMatches(row, keyword))
+      const sortValue = $("hrSortSelect")?.value || "newest";
+      $("hrTaskTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "已完成"])
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.type)}</td>
             <td>${escapeHtml(row.employee)}</td>
             <td>${escapeHtml(row.system)}</td>
-            <td>${escapeHtml(row.status)}</td>
+            <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index)}</td>
@@ -376,7 +516,8 @@
         owner: $("hrOwnerInput")?.value.trim() || "-",
         next: $("hrNextInput")?.value.trim() || "-",
         note: $("hrNoteInput")?.value.trim() || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText()
+        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
+        updatedAt: nowText()
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
@@ -390,6 +531,7 @@
       render();
     });
     $("hrFilterInput")?.addEventListener("input", render);
+    $("hrSortSelect")?.addEventListener("change", render);
     $("hrExportButton")?.addEventListener("click", () => downloadJson("人事与培训事项数据.json", rows));
     $("hrResetButton")?.addEventListener("click", () => {
       rows = samples.map((row) => ({ ...row }));
@@ -412,6 +554,37 @@
         if (editingIndex === index) resetForm();
         render();
         setText("hrMessage", `已删除 ${removed.employee} 的事项。`);
+      }
+    });
+    bindJsonImport({
+      buttonId: "hrImportButton",
+      inputId: "hrImportInput",
+      getRows: () => rows,
+      setRows(nextRows) {
+        rows = nextRows;
+        writeStore(key, rows);
+        resetForm();
+        render();
+      },
+      normalizeRow(row) {
+        if (!row?.employee) return null;
+        return {
+          type: String(row.type || "培训记录"),
+          employee: String(row.employee),
+          system: String(row.system || "-"),
+          status: String(row.status || "待处理"),
+          owner: String(row.owner || "-"),
+          next: String(row.next || "-"),
+          note: String(row.note || "-"),
+          createdAt: String(row.createdAt || nowText()),
+          updatedAt: String(row.updatedAt || nowText())
+        };
+      },
+      onDone(count) {
+        setText("hrMessage", `已导入 ${count} 条人事事项。`);
+      },
+      onError() {
+        setText("hrMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
       }
     });
     resetForm();
@@ -456,16 +629,15 @@
 
     function render() {
       const keyword = $("campusFilterInput")?.value.trim().toLowerCase() || "";
-      $("campusTableBody").innerHTML = rows
-        .map((row, index) => ({ row, index }))
-        .filter(({ row }) => rowMatches(row, keyword))
+      const sortValue = $("campusSortSelect")?.value || "newest";
+      $("campusTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "需复盘", "已完成"])
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.title)}</td>
             <td>${escapeHtml(row.type)}</td>
             <td>${escapeHtml(row.area)}</td>
             <td>${escapeHtml(row.owner)}</td>
-            <td>${escapeHtml(row.status)}</td>
+            <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.due)}</td>
             <td>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index)}</td>
@@ -491,7 +663,8 @@
         status: $("campusStatusInput")?.value || "待处理",
         due: $("campusDueInput")?.value.trim() || "-",
         note: $("campusNoteInput")?.value.trim() || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText()
+        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
+        updatedAt: nowText()
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
@@ -505,6 +678,7 @@
       render();
     });
     $("campusFilterInput")?.addEventListener("input", render);
+    $("campusSortSelect")?.addEventListener("change", render);
     $("campusExportButton")?.addEventListener("click", () => downloadJson("校区运营事项数据.json", rows));
     $("campusResetButton")?.addEventListener("click", () => {
       rows = samples.map((row) => ({ ...row }));
@@ -527,6 +701,37 @@
         if (editingIndex === index) resetForm();
         render();
         setText("campusMessage", `已删除运营事项：${removed.title}。`);
+      }
+    });
+    bindJsonImport({
+      buttonId: "campusImportButton",
+      inputId: "campusImportInput",
+      getRows: () => rows,
+      setRows(nextRows) {
+        rows = nextRows;
+        writeStore(key, rows);
+        resetForm();
+        render();
+      },
+      normalizeRow(row) {
+        if (!row?.title) return null;
+        return {
+          title: String(row.title),
+          type: String(row.type || "异常记录"),
+          area: String(row.area || "-"),
+          owner: String(row.owner || "-"),
+          status: String(row.status || "待处理"),
+          due: String(row.due || "-"),
+          note: String(row.note || "-"),
+          createdAt: String(row.createdAt || nowText()),
+          updatedAt: String(row.updatedAt || nowText())
+        };
+      },
+      onDone(count) {
+        setText("campusMessage", `已导入 ${count} 条校区运营事项。`);
+      },
+      onError() {
+        setText("campusMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
       }
     });
     resetForm();
