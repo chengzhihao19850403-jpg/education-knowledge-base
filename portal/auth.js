@@ -498,6 +498,20 @@ function jrcHasPermission(permissionKey, employee = jrcResolveCurrentEmployee())
   return jrcGetPermissions(employee).includes(permissionKey);
 }
 
+function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmployee()) {
+  const role = employee?.role || "当前岗位";
+  const hints = {
+    "knowledge.access": "知识库问答系统主要给学管、管理员和相关培训人员使用。",
+    "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
+    "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
+    "hr.access": "人事与培训系统涉及员工档案和权限，暂时只给总管理员使用。",
+    "campus.access": "校区运营系统主要给学管、教务和管理员处理日常校区事项。",
+    "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
+    "admin.access": "这个管理区只给总管理员使用。"
+  };
+  return hints[permissionKey] || `${role}账号暂时不需要日常使用这个入口。需要开通时，可以让管理员在人事与培训系统里调整权限。`;
+}
+
 function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   if (!employee) return "";
   const permissions = jrcGetPermissions(employee);
@@ -777,7 +791,7 @@ function jrcApplyPermissionDecorations(currentEmployee) {
     const isLink = node.tagName === "A";
     node.classList.add("jrc-locked");
     node.setAttribute("aria-disabled", "true");
-    node.setAttribute("title", "当前岗位暂未开放");
+    node.setAttribute("title", jrcGetPermissionHint(permission, currentEmployee));
     if (isLink) {
       node.setAttribute("data-jrc-href", node.getAttribute("href") || "");
       node.setAttribute("href", "javascript:void(0)");
@@ -794,7 +808,7 @@ function jrcApplyPermissionDecorations(currentEmployee) {
     node.classList.add("jrc-card-locked");
     const note = document.createElement("div");
     note.className = "jrc-card-lock-note";
-    note.textContent = "当前岗位暂未开放";
+    note.textContent = jrcGetPermissionHint(permission, currentEmployee);
     node.appendChild(note);
   });
 
@@ -820,8 +834,8 @@ function jrcEnforcePagePermission(currentEmployee) {
   blocker.innerHTML = `
     <div class="jrc-page-block__card">
       <p class="jrc-page-block__eyebrow">Access Restricted</p>
-      <h2>当前岗位暂未开放这个系统</h2>
-      <p>你已经成功登录，但当前账号没有进入这个页面的权限。请返回工作台，使用已开放的系统入口，或者后续再由管理员调整岗位权限。</p>
+      <h2>这个系统暂时没有开放给当前账号</h2>
+      <p>${jrcGetPermissionHint(requiredPermission, currentEmployee)}你已经成功登录，可以先返回工作台使用已开放的系统入口。</p>
       <div class="jrc-page-block__actions">
         <a href="/jrcedu/portal/index.html">返回统一工作台</a>
       </div>

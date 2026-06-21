@@ -111,6 +111,43 @@
     };
   }
 
+  function getSystemOrder() {
+    const employee = currentEmployee();
+    const role = employee?.role || "";
+    if (isAdminLike()) {
+      return ["paike", "admissions", "finance", "teachingQuality", "studentService", "hr", "suggestions", "knowledge", "curriculum", "campus"];
+    }
+    if (role === "学管") {
+      return ["admissions", "studentService", "teachingQuality", "paike", "knowledge", "campus", "suggestions", "curriculum", "finance", "hr"];
+    }
+    if (role === "财务") {
+      return ["finance", "paike", "suggestions", "admissions", "teachingQuality", "studentService", "hr", "knowledge", "curriculum", "campus"];
+    }
+    if (role === "授课老师") {
+      return ["paike", "teachingQuality", "studentService", "curriculum", "suggestions", "knowledge", "admissions", "finance", "hr", "campus"];
+    }
+    return ["paike", "knowledge", "suggestions", "finance", "admissions", "teachingQuality", "studentService", "curriculum", "hr", "campus"];
+  }
+
+  function reorderSystemCards() {
+    const cards = Array.from(document.querySelectorAll("[data-system-card]"));
+    if (cards.length === 0) return;
+    const holder = cards[0].parentElement;
+    const order = getSystemOrder();
+    cards
+      .sort((a, b) => {
+        const aKey = a.getAttribute("data-system-card") || "";
+        const bKey = b.getAttribute("data-system-card") || "";
+        const aAllowed = hasPermission(a.getAttribute("data-requires-permission-card") || "");
+        const bAllowed = hasPermission(b.getAttribute("data-requires-permission-card") || "");
+        if (aAllowed !== bAllowed) return aAllowed ? -1 : 1;
+        const aIndex = order.includes(aKey) ? order.indexOf(aKey) : 999;
+        const bIndex = order.includes(bKey) ? order.indexOf(bKey) : 999;
+        return aIndex - bIndex;
+      })
+      .forEach((card) => holder.appendChild(card));
+  }
+
   function readAuditCount() {
     const rows = safeParse(localStorage.getItem(auditKey), []);
     return Array.isArray(rows) ? rows.length : 0;
@@ -220,6 +257,7 @@
   function renderPortalDashboard() {
     setRoleCopy();
     setManagementVisibility();
+    reorderSystemCards();
     const { leads, pending } = readAdmissions();
     const auditCount = readAuditCount();
     const backupStoreCount = countBackupStores();
