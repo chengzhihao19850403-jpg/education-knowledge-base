@@ -225,6 +225,10 @@ function canViewAdmissionFinance() {
   return hasPermission("admissions.finance") || hasPermission("finance.access");
 }
 
+function canExportAdmissions() {
+  return hasPermission("admissions.export") || canImportAdmissions();
+}
+
 function formatNowStamp() {
   const now = new Date();
   const year = now.getFullYear();
@@ -2151,8 +2155,9 @@ function applyPermissionState() {
   });
   const exportButton = byId("exportFilteredLeadsButton");
   if (exportButton) {
-    exportButton.disabled = !importable;
-    exportButton.title = importable ? "导出当前筛选结果" : "当前账号没有招生导出权限";
+    const exportable = canExportAdmissions();
+    exportButton.disabled = !exportable;
+    exportButton.title = exportable ? "导出当前筛选结果" : "当前账号没有招生导出权限";
   }
 }
 
@@ -2191,7 +2196,7 @@ function bindLeadFilters() {
   const exportButton = byId("exportFilteredLeadsButton");
   if (exportButton) {
     exportButton.addEventListener("click", () => {
-      if (!canImportAdmissions()) return;
+      if (!canExportAdmissions()) return;
       exportFilteredLeads();
       renderAuditLogs();
     });

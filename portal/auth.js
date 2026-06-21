@@ -320,6 +320,7 @@ const JRC_PERMISSION_OPTIONS = [
   ["admissions.access", "招生进入"],
   ["admissions.edit", "招生录入修改"],
   ["admissions.import", "招生批量导入"],
+  ["admissions.export", "招生数据导出"],
   ["admissions.finance", "招生财务归因"],
   ["teachingQuality.access", "教学质量查看"],
   ["teachingQuality.edit", "教学质量管理"],
@@ -425,6 +426,7 @@ function jrcGetPermissions(subject) {
     permissions.add("admissions.access");
     permissions.add("admissions.edit");
     permissions.add("admissions.import");
+    permissions.add("admissions.export");
     permissions.add("teachingQuality.access");
     permissions.add("teachingQuality.edit");
     permissions.add("studentService.access");
@@ -446,6 +448,7 @@ function jrcGetPermissions(subject) {
       "admissions.access",
       "admissions.edit",
       "admissions.import",
+      "admissions.export",
       "admissions.finance",
       "teachingQuality.access",
       "teachingQuality.edit",
@@ -477,6 +480,7 @@ function jrcGetPermissions(subject) {
     permissions.add("admissions.access");
     permissions.add("admissions.edit");
     permissions.add("admissions.import");
+    permissions.add("admissions.export");
     permissions.add("admissions.finance");
   }
   if (JRC_FINANCE_ADMIN_USERNAMES.includes(username)) {

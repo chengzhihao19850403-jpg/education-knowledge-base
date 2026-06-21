@@ -7,6 +7,7 @@
     { key: "paike-system-prototype-meta-v1", label: "排课系统·暑假状态", shape: "object" },
     { key: "paike-summer-import-review-v1", label: "排课系统·待确认项", shape: "array" },
     { key: "jrc-paike-legacy-cloud-transition-v1", label: "排课系统·数据同步索引", shape: "paikeBridge" },
+    { key: "advice-system-stage-prototype", label: "招生系统", shape: "admissions" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", shape: "array" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", shape: "finance" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", shape: "object" },
@@ -72,6 +73,13 @@
     }
     if (store.shape === "paikeBridge") {
       return Object.keys(store.parsed.stores || {}).length;
+    }
+    if (store.shape === "admissions") {
+      return [
+        store.parsed.leads?.length || 0,
+        store.parsed.followups?.length || 0,
+        store.parsed.auditLogs?.length || 0
+      ].reduce((sum, count) => sum + count, 0);
     }
     if (store.shape === "paikeCloud") {
       return [
