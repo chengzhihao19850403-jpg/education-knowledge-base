@@ -124,7 +124,7 @@
       return ["finance", "paike", "suggestions", "admissions", "teachingQuality", "studentService", "hr", "knowledge", "curriculum", "campus"];
     }
     if (role === "授课老师") {
-      return ["paike", "teachingQuality", "studentService", "curriculum", "suggestions", "knowledge", "admissions", "finance", "hr", "campus"];
+      return ["paike", "campus", "teachingQuality", "studentService", "curriculum", "suggestions", "knowledge", "admissions", "finance", "hr"];
     }
     return ["paike", "knowledge", "suggestions", "finance", "admissions", "teachingQuality", "studentService", "curriculum", "hr", "campus"];
   }

@@ -42,7 +42,8 @@ const JRC_ROLE_PERMISSIONS = {
     "suggestions.access",
     "teachingQuality.access",
     "studentService.access",
-    "curriculum.access"
+    "curriculum.access",
+    "campus.access"
   ]
 };
 
@@ -420,6 +421,7 @@ function jrcGetPermissions(subject) {
   if (subject.role === "授课老师") {
     permissions.add("studentService.access");
     permissions.add("curriculum.access");
+    permissions.add("campus.access");
   }
 
   if (subject.role === "学管") {
@@ -505,7 +507,7 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
     "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
     "hr.access": "人事与培训系统涉及员工档案和权限，暂时只给总管理员使用。",
-    "campus.access": "校区运营系统主要给学管、教务和管理员处理日常校区事项。",
+    "campus.access": "校区运营系统已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
     "admin.access": "这个管理区只给总管理员使用。"
   };
