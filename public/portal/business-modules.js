@@ -1,4 +1,5 @@
 (function () {
+  const auditKey = "jrc-business-audit-log-v1";
   const nowText = () => new Date().toLocaleString("zh-CN", { hour12: false });
 
   function $(id) {
@@ -16,6 +17,90 @@
 
   function writeStore(key, rows) {
     localStorage.setItem(key, JSON.stringify(rows));
+  }
+
+  function hasPermission(permission) {
+    if (!permission) return true;
+    if (typeof window.jrcHasPermission !== "function") return true;
+    return window.jrcHasPermission(permission);
+  }
+
+  function currentOperator() {
+    return window.JRC_CURRENT_EMPLOYEE || {
+      name: "未登录账号",
+      username: "anonymous",
+      role: "未知"
+    };
+  }
+
+  function readAuditLog() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(auditKey) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeAuditLog(rows) {
+    localStorage.setItem(auditKey, JSON.stringify(rows.slice(0, 300)));
+  }
+
+  function recordAudit(module, action, target, summary) {
+    const operator = currentOperator();
+    const entry = {
+      module,
+      action,
+      target: target || "-",
+      summary: summary || "-",
+      operatorName: operator.name || "-",
+      operatorUsername: operator.username || "-",
+      operatorRole: operator.role || "-",
+      at: nowText()
+    };
+    writeAuditLog([entry, ...readAuditLog()]);
+  }
+
+  function renderAuditLog(module, tableBodyId) {
+    const body = $(tableBodyId);
+    if (!body) return;
+    const rows = readAuditLog().filter((entry) => entry.module === module).slice(0, 10);
+    body.innerHTML = rows.length ? rows.map((entry) => `
+      <tr>
+        <td>${escapeHtml(entry.at)}</td>
+        <td>${escapeHtml(entry.operatorName)}<br>${escapeHtml(entry.operatorRole)}</td>
+        <td>${escapeHtml(entry.action)}</td>
+        <td>${escapeHtml(entry.target)}</td>
+        <td>${escapeHtml(entry.summary)}</td>
+      </tr>
+    `).join("") : `
+      <tr>
+        <td colspan="5">暂无操作记录。后续新增、修改、删除、导入或恢复样例都会记录在这里。</td>
+      </tr>
+    `;
+  }
+
+  function denyEdit(messageId) {
+    setText(messageId, "当前账号可以查看，暂无修改权限。搜索、排序和导出仍可使用。");
+  }
+
+  function applyEditGate({ editable, messageId, buttonIds = [], fieldIds = [] }) {
+    if (editable) return;
+    buttonIds.forEach((id) => {
+      const button = $(id);
+      if (!button) return;
+      button.disabled = true;
+      button.style.opacity = "0.55";
+      button.style.cursor = "not-allowed";
+      button.title = "当前账号暂无修改权限";
+    });
+    fieldIds.forEach((id) => {
+      const field = $(id);
+      if (!field) return;
+      field.disabled = true;
+      field.title = "当前账号暂无修改权限";
+    });
+    denyEdit(messageId);
   }
 
   function setText(id, value) {
@@ -93,13 +178,24 @@
     return tag(value || "待处理", "warn");
   }
 
-  function bindJsonImport({ buttonId, inputId, getRows, setRows, normalizeRow, onDone, onError }) {
+  function bindJsonImport({ buttonId, inputId, getRows, setRows, normalizeRow, onDone, onError, canUse = () => true, onDenied = () => {} }) {
     const button = $(buttonId);
     const input = $(inputId);
     if (!button || !input) return;
 
-    button.addEventListener("click", () => input.click());
+    button.addEventListener("click", () => {
+      if (!canUse()) {
+        onDenied();
+        return;
+      }
+      input.click();
+    });
     input.addEventListener("change", () => {
+      if (!canUse()) {
+        onDenied();
+        input.value = "";
+        return;
+      }
       const file = input.files?.[0];
       if (!file) return;
       const reader = new FileReader();
@@ -126,7 +222,8 @@
     return Object.values(row).some((value) => String(value || "").toLowerCase().includes(keyword));
   }
 
-  function actionButtons(index) {
+  function actionButtons(index, editable = true) {
+    if (!editable) return tag("仅查看", "neutral");
     return `
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button type="button" data-action="edit" data-index="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(23,33,50,0.12); background:#fff; color:#172132; cursor:pointer;">编辑</button>
@@ -135,12 +232,16 @@
     `;
   }
 
-  function bindRowActions(tableBodyId, handlers) {
+  function bindRowActions(tableBodyId, handlers, editable = true, messageId = "") {
     const body = $(tableBodyId);
     if (!body) return;
     body.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]");
       if (!button) return;
+      if (!editable) {
+        denyEdit(messageId);
+        return;
+      }
       const action = button.getAttribute("data-action");
       const index = Number(button.getAttribute("data-index"));
       if (action === "edit") handlers.onEdit(index);
@@ -150,6 +251,9 @@
 
   function initStudentService() {
     if (!$("studentServiceTableBody")) return;
+    const moduleKey = "studentService";
+    const editPermission = "studentService.edit";
+    const editable = hasPermission(editPermission);
     const key = "jrc-student-service-v2";
     const defaults = {
       student: "学生 A",
@@ -197,16 +301,21 @@
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
-            <td>${actionButtons(index)}</td>
+            <td>${actionButtons(index, editable)}</td>
           </tr>
         `).join("");
       setText("studentMetricTotal", rows.length);
       setText("studentMetricFeedback", rows.filter((row) => row.type === "课后反馈").length);
       setText("studentMetricRisk", rows.filter((row) => row.risk !== "正常").length);
       setText("studentMetricCommunication", rows.filter((row) => row.type === "家长沟通").length);
+      renderAuditLog(moduleKey, "studentAuditTableBody");
     }
 
     $("studentSaveButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("studentServiceMessage");
+        return;
+      }
       const student = $("studentNameInput")?.value.trim();
       if (!student) {
         setText("studentServiceMessage", "请先填写学生姓名。");
@@ -225,9 +334,11 @@
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
+        recordAudit(moduleKey, "更新", student, `${payload.type} / ${payload.risk}`);
         setText("studentServiceMessage", `已更新 ${student} 的服务记录。`);
       } else {
         rows.unshift(payload);
+        recordAudit(moduleKey, "新增", student, `${payload.type} / ${payload.risk}`);
         setText("studentServiceMessage", `已保存 ${student} 的服务记录。`);
       }
       writeStore(key, rows);
@@ -238,8 +349,13 @@
     $("studentSortSelect")?.addEventListener("change", render);
     $("studentExportButton")?.addEventListener("click", () => downloadJson("学生与家长服务数据.json", rows));
     $("studentResetButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("studentServiceMessage");
+        return;
+      }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
+      recordAudit(moduleKey, "恢复样例", "学生服务台账", `${rows.length} 条`);
       resetForm();
       render();
       setText("studentServiceMessage", "已恢复样例数据。");
@@ -255,11 +371,12 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
+        recordAudit(moduleKey, "删除", removed.student, removed.type);
         if (editingIndex === index) resetForm();
         render();
         setText("studentServiceMessage", `已删除 ${removed.student} 的记录。`);
       }
-    });
+    }, editable, "studentServiceMessage");
     bindJsonImport({
       buttonId: "studentImportButton",
       inputId: "studentImportInput",
@@ -285,18 +402,31 @@
         };
       },
       onDone(count) {
+        recordAudit(moduleKey, "导入", "学生服务台账", `${count} 条`);
+        renderAuditLog(moduleKey, "studentAuditTableBody");
         setText("studentServiceMessage", `已导入 ${count} 条学生服务记录。`);
       },
       onError() {
         setText("studentServiceMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
-      }
+      },
+      canUse: () => editable,
+      onDenied: () => denyEdit("studentServiceMessage")
     });
     resetForm();
     render();
+    applyEditGate({
+      editable,
+      messageId: "studentServiceMessage",
+      buttonIds: ["studentSaveButton", "studentImportButton", "studentResetButton"],
+      fieldIds: ["studentNameInput", "studentClassInput", "studentTeacherInput", "studentServiceTypeInput", "studentRiskInput", "studentNextActionInput", "studentContentInput"]
+    });
   }
 
   function initCurriculumProducts() {
     if (!$("curriculumTableBody")) return;
+    const moduleKey = "curriculum";
+    const editPermission = "curriculum.edit";
+    const editable = hasPermission(editPermission);
     const key = "jrc-curriculum-products-v2";
     const defaults = {
       name: "五年级暑假第 1 讲",
@@ -344,16 +474,21 @@
             <td>${escapeHtml(row.version)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index)}</td>
+            <td>${actionButtons(index, editable)}</td>
           </tr>
         `).join("");
       setText("curriculumMetricOutline", rows.filter((row) => row.type === "课程大纲").length);
       setText("curriculumMetricMaterials", rows.filter((row) => ["讲义", "题库"].includes(row.type)).length);
       setText("curriculumMetricProducts", new Set(rows.map((row) => row.classType)).size);
       setText("curriculumMetricPreparation", rows.filter((row) => row.type === "备课资料").length);
+      renderAuditLog(moduleKey, "curriculumAuditTableBody");
     }
 
     $("curriculumSaveButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("curriculumMessage");
+        return;
+      }
       const name = $("curriculumNameInput")?.value.trim();
       if (!name) {
         setText("curriculumMessage", "请先填写资料名称。");
@@ -373,9 +508,11 @@
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
+        recordAudit(moduleKey, "更新", name, `${payload.type} / ${payload.version}`);
         setText("curriculumMessage", `已更新 ${name}。`);
       } else {
         rows.unshift(payload);
+        recordAudit(moduleKey, "新增", name, `${payload.type} / ${payload.version}`);
         setText("curriculumMessage", `已保存 ${name}。`);
       }
       writeStore(key, rows);
@@ -386,8 +523,13 @@
     $("curriculumSortSelect")?.addEventListener("change", render);
     $("curriculumExportButton")?.addEventListener("click", () => downloadJson("教研与课程产品数据.json", rows));
     $("curriculumResetButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("curriculumMessage");
+        return;
+      }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
+      recordAudit(moduleKey, "恢复样例", "教研课程台账", `${rows.length} 条`);
       resetForm();
       render();
       setText("curriculumMessage", "已恢复样例数据。");
@@ -403,11 +545,12 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
+        recordAudit(moduleKey, "删除", removed.name, removed.type);
         if (editingIndex === index) resetForm();
         render();
         setText("curriculumMessage", `已删除 ${removed.name}。`);
       }
-    });
+    }, editable, "curriculumMessage");
     bindJsonImport({
       buttonId: "curriculumImportButton",
       inputId: "curriculumImportInput",
@@ -434,18 +577,31 @@
         };
       },
       onDone(count) {
+        recordAudit(moduleKey, "导入", "教研课程台账", `${count} 条`);
+        renderAuditLog(moduleKey, "curriculumAuditTableBody");
         setText("curriculumMessage", `已导入 ${count} 条课程资料。`);
       },
       onError() {
         setText("curriculumMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
-      }
+      },
+      canUse: () => editable,
+      onDenied: () => denyEdit("curriculumMessage")
     });
     resetForm();
     render();
+    applyEditGate({
+      editable,
+      messageId: "curriculumMessage",
+      buttonIds: ["curriculumSaveButton", "curriculumImportButton", "curriculumResetButton"],
+      fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumNoteInput"]
+    });
   }
 
   function initHrTraining() {
     if (!$("hrTaskTableBody")) return;
+    const moduleKey = "hr";
+    const editPermission = "hr.edit";
+    const editable = hasPermission(editPermission);
     const key = "jrc-hr-training-tasks-v2";
     const defaults = {
       type: "入职",
@@ -492,7 +648,7 @@
             <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index)}</td>
+            <td>${actionButtons(index, editable)}</td>
           </tr>
         `).join("");
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
@@ -500,9 +656,14 @@
       setText("hrMetricRegular", employees.filter((employee) => !employee.regularDate).length);
       setText("hrMetricCommission", employees.filter((employee) => employee.commissionRate).length);
       setText("hrMetricTraining", rows.filter((row) => row.type === "培训记录" || row.system.includes("知识库")).length);
+      renderAuditLog(moduleKey, "hrAuditTableBody");
     }
 
     $("hrSaveButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("hrMessage");
+        return;
+      }
       const employee = $("hrEmployeeInput")?.value.trim();
       if (!employee) {
         setText("hrMessage", "请先填写员工姓名或对象。");
@@ -521,9 +682,11 @@
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
+        recordAudit(moduleKey, "更新", employee, `${payload.type} / ${payload.status}`);
         setText("hrMessage", `已更新 ${employee} 的事项。`);
       } else {
         rows.unshift(payload);
+        recordAudit(moduleKey, "新增", employee, `${payload.type} / ${payload.status}`);
         setText("hrMessage", `已保存 ${employee} 的事项。`);
       }
       writeStore(key, rows);
@@ -534,8 +697,13 @@
     $("hrSortSelect")?.addEventListener("change", render);
     $("hrExportButton")?.addEventListener("click", () => downloadJson("人事与培训事项数据.json", rows));
     $("hrResetButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("hrMessage");
+        return;
+      }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
+      recordAudit(moduleKey, "恢复样例", "人事培训台账", `${rows.length} 条`);
       resetForm();
       render();
       setText("hrMessage", "已恢复样例数据。");
@@ -551,11 +719,12 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
+        recordAudit(moduleKey, "删除", removed.employee, removed.type);
         if (editingIndex === index) resetForm();
         render();
         setText("hrMessage", `已删除 ${removed.employee} 的事项。`);
       }
-    });
+    }, editable, "hrMessage");
     bindJsonImport({
       buttonId: "hrImportButton",
       inputId: "hrImportInput",
@@ -581,18 +750,31 @@
         };
       },
       onDone(count) {
+        recordAudit(moduleKey, "导入", "人事培训台账", `${count} 条`);
+        renderAuditLog(moduleKey, "hrAuditTableBody");
         setText("hrMessage", `已导入 ${count} 条人事事项。`);
       },
       onError() {
         setText("hrMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
-      }
+      },
+      canUse: () => editable,
+      onDenied: () => denyEdit("hrMessage")
     });
     resetForm();
     render();
+    applyEditGate({
+      editable,
+      messageId: "hrMessage",
+      buttonIds: ["hrSaveButton", "hrImportButton", "hrResetButton"],
+      fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrSystemInput", "hrStatusInput", "hrOwnerInput", "hrNextInput", "hrNoteInput"]
+    });
   }
 
   function initCampusOperations() {
     if (!$("campusTableBody")) return;
+    const moduleKey = "campus";
+    const editPermission = "campus.edit";
+    const editable = hasPermission(editPermission);
     const key = "jrc-campus-operations-v2";
     const defaults = {
       title: "教室可用状态核对",
@@ -640,16 +822,21 @@
             <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.due)}</td>
             <td>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index)}</td>
+            <td>${actionButtons(index, editable)}</td>
           </tr>
         `).join("");
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
       setText("campusMetricDuty", rows.filter((row) => row.type === "值班" || row.type === "暑假排班").length);
       setText("campusMetricSafety", rows.filter((row) => row.type === "安全检查").length);
       setText("campusMetricOpen", rows.filter((row) => row.status !== "已完成").length);
+      renderAuditLog(moduleKey, "campusAuditTableBody");
     }
 
     $("campusSaveButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("campusMessage");
+        return;
+      }
       const title = $("campusTitleInput")?.value.trim();
       if (!title) {
         setText("campusMessage", "请先填写事项名称。");
@@ -668,9 +855,11 @@
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
+        recordAudit(moduleKey, "更新", title, `${payload.type} / ${payload.status}`);
         setText("campusMessage", `已更新运营事项：${title}。`);
       } else {
         rows.unshift(payload);
+        recordAudit(moduleKey, "新增", title, `${payload.type} / ${payload.status}`);
         setText("campusMessage", `已保存运营事项：${title}。`);
       }
       writeStore(key, rows);
@@ -681,8 +870,13 @@
     $("campusSortSelect")?.addEventListener("change", render);
     $("campusExportButton")?.addEventListener("click", () => downloadJson("校区运营事项数据.json", rows));
     $("campusResetButton")?.addEventListener("click", () => {
+      if (!editable) {
+        denyEdit("campusMessage");
+        return;
+      }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
+      recordAudit(moduleKey, "恢复样例", "校区运营台账", `${rows.length} 条`);
       resetForm();
       render();
       setText("campusMessage", "已恢复样例数据。");
@@ -698,11 +892,12 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
+        recordAudit(moduleKey, "删除", removed.title, removed.type);
         if (editingIndex === index) resetForm();
         render();
         setText("campusMessage", `已删除运营事项：${removed.title}。`);
       }
-    });
+    }, editable, "campusMessage");
     bindJsonImport({
       buttonId: "campusImportButton",
       inputId: "campusImportInput",
@@ -728,14 +923,24 @@
         };
       },
       onDone(count) {
+        recordAudit(moduleKey, "导入", "校区运营台账", `${count} 条`);
+        renderAuditLog(moduleKey, "campusAuditTableBody");
         setText("campusMessage", `已导入 ${count} 条校区运营事项。`);
       },
       onError() {
         setText("campusMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
-      }
+      },
+      canUse: () => editable,
+      onDenied: () => denyEdit("campusMessage")
     });
     resetForm();
     render();
+    applyEditGate({
+      editable,
+      messageId: "campusMessage",
+      buttonIds: ["campusSaveButton", "campusImportButton", "campusResetButton"],
+      fieldIds: ["campusTitleInput", "campusTypeInput", "campusAreaInput", "campusOwnerInput", "campusStatusInput", "campusDueInput", "campusNoteInput"]
+    });
   }
 
   document.addEventListener("DOMContentLoaded", () => {

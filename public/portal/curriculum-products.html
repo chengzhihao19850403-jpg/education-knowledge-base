@@ -171,8 +171,25 @@
           <div class="notice" id="curriculumMessage">当前数据先保存在本机浏览器；正式接文件存储后可上传 Word、PDF、Excel 和图片资料。</div>
         </article>
       </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>操作日志</h2>
+            <p>记录当前浏览器里的新增、修改、删除、导入和恢复样例操作；后续接云数据库后会升级为全员共享日志。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>摘要</th></tr>
+            </thead>
+            <tbody id="curriculumAuditTableBody"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
     <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260621b"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260621c"></script>
   </body>
 </html>
