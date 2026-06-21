@@ -780,9 +780,11 @@
         const body = byId("financeLinkedBody");
         if (!body) return;
         const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
-        const rows = (derived?.teacherMonthRows || []).filter((row) => !row.period || row.period === currentPeriod || row.period === "待定月份");
+        const excludedRows = (derived?.teacherMonthRows || []).filter((row) => row.financeExcluded);
+        const rows = (derived?.teacherMonthRows || []).filter((row) => !row.financeExcluded && (!row.period || row.period === currentPeriod || row.period === "待定月份"));
         if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="8" class="muted">当前还没有可联动的真实排课、教学质量或招生数据。重新导入最新表格后，这里会自动生成老师月度财务预核算草表。</td></tr>`;
+          const excludedText = excludedRows.length ? `已按规则排除 ${excludedRows.map((row) => row.teacherName).join("、")} 的单独核算数据。` : "";
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前还没有可联动的真实排课、教学质量或招生数据。重新导入最新表格后，这里会自动生成老师月度财务预核算草表。${excludedText}</td></tr>`;
           return;
         }
         body.innerHTML = rows.map((row) => `

@@ -48,6 +48,7 @@ const JRC_DATA_CONTRACTS = {
   }
 };
 const JRC_QUALITY_COEFFICIENTS = { S: 1.1, A: 1, B: 0.9, C: 0.8 };
+const JRC_FINANCE_EXCLUDED_TEACHERS = ["程志豪"];
 const JRC_DATA_LINK_RULES = [
   {
     id: "schedule-to-finance",
@@ -81,7 +82,7 @@ const JRC_DATA_LINK_RULES = [
     id: "admissions-to-finance",
     from: "招生管理系统",
     to: "财务系统",
-    rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成预核算。",
+    rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成预核算；程志豪名下学生单独核算，不进入财务系统自动预核算。",
     status: "foundation"
   }
 ];
@@ -628,9 +629,12 @@ function jrcDeriveSystemLinks() {
     if (!teacherMonth.has(key)) {
       const employee = employeeByName.get(teacherName) || {};
       const qualityRow = qualityByTeacher.get(teacherName) || {};
+      const financeExcluded = JRC_FINANCE_EXCLUDED_TEACHERS.includes(teacherName);
       teacherMonth.set(key, {
         teacherName: teacherName || "未匹配老师",
         period: period || "待定月份",
+        financeExcluded,
+        financeScope: financeExcluded ? "单独核算，不进入财务系统" : "进入财务系统预核算",
         scheduledHours: 0,
         trialCount: 0,
         enrolledAmount: 0,
@@ -666,7 +670,9 @@ function jrcDeriveSystemLinks() {
     teacherMonthRows: Array.from(teacherMonth.values()).map((row) => ({
       ...row,
       scheduledHours: Math.round(row.scheduledHours * 100) / 100,
-      financeBasis: `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
+      financeBasis: row.financeExcluded
+        ? "程志豪名下学生单独核算：可进入招生和学生服务，不进入财务系统自动预核算。"
+        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
     })),
     pendingLinks: {
       trialScheduleCandidates: admissions.filter((lead) => lead.status === "已预约试听"),
