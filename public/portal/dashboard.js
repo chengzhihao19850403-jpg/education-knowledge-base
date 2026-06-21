@@ -226,8 +226,10 @@
     const visible = isAdminLike();
     const localDataCard = $("portalLocalDataCard");
     const dataStateSection = $("portalDataStateSection");
+    const dataContractSection = $("portalDataContractSection");
     if (localDataCard) localDataCard.hidden = !visible;
     if (dataStateSection) dataStateSection.hidden = !visible;
+    if (dataContractSection) dataContractSection.hidden = !visible;
   }
 
   function renderPortalDashboard() {
