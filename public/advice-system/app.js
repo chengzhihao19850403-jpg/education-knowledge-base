@@ -590,6 +590,9 @@ function syncSelectedLead(leadName) {
   const followupSelect = byId("followupLeadSelect");
   if (followupSelect) followupSelect.value = leadName;
 
+  const quickFollowupSelect = byId("quickFollowupLeadSelect");
+  if (quickFollowupSelect) quickFollowupSelect.value = leadName;
+
   const feedbackSelect = byId("feedbackLeadSelect");
   if (feedbackSelect && Array.from(feedbackSelect.options).some((option) => option.value === leadName)) {
     feedbackSelect.value = leadName;
@@ -602,6 +605,39 @@ function syncSelectedLead(leadName) {
 
   const enrollInput = byId("enrollStudentName");
   if (enrollInput) enrollInput.value = leadName;
+}
+
+function saveFollowupRecord({
+  leadName,
+  text,
+  method = "沟通",
+  parentNeed = "",
+  painPoint = "",
+  objection = "暂无明确异议",
+  nextDate = "",
+}) {
+  const target = state.leads.find((lead) => lead.studentName === leadName);
+  const cleanText = String(text || "").trim();
+  if (!target || !cleanText) return false;
+  target.lastFollowup = "刚刚";
+  if (parentNeed) target.parentNeed = parentNeed;
+  if (painPoint) target.studentPainPoint = painPoint;
+  target.objection = objection || "暂无明确异议";
+  target.nextFollowupDate = nextDate || "";
+  target.nextAction = nextDate ? `下次跟进：${nextDate}` : target.nextAction;
+  const structuredText = [
+    `${method}跟进。`,
+    parentNeed ? `家长诉求：${parentNeed}。` : "",
+    painPoint ? `学生薄弱点：${painPoint}。` : "",
+    objection && objection !== "暂无明确异议" ? `报名异议：${objection}。` : "",
+    `沟通记录：${cleanText}`,
+    nextDate ? `下次跟进：${nextDate}。` : "",
+  ].filter(Boolean).join("");
+  target.note = structuredText;
+  pushFollowup(leadName, structuredText);
+  logAudit("新增跟进", target.studentName, structuredText);
+  syncSelectedLead(target.studentName);
+  return true;
 }
 
 function renderLeadTable() {
@@ -845,15 +881,27 @@ function renderTrialTable() {
 
 function renderFollowupLeadOptions() {
   const select = byId("followupLeadSelect");
-  if (!select) return;
-  const currentValue = select.value;
-  select.innerHTML = state.leads
+  const quickSelect = byId("quickFollowupLeadSelect");
+  const options = state.leads
     .map((lead) => `<option value="${lead.studentName}">${lead.studentName}</option>`)
     .join("");
-  if (currentValue) {
-    select.value = state.leads.some((lead) => lead.studentName === currentValue)
+  [select, quickSelect].forEach((targetSelect) => {
+    if (!targetSelect) return;
+    const currentValue = targetSelect.value || state.selectedLeadName;
+    targetSelect.innerHTML = options;
+    targetSelect.value = state.leads.some((lead) => lead.studentName === currentValue)
       ? currentValue
       : state.leads[0]?.studentName || "";
+  });
+}
+
+function renderQuickFollowupDefaults() {
+  const lead = getSelectedLead();
+  const select = byId("quickFollowupLeadSelect");
+  if (select && lead) select.value = lead.studentName;
+  const nextDateInput = byId("quickFollowupNextDateInput");
+  if (nextDateInput && lead && !nextDateInput.value) {
+    nextDateInput.value = lead.nextFollowupDate || "";
   }
 }
 
@@ -1533,38 +1581,21 @@ function bindEnrollmentCreate() {
 
 function bindFollowupCreate() {
   const button = byId("addFollowupButton");
-  if (!button) return;
-  button.addEventListener("click", () => {
+  if (button) button.addEventListener("click", () => {
     if (!canEditAdmissions()) return;
     const leadName = byId("followupLeadSelect").value;
     const text = byId("followupInput").value.trim();
     if (!text) return;
-    const target = state.leads.find((lead) => lead.studentName === leadName);
-    if (target) {
-      target.lastFollowup = "刚刚";
-      const method = byId("followupMethodSelect")?.value || "沟通";
-      const parentNeed = byId("followupNeedInput")?.value.trim() || "";
-      const painPoint = byId("followupPainInput")?.value.trim() || "";
-      const objection = byId("followupObjectionSelect")?.value || "暂无明确异议";
-      const nextDate = byId("followupNextDateInput")?.value || "";
-      if (parentNeed) target.parentNeed = parentNeed;
-      if (painPoint) target.studentPainPoint = painPoint;
-      target.objection = objection;
-      target.nextFollowupDate = nextDate;
-      target.nextAction = nextDate ? `下次跟进：${nextDate}` : target.nextAction;
-      const structuredText = [
-        `${method}跟进。`,
-        parentNeed ? `家长诉求：${parentNeed}。` : "",
-        painPoint ? `学生薄弱点：${painPoint}。` : "",
-        objection && objection !== "暂无明确异议" ? `报名异议：${objection}。` : "",
-        text ? `沟通记录：${text}` : "",
-        nextDate ? `下次跟进：${nextDate}。` : "",
-      ].filter(Boolean).join("");
-      const finalText = structuredText || text;
-      target.note = finalText;
-      pushFollowup(leadName, finalText);
-      logAudit("新增跟进", target.studentName, finalText);
-    }
+    const saved = saveFollowupRecord({
+      leadName,
+      text,
+      method: byId("followupMethodSelect")?.value || "沟通",
+      parentNeed: byId("followupNeedInput")?.value.trim() || "",
+      painPoint: byId("followupPainInput")?.value.trim() || "",
+      objection: byId("followupObjectionSelect")?.value || "暂无明确异议",
+      nextDate: byId("followupNextDateInput")?.value || "",
+    });
+    if (!saved) return;
     byId("followupInput").value = "";
     byId("followupNeedInput").value = "";
     byId("followupPainInput").value = "";
@@ -1574,6 +1605,24 @@ function bindFollowupCreate() {
 
   byId("followupLeadSelect")?.addEventListener("change", () => {
     syncSelectedLead(byId("followupLeadSelect").value);
+    renderAll();
+  });
+
+  byId("quickFollowupLeadSelect")?.addEventListener("change", () => {
+    syncSelectedLead(byId("quickFollowupLeadSelect").value);
+    renderAll();
+  });
+
+  byId("quickFollowupButton")?.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
+    const saved = saveFollowupRecord({
+      leadName: byId("quickFollowupLeadSelect")?.value,
+      text: byId("quickFollowupInput")?.value || "",
+      method: byId("quickFollowupMethodSelect")?.value || "沟通",
+      nextDate: byId("quickFollowupNextDateInput")?.value || "",
+    });
+    if (!saved) return;
+    byId("quickFollowupInput").value = "";
     renderAll();
   });
 }
@@ -2138,7 +2187,12 @@ function applyPermissionState() {
     '#followupNextDateInput',
     '#followupNeedInput',
     '#followupPainInput',
-    '#followupObjectionSelect'  ];
+    '#followupObjectionSelect',
+    '#quickFollowupLeadSelect',
+    '#quickFollowupMethodSelect',
+    '#quickFollowupNextDateInput',
+    '#quickFollowupInput',
+    '#quickFollowupButton'  ];
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
     if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
@@ -2214,6 +2268,7 @@ function renderAll() {
   renderFollowups();
   renderPublicPool();
   renderFollowupLeadOptions();
+  renderQuickFollowupDefaults();
   renderFeedbackLeadOptions();
   renderEnrollmentLeadOptions();
   renderTrialLeadOptions();

@@ -650,6 +650,42 @@
                 <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
               </div>
             </div>
+            <div class="section-head" style="margin-top: 18px;">
+              <div>
+                <h2>手机快捷跟进</h2>
+                <div class="hint">手机上先用这个快速补一条沟通记录，完整字段仍然会同步到线索详情和跟进历史。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">适合微信 / 电话后马上记录</span>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>跟进对象</label>
+                <select id="quickFollowupLeadSelect"></select>
+              </div>
+              <div class="field">
+                <label>沟通方式</label>
+                <select id="quickFollowupMethodSelect">
+                  <option>微信</option>
+                  <option>电话</option>
+                  <option>到访面谈</option>
+                  <option>群内沟通</option>
+                  <option>短信 / 其他</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>下次跟进日期</label>
+                <input id="quickFollowupNextDateInput" type="date">
+              </div>
+              <div class="field span-3">
+                <label>本次沟通记录</label>
+                <textarea id="quickFollowupInput" placeholder="例如：家长问暑假班时间，孩子计算薄弱，今晚发班型方案，明天确认试听。"></textarea>
+              </div>
+            </div>
+            <div class="section-actions">
+              <button class="button small" id="quickFollowupButton" type="button">保存快捷跟进</button>
+            </div>
             <div class="worklist-grid">
               <div>
                 <div class="section-head" style="margin-top: 18px;">
