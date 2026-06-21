@@ -313,8 +313,8 @@ const JRC_GRANULAR_ACTIONS = [
 const JRC_PERMISSION_OPTIONS = [
   ["paike.access", "排课查看"],
   ["paike.edit", "排课修改"],
-  ["knowledge.access", "知识库进入"],
-  ["knowledge.edit", "知识库管理"],
+  ["knowledge.access", "学管知识库进入"],
+  ["knowledge.edit", "学管知识库管理"],
   ["suggestions.access", "建议系统进入"],
   ["suggestions.edit", "建议系统管理"],
   ["admissions.access", "招生进入"],
@@ -501,7 +501,7 @@ function jrcHasPermission(permissionKey, employee = jrcResolveCurrentEmployee())
 function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmployee()) {
   const role = employee?.role || "当前岗位";
   const hints = {
-    "knowledge.access": "知识库问答系统主要给学管、管理员和相关培训人员使用。",
+    "knowledge.access": "学管知识库系统主要给学管、管理员和相关培训人员使用。",
     "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
     "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
     "hr.access": "人事与培训系统涉及员工档案和权限，暂时只给总管理员使用。",
@@ -524,7 +524,7 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   if (permissions.includes("hr.access")) summaries.push("人事培训");
   if (permissions.includes("campus.access")) summaries.push("校区运营");
   if (permissions.includes("finance.access")) summaries.push("财务");
-  if (permissions.includes("knowledge.access")) summaries.push("知识库");
+  if (permissions.includes("knowledge.access")) summaries.push("学管知识库");
   if (permissions.includes("suggestions.access")) summaries.push("建议");
   return summaries.join(" / ") || "仅登录访问";
 }

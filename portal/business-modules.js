@@ -803,7 +803,7 @@
     const samples = [
       { type: "员工基础档案核对", employee: "全体员工", system: "统一登录、财务", status: "处理中", owner: "管理员", next: "补齐手机号、微信、入职日期、提成比例", note: "统一整理员工档案", createdAt: nowText() },
       { type: "系统权限分组", employee: "学管、财务、授课老师", system: "所有系统", status: "处理中", owner: "管理员", next: "按真实岗位继续细分查看和修改权限", note: "权限逐步细化", createdAt: nowText() },
-      { type: "培训记录归档", employee: "学管、授课老师", system: "知识库问答系统", status: "待处理", owner: "学管负责人", next: "同步学习内容和阶段测试结果", note: "后续接知识库测试", createdAt: nowText() }
+      { type: "培训记录归档", employee: "学管、授课老师", system: "学管知识库系统", status: "待处理", owner: "学管负责人", next: "同步学习内容和阶段测试结果", note: "后续接学管知识库测试", createdAt: nowText() }
     ];
     let rows = readStore(key, samples);
     let editingIndex = -1;
