@@ -189,6 +189,30 @@
       <section class="card">
         <div class="section-head">
           <div>
+            <h2>成绩同步与学管沟通</h2>
+            <p>出门测成绩保存后会自动沉淀到这里，学管可以看到学生本次分数、班级平均分、排名、趋势和沟通提示，用于课后反馈与家长沟通。</p>
+          </div>
+          <span class="status-chip">学生档案联动</span>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>已同步测评课次</span><strong id="scoreMetricLessons">0</strong><p>有出门测成绩的课程</p></div>
+          <div class="metric"><span>整体平均分</span><strong id="scoreMetricAverage">-</strong><p>按已录成绩计算</p></div>
+          <div class="metric"><span>缺测 / 待沟通</span><strong id="scoreMetricAlerts">0</strong><p>学管需要跟进</p></div>
+          <div class="metric"><span>最新成绩记录</span><strong id="scoreMetricRecords">0</strong><p>学生个人成绩条数</p></div>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>日期 / 班级</th><th>任课老师</th><th>出门测</th><th>班级情况</th><th>趋势</th><th>学管沟通提示</th></tr>
+            </thead>
+            <tbody id="scoreAnalyticsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
             <h2>学生服务总览</h2>
             <p>以下是第一版工作台结构，当前为演示数据，不代表真实学生情况。</p>
           </div>
@@ -333,6 +357,11 @@
         const message = document.getElementById("attendanceMessage");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
+        const scoreBody = document.getElementById("scoreAnalyticsBody");
+        const scoreMetricLessons = document.getElementById("scoreMetricLessons");
+        const scoreMetricAverage = document.getElementById("scoreMetricAverage");
+        const scoreMetricAlerts = document.getElementById("scoreMetricAlerts");
+        const scoreMetricRecords = document.getElementById("scoreMetricRecords");
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
@@ -595,6 +624,106 @@
             `;
           }).join("");
         };
+        const numericScore = (value) => {
+          const number = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+          return Number.isFinite(number) ? number : null;
+        };
+        const average = (values) => {
+          const valid = values.filter((value) => Number.isFinite(value));
+          return valid.length ? Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10 : null;
+        };
+        const scoreTip = (row) => {
+          if (row.score == null) {
+            if (row.present) return "到课但未录出门测成绩，需确认是否漏录、提前离开或未参加测试。";
+            return "缺课且缺测，需确认视频课、录播、线下补课或是否不销课。";
+          }
+          const diff = row.classAverage == null ? 0 : Math.round((row.score - row.classAverage) * 10) / 10;
+          if (row.previousScore != null && row.score <= row.previousScore - 10) {
+            return `本次较上次下降 ${Math.round((row.previousScore - row.score) * 10) / 10} 分，建议学管主动沟通学习状态。`;
+          }
+          if (diff <= -10) return `低于班级平均分 ${Math.abs(diff)} 分，建议反馈薄弱点并安排补强。`;
+          if (row.previousScore != null && row.score >= row.previousScore + 10) {
+            return `本次较上次提升 ${Math.round((row.score - row.previousScore) * 10) / 10} 分，可正向反馈给家长。`;
+          }
+          if (diff >= 10) return `高于班级平均分 ${diff} 分，可作为正向反馈。`;
+          return "成绩处于正常区间，可结合课堂表现做常规反馈。";
+        };
+        const deriveScoreAnalytics = () => {
+          const sessions = readRows();
+          const studentHistory = new Map();
+          const result = [];
+          sessions.slice().reverse().forEach((session) => {
+            const scoredRows = session.rows
+              .map((row) => ({ row, score: numericScore(row.exitScore) }))
+              .filter((item) => item.score != null);
+            const classAverage = average(scoredRows.map((item) => item.score));
+            const sortedScores = [...scoredRows].sort((a, b) => b.score - a.score);
+            const rankByStudent = new Map();
+            sortedScores.forEach((item, index) => {
+              if (!rankByStudent.has(item.row.studentName)) rankByStudent.set(item.row.studentName, index + 1);
+            });
+            session.rows.forEach((row) => {
+              const score = numericScore(row.exitScore);
+              const history = studentHistory.get(row.studentName) || [];
+              const previousScore = [...history].reverse().find((item) => item.score != null)?.score ?? null;
+              const present = isEffectivePresent(row);
+              const record = {
+                studentName: row.studentName,
+                date: session.date,
+                className: session.className,
+                teacher: session.teacher,
+                score,
+                classAverage,
+                rank: rankByStudent.get(row.studentName) || null,
+                participantCount: scoredRows.length,
+                previousScore,
+                present,
+                status: row.status,
+                followup: row.followup
+              };
+              result.push(record);
+              history.push(record);
+              studentHistory.set(row.studentName, history);
+            });
+          });
+          return result.reverse();
+        };
+        const renderScoreAnalytics = () => {
+          if (!scoreBody) return;
+          const rows = deriveScoreAnalytics();
+          const scoredRows = rows.filter((row) => row.score != null);
+          const lessonCount = new Set(scoredRows.map((row) => `${row.date}|${row.className}|${row.teacher}`)).size;
+          const alertCount = rows.filter((row) => row.score == null || (row.classAverage != null && row.score <= row.classAverage - 10)).length;
+          if (scoreMetricLessons) scoreMetricLessons.textContent = String(lessonCount);
+          if (scoreMetricAverage) scoreMetricAverage.textContent = scoredRows.length ? String(average(scoredRows.map((row) => row.score))) : "-";
+          if (scoreMetricAlerts) scoreMetricAlerts.textContent = String(alertCount);
+          if (scoreMetricRecords) scoreMetricRecords.textContent = String(scoredRows.length);
+          if (!rows.length) {
+            scoreBody.innerHTML = `<tr><td colspan="7">暂无出门测成绩。保存带成绩的点名记录后，这里会自动生成学生成绩、排名、平均分和沟通提示。</td></tr>`;
+            return;
+          }
+          scoreBody.innerHTML = rows.slice(0, 30).map((row) => {
+            const trend = row.score == null
+              ? "缺测"
+              : row.previousScore == null
+                ? "首次记录"
+                : `${row.score >= row.previousScore ? "上升" : "下降"} ${Math.abs(Math.round((row.score - row.previousScore) * 10) / 10)} 分`;
+            const classText = row.score == null
+              ? "未参加本次统计"
+              : `均分 ${row.classAverage ?? "-"}；第 ${row.rank || "-"} / ${row.participantCount || "-"} 名`;
+            return `
+              <tr>
+                <td><strong>${escapeHtml(row.studentName)}</strong></td>
+                <td>${escapeHtml(row.date || "-")}<br>${escapeHtml(row.className || "-")}</td>
+                <td>${escapeHtml(row.teacher || "-")}</td>
+                <td>${row.score == null ? "<span class=\"tag warn\">缺测</span>" : escapeHtml(row.score)}</td>
+                <td>${escapeHtml(classText)}</td>
+                <td>${escapeHtml(trend)}</td>
+                <td>${escapeHtml(scoreTip(row))}</td>
+              </tr>
+            `;
+          }).join("");
+        };
         const renderAll = () => {
           if (!canUseAttendance()) {
             buildButton.disabled = true;
@@ -604,6 +733,7 @@
           }
           renderRoster();
           renderHistory();
+          renderScoreAnalytics();
         };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
         const exportCsv = () => {
@@ -704,6 +834,7 @@
           sessions.unshift(session);
           saveRows(sessions);
           renderHistory();
+          renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
           setMessage(unresolved
             ? `已保存。本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
