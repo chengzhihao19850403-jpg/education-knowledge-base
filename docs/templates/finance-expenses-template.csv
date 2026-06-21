@@ -1,0 +1,2 @@
+period,expense_date,expense_type,amount,payee,payer,related_teacher,related_student,related_class,reimbursable,status,notes
+2026-06,2026-06-21,房租,1000,房东,陈雨晴,,,,否,已确认,示例
