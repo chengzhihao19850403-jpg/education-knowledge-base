@@ -189,6 +189,42 @@
         font-size: 13px;
         line-height: 1.7;
       }
+      .worklist-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .compact-toolbar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 12px 0;
+      }
+      .compact-toolbar input,
+      .compact-toolbar select {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0 11px;
+        font: inherit;
+        background: #fff;
+        color: var(--ink);
+      }
+      .priority-dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 42px;
+        min-height: 26px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .priority-dot.high { background: rgba(185, 28, 28, 0.10); color: var(--red); }
+      .priority-dot.medium { background: rgba(180, 83, 9, 0.10); color: var(--amber); }
+      .priority-dot.normal { background: rgba(15, 118, 110, 0.10); color: var(--green); }
       .metric strong {
         display: block;
         margin-top: 8px;
@@ -477,7 +513,9 @@
           grid-template-columns: 1fr;
         }
         .template-grid,
-        .linkage-grid {
+        .linkage-grid,
+        .worklist-grid,
+        .compact-toolbar {
           grid-template-columns: 1fr;
         }
         .span-2,
@@ -611,6 +649,64 @@
                 <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
               </div>
             </div>
+            <div class="worklist-grid">
+              <div>
+                <div class="section-head" style="margin-top: 18px;">
+                  <div>
+                    <h2>招生待办清单</h2>
+                    <div class="hint">系统按线索状态自动整理，老师每天先清这里，再看完整表。</div>
+                  </div>
+                  <div class="filters">
+                    <span class="status-chip" id="urgentTaskChip">紧急 0</span>
+                    <span class="status-chip" id="missingFieldChip">待补字段 0</span>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>优先级</th>
+                        <th>对象</th>
+                        <th>该做什么</th>
+                        <th>负责人</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admissionsTaskBody">
+                      <tr>
+                        <td>待生成</td>
+                        <td>系统读取线索后自动生成</td>
+                        <td>新线索、待试听、待反馈、高意向未成交都会进来。</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <div class="section-head" style="margin-top: 18px;">
+                  <div>
+                    <h2>跟进原则</h2>
+                    <div class="hint">先用人工动作跑顺，后面再接自动提醒。</div>
+                  </div>
+                </div>
+                <div class="stack-list" id="admissionsRuleList">
+                  <div class="list-card">
+                    <h3>1 小时内首联</h3>
+                    <p>新线索录入后，先确认家长诉求、年级、薄弱点和可试听时间。</p>
+                  </div>
+                  <div class="list-card">
+                    <h3>试听当天回填</h3>
+                    <p>试听结束当天必须写吸收情况、家长异议、意向等级和下一步。</p>
+                  </div>
+                  <div class="list-card">
+                    <h3>48 小时内追方案</h3>
+                    <p>A / B 意向未报名客户，必须给明确班型、价格、时间和优惠方案。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="panel content-section" data-section-group="leads">
@@ -667,6 +763,22 @@
                 <button class="status-chip" id="filterTrialButton" type="button">待试听 / 已试听</button>
                 <button class="status-chip" id="filterEnrolledButton" type="button">已报名</button>
               </div>
+            </div>
+            <div class="compact-toolbar">
+              <input id="leadSearchInput" placeholder="搜索学生、电话、备注、下一步">
+              <select id="leadOwnerFilter">
+                <option value="">全部负责人</option>
+              </select>
+              <select id="leadChannelFilter">
+                <option value="">全部渠道</option>
+              </select>
+              <select id="leadIntentFilter">
+                <option value="">全部意向</option>
+                <option>A 高意向</option>
+                <option>B 中意向</option>
+                <option>C 低意向</option>
+                <option>D 无意向</option>
+              </select>
             </div>
             <div class="table-wrap">
               <table>
@@ -948,7 +1060,7 @@
             <div class="form-grid">
               <div class="field span-2">
                 <label>导入模板字段</label>
-                <input value="学生姓名 / 年级 / 家长电话 / 意向学科 / 来源渠道 / 推荐人 / 当前负责人">
+                <input id="importTemplateField" value="学生姓名 / 年级 / 家长姓名 / 家长电话 / 意向学科 / 来源渠道 / 推荐人 / 当前负责人 / 当前状态 / 意向等级 / 试听时间 / 试听老师 / 是否进群 / 首条备注 / 下一步动作" readonly>
               </div>
               <div class="field">
                 <label>去重策略</label>
@@ -988,6 +1100,7 @@
               </div>
             </div>
             <div class="section-actions">
+              <button class="button small secondary" id="copyImportTemplateButton" type="button">复制导入模板字段</button>
               <button class="button small" id="importBatchButton" type="button">导入这批线索</button>
             </div>
             <div class="metrics">
@@ -1495,23 +1608,23 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">总线索量</div>
-                <strong>48</strong>
-                <div class="metric-meta">本周新增全部生源入口</div>
+                <strong id="funnelTotalCount">0</strong>
+                <div class="metric-meta">当前系统内全部生源入口</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">有效接通量</div>
-                <strong>31</strong>
-                <div class="metric-meta">接通率 64.6%</div>
+                <strong id="funnelContactedCount">0</strong>
+                <div class="metric-meta" id="funnelContactedRate">接通率 0%</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">试听预约量</div>
-                <strong>19</strong>
-                <div class="metric-meta">邀约率 39.6%</div>
+                <strong id="funnelTrialCount">0</strong>
+                <div class="metric-meta" id="funnelTrialRate">邀约率 0%</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">报名成交量</div>
-                <strong>9</strong>
-                <div class="metric-meta">成交率 18.8%</div>
+                <strong id="funnelEnrollCount">0</strong>
+                <div class="metric-meta" id="funnelEnrollRate">成交率 0%</div>
               </div>
             </div>
           </section>
@@ -1537,30 +1650,12 @@
                     <th>当前目标</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="sopTaskBody">
                   <tr>
-                    <td>试听当天</td>
-                    <td>A / B 意向</td>
-                    <td>发送学情反馈、老师评价、课堂表现总结</td>
-                    <td>让家长记住试听价值，别让热度掉下去</td>
-                  </tr>
-                  <tr>
-                    <td>第 3 天</td>
-                    <td>A / B 意向</td>
-                    <td>发送提分案例、班型方案、价格解释</td>
-                    <td>处理异议，推进报名方案</td>
-                  </tr>
-                  <tr>
-                    <td>第 7 天</td>
-                    <td>B / C 意向</td>
-                    <td>邀请公开课、活动课、二次试听</td>
-                    <td>重新拉回兴趣</td>
-                  </tr>
-                  <tr>
-                    <td>第 14 天</td>
-                    <td>C / D 意向</td>
-                    <td>转入分层培育群或低频运营池</td>
-                    <td>避免彻底丢失潜在线索</td>
+                    <td>待生成</td>
+                    <td>系统会从试听完成线索中自动生成</td>
+                    <td>试听当天、第 3 天、第 7 天、第 14 天分层追踪。</td>
+                    <td>先把试听反馈补齐，再进入 SOP。</td>
                   </tr>
                 </tbody>
               </table>

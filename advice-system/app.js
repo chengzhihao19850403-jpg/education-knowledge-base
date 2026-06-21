@@ -2,6 +2,10 @@ const STORAGE_KEY = "advice-system-stage-prototype";
 
 const defaultState = {
   activeLeadFilter: "all",
+  leadSearchQuery: "",
+  leadOwnerFilter: "",
+  leadChannelFilter: "",
+  leadIntentFilter: "",
   selectedLeadName: "张同学",
   employees: [],
   auditLogs: [],
@@ -116,6 +120,23 @@ const ownerOptions = ["待分配", "陈老师", "何老师", "赵老师"];
 const trialTeacherOptions = ["刘老师", "叶老师", "陈老师", "何老师"];
 const channelOptions = ["待补来源", "抖音投流", "老家长转介绍", "自然到访", "官网表单"];
 const channelOwnerOptions = ["待补渠道归属", "叶老师", "陈老师", "何老师", "赵老师", "前台"];
+const importTemplateFields = [
+  "学生姓名",
+  "年级",
+  "家长姓名",
+  "家长电话",
+  "意向学科",
+  "来源渠道",
+  "推荐人",
+  "当前负责人",
+  "当前状态",
+  "意向等级",
+  "试听时间",
+  "试听老师",
+  "是否进群",
+  "首条备注",
+  "下一步动作",
+].join("\t");
 
 function byId(id) {
   return document.getElementById(id);
@@ -261,6 +282,19 @@ function normalizePhone(phone) {
   return String(phone || "").replace(/\D/g, "");
 }
 
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function percent(part, total) {
+  if (!total) return "0%";
+  return `${Math.round((part / total) * 1000) / 10}%`;
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
 function createImportResult(studentName, status, detail) {
   return { studentName, status, detail };
 }
@@ -313,6 +347,149 @@ function collectMissingLeadFields(lead) {
   return missing;
 }
 
+function buildAdmissionTasks() {
+  const tasks = [];
+  state.leads.forEach((lead) => {
+    const missing = collectMissingLeadFields(lead);
+    if (missing.length) {
+      tasks.push({
+        priority: "high",
+        label: "紧急",
+        lead,
+        action: `补齐字段：${missing.join("、")}`,
+        target: "先补字段，否则后续跟进和归属链会乱。",
+      });
+    }
+    if (lead.status === "新建未联系") {
+      tasks.push({
+        priority: "high",
+        label: "紧急",
+        lead,
+        action: "尽快首联家长",
+        target: "确认年级、薄弱点、可试听时间和是否愿意进群。",
+      });
+    }
+    if (lead.status === "已沟通待邀约" || lead.status === "持续跟进中") {
+      tasks.push({
+        priority: lead.intent?.startsWith("A") ? "high" : "medium",
+        label: lead.intent?.startsWith("A") ? "紧急" : "重要",
+        lead,
+        action: lead.intent?.startsWith("A") ? "推动报名或锁定试听" : "继续邀约试听",
+        target: lead.nextAction || "补明确下一步动作。",
+      });
+    }
+    if (lead.status === "已预约试听") {
+      tasks.push({
+        priority: "medium",
+        label: "重要",
+        lead,
+        action: "确认试听到场并准备反馈",
+        target: `${lead.trialTeacher || "待定老师"} / ${lead.trialTime ? formatTrialDisplay(lead.trialTime) : lead.trial}`,
+      });
+    }
+    if (lead.status === "试听完成待转化") {
+      tasks.push({
+        priority: "high",
+        label: "紧急",
+        lead,
+        action: "补试听反馈并追报名方案",
+        target: lead.nextAction || "48 小时内给报名方案。",
+      });
+    }
+  });
+  const score = { high: 0, medium: 1, normal: 2 };
+  return tasks.sort((a, b) => score[a.priority] - score[b.priority]).slice(0, 12);
+}
+
+function buildSopTasks() {
+  const activeLeads = state.leads.filter(
+    (lead) => lead.status === "试听完成待转化" && lead.enrolledAmount <= 0
+  );
+  const sopRows = [];
+  activeLeads.forEach((lead) => {
+    const level = lead.intent || "B 中意向";
+    sopRows.push({
+      node: "试听当天",
+      lead,
+      action: "发送学情反馈、课堂表现总结、老师建议",
+      goal: "让家长记住试听价值，趁热推进报名方案。",
+    });
+    if (level.startsWith("A") || level.startsWith("B")) {
+      sopRows.push({
+        node: "第 3 天",
+        lead,
+        action: "发送提分案例、班型方案、价格解释",
+        goal: "处理核心异议，推进定金或报名。",
+      });
+    }
+    if (level.startsWith("B") || level.startsWith("C")) {
+      sopRows.push({
+        node: "第 7 天",
+        lead,
+        action: "邀约公开课、活动课或二次试听",
+        goal: "重新拉回兴趣，不让线索自然流失。",
+      });
+    }
+    if (level.startsWith("C") || level.startsWith("D")) {
+      sopRows.push({
+        node: "第 14 天",
+        lead,
+        action: "转入资料培育群或低频运营池",
+        goal: "降低人工高频追踪成本，保留长期转化可能。",
+      });
+    }
+  });
+  return sopRows;
+}
+
+function parseImportLine(line, headerMap) {
+  const cols = line.split("\t").map((item) => item.trim());
+  if (headerMap) {
+    const at = (...names) => {
+      const key = names.find((name) => headerMap.has(name));
+      return key ? cols[headerMap.get(key)] || "" : "";
+    };
+    return {
+      studentName: at("学生姓名", "student_name"),
+      grade: at("年级", "当前年级", "grade"),
+      parentName: at("家长姓名", "parent_name"),
+      parentPhone: at("家长电话", "联系电话", "手机号", "parent_phone"),
+      subject: at("意向学科", "学科", "subject") || "数学",
+      channel: at("来源渠道", "渠道", "channel"),
+      referrer: at("推荐人", "转介绍人", "referrer"),
+      owner: at("当前负责人", "负责人", "owner"),
+      status: at("当前状态", "状态", "lead_status"),
+      intent: at("意向等级", "意向", "intention_level"),
+      trialTime: at("试听时间", "trial_date"),
+      trialTeacher: at("试听老师", "trial_teacher"),
+      inGroup: at("是否进群", "is_in_parent_group"),
+      note: at("首条备注", "备注", "followup_note"),
+      nextAction: at("下一步动作", "next_action"),
+    };
+  }
+  const [
+    studentName = "",
+    grade = "",
+    parentPhone = "",
+    subject = "数学",
+    channel = "",
+    referrer = "",
+    owner = "",
+    note = "",
+  ] = cols;
+  return { studentName, grade, parentPhone, subject, channel, referrer, owner, note };
+}
+
+function maybeBuildImportHeaderMap(lines) {
+  if (!lines.length) return null;
+  const firstCols = lines[0].split("\t").map((item) => item.trim());
+  const hasHeader = firstCols.some((item) =>
+    ["学生姓名", "student_name", "家长电话", "parent_phone", "来源渠道", "channel"].includes(item)
+  );
+  if (!hasHeader) return null;
+  return new Map(firstCols.map((item, index) => [item, index]));
+}
+
 function syncSelectedLead(leadName) {
   if (!leadName) return;
   const exists = state.leads.some((lead) => lead.studentName === leadName);
@@ -341,10 +518,30 @@ function renderLeadTable() {
   if (!body) return;
   const editable = canEditAdmissions();
   const filteredLeads = state.leads.filter((lead) => {
-    if (state.activeLeadFilter === "new") return lead.status === "新建未联系";
+    if (state.activeLeadFilter === "new" && lead.status !== "新建未联系") return false;
     if (state.activeLeadFilter === "trial")
-      return lead.status === "已预约试听" || lead.status === "试听完成待转化";
-    if (state.activeLeadFilter === "enrolled") return lead.status === "定金 / 已报名";
+      if (!(lead.status === "已预约试听" || lead.status === "试听完成待转化")) return false;
+    if (state.activeLeadFilter === "enrolled" && lead.status !== "定金 / 已报名") return false;
+    const query = normalizeText(state.leadSearchQuery);
+    if (query) {
+      const haystack = normalizeText([
+        lead.studentName,
+        lead.parentPhone,
+        lead.grade,
+        lead.subject,
+        lead.channel,
+        lead.channelMeta,
+        lead.owner,
+        lead.status,
+        lead.intent,
+        lead.note,
+        lead.nextAction,
+      ].join(" "));
+      if (!haystack.includes(query)) return false;
+    }
+    if (state.leadOwnerFilter && lead.owner !== state.leadOwnerFilter) return false;
+    if (state.leadChannelFilter && lead.channel !== state.leadChannelFilter) return false;
+    if (state.leadIntentFilter && lead.intent !== state.leadIntentFilter) return false;
     return true;
   });
   body.innerHTML = filteredLeads
@@ -380,8 +577,113 @@ function renderLeadTable() {
         </tr>
       `
     )
-    .join("");
+    .join("") || `
+      <tr>
+        <td colspan="10">当前筛选条件下没有线索。可以清空搜索或切换筛选条件。</td>
+      </tr>
+    `;
   bindLeadActions();
+}
+
+function renderLeadFilterControls() {
+  const searchInput = byId("leadSearchInput");
+  if (searchInput && searchInput.value !== state.leadSearchQuery) {
+    searchInput.value = state.leadSearchQuery || "";
+  }
+
+  const ownerSelect = byId("leadOwnerFilter");
+  if (ownerSelect) {
+    const current = ownerSelect.value || state.leadOwnerFilter || "";
+    ownerSelect.innerHTML = `<option value="">全部负责人</option>${uniqueValues(state.leads.map((lead) => lead.owner))
+      .map((owner) => `<option value="${owner}">${owner}</option>`)
+      .join("")}`;
+    ownerSelect.value = Array.from(ownerSelect.options).some((option) => option.value === current)
+      ? current
+      : "";
+    state.leadOwnerFilter = ownerSelect.value;
+  }
+
+  const channelSelect = byId("leadChannelFilter");
+  if (channelSelect) {
+    const current = channelSelect.value || state.leadChannelFilter || "";
+    channelSelect.innerHTML = `<option value="">全部渠道</option>${uniqueValues(state.leads.map((lead) => lead.channel))
+      .map((channel) => `<option value="${channel}">${channel}</option>`)
+      .join("")}`;
+    channelSelect.value = Array.from(channelSelect.options).some((option) => option.value === current)
+      ? current
+      : "";
+    state.leadChannelFilter = channelSelect.value;
+  }
+
+  const intentSelect = byId("leadIntentFilter");
+  if (intentSelect) {
+    const current = state.leadIntentFilter || "";
+    intentSelect.value = Array.from(intentSelect.options).some((option) => option.value === current)
+      ? current
+      : "";
+    state.leadIntentFilter = intentSelect.value;
+  }
+}
+
+function renderAdmissionTasks() {
+  const body = byId("admissionsTaskBody");
+  if (!body) return;
+  const tasks = buildAdmissionTasks();
+  const urgentCount = tasks.filter((task) => task.priority === "high").length;
+  const missingCount = state.leads.filter((lead) => collectMissingLeadFields(lead).length > 0).length;
+  if (byId("urgentTaskChip")) byId("urgentTaskChip").textContent = `紧急 ${urgentCount}`;
+  if (byId("missingFieldChip")) byId("missingFieldChip").textContent = `待补字段 ${missingCount}`;
+  body.innerHTML = tasks.length
+    ? tasks
+        .map(
+          (task) => `
+            <tr>
+              <td><span class="priority-dot ${task.priority}">${task.label}</span></td>
+              <td>${task.lead.studentName}<br>${task.lead.grade} / ${task.lead.subject}<br>${task.lead.parentPhone}</td>
+              <td>${task.action}<br><span class="hint">${task.target}</span></td>
+              <td>${task.lead.owner}</td>
+              <td><button class="button small secondary" type="button" data-action="view-detail" data-student="${task.lead.studentName}">查看详情</button></td>
+            </tr>
+          `
+        )
+        .join("")
+    : `
+        <tr>
+          <td>暂无</td>
+          <td>当前没有紧急招生待办</td>
+          <td>可以继续录入新线索，或查看渠道看板。</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      `;
+  bindLeadActions();
+}
+
+function renderSopTasks() {
+  const body = byId("sopTaskBody");
+  if (!body) return;
+  const rows = buildSopTasks();
+  body.innerHTML = rows.length
+    ? rows
+        .map(
+          (row) => `
+            <tr>
+              <td>${row.node}</td>
+              <td>${row.lead.studentName} / ${row.lead.intent}<br>${row.lead.owner}</td>
+              <td>${row.action}</td>
+              <td>${row.goal}</td>
+            </tr>
+          `
+        )
+        .join("")
+    : `
+        <tr>
+          <td>暂无</td>
+          <td>当前没有试听后待转化线索</td>
+          <td>试听完成后，系统会自动把对应学生放进这里。</td>
+          <td>先保证试听反馈当天回填。</td>
+        </tr>
+      `;
 }
 
 function renderTrialTable() {
@@ -950,6 +1252,12 @@ function renderMetrics() {
   const enrolled = state.leads.filter((lead) => lead.enrolledAmount > 0).length;
   const enrolledAmount = state.leads.reduce((sum, lead) => sum + (lead.enrolledAmount || 0), 0);
   const highIntent = state.leads.filter((lead) => lead.intent.startsWith("A") && lead.enrolledAmount <= 0).length;
+  const contacted = state.leads.filter((lead) => lead.status !== "新建未联系").length;
+  const trialTotal = state.leads.filter((lead) =>
+    lead.status === "已预约试听" ||
+    lead.status === "试听完成待转化" ||
+    lead.status === "定金 / 已报名"
+  ).length;
 
   byId("todayFollowupChip").textContent = `今日待跟进 ${state.leads.filter((lead) => lead.status !== "定金 / 已报名").length}`;
   byId("todayTrialChip").textContent = `待约试听 ${scheduled}`;
@@ -961,6 +1269,13 @@ function renderMetrics() {
   byId("enrolledCount").textContent = String(enrolled);
   byId("enrolledMeta").textContent = `实收 ${enrolledAmount.toLocaleString()} / 定金 8,000`;
   byId("highIntentCount").textContent = String(highIntent);
+  if (byId("funnelTotalCount")) byId("funnelTotalCount").textContent = String(total);
+  if (byId("funnelContactedCount")) byId("funnelContactedCount").textContent = String(contacted);
+  if (byId("funnelContactedRate")) byId("funnelContactedRate").textContent = `接通率 ${percent(contacted, total)}`;
+  if (byId("funnelTrialCount")) byId("funnelTrialCount").textContent = String(trialTotal);
+  if (byId("funnelTrialRate")) byId("funnelTrialRate").textContent = `邀约率 ${percent(trialTotal, total)}`;
+  if (byId("funnelEnrollCount")) byId("funnelEnrollCount").textContent = String(enrolled);
+  if (byId("funnelEnrollRate")) byId("funnelEnrollRate").textContent = `成交率 ${percent(enrolled, total)}`;
 }
 
 function bindLeadCreate() {
@@ -1150,6 +1465,24 @@ function bindRenewalCreate() {
 function bindBatchImport() {
   const button = byId("importBatchButton");
   if (!button) return;
+  const templateButton = byId("copyImportTemplateButton");
+  if (templateButton) {
+    templateButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(importTemplateFields);
+        templateButton.textContent = "已复制模板字段";
+        window.setTimeout(() => {
+          templateButton.textContent = "复制导入模板字段";
+        }, 1600);
+      } catch {
+        const field = byId("importTemplateField");
+        if (field) {
+          field.value = importTemplateFields.replace(/\t/g, " / ");
+          field.select?.();
+        }
+      }
+    });
+  }
   button.addEventListener("click", () => {
     if (!canImportAdmissions()) return;
     const raw = byId("importBatchInput").value.trim();
@@ -1177,9 +1510,13 @@ function bindBatchImport() {
         .map((lead) => [normalizePhone(lead.parentPhone), lead])
     );
 
-    raw.split(/\n+/).forEach((line) => {
-      const cols = line.split("\t").map((item) => item.trim());
-      const [
+    const lines = raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const headerMap = maybeBuildImportHeaderMap(lines);
+    const importLines = headerMap ? lines.slice(1) : lines;
+
+    importLines.forEach((line) => {
+      const parsed = parseImportLine(line, headerMap);
+      const {
         studentName = "",
         grade = "",
         parentPhone = "",
@@ -1188,7 +1525,13 @@ function bindBatchImport() {
         referrer = "",
         owner = "",
         note = "",
-      ] = cols;
+        status = "",
+        intent = "",
+        trialTime = "",
+        trialTeacher = "",
+        inGroup = "",
+        nextAction = "",
+      } = parsed;
 
       const normalizedPhone = normalizePhone(parentPhone);
       if (!studentName || !normalizedPhone) {
@@ -1225,6 +1568,31 @@ function bindBatchImport() {
         if (note) {
           existingLead.note = note;
           mergeNotes.push("追加首条备注");
+        }
+        if (status) {
+          existingLead.status = status;
+          mergeNotes.push(`更新状态=${status}`);
+        }
+        if (intent) {
+          existingLead.intent = intent;
+          mergeNotes.push(`更新意向=${intent}`);
+        }
+        if (trialTime) {
+          existingLead.trialTime = normalizeDateTimeLocal(trialTime);
+          existingLead.trial = formatTrialDisplay(existingLead.trialTime);
+          mergeNotes.push(`补试听时间=${trialTime}`);
+        }
+        if (trialTeacher) {
+          existingLead.trialTeacher = trialTeacher;
+          mergeNotes.push(`补试听老师=${trialTeacher}`);
+        }
+        if (inGroup) {
+          existingLead.inGroup = inGroup.includes("已") || inGroup === "是" ? "已进群" : "未进群";
+          mergeNotes.push(`更新进群=${existingLead.inGroup}`);
+        }
+        if (nextAction) {
+          existingLead.nextAction = nextAction;
+          mergeNotes.push("更新下一步");
         }
         existingLead.channelOwner = deriveChannelOwner(existingLead);
         existingLead.channelMeta = buildChannelMeta(
@@ -1277,17 +1645,20 @@ function bindBatchImport() {
         channelOwner: "",
         referrerName: referrer,
         owner: owner || "待分配",
-        status: defaultStatus,
+        status: status || defaultStatus,
         trial: "未预约",
-        intent: "B 中意向",
-        inGroup: "未进群",
+        intent: intent || "B 中意向",
+        inGroup: inGroup ? (inGroup.includes("已") || inGroup === "是" ? "已进群" : "未进群") : "未进群",
         lastFollowup: "刚刚导入",
         note: note || "待补首条记录",
-        nextAction: owner ? "导入完成，尽快首联" : "待分配负责人后首联",
-        trialTeacher: "",
-        trialTime: "",
+        nextAction: nextAction || (owner ? "导入完成，尽快首联" : "待分配负责人后首联"),
+        trialTeacher: trialTeacher || "",
+        trialTime: normalizeDateTimeLocal(trialTime),
         enrolledAmount: 0,
       };
+      if (newLead.trialTime) {
+        newLead.trial = formatTrialDisplay(newLead.trialTime);
+      }
       state.leads.unshift(newLead);
       leadByPhone.set(normalizedPhone, newLead);
       summary.added += 1;
@@ -1557,6 +1928,7 @@ function applyPermissionState() {
     '#saveDetailButton'  ];
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
+    if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
     if (node.id === "detailAttributionLock" || node.id === "renewStudentName" || node.id === "renewAttributionPreview" || node.id === "enrollAttributionPreview") {
       node.disabled = true;
       return;
@@ -1564,7 +1936,7 @@ function applyPermissionState() {
     node.disabled = !editable;
   });
 
-  const importNodes = document.querySelectorAll("#importBatchInput, #importDefaultStatus, #importBatchButton");
+  const importNodes = document.querySelectorAll("#importBatchInput, #importDefaultStatus, #importBatchButton, #copyImportTemplateButton");
   importNodes.forEach((node) => {
     node.disabled = !importable;
   });
@@ -1585,13 +1957,32 @@ function bindLeadFilters() {
       renderLeadTable();
     });
   });
+
+  const filterBindings = [
+    ["leadSearchInput", "leadSearchQuery"],
+    ["leadOwnerFilter", "leadOwnerFilter"],
+    ["leadChannelFilter", "leadChannelFilter"],
+    ["leadIntentFilter", "leadIntentFilter"],
+  ];
+  filterBindings.forEach(([id, key]) => {
+    const node = byId(id);
+    if (!node) return;
+    const eventName = node.tagName === "INPUT" ? "input" : "change";
+    node.addEventListener(eventName, () => {
+      state[key] = node.value;
+      renderLeadTable();
+    });
+  });
 }
 
 function renderAll() {
   persistState();
   renderOperatorContext();
+  renderLeadFilterControls();
+  renderAdmissionTasks();
   renderLeadTable();
   renderTrialTable();
+  renderSopTasks();
   renderFollowups();
   renderPublicPool();
   renderFollowupLeadOptions();
