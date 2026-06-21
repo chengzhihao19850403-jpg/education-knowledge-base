@@ -1,7 +1,13 @@
 (function () {
-  const backupVersion = "2026-06-21-local-backup-v1";
+  const backupVersion = "2026-06-21-local-backup-v2";
   const managedStores = [
-    { key: "jrc-cloud-paike-prototype", label: "排课系统", shape: "paike" },
+    { key: "paike-june-system-v1", label: "排课系统·平时课数据", shape: "paikeRegular" },
+    { key: "paike-june-system-meta-v1", label: "排课系统·平时状态", shape: "object" },
+    { key: "paike-system-prototype-v1", label: "排课系统·暑假数据", shape: "paikeHoliday" },
+    { key: "paike-system-prototype-meta-v1", label: "排课系统·暑假状态", shape: "object" },
+    { key: "paike-summer-import-review-v1", label: "排课系统·待确认项", shape: "array" },
+    { key: "jrc-paike-legacy-cloud-transition-v1", label: "排课系统·云端过渡索引", shape: "paikeBridge" },
+    { key: "jrc-cloud-paike-prototype", label: "排课云端研发版", shape: "paikeCloud" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", shape: "array" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", shape: "finance" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", shape: "object" },
@@ -40,7 +46,23 @@
   function countRows(store) {
     if (Array.isArray(store.parsed)) return store.parsed.length;
     if (!store.parsed || typeof store.parsed !== "object") return 0;
-    if (store.key === "jrc-cloud-paike-prototype") {
+    if (store.shape === "paikeRegular") {
+      return store.parsed.scheduleEntries?.length || 0;
+    }
+    if (store.shape === "paikeHoliday") {
+      return [
+        store.parsed.teachers?.length || 0,
+        store.parsed.rooms?.length || 0,
+        store.parsed.demands?.length || 0,
+        store.parsed.settlementStatements?.length || 0,
+        store.parsed.settlementLines?.length || 0,
+        store.parsed.profitExpenseLines?.length || 0
+      ].reduce((sum, count) => sum + count, 0);
+    }
+    if (store.shape === "paikeBridge") {
+      return Object.keys(store.parsed.stores || {}).length;
+    }
+    if (store.shape === "paikeCloud") {
       return [
         store.parsed.sessions?.length || 0,
         store.parsed.changeRequests?.length || 0,
