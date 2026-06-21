@@ -25,6 +25,18 @@
     return window.jrcHasPermission(permission);
   }
 
+  function moduleCapabilities(moduleKey) {
+    const manage = hasPermission(`${moduleKey}.edit`);
+    return {
+      create: manage || hasPermission(`${moduleKey}.create`),
+      update: manage || hasPermission(`${moduleKey}.update`),
+      delete: manage || hasPermission(`${moduleKey}.delete`),
+      import: manage || hasPermission(`${moduleKey}.import`),
+      export: manage || hasPermission(`${moduleKey}.export`),
+      reset: manage || hasPermission(`${moduleKey}.reset`)
+    };
+  }
+
   function currentOperator() {
     return window.JRC_CURRENT_EMPLOYEE || {
       name: "未登录账号",
@@ -80,27 +92,147 @@
     `;
   }
 
-  function denyEdit(messageId) {
-    setText(messageId, "当前账号可以查看，暂无修改权限。搜索、排序和导出仍可使用。");
+  function denyAction(messageId, action = "修改") {
+    setText(messageId, `当前账号暂无${action}权限。请联系管理员调整岗位权限。`);
   }
 
-  function applyEditGate({ editable, messageId, buttonIds = [], fieldIds = [] }) {
-    if (editable) return;
-    buttonIds.forEach((id) => {
-      const button = $(id);
-      if (!button) return;
-      button.disabled = true;
-      button.style.opacity = "0.55";
-      button.style.cursor = "not-allowed";
-      button.title = "当前账号暂无修改权限";
+  function disableControl(id, title = "当前账号暂无权限") {
+    const node = $(id);
+    if (!node) return;
+    node.disabled = true;
+    node.style.opacity = "0.55";
+    node.style.cursor = "not-allowed";
+    node.title = title;
+  }
+
+  function applyCapabilityGate({ canWrite, messageId, buttonRules = [], fieldIds = [] }) {
+    buttonRules.forEach(([id, allowed, action]) => {
+      if (!allowed) disableControl(id, `当前账号暂无${action}权限`);
     });
-    fieldIds.forEach((id) => {
-      const field = $(id);
-      if (!field) return;
-      field.disabled = true;
-      field.title = "当前账号暂无修改权限";
+    if (canWrite) return;
+    fieldIds.forEach((id) => disableControl(id, "当前账号暂无新增或修改权限"));
+    denyAction(messageId, "新增或修改");
+  }
+
+  function normalizeText(value) {
+    return String(value ?? "").trim().replace(/\s+/g, " ");
+  }
+
+  function normalizeName(value) {
+    return normalizeText(value).replace(/[，,。.;；:：]+$/g, "");
+  }
+
+  function normalizePhone(value) {
+    return String(value ?? "").replace(/[^\d]/g, "");
+  }
+
+  function normalizeStatus(value, allowed, fallback) {
+    const text = normalizeText(value);
+    return allowed.includes(text) ? text : fallback;
+  }
+
+  function readField(row, aliases, fallback = "") {
+    for (const key of aliases) {
+      if (row?.[key] !== undefined && row[key] !== "") return row[key];
+    }
+    return fallback;
+  }
+
+  function parseCsvLine(line, delimiter) {
+    const cells = [];
+    let current = "";
+    let quoted = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const next = line[index + 1];
+      if (char === '"' && quoted && next === '"') {
+        current += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = !quoted;
+      } else if (char === delimiter && !quoted) {
+        cells.push(current);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    cells.push(current);
+    return cells.map((cell) => normalizeText(cell));
+  }
+
+  function parseTableText(text) {
+    const cleanText = String(text || "").replace(/^\uFEFF/, "").trim();
+    if (!cleanText) return [];
+    const lines = cleanText.split(/\r?\n/).filter((line) => line.trim());
+    if (lines.length < 2) return [];
+    const delimiter = lines[0].includes("\t") ? "\t" : ",";
+    const headers = parseCsvLine(lines[0], delimiter).map((header) => normalizeText(header));
+    return lines.slice(1).map((line) => {
+      const cells = parseCsvLine(line, delimiter);
+      return headers.reduce((row, header, index) => {
+        row[header] = cells[index] || "";
+        return row;
+      }, {});
     });
-    denyEdit(messageId);
+  }
+
+  function parseImportedRows(text) {
+    const source = String(text || "").trim();
+    if (!source) return [];
+    try {
+      const parsed = JSON.parse(source);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall back to CSV/TSV pasted from Excel.
+    }
+    return parseTableText(source);
+  }
+
+  function bindTableImport({ buttonId, inputId, getRows, setRows, normalizeRow, onDone, onError, canUse = () => true, onDenied = () => {} }) {
+    const button = $(buttonId);
+    const input = $(inputId);
+    if (!button || !input) return;
+
+    button.addEventListener("click", () => {
+      if (!canUse()) {
+        onDenied();
+        return;
+      }
+      input.click();
+    });
+    input.addEventListener("change", () => {
+      if (!canUse()) {
+        onDenied();
+        input.value = "";
+        return;
+      }
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = parseImportedRows(reader.result);
+          const imported = parsed.map(normalizeRow).filter(Boolean);
+          if (imported.length === 0) throw new Error("No valid rows");
+          setRows([...imported, ...getRows()]);
+          onDone(imported.length);
+        } catch {
+          onError();
+        } finally {
+          input.value = "";
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function guardAction(allowed, messageId, action, callback) {
+    if (!allowed) {
+      denyAction(messageId, action);
+      return;
+    }
+    callback();
   }
 
   function setText(id, value) {
@@ -178,82 +310,48 @@
     return tag(value || "待处理", "warn");
   }
 
-  function bindJsonImport({ buttonId, inputId, getRows, setRows, normalizeRow, onDone, onError, canUse = () => true, onDenied = () => {} }) {
-    const button = $(buttonId);
-    const input = $(inputId);
-    if (!button || !input) return;
-
-    button.addEventListener("click", () => {
-      if (!canUse()) {
-        onDenied();
-        return;
-      }
-      input.click();
-    });
-    input.addEventListener("change", () => {
-      if (!canUse()) {
-        onDenied();
-        input.value = "";
-        return;
-      }
-      const file = input.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(String(reader.result || "[]"));
-          if (!Array.isArray(parsed)) throw new Error("JSON root is not an array");
-          const imported = parsed.map(normalizeRow).filter(Boolean);
-          if (imported.length === 0) throw new Error("No valid rows");
-          setRows([...imported, ...getRows()]);
-          onDone(imported.length);
-        } catch {
-          onError();
-        } finally {
-          input.value = "";
-        }
-      };
-      reader.readAsText(file);
-    });
-  }
-
   function rowMatches(row, keyword) {
     if (!keyword) return true;
     return Object.values(row).some((value) => String(value || "").toLowerCase().includes(keyword));
   }
 
-  function actionButtons(index, editable = true) {
-    if (!editable) return tag("仅查看", "neutral");
+  function actionButtons(index, capabilities = {}) {
+    const buttons = [];
+    if (capabilities.update) {
+      buttons.push(`<button type="button" data-action="edit" data-index="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(23,33,50,0.12); background:#fff; color:#172132; cursor:pointer;">编辑</button>`);
+    }
+    if (capabilities.delete) {
+      buttons.push(`<button type="button" data-action="delete" data-index="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(185,28,28,0.18); background:rgba(185,28,28,0.08); color:#b91c1c; cursor:pointer;">删除</button>`);
+    }
+    if (buttons.length === 0) return tag("仅查看", "neutral");
     return `
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button type="button" data-action="edit" data-index="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(23,33,50,0.12); background:#fff; color:#172132; cursor:pointer;">编辑</button>
-        <button type="button" data-action="delete" data-index="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(185,28,28,0.18); background:rgba(185,28,28,0.08); color:#b91c1c; cursor:pointer;">删除</button>
+        ${buttons.join("")}
       </div>
     `;
   }
 
-  function bindRowActions(tableBodyId, handlers, editable = true, messageId = "") {
+  function bindRowActions(tableBodyId, handlers, capabilities = {}, messageId = "") {
     const body = $(tableBodyId);
     if (!body) return;
     body.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]");
       if (!button) return;
-      if (!editable) {
-        denyEdit(messageId);
-        return;
-      }
       const action = button.getAttribute("data-action");
       const index = Number(button.getAttribute("data-index"));
-      if (action === "edit") handlers.onEdit(index);
-      if (action === "delete") handlers.onDelete(index);
+      if (action === "edit") {
+        guardAction(capabilities.update, messageId, "修改", () => handlers.onEdit(index));
+      }
+      if (action === "delete") {
+        guardAction(capabilities.delete, messageId, "删除", () => handlers.onDelete(index));
+      }
     });
   }
 
   function initStudentService() {
     if (!$("studentServiceTableBody")) return;
     const moduleKey = "studentService";
-    const editPermission = "studentService.edit";
-    const editable = hasPermission(editPermission);
+    const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-student-service-v2";
     const defaults = {
       student: "学生 A",
@@ -301,7 +399,7 @@
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
-            <td>${actionButtons(index, editable)}</td>
+            <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("");
       setText("studentMetricTotal", rows.length);
@@ -312,23 +410,24 @@
     }
 
     $("studentSaveButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("studentServiceMessage");
+      const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
+      if (!actionAllowed) {
+        denyAction("studentServiceMessage", editingIndex >= 0 ? "修改" : "新增");
         return;
       }
-      const student = $("studentNameInput")?.value.trim();
+      const student = normalizeName($("studentNameInput")?.value);
       if (!student) {
         setText("studentServiceMessage", "请先填写学生姓名。");
         return;
       }
       const payload = {
         student,
-        className: $("studentClassInput")?.value.trim() || "-",
-        teacher: $("studentTeacherInput")?.value.trim() || "-",
+        className: normalizeName($("studentClassInput")?.value) || "-",
+        teacher: normalizeName($("studentTeacherInput")?.value) || "-",
         type: $("studentServiceTypeInput")?.value || "学习跟踪",
         risk: $("studentRiskInput")?.value || "正常",
-        content: $("studentContentInput")?.value.trim() || "-",
-        next: $("studentNextActionInput")?.value.trim() || "-",
+        content: normalizeText($("studentContentInput")?.value) || "-",
+        next: normalizeText($("studentNextActionInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
@@ -347,10 +446,10 @@
     });
     $("studentFilterInput")?.addEventListener("input", render);
     $("studentSortSelect")?.addEventListener("change", render);
-    $("studentExportButton")?.addEventListener("click", () => downloadJson("学生与家长服务数据.json", rows));
+    $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadJson("学生与家长服务数据.json", rows)));
     $("studentResetButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("studentServiceMessage");
+      if (!capabilities.reset) {
+        denyAction("studentServiceMessage", "恢复样例");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
@@ -376,8 +475,8 @@
         render();
         setText("studentServiceMessage", `已删除 ${removed.student} 的记录。`);
       }
-    }, editable, "studentServiceMessage");
-    bindJsonImport({
+    }, capabilities, "studentServiceMessage");
+    bindTableImport({
       buttonId: "studentImportButton",
       inputId: "studentImportInput",
       getRows: () => rows,
@@ -388,17 +487,18 @@
         render();
       },
       normalizeRow(row) {
-        if (!row?.student) return null;
+        const student = normalizeName(readField(row, ["student", "学生", "学生姓名", "姓名"]));
+        if (!student) return null;
         return {
-          student: String(row.student),
-          className: String(row.className || "-"),
-          teacher: String(row.teacher || "-"),
-          type: String(row.type || "学习跟踪"),
-          risk: String(row.risk || "正常"),
-          content: String(row.content || "-"),
-          next: String(row.next || "-"),
-          createdAt: String(row.createdAt || nowText()),
-          updatedAt: String(row.updatedAt || nowText())
+          student,
+          className: normalizeName(readField(row, ["className", "班级", "课程", "班级 / 课程"], "-")) || "-",
+          teacher: normalizeName(readField(row, ["teacher", "老师", "任课老师"], "-")) || "-",
+          type: normalizeStatus(readField(row, ["type", "服务类型", "类型"], "学习跟踪"), ["课后反馈", "家长沟通", "续费风险", "学习跟踪"], "学习跟踪"),
+          risk: normalizeStatus(readField(row, ["risk", "风险", "风险等级", "续费风险"], "正常"), ["正常", "关注", "高风险"], "正常"),
+          content: normalizeText(readField(row, ["content", "记录内容", "最近反馈", "反馈"], "-")) || "-",
+          next: normalizeText(readField(row, ["next", "下一步", "跟进事项"], "-")) || "-",
+          createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
+          updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
       },
       onDone(count) {
@@ -407,17 +507,17 @@
         setText("studentServiceMessage", `已导入 ${count} 条学生服务记录。`);
       },
       onError() {
-        setText("studentServiceMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
+        setText("studentServiceMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
       },
-      canUse: () => editable,
-      onDenied: () => denyEdit("studentServiceMessage")
+      canUse: () => capabilities.import,
+      onDenied: () => denyAction("studentServiceMessage", "导入")
     });
     resetForm();
     render();
-    applyEditGate({
-      editable,
+    applyCapabilityGate({
+      canWrite: capabilities.create || capabilities.update,
       messageId: "studentServiceMessage",
-      buttonIds: ["studentSaveButton", "studentImportButton", "studentResetButton"],
+      buttonRules: [["studentSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["studentImportButton", capabilities.import, "导入"], ["studentExportButton", capabilities.export, "导出"], ["studentResetButton", capabilities.reset, "恢复样例"]],
       fieldIds: ["studentNameInput", "studentClassInput", "studentTeacherInput", "studentServiceTypeInput", "studentRiskInput", "studentNextActionInput", "studentContentInput"]
     });
   }
@@ -425,8 +525,7 @@
   function initCurriculumProducts() {
     if (!$("curriculumTableBody")) return;
     const moduleKey = "curriculum";
-    const editPermission = "curriculum.edit";
-    const editable = hasPermission(editPermission);
+    const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-curriculum-products-v2";
     const defaults = {
       name: "五年级暑假第 1 讲",
@@ -474,7 +573,7 @@
             <td>${escapeHtml(row.version)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index, editable)}</td>
+            <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("");
       setText("curriculumMetricOutline", rows.filter((row) => row.type === "课程大纲").length);
@@ -485,24 +584,25 @@
     }
 
     $("curriculumSaveButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("curriculumMessage");
+      const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
+      if (!actionAllowed) {
+        denyAction("curriculumMessage", editingIndex >= 0 ? "修改" : "新增");
         return;
       }
-      const name = $("curriculumNameInput")?.value.trim();
+      const name = normalizeName($("curriculumNameInput")?.value);
       if (!name) {
         setText("curriculumMessage", "请先填写资料名称。");
         return;
       }
       const payload = {
         name,
-        subject: $("curriculumSubjectInput")?.value.trim() || "-",
+        subject: normalizeText($("curriculumSubjectInput")?.value) || "-",
         type: $("curriculumTypeInput")?.value || "备课资料",
         classType: $("curriculumClassTypeInput")?.value || "-",
         status: editingIndex >= 0 ? rows[editingIndex].status : "已录入",
-        version: $("curriculumVersionInput")?.value.trim() || "V0.1",
-        owner: $("curriculumOwnerInput")?.value.trim() || "-",
-        note: $("curriculumNoteInput")?.value.trim() || "-",
+        version: normalizeText($("curriculumVersionInput")?.value) || "V0.1",
+        owner: normalizeName($("curriculumOwnerInput")?.value) || "-",
+        note: normalizeText($("curriculumNoteInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
@@ -521,10 +621,10 @@
     });
     $("curriculumFilterInput")?.addEventListener("input", render);
     $("curriculumSortSelect")?.addEventListener("change", render);
-    $("curriculumExportButton")?.addEventListener("click", () => downloadJson("教研与课程产品数据.json", rows));
+    $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadJson("教研与课程产品数据.json", rows)));
     $("curriculumResetButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("curriculumMessage");
+      if (!capabilities.reset) {
+        denyAction("curriculumMessage", "恢复样例");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
@@ -550,8 +650,8 @@
         render();
         setText("curriculumMessage", `已删除 ${removed.name}。`);
       }
-    }, editable, "curriculumMessage");
-    bindJsonImport({
+    }, capabilities, "curriculumMessage");
+    bindTableImport({
       buttonId: "curriculumImportButton",
       inputId: "curriculumImportInput",
       getRows: () => rows,
@@ -562,18 +662,19 @@
         render();
       },
       normalizeRow(row) {
-        if (!row?.name) return null;
+        const name = normalizeName(readField(row, ["name", "资料名称", "课程名称", "名称"]));
+        if (!name) return null;
         return {
-          name: String(row.name),
-          subject: String(row.subject || "-"),
-          type: String(row.type || "备课资料"),
-          classType: String(row.classType || "-"),
-          status: String(row.status || "已录入"),
-          version: String(row.version || "V0.1"),
-          owner: String(row.owner || "-"),
-          note: String(row.note || "-"),
-          createdAt: String(row.createdAt || nowText()),
-          updatedAt: String(row.updatedAt || nowText())
+          name,
+          subject: normalizeText(readField(row, ["subject", "学科", "年级", "学科 / 年级"], "-")) || "-",
+          type: normalizeStatus(readField(row, ["type", "资料类型", "类型"], "备课资料"), ["课程大纲", "讲义", "题库", "备课资料"], "备课资料"),
+          classType: normalizeText(readField(row, ["classType", "适用班型", "班型"], "-")) || "-",
+          status: normalizeStatus(readField(row, ["status", "状态"], "已录入"), ["待导入讲义", "待整理题库", "待上传资料", "已录入"], "已录入"),
+          version: normalizeText(readField(row, ["version", "当前版本", "版本"], "V0.1")) || "V0.1",
+          owner: normalizeName(readField(row, ["owner", "负责人"], "-")) || "-",
+          note: normalizeText(readField(row, ["note", "版本说明", "说明", "备注"], "-")) || "-",
+          createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
+          updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
       },
       onDone(count) {
@@ -582,17 +683,17 @@
         setText("curriculumMessage", `已导入 ${count} 条课程资料。`);
       },
       onError() {
-        setText("curriculumMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
+        setText("curriculumMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
       },
-      canUse: () => editable,
-      onDenied: () => denyEdit("curriculumMessage")
+      canUse: () => capabilities.import,
+      onDenied: () => denyAction("curriculumMessage", "导入")
     });
     resetForm();
     render();
-    applyEditGate({
-      editable,
+    applyCapabilityGate({
+      canWrite: capabilities.create || capabilities.update,
       messageId: "curriculumMessage",
-      buttonIds: ["curriculumSaveButton", "curriculumImportButton", "curriculumResetButton"],
+      buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "恢复样例"]],
       fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumNoteInput"]
     });
   }
@@ -600,8 +701,7 @@
   function initHrTraining() {
     if (!$("hrTaskTableBody")) return;
     const moduleKey = "hr";
-    const editPermission = "hr.edit";
-    const editable = hasPermission(editPermission);
+    const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-hr-training-tasks-v2";
     const defaults = {
       type: "入职",
@@ -648,7 +748,7 @@
             <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index, editable)}</td>
+            <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("");
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
@@ -660,11 +760,12 @@
     }
 
     $("hrSaveButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("hrMessage");
+      const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
+      if (!actionAllowed) {
+        denyAction("hrMessage", editingIndex >= 0 ? "修改" : "新增");
         return;
       }
-      const employee = $("hrEmployeeInput")?.value.trim();
+      const employee = normalizeName($("hrEmployeeInput")?.value);
       if (!employee) {
         setText("hrMessage", "请先填写员工姓名或对象。");
         return;
@@ -672,11 +773,11 @@
       const payload = {
         type: $("hrTypeInput")?.value || "培训记录",
         employee,
-        system: $("hrSystemInput")?.value.trim() || "-",
+        system: normalizeText($("hrSystemInput")?.value) || "-",
         status: $("hrStatusInput")?.value || "待处理",
-        owner: $("hrOwnerInput")?.value.trim() || "-",
-        next: $("hrNextInput")?.value.trim() || "-",
-        note: $("hrNoteInput")?.value.trim() || "-",
+        owner: normalizeName($("hrOwnerInput")?.value) || "-",
+        next: normalizeText($("hrNextInput")?.value) || "-",
+        note: normalizeText($("hrNoteInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
@@ -695,10 +796,10 @@
     });
     $("hrFilterInput")?.addEventListener("input", render);
     $("hrSortSelect")?.addEventListener("change", render);
-    $("hrExportButton")?.addEventListener("click", () => downloadJson("人事与培训事项数据.json", rows));
+    $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadJson("人事与培训事项数据.json", rows)));
     $("hrResetButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("hrMessage");
+      if (!capabilities.reset) {
+        denyAction("hrMessage", "恢复样例");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
@@ -724,8 +825,8 @@
         render();
         setText("hrMessage", `已删除 ${removed.employee} 的事项。`);
       }
-    }, editable, "hrMessage");
-    bindJsonImport({
+    }, capabilities, "hrMessage");
+    bindTableImport({
       buttonId: "hrImportButton",
       inputId: "hrImportInput",
       getRows: () => rows,
@@ -736,17 +837,18 @@
         render();
       },
       normalizeRow(row) {
-        if (!row?.employee) return null;
+        const employee = normalizeName(readField(row, ["employee", "员工姓名", "老师姓名", "对象", "姓名"]));
+        if (!employee) return null;
         return {
-          type: String(row.type || "培训记录"),
-          employee: String(row.employee),
-          system: String(row.system || "-"),
-          status: String(row.status || "待处理"),
-          owner: String(row.owner || "-"),
-          next: String(row.next || "-"),
-          note: String(row.note || "-"),
-          createdAt: String(row.createdAt || nowText()),
-          updatedAt: String(row.updatedAt || nowText())
+          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "培训记录"), ["入职", "转正", "权限调整", "提成调整", "培训记录", "员工基础档案核对", "系统权限分组"], "培训记录"),
+          employee,
+          system: normalizeText(readField(row, ["system", "关联系统", "系统"], "-")) || "-",
+          status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成"], "待处理"),
+          owner: normalizeName(readField(row, ["owner", "负责人"], "-")) || "-",
+          next: normalizeText(readField(row, ["next", "下一步"], "-")) || "-",
+          note: normalizeText(readField(row, ["note", "事项说明", "说明", "备注"], "-")) || "-",
+          createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
+          updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
       },
       onDone(count) {
@@ -755,17 +857,17 @@
         setText("hrMessage", `已导入 ${count} 条人事事项。`);
       },
       onError() {
-        setText("hrMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
+        setText("hrMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
       },
-      canUse: () => editable,
-      onDenied: () => denyEdit("hrMessage")
+      canUse: () => capabilities.import,
+      onDenied: () => denyAction("hrMessage", "导入")
     });
     resetForm();
     render();
-    applyEditGate({
-      editable,
+    applyCapabilityGate({
+      canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
-      buttonIds: ["hrSaveButton", "hrImportButton", "hrResetButton"],
+      buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "恢复样例"]],
       fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrSystemInput", "hrStatusInput", "hrOwnerInput", "hrNextInput", "hrNoteInput"]
     });
   }
@@ -773,8 +875,7 @@
   function initCampusOperations() {
     if (!$("campusTableBody")) return;
     const moduleKey = "campus";
-    const editPermission = "campus.edit";
-    const editable = hasPermission(editPermission);
+    const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-campus-operations-v2";
     const defaults = {
       title: "教室可用状态核对",
@@ -822,7 +923,7 @@
             <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.due)}</td>
             <td>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index, editable)}</td>
+            <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("");
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
@@ -833,11 +934,12 @@
     }
 
     $("campusSaveButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("campusMessage");
+      const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
+      if (!actionAllowed) {
+        denyAction("campusMessage", editingIndex >= 0 ? "修改" : "新增");
         return;
       }
-      const title = $("campusTitleInput")?.value.trim();
+      const title = normalizeName($("campusTitleInput")?.value);
       if (!title) {
         setText("campusMessage", "请先填写事项名称。");
         return;
@@ -845,11 +947,11 @@
       const payload = {
         title,
         type: $("campusTypeInput")?.value || "异常记录",
-        area: $("campusAreaInput")?.value.trim() || "-",
-        owner: $("campusOwnerInput")?.value.trim() || "-",
+        area: normalizeText($("campusAreaInput")?.value) || "-",
+        owner: normalizeName($("campusOwnerInput")?.value) || "-",
         status: $("campusStatusInput")?.value || "待处理",
-        due: $("campusDueInput")?.value.trim() || "-",
-        note: $("campusNoteInput")?.value.trim() || "-",
+        due: normalizeText($("campusDueInput")?.value) || "-",
+        note: normalizeText($("campusNoteInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
@@ -868,10 +970,10 @@
     });
     $("campusFilterInput")?.addEventListener("input", render);
     $("campusSortSelect")?.addEventListener("change", render);
-    $("campusExportButton")?.addEventListener("click", () => downloadJson("校区运营事项数据.json", rows));
+    $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadJson("校区运营事项数据.json", rows)));
     $("campusResetButton")?.addEventListener("click", () => {
-      if (!editable) {
-        denyEdit("campusMessage");
+      if (!capabilities.reset) {
+        denyAction("campusMessage", "恢复样例");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
@@ -897,8 +999,8 @@
         render();
         setText("campusMessage", `已删除运营事项：${removed.title}。`);
       }
-    }, editable, "campusMessage");
-    bindJsonImport({
+    }, capabilities, "campusMessage");
+    bindTableImport({
       buttonId: "campusImportButton",
       inputId: "campusImportInput",
       getRows: () => rows,
@@ -909,17 +1011,18 @@
         render();
       },
       normalizeRow(row) {
-        if (!row?.title) return null;
+        const title = normalizeName(readField(row, ["title", "事项名称", "事项", "名称"]));
+        if (!title) return null;
         return {
-          title: String(row.title),
-          type: String(row.type || "异常记录"),
-          area: String(row.area || "-"),
-          owner: String(row.owner || "-"),
-          status: String(row.status || "待处理"),
-          due: String(row.due || "-"),
-          note: String(row.note || "-"),
-          createdAt: String(row.createdAt || nowText()),
-          updatedAt: String(row.updatedAt || nowText())
+          title,
+          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "暑假排班", "异常记录"], "异常记录"),
+          area: normalizeText(readField(row, ["area", "位置 / 范围", "位置", "范围"], "-")) || "-",
+          owner: normalizeName(readField(row, ["owner", "责任人", "负责人"], "-")) || "-",
+          status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成", "需复盘"], "待处理"),
+          due: normalizeText(readField(row, ["due", "截止时间", "截止日期"], "-")) || "-",
+          note: normalizeText(readField(row, ["note", "事项说明", "处理要求", "说明", "备注"], "-")) || "-",
+          createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
+          updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
       },
       onDone(count) {
@@ -928,17 +1031,17 @@
         setText("campusMessage", `已导入 ${count} 条校区运营事项。`);
       },
       onError() {
-        setText("campusMessage", "导入失败，请选择从本系统导出的 JSON 数组文件。");
+        setText("campusMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
       },
-      canUse: () => editable,
-      onDenied: () => denyEdit("campusMessage")
+      canUse: () => capabilities.import,
+      onDenied: () => denyAction("campusMessage", "导入")
     });
     resetForm();
     render();
-    applyEditGate({
-      editable,
+    applyCapabilityGate({
+      canWrite: capabilities.create || capabilities.update,
       messageId: "campusMessage",
-      buttonIds: ["campusSaveButton", "campusImportButton", "campusResetButton"],
+      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "恢复样例"]],
       fieldIds: ["campusTitleInput", "campusTypeInput", "campusAreaInput", "campusOwnerInput", "campusStatusInput", "campusDueInput", "campusNoteInput"]
     });
   }

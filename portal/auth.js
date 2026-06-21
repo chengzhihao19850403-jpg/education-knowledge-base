@@ -296,6 +296,20 @@ const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
+const JRC_GRANULAR_MODULES = [
+  ["studentService", "学生服务"],
+  ["curriculum", "教研课程"],
+  ["hr", "人事培训"],
+  ["campus", "校区运营"]
+];
+const JRC_GRANULAR_ACTIONS = [
+  ["create", "新增"],
+  ["update", "修改"],
+  ["delete", "删除"],
+  ["import", "导入"],
+  ["export", "导出"],
+  ["reset", "恢复样例"]
+];
 const JRC_PERMISSION_OPTIONS = [
   ["paike.access", "排课查看"],
   ["paike.edit", "排课修改"],
@@ -311,16 +325,27 @@ const JRC_PERMISSION_OPTIONS = [
   ["teachingQuality.edit", "教学质量管理"],
   ["studentService.access", "学生服务进入"],
   ["studentService.edit", "学生服务管理"],
+  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`studentService.${action}`, `学生服务${label}`]),
   ["curriculum.access", "教研课程进入"],
   ["curriculum.edit", "教研课程管理"],
+  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`curriculum.${action}`, `教研课程${label}`]),
   ["hr.access", "人事培训进入"],
   ["hr.edit", "人事培训管理"],
+  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`hr.${action}`, `人事培训${label}`]),
   ["campus.access", "校区运营进入"],
   ["campus.edit", "校区运营管理"],
+  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`campus.${action}`, `校区运营${label}`]),
   ["finance.access", "财务进入"],
   ["finance.edit", "财务修改"],
   ["admin.access", "系统管理"]
 ];
+
+function jrcExpandGranularPermissions(permissions) {
+  JRC_GRANULAR_MODULES.forEach(([moduleKey]) => {
+    if (!permissions.has(`${moduleKey}.edit`)) return;
+    JRC_GRANULAR_ACTIONS.forEach(([action]) => permissions.add(`${moduleKey}.${action}`));
+  });
+}
 
 function jrcReadCustomEmployees() {
   try {
@@ -459,6 +484,7 @@ function jrcGetPermissions(subject) {
     permissions.add("finance.edit");
   }
   (subject.permissions || []).forEach((permission) => permissions.add(permission));
+  jrcExpandGranularPermissions(permissions);
 
   return Array.from(permissions);
 }
