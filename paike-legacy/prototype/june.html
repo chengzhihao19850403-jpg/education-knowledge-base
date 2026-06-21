@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程排课系统｜平时模式</title>
+    <script>
+      (() => {
+        document.documentElement.classList.add("access-check-pending");
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const value = params.get("simple");
+          if (value !== null && value !== "0" && value !== "false") {
+            document.documentElement.classList.add("simple-mode");
+          }
+        } catch (error) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="./june-styles.css">
+  </head>
+  <body>
+    <section id="accessGate" class="access-gate" hidden></section>
+    <div class="page-shell">
+      <section class="mode-topbar">
+        <div class="mode-topbar-main">
+          <div class="mode-title-group">
+            <p class="eyebrow">Scheduling System</p>
+            <h2 class="mode-topbar-title">当前模式：平时模式</h2>
+          </div>
+          <div class="mode-nav">
+            <a class="button button-ghost is-active" href="./june.html?simple=1">平时模式</a>
+            <a class="button button-ghost" href="./index.html?simple=1">暑假模式</a>
+            <a class="button button-ghost" href="../index.html">系统首页</a>
+          </div>
+        </div>
+        <div class="mode-status-row">
+          <div id="topBackendStatus" class="mode-status-chip">后台状态读取中</div>
+          <div id="topSaveStatus" class="mode-status-chip">最近保存读取中</div>
+        </div>
+      </section>
+
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Scheduling System · Regular Mode</p>
+          <h1>匠人程排课系统 · 平时模式</h1>
+          <p class="hero-text">
+            这是匠人程排课系统里的“平时模式”。默认口径是周三到周五晚课、周六周日全天课，和暑假按日排课分开维护，但入口和使用习惯统一。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="saveButton" class="button button-secondary">保存当前模式</button>
+          <button id="addEntryButton" class="button button-primary">新增排课行</button>
+          <button id="loadDbButton" class="button button-secondary advanced-only" hidden>从平时后台读取</button>
+          <button id="exportSnapshotButton" class="button button-ghost advanced-only">导出平时快照</button>
+          <a class="button button-ghost" href="./index.html?simple=1">切到暑假模式</a>
+          <a class="button button-ghost simple-only" href="./june.html">打开本模式完整版</a>
+          <a class="button button-ghost" href="../index.html">返回系统首页</a>
+        </div>
+      </header>
+
+      <section class="panel simple-guide simple-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Simple Guide</p>
+            <h2>老师直接这样用</h2>
+          </div>
+        </div>
+        <div class="simple-steps">
+          <article class="simple-step-card">
+            <strong>1. 先确认现在在平时模式</strong>
+            <p>这个模式只改常规学期课次，不改 7、8 月暑假按日排课。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>2. 先选月份和日期</strong>
+            <p>在“平时筛选”里先切到要修改的月份、老师、日期。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>3. 直接改下面排课明细</strong>
+            <p>需要新增就点“新增排课行”，需要改时间、班级、教室，直接在下面卡片里改。补课、一对一、试听可以先录，教室后补。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>4. 改完会自动保存</strong>
+            <p>如果是直接打开局域网页面，通常不需要再手动填后台地址。需要更多导入、历史版本这些工具时，再点“打开本模式完整版”。</p>
+          </article>
+        </div>
+        <div class="tool-inline-note">
+          先顺手录入，但要逐步规范：<br>
+          - 可以先缺教室，不能长期不补教室<br>
+          - 试听课会单独标记，不和正式课混在一起<br>
+          - 直播课 / 免费课 / 答疑 / 出门测会按非正式占位课处理<br>
+          - 课程名不要写成 “无 / Y / ，，” 这类不标准内容
+        </div>
+      </section>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="panel panel-tools advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Tools</p>
+            <h2>导入与保存</h2>
+            <p>平时系统单独保存，适合维护平时模式下的周三到周五晚课、周末全天课、补课和临时调课。</p>
+          </div>
+        </div>
+        <div class="tool-grid">
+          <div class="tool-card">
+            <h3>导入排课明细</h3>
+            <p>支持导入 <code>teacher-schedules-template.csv</code>，也支持老师现在正在用的月历型 Excel <code>.xlsx</code>。上传老师 Excel 时，系统会自动拆分：平时内容写入平时模式，暑假内容同步补到暑假模式待开班。能直接入库的行会马上写入；缺老师、缺教室、日期时间不清楚的行会先拦下来，现场让老师确认。</p>
+            <a class="text-link" href="../templates/import/teacher-schedules-template.csv">下载空白老师排课模板</a>
+            <input id="scheduleCsvFileInput" class="cell-input" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <button id="importScheduleCsvButton" class="button button-primary button-block">上传并同步老师排课表</button>
+            <div id="importQuestions" class="import-log empty-state">上传后，如果有缺老师、缺教室、日期时间格式不清楚的行，会先在这里列出来，老师确认后再入库。</div>
+          </div>
+
+          <div class="tool-card">
+            <h3>导入快照</h3>
+            <p>如果你已经在平时系统里导出过快照，可以直接导回，继续修改。</p>
+            <input id="snapshotFileInput" class="cell-input" type="file" accept=".json,application/json">
+            <button id="importSnapshotButton" class="button button-secondary button-block">导入平时 JSON 快照</button>
+          </div>
+
+          <div class="tool-card">
+            <h3>保存状态</h3>
+            <label class="field-label" for="backendBaseUrlInput">平时后台地址</label>
+            <input
+              id="backendBaseUrlInput"
+              class="cell-input"
+              type="text"
+              inputmode="url"
+              placeholder="http://192.168.1.20:8000"
+            >
+            <div class="tool-action-row">
+              <button id="connectBackendButton" class="button button-secondary">连接平时后台</button>
+              <button id="clearBackendButton" class="button button-ghost">清除后台地址</button>
+            </div>
+            <div class="tool-inline-note">
+              平时系统会独立写入后台里的 <code>june_regular</code> 数据，不会覆盖寒暑假系统。
+            </div>
+            <p id="backendConnectionText" class="backend-connection-status">当前未连接平时后台。</p>
+            <p id="saveStatusText" class="save-status">当前数据会自动保存在当前浏览器中。</p>
+            <label class="field-label" for="dbHistorySelect">平时后台历史版本</label>
+            <select id="dbHistorySelect" class="cell-select" disabled>
+              <option value="">当前未连接平时后台</option>
+            </select>
+            <div class="tool-action-row">
+              <button id="refreshDbHistoryButton" class="button button-ghost" disabled>刷新历史</button>
+              <button id="restoreDbHistoryButton" class="button button-secondary" disabled>恢复选中版本</button>
+            </div>
+            <div id="dbHistoryHint" class="tool-inline-note">连接平时后台后，这里会显示最近保存记录；恢复后也会再记一条恢复记录。</div>
+            <div id="importLog" class="import-log empty-state">还没有导入记录。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Filters</p>
+            <h2>平时筛选</h2>
+            <p>先选月份、老师和日期，再看老师月历和教室日视图。当前重点是 6 月和平时课，4、5 月更多用来对照历史。</p>
+          </div>
+        </div>
+        <div class="filter-grid">
+          <label class="filter-item">
+            <span class="field-label">月份</span>
+            <select id="monthFilter" class="cell-select"></select>
+          </label>
+          <label class="filter-item">
+            <span class="field-label">老师</span>
+            <select id="teacherFilter" class="cell-select"></select>
+          </label>
+          <label class="filter-item">
+            <span class="field-label">日期</span>
+            <select id="dateFilter" class="cell-select"></select>
+          </label>
+          <label class="filter-item">
+            <span class="field-label">教室</span>
+            <select id="roomFilter" class="cell-select"></select>
+          </label>
+          <label class="filter-item">
+            <span class="field-label">排课状态</span>
+            <select id="statusFilter" class="cell-select">
+              <option value="all">全部状态</option>
+              <option value="scheduled">正常排课</option>
+              <option value="adjusted">调课</option>
+              <option value="makeup">补课</option>
+              <option value="leave">停课/休息</option>
+            </select>
+          </label>
+          <label class="filter-item">
+            <span class="field-label">确认状态</span>
+            <select id="confirmationFilter" class="cell-select">
+              <option value="all">全部确认状态</option>
+              <option value="confirmed">已确认</option>
+              <option value="pending">待确认</option>
+            </select>
+          </label>
+        </div>
+        <div id="filterHint" class="tool-inline-note filter-hint" hidden></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Teacher Calendar</p>
+            <h2>老师月历视图</h2>
+            <p>按当前老师和月份显示月历。平时模式以周三到周五晚课、周末全天课为正式口径，同时保留临时调课的自定义时间段。</p>
+          </div>
+        </div>
+        <div id="teacherCalendar" class="calendar-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Room Board</p>
+            <h2>教室日视图</h2>
+            <p>按当前日期查看每间教室当天的排课，方便处理平时模式下的晚课、周末课、调课和补课插入。</p>
+          </div>
+        </div>
+        <div id="roomDayBoard" class="room-board"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Entries</p>
+            <h2>平时排课明细</h2>
+            <p>这里可以直接改每一行的老师、班级、日期、时间和教室。新增排课行会按当前筛选日期自动带出周中晚课或周末全天的默认时段，保存后会进入平时系统独立快照。</p>
+            <p>系统鼓励先保留真实上课事实，但老师、学生、日期、时间要尽量准确；教室和标准班名可以后补。</p>
+          </div>
+        </div>
+        <div id="simpleEntryList" class="simple-card-list simple-only"></div>
+        <div class="table-scroll advanced-only">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>老师</th>
+                <th>班级</th>
+                <th>日期</th>
+                <th>序号</th>
+                <th>开始</th>
+                <th>结束</th>
+                <th>教室</th>
+                <th>排课状态</th>
+                <th>确认状态</th>
+                <th>备注</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="entryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script src="./june-app.js"></script>
+  </body>
+</html>

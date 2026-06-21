@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程排课系统｜暑假模式</title>
+    <script>
+      (() => {
+        document.documentElement.classList.add("access-check-pending");
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const value = params.get("simple");
+          if (value !== null && value !== "0" && value !== "false") {
+            document.documentElement.classList.add("simple-mode");
+          }
+        } catch (error) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <section id="accessGate" class="access-gate" hidden></section>
+    <div class="page-shell">
+      <section class="mode-topbar">
+        <div class="mode-topbar-main">
+          <div class="mode-title-group">
+            <p class="eyebrow">Scheduling System</p>
+            <h2 class="mode-topbar-title">当前模式：暑假模式</h2>
+          </div>
+          <div class="mode-nav">
+            <a class="button button-ghost" href="./june.html?simple=1">平时模式</a>
+            <a class="button button-ghost is-active" href="./index.html?simple=1">暑假模式</a>
+            <a class="button button-ghost" href="../index.html">系统首页</a>
+          </div>
+        </div>
+        <div class="mode-status-row">
+          <div id="topBackendStatus" class="mode-status-chip">后台状态读取中</div>
+          <div id="topSaveStatus" class="mode-status-chip">最近保存读取中</div>
+        </div>
+      </section>
+
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Scheduling System · Holiday Mode</p>
+          <h1>匠人程排课系统 · 暑假模式</h1>
+          <p class="hero-text">
+            这是匠人程排课系统里的“暑假模式”。
+            优先服务 2026 年 7、8 月暑假排课，先维护老师、教室和待开班，再生成暑假周课表、教室占用和老师负载建议。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="saveButton" class="button button-secondary">保存当前模式</button>
+          <button id="generateButton" class="button button-primary">生成临时排课建议</button>
+          <button id="loadDbButton" class="button button-secondary advanced-only" hidden>从寒暑假后台读取</button>
+          <button id="exportSnapshotButton" class="button button-ghost advanced-only">导出寒暑假快照</button>
+          <button id="resetButton" class="button button-ghost advanced-only">恢复寒暑假样例</button>
+          <a class="button button-ghost" href="./june.html?simple=1">切到平时模式</a>
+          <a class="button button-ghost simple-only" href="./index.html">打开本模式完整版</a>
+          <a class="button button-ghost" href="../index.html">返回系统首页</a>
+        </div>
+      </header>
+
+      <section class="panel simple-guide simple-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Simple Guide</p>
+            <h2>老师直接这样用</h2>
+          </div>
+        </div>
+        <div class="simple-steps">
+          <article class="simple-step-card">
+            <strong>1. 先确认现在在暑假模式</strong>
+            <p>这个模式只改 7、8 月暑假按日排课，不改常规学期的平时课。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>2. 先改 7/8 月待开班</strong>
+            <p>简版默认保留待开班编辑区，班名、人数、老师、教室都能直接改。招生、缴费、分班、排教室是陆续完成的，不要求一次填完。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>3. 点“生成临时排课建议”</strong>
+            <p>系统会按当前数据生成暑假周课表、教室视图和未排成功清单。</p>
+          </article>
+          <article class="simple-step-card">
+            <strong>4. 简版只保留排课主线</strong>
+            <p>老师、教室、历史结算、月报、复核这类高级区域默认隐藏；需要更多工具时，再点“打开本模式完整版”。</p>
+          </article>
+        </div>
+        <div class="tool-inline-note">
+          暑假模式现在按“先录真实情况，后补完整信息”运行：<br>
+          - 新生和续报数据可以随着报名进度逐步补<br>
+          - 教室、固定老师、班级名会后续继续调整<br>
+          - 但班名、年级、课程类型要尽量往标准写法靠拢，方便后面自动排课
+        </div>
+      </section>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section id="summerImportReviewPanel" class="panel" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Summer Review</p>
+            <h2>暑假待确认</h2>
+            <p>老师总表里自动拆进来的暑假项，如果教室、年级或时间偏好还不够确定，会先在这里补完，再写回待开班。这里优先补“真正影响排课”的字段，不要求一次把所有说明都写满。</p>
+          </div>
+        </div>
+        <div id="summerImportReviewList" class="review-item-list"></div>
+      </section>
+
+      <section class="panel panel-tools advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Tools</p>
+            <h2>导入与保存</h2>
+            <p>当前支持 Excel / CSV 导入流程，也支持 JSON 快照备份恢复。招生阶段可以继续在 Excel 里维护数据，再随时导入系统重排。</p>
+            <p>如果你直接打开后台服务页面，或在这里填入后台地址，页面修改会同步写入同一份 SQLite 寒暑假后台；否则仍只保存在当前浏览器里。</p>
+          </div>
+        </div>
+        <div class="tool-grid">
+          <div class="tool-card">
+            <h3>导入 Excel / CSV</h3>
+            <p>先选择导入对象。若上传的是 Excel 文件，系统会提示你先另存为 CSV UTF-8 后再导入。</p>
+            <p>老师结算中心建议依次导入：<code>teachers-template.csv</code>、<code>profit-statements-template.csv</code>、<code>dividend-policy-template.csv</code>、<code>settlement-statements-template.csv</code>、<code>settlement-lines-template.csv</code>、<code>teacher-compensation-rules-template.csv</code>、<code>teacher-compensation-rule-items-template.csv</code>、<code>non-billable-slots-template.csv</code>、<code>compensation-slot-summaries-template.csv</code>、<code>settlement-review-resolutions-template.csv</code>、<code>teacher-rule-backfill-template.csv</code>。其中 <code>teachers-template.csv</code> 会把离职老师同步成不可排课状态。</p>
+            <label class="field-label" for="importEntity">导入对象</label>
+            <select id="importEntity" class="cell-select">
+              <option value="teacher">老师</option>
+              <option value="room">教室</option>
+              <option value="demand">待开班</option>
+              <option value="financialPeriod">月度利润</option>
+              <option value="summerClassRevenueRow">暑期单节收入模板</option>
+              <option value="dividendPolicy">分红政策</option>
+              <option value="profitExpenseLine">月度费用明细</option>
+              <option value="settlementStatement">老师月结算汇总</option>
+              <option value="settlementLine">老师结算明细</option>
+              <option value="compensationRule">老师提成主规则</option>
+              <option value="compensationRuleItem">老师提成覆盖</option>
+              <option value="nonBillableSlot">免费时间档</option>
+              <option value="compensationSlotSummary">汇总型时间档板</option>
+              <option value="settlementReviewResolution">结算复核结果</option>
+              <option value="teacherRuleBackfillRow">主规则回填建议</option>
+            </select>
+            <label class="field-label" for="importMode">导入方式</label>
+            <select id="importMode" class="cell-select">
+              <option value="replace">替换当前数据</option>
+              <option value="append">追加到当前数据</option>
+            </select>
+            <input id="csvFileInput" class="cell-input" type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <button id="downloadTemplateButton" class="button button-ghost button-block">下载当前导入模板</button>
+            <button id="importCsvButton" class="button button-primary button-block">导入数据文件</button>
+            <div class="tool-inline-note">如果你已经跑出了整套 <code>import-ready</code> 文件，下面可以一次选多个标准 CSV 批量导入；老师主数据、分红政策也会一起进来。</div>
+            <input id="batchCsvFileInput" class="cell-input" type="file" multiple accept=".csv,text/csv">
+            <button id="batchImportButton" class="button button-secondary button-block">批量导入标准 CSV</button>
+          </div>
+
+          <div class="tool-card">
+            <h3>导入快照</h3>
+            <p>如果你已经导出过当前系统状态，可以直接导回，继续修改。</p>
+            <input id="snapshotFileInput" class="cell-input" type="file" accept=".json,application/json">
+            <button id="importSnapshotButton" class="button button-secondary button-block">导入寒暑假 JSON 快照</button>
+            <div class="tool-inline-note">也支持单独补导 <code>schedule-input-profile-report.json</code>、<code>schedule-draft-import-report.json</code>、<code>schedule-draft-review-report.json</code>、<code>schedule-draft-review-bulk-candidates-report.json</code>、<code>schedule-draft-review-manual-review-report.json</code>、<code>schedule-draft-review-manual-classname-batch-candidates-report.json</code>、<code>schedule-draft-review-manual-classname-batch-apply-report.json</code>、<code>schedule-draft-review-manual-classroom-batch-candidates-report.json</code>、<code>schedule-draft-review-manual-classroom-batch-apply-report.json</code>、<code>schedule-draft-review-manual-combined-batch-candidates-report.json</code>、<code>schedule-draft-review-manual-combined-batch-apply-report.json</code>、<code>schedule-draft-review-manual-residual-report.json</code>、<code>ops-open-items-report.json</code>、<code>summer-schedule-settlement-report.json</code>、<code>schedule-settlement-bridge-report.json</code>、<code>import-reconciliation-report.json</code>、<code>settlement-review-queue.json</code>、<code>settlement-review-followup-report.json</code>、<code>settlement-import-wave-package-report.json</code>、<code>settlement-import-deferred-action-report.json</code>、<code>settlement-import-execution-report.json</code>、<code>profit-settlement-dividend-report.json</code>、<code>teacher-settlement-profile-report.json</code>、<code>teacher-rule-item-resolution-template.json</code>、<code>teacher-rule-backfill-template.json</code> 这类诊断文件。</div>
+            <input id="diagnosticJsonFileInput" class="cell-input" type="file" multiple accept=".json,application/json">
+            <button id="importDiagnosticJsonButton" class="button button-ghost button-block">导入诊断 JSON</button>
+            <button id="exportCsvButton" class="button button-ghost button-block">导出当前表格 CSV</button>
+          </div>
+
+          <div class="tool-card">
+            <h3>保存状态</h3>
+            <label class="field-label" for="backendBaseUrlInput">寒暑假后台地址</label>
+            <input
+              id="backendBaseUrlInput"
+              class="cell-input"
+              type="text"
+              inputmode="url"
+              placeholder="http://192.168.1.20:8000"
+            >
+            <div class="tool-action-row">
+              <button id="connectBackendButton" class="button button-secondary">连接寒暑假后台</button>
+              <button id="clearBackendButton" class="button button-ghost">清除后台地址</button>
+            </div>
+            <div class="tool-inline-note">
+              老师在自己电脑上打开页面时，可以在这里填写主控电脑的寒暑假后台地址；如果本页本来就是从后台地址打开的，可留空。
+            </div>
+            <p id="backendConnectionText" class="backend-connection-status">当前未连接寒暑假后台。</p>
+            <p id="saveStatusText" class="save-status">当前数据会自动保存在当前浏览器中。</p>
+            <label class="field-label" for="dbHistorySelect">寒暑假后台历史版本</label>
+            <select id="dbHistorySelect" class="cell-select" disabled>
+              <option value="">当前未连接寒暑假后台</option>
+            </select>
+            <div class="tool-action-row">
+              <button id="refreshDbHistoryButton" class="button button-ghost" disabled>刷新历史</button>
+              <button id="restoreDbHistoryButton" class="button button-secondary" disabled>恢复选中版本</button>
+            </div>
+            <div id="dbHistoryHint" class="tool-inline-note">连接寒暑假后台后，这里会显示最近保存记录；恢复后也会再记一条恢复记录。</div>
+            <div id="importLog" class="import-log empty-state">还没有导入记录。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h2>老师资源</h2>
+            <p>先把老师名单和硬限制录进去。暑期排课按核心老师单日 6 节、非核心老师单日 5 节收口；动态休息日先留空，由系统按当前招生情况临时建议。</p>
+          </div>
+          <button class="button button-ghost" data-add="teacher">新增老师</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>学科</th>
+                <th>年级起</th>
+                <th>年级止</th>
+                <th>核心</th>
+                <th>关键</th>
+                <th>老板</th>
+                <th>单日上限</th>
+                <th>单周上限</th>
+                <th>轮休</th>
+                <th>固定教室</th>
+                <th>禁排第6节</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="teacherTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 2</p>
+            <h2>教室资源</h2>
+            <p>当前按最大容量录入。系统会优先把班级放进容量更贴近的教室，避免大教室长期塞小班。</p>
+          </div>
+          <button class="button button-ghost" data-add="room">新增教室</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>教室</th>
+                <th>楼层</th>
+                <th>最大人数</th>
+                <th>类型</th>
+                <th>固定偏好</th>
+                <th>暑假优先级</th>
+                <th>备注</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="roomTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 3</p>
+            <h2>招生中的待开班</h2>
+            <p>这里录的是正在招生或即将开班的“意向班”。数据不完整也没关系，可以先给一个大概人数；如果还想看 revenue-share 老师的预计结算，就把“预计单节收入”一起填上。</p>
+            <p>系统允许逐步补齐，但不建议长期保留模糊班名、模糊年级、模糊课程类型。</p>
+          </div>
+          <button class="button button-ghost" data-add="demand">新增待开班</button>
+        </div>
+        <div id="simpleDemandList" class="simple-card-list simple-only"></div>
+        <div class="table-scroll advanced-only">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>班名</th>
+                <th>学科</th>
+                <th>年级</th>
+                <th>人数</th>
+                <th>类型</th>
+                <th>每周节数</th>
+                <th>预计单节收入</th>
+                <th>时间偏好</th>
+                <th>指定老师</th>
+                <th>指定教室</th>
+                <th>状态</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="demandTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-highlight">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 4</p>
+            <h2>临时排课建议</h2>
+            <p>规则会优先考虑核心老师、中大班优先、暑期大课锁房、晚课限制、程老师固定教室，以及教室利用率；一对一默认先压非核心老师，只有初三等年级例外或确实无解时才放开核心老师。计划月份默认按 2026-07 暑假口径推演，也可以切到 2026-08。</p>
+          </div>
+          <div class="view-switch advanced-only">
+            <label class="field-label" for="scheduleProjectionPeriodSelect">计划月份</label>
+            <select id="scheduleProjectionPeriodSelect" class="cell-select room-filter"></select>
+            <button id="boardViewButton" class="button button-ghost is-active">周课表</button>
+            <button id="roomViewButton" class="button button-ghost">教室视图</button>
+          </div>
+        </div>
+        <div class="schedule-layout">
+          <div>
+            <div id="boardView" class="schedule-view">
+              <h3>周课表建议</h3>
+              <div id="scheduleBoard" class="schedule-board"></div>
+            </div>
+            <div id="roomView" class="schedule-view hidden">
+              <div class="room-view-header">
+                <h3>教室视图</h3>
+                <select id="roomViewDaySelect" class="cell-select room-filter">
+                  <option value="all">整周</option>
+                  <option value="mon">周一</option>
+                  <option value="tue">周二</option>
+                  <option value="wed">周三</option>
+                  <option value="thu">周四</option>
+                  <option value="fri">周五</option>
+                  <option value="sat">周六</option>
+                  <option value="sun">周日</option>
+                </select>
+              </div>
+              <div id="roomScheduleView" class="room-schedule-grid"></div>
+            </div>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>未排成功</h3>
+              <div id="unscheduledList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>教室热度</h3>
+              <div id="roomHeatList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>老师负载</h3>
+              <div id="teacherLoadList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>核心老师一对一兜底</h3>
+              <div id="coreTeacherOneToOneFallbackList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>暑期大课占用</h3>
+              <div id="summerBigClassOccupancyList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>真实排课输入画像</h3>
+              <div id="scheduleInputProfileList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>草稿导入复核</h3>
+              <div id="scheduleDraftImportList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>结算规则覆盖</h3>
+              <div id="scheduleSettlementCoverageList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>暑假三期测算</h3>
+              <div id="summerPhaseProjectionList" class="stack-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel panel-review advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Review Desk</p>
+            <h2>排课复核工作台</h2>
+            <p>这里把真实排课草稿复核拆成三层：先批量确认高置信候选，再批量处理同老师同月同建议教室的课次，最后只留下真正需要逐条判断的残余项。</p>
+          </div>
+          <div class="settlement-toolbar">
+            <label class="field-label" for="scheduleReviewDeskPeriodSelect">复核月份</label>
+            <select id="scheduleReviewDeskPeriodSelect" class="cell-select settlement-filter"></select>
+          </div>
+        </div>
+        <div class="formula-strip">
+          建议顺序：先吃 <code>高置信候选</code>，再吃 <code>教室批量候选</code>，最后只处理 <code>逐条人工</code>
+          <span class="chip chip-muted">会同步参考老师结算迁移画像</span>
+          <span class="chip chip-muted">目标是把可自动结算的老师月份尽快清出来</span>
+        </div>
+        <div class="profit-summary" id="scheduleReviewDeskSummaryCards"></div>
+        <div class="review-desk-layout">
+          <div class="review-desk-main">
+            <div class="side-card">
+              <h3>优先老师月份</h3>
+              <div id="scheduleReviewDeskTeacherPriorityList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>逐条人工老师月份</h3>
+              <div id="scheduleReviewDeskManualList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>最终逐条尾项</h3>
+              <div id="scheduleReviewDeskResidualList" class="stack-list"></div>
+            </div>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>高置信候选</h3>
+              <div id="scheduleReviewDeskBulkList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>批量候选</h3>
+              <div id="scheduleReviewDeskBatchList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>处理进度</h3>
+              <div id="scheduleReviewDeskProgressList" class="stack-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel panel-summer-prep advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 4.5</p>
+            <h2>统一收口待办</h2>
+            <p>这块把暑期大班老师标注、春季最终逐条尾项、课时费缺口和未来提成待补统一收成一张待办面板，方便你先拍板真正还缺的业务口径。</p>
+          </div>
+        </div>
+        <div class="formula-strip">
+          使用顺序：先补 <code>暑期老师标注</code> 和 <code>春季最终尾项</code>，再补 <code>缺结算汇总</code> 与 <code>未来提成涨幅</code>
+          <span class="chip chip-muted">可单独导入 ops-open-items-report.json</span>
+          <span class="chip chip-muted">可单独导入 ops-chat-answer-sheet.json</span>
+          <span class="chip chip-muted">同一份快照导入后可直接查看</span>
+        </div>
+        <div class="profit-summary" id="opsOpenItemsSummaryCards"></div>
+        <div class="review-desk-layout">
+          <div class="review-desk-main">
+            <div class="side-card">
+              <h3>收口动作总览</h3>
+              <div id="opsOpenItemsActionList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>暑期大班老师标注</h3>
+              <div id="opsOpenItemsSummerList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>春季最终逐条尾项</h3>
+              <div id="opsOpenItemsResidualList" class="stack-list"></div>
+            </div>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>课时费结算缺口</h3>
+              <div id="opsOpenItemsSettlementList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>提成规则待补</h3>
+              <div id="opsOpenItemsPolicyList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>聊天答题卡</h3>
+              <div id="opsChatAnswerSheetList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>自动回填状态</h3>
+              <div id="opsChatAnswerApplyList" class="stack-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel panel-summer-prep advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 5</p>
+            <h2>暑期排课-结算准备</h2>
+            <p>这块直接承接真实暑期班课表和建议单节收入，帮助你先看哪些班还缺收入口径、哪些班还没满 15 次、哪些老师已经可以先做经营和结算预估。</p>
+          </div>
+        </div>
+        <div class="formula-strip">
+          使用顺序：先补 <code>summer-class-revenue-template.csv</code> 的单节收入，再看老师结算测算和班级教学毛结余
+          <span class="chip chip-muted">同一份快照导入后可直接查看</span>
+          <span class="chip chip-muted">建议值可先做经营预估</span>
+        </div>
+        <div class="profit-summary" id="summerSettlementSummaryCards"></div>
+        <div class="summer-prep-layout">
+          <div class="summer-prep-main">
+            <div class="side-card">
+              <h3>老师侧重点</h3>
+              <div id="summerSettlementTeacherList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>班级侧重点</h3>
+              <div id="summerSettlementClassList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>暑期单节收入模板</h3>
+              <div class="table-scroll">
+                <table class="data-table summer-revenue-table">
+                  <thead>
+                    <tr>
+                      <th>班级</th>
+                      <th>老师</th>
+                      <th>课次</th>
+                      <th>单节收入</th>
+                      <th>建议值</th>
+                      <th>处理状态</th>
+                      <th>备注</th>
+                    </tr>
+                  </thead>
+                  <tbody id="summerRevenueTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>准备动作</h3>
+              <div id="summerSettlementActionList" class="stack-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel panel-profit advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 6</p>
+            <h2>月度利润与分红</h2>
+            <p>这里录每个月的毛利润、各项费用和净利润。系统优先读取导入的分红政策模板；当前默认模板从 2026 年 5 月开始按净利润的 15.5% 起算，之后每个月增加 0.5%，到 30% 后封顶。</p>
+          </div>
+          <div class="settlement-toolbar">
+            <label class="field-label" for="financialPeriodViewSelect">查看月份</label>
+            <select id="financialPeriodViewSelect" class="cell-select settlement-filter"></select>
+            <button class="button button-ghost toolbar-button" data-add="financialPeriod">新增月份</button>
+          </div>
+        </div>
+        <div class="formula-strip">
+          分红公式：当月分红池 = 当月净利润 × 当月分红比例
+          <span class="chip chip-muted">按导入分红政策自动计算</span>
+          <span class="chip chip-muted">默认模板：2026-05 = 15.5%</span>
+          <span class="chip chip-muted">每月 +0.5%，30% 封顶</span>
+        </div>
+        <div class="profit-summary" id="profitSummaryCards"></div>
+        <div class="profit-layout">
+          <div class="table-scroll">
+            <table class="data-table profit-table">
+              <thead>
+                <tr>
+                  <th>月份</th>
+                  <th>毛利润</th>
+                  <th>总支出</th>
+                  <th>小课支出</th>
+                  <th>净利润</th>
+                  <th>分红比例</th>
+                  <th>分红池</th>
+                  <th>留存利润</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="financialPeriodTableBody"></tbody>
+            </table>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>费用明细</h3>
+              <div id="profitExpenseList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>利润-结算联动月报</h3>
+              <div id="profitSettlementDividendList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>分红规则预览</h3>
+              <div id="dividendRuleList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>口径提醒</h3>
+              <div class="stack-list">
+                <div class="list-card">
+                  <div class="list-title">净利润</div>
+                  <div class="list-meta">先按你当前工资表底部汇总口径录入，后面再跟正式财务口径完全对齐。</div>
+                </div>
+                <div class="list-card">
+                  <div class="list-title">分红池</div>
+                  <div class="list-meta">系统自动按月份比例算出，不需要再手工按计算器。</div>
+                </div>
+                <div class="list-card">
+                  <div class="list-title">留存利润</div>
+                  <div class="list-meta">默认等于净利润减分红池，方便每月留存和后续滚动。</div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel panel-settlement advanced-only">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Step 7</p>
+            <h2>历史结算参考</h2>
+            <p>4 月、5 月已结算数据先作为历史核对和规则沉淀底稿，不影响 6 月平时排课和 7、8 月暑假排课主流程。后续做 7、8 月结算时，就从这里逐步替代表格，先完成导入、对账、复核，再过渡到系统内月结。</p>
+          </div>
+          <div class="settlement-toolbar">
+            <label class="field-label" for="settlementPeriodSelect">查看月份</label>
+            <select id="settlementPeriodSelect" class="cell-select settlement-filter"></select>
+            <label class="field-label" for="settlementTeacherSelect">老师明细</label>
+            <select id="settlementTeacherSelect" class="cell-select settlement-filter"></select>
+          </div>
+        </div>
+        <div class="profit-summary" id="settlementSummaryCards"></div>
+        <div class="settlement-layout">
+          <div class="table-scroll">
+            <table class="data-table settlement-table">
+              <thead>
+                <tr>
+                  <th>老师</th>
+                  <th>课时总收入</th>
+                  <th>主提成率</th>
+                  <th>基础工资</th>
+                  <th>课时提成</th>
+                  <th>补课提成</th>
+                  <th>社保</th>
+                  <th>公积金</th>
+                  <th>免费档</th>
+                  <th>课时剩余</th>
+                </tr>
+              </thead>
+              <tbody id="settlementTableBody"></tbody>
+            </table>
+          </div>
+          <aside class="side-panel">
+            <div class="side-card">
+              <h3>老师结算明细</h3>
+              <div id="settlementLineSummaryList" class="stack-list"></div>
+              <div id="settlementLineList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>特殊提成覆盖</h3>
+              <div id="settlementOverrideList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>利润联动</h3>
+              <div id="settlementProfitLink" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>导入诊断总览</h3>
+              <div id="settlementReviewSummaryList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>课时费导入就绪</h3>
+              <div id="settlementCompensationReadinessList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>结算导入分波包</h3>
+              <div id="settlementImportWavePackageList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>结算延期清零包</h3>
+              <div id="settlementImportDeferredActionList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>结算导入执行波次</h3>
+              <div id="settlementImportExecutionList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>排课-结算动作总表</h3>
+              <div id="settlementOpsActionList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>迁移就绪画像</h3>
+              <div id="settlementProfileList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>提成政策覆盖</h3>
+              <div id="settlementTeacherCompensationPolicyList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>已确认财务口径</h3>
+              <div class="stack-list">
+                <div class="list-card">
+                  <div class="list-title">当前已确认</div>
+                  <div class="list-meta">刘老师按三分之一；叶老师从 2026-06 起按 23%；其他老师默认先按 20%。</div>
+                </div>
+                <div class="list-card">
+                  <div class="list-title">年限涨幅</div>
+                  <div class="list-meta">满 1 年可上调 1%-3%，满 2 年再上调 1%-3%，满 3 年再上调 2%-4%，累计最高 30%。</div>
+                </div>
+                <div class="list-card">
+                  <div class="list-title">异常先复核</div>
+                  <div class="list-meta">像郑老师历史 50% 这类样本，不直接当正式规则，先查来源再落系统。</div>
+                </div>
+              </div>
+            </div>
+            <div class="side-card">
+              <h3>覆盖项冲突清理</h3>
+              <div id="settlementTeacherRuleItemResolutionList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>主规则回填建议</h3>
+              <div id="settlementRuleBackfillList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>当前老师诊断</h3>
+              <div id="settlementTeacherReviewList" class="stack-list"></div>
+            </div>
+            <div class="side-card">
+              <h3>汇总型时间档板</h3>
+              <div id="settlementSlotSummaryList" class="stack-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

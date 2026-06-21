@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程排课系统</title>
+    <script>
+      document.documentElement.classList.add("access-check-pending");
+    </script>
+    <style>
+      :root {
+        --bg: #f5efe4;
+        --paper: rgba(255, 250, 243, 0.94);
+        --ink: #1f2933;
+        --muted: #5e6a75;
+        --brand: #bc582e;
+        --brand-dark: #8c3f24;
+        --line: rgba(31, 41, 51, 0.12);
+        --shadow: 0 24px 60px rgba(31, 41, 51, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(188, 88, 46, 0.16), transparent 32%),
+          linear-gradient(180deg, #f8f2e9 0%, #efe5d5 100%);
+      }
+
+      .access-check-pending .shell,
+      .access-check-pending .access-gate {
+        display: none;
+      }
+
+      .shell {
+        width: min(1080px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .access-gate {
+        width: min(780px, calc(100vw - 32px));
+        margin: 48px auto;
+      }
+
+      .access-gate-card {
+        background: rgba(255, 250, 243, 0.96);
+        border: 1px solid rgba(31, 41, 51, 0.1);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        padding: 30px;
+        backdrop-filter: blur(10px);
+      }
+
+      .access-gate-title {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif;
+        font-size: clamp(30px, 4vw, 42px);
+        line-height: 1.06;
+      }
+
+      .access-gate-text {
+        margin: 14px 0 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .access-gate-list {
+        margin: 18px 0 0;
+        padding-left: 20px;
+        color: var(--ink);
+        line-height: 1.8;
+      }
+
+      .access-gate-detail {
+        margin-top: 18px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(188, 88, 46, 0.08);
+        color: var(--muted);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .hero,
+      .card {
+        background: var(--paper);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .hero {
+        padding: 30px;
+      }
+
+      .hero h1,
+      .card h2 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif;
+      }
+
+      .hero p,
+      .card p,
+      .card li {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .quick-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .flow-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .card {
+        padding: 22px;
+      }
+
+      .quick-card {
+        padding: 24px;
+      }
+
+      .quick-card p {
+        margin: 10px 0 0;
+      }
+
+      .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .button,
+      .text-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 12px 18px;
+        text-decoration: none;
+        font: inherit;
+      }
+
+      .button {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+      }
+
+      .button-secondary {
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .text-link {
+        color: var(--brand-dark);
+        padding: 0;
+        margin-top: 8px;
+      }
+
+      ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .hero-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .hero-links .text-link {
+        margin-top: 0;
+      }
+
+      .upload-section {
+        margin-top: 18px;
+      }
+
+      .upload-card {
+        padding: 24px;
+      }
+
+      .upload-card h2 {
+        margin: 0;
+      }
+
+      .upload-card p {
+        margin: 10px 0 0;
+      }
+
+      .field-label {
+        display: block;
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .cell-input {
+        width: 100%;
+        margin-top: 8px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.88);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      .tool-inline-note,
+      .upload-result {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(188, 88, 46, 0.08);
+        color: var(--muted);
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .upload-result.is-success {
+        background: rgba(31, 41, 51, 0.06);
+        color: var(--ink);
+      }
+
+      .upload-result.is-error {
+        background: rgba(140, 63, 36, 0.12);
+        color: var(--brand-dark);
+      }
+
+      .upload-result-title {
+        font-weight: 600;
+        color: var(--ink);
+      }
+
+      .upload-result-section {
+        margin-top: 10px;
+      }
+
+      .upload-result-section strong {
+        color: var(--ink);
+      }
+
+      .upload-result-list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      .upload-result-list li + li {
+        margin-top: 4px;
+      }
+
+      .upload-result-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .upload-result-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .upload-result-chip {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid rgba(188, 88, 46, 0.16);
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(188, 88, 46, 0.08);
+        color: var(--brand-dark);
+      }
+
+      .flow-card {
+        padding: 20px;
+      }
+
+      .flow-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(188, 88, 46, 0.14);
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .flow-card h3 {
+        margin: 14px 0 0;
+        font-size: 18px;
+      }
+
+      .flow-card p {
+        margin: 10px 0 0;
+      }
+
+      .inline-list {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      @media (max-width: 900px) {
+        .grid,
+        .quick-grid,
+        .flow-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section id="accessGate" class="access-gate" hidden></section>
+    <main class="shell">
+      <section class="hero">
+        <h1>匠人程排课系统</h1>
+        <p>现在先按老师原来的 Excel 习惯继续排。最新总表先上传到这里，系统自动拆分后，再去平时模式或暑假模式继续微调。</p>
+        <p><strong>直接记这三句：</strong>先上传最新老师总表；改 6 月进平时模式，改 7、8 月进暑假模式；老师课时费和分红表后面也从这里逐步接进财务系统。</p>
+        <div class="hero-links">
+          <a class="text-link" href="./prototype/june.html">平时模式完整版</a>
+          <a class="text-link" href="./prototype/index.html">暑假模式完整版</a>
+          <a class="text-link" href="./prototype/june.html?fresh=1">重载平时模式样例</a>
+          <a class="text-link" href="./prototype/index.html?fresh=1">重载暑假模式样例</a>
+          <a class="text-link" href="./README.md">查看项目说明</a>
+        </div>
+      </section>
+
+      <section class="upload-section">
+        <article class="hero upload-card">
+          <div>
+            <h2>第 1 步：先上传老师最新总表</h2>
+            <p>老师现在怎么排，就继续怎么排。把最新 Excel 直接传上来，系统自动拆分到平时模式和暑假模式，不要求一次填完整。</p>
+            <label class="field-label" for="homeTeacherWorkbookInput">老师总表文件</label>
+            <input id="homeTeacherWorkbookInput" class="cell-input" type="file" multiple accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <div class="tool-inline-note">支持一次选择多个老师文件批量上传。建议直接上传老师现有的月历型 Excel。缺教室、缺标准班名的课会先保留课程事实，后面再慢慢补。</div>
+            <div id="homeUploadResult" class="upload-result">还没有上传记录。</div>
+          </div>
+          <div class="quick-actions">
+            <button id="homeUploadButton" class="button" type="button">批量上传并自动拆分</button>
+            <a class="button button-secondary" href="./prototype/june.html">去平时模式继续改课</a>
+            <a class="button button-secondary" href="./prototype/index.html">去暑假模式继续排课</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="flow-grid">
+        <article class="card flow-card">
+          <span class="flow-step">1</span>
+          <h3>先传最新表</h3>
+          <p>老师继续用熟悉的 Excel。每隔一段时间把最新表传一次，系统就按最新版本吸收。</p>
+        </article>
+        <article class="card flow-card">
+          <span class="flow-step">2</span>
+          <h3>再改当天要动的课</h3>
+          <p>6 月和平时课进平时模式，7、8 月暑假课进暑假模式，不用一次性全部重做。</p>
+        </article>
+        <article class="card flow-card">
+          <span class="flow-step">3</span>
+          <h3>后面再慢慢补细节</h3>
+          <p>教室、标准班名、命名规范这些可以后面逐步补，先把真实排课事实保留下来。</p>
+        </article>
+      </section>
+
+      <section class="quick-grid">
+        <article class="hero quick-card">
+          <h2>第 2 步：平时模式</h2>
+          <p>适合改 6 月和平时课。老师日常临时调课、补课、试听、托管课，优先走这里。</p>
+          <div class="quick-actions">
+            <a class="button" href="./prototype/june.html?simple=1">打开平时模式</a>
+            <a class="button button-secondary" href="./prototype/june.html">打开完整版</a>
+          </div>
+        </article>
+        <article class="hero quick-card">
+          <h2>第 3 步：暑假模式</h2>
+          <p>适合改 7、8 月暑假排课。新生陆续报名、缴费、分班、排教室后，再继续到这里补。</p>
+          <div class="quick-actions">
+            <a class="button" href="./prototype/index.html?simple=1">打开暑假模式</a>
+            <a class="button button-secondary" href="./prototype/index.html">打开完整版</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="quick-grid">
+        <article class="hero quick-card">
+          <h2>第 4 步：财务系统</h2>
+          <p>老师现有课时费、补课提成、基础工资、社保、公积金、补贴和分红，后面会逐步从 Excel 接进系统，不再只靠人工月结表。</p>
+          <div class="quick-actions">
+            <a class="button" href="./prototype/index.html#profitSettlementDividendList">打开结算与分红中心</a>
+            <a class="button button-secondary" href="./prototype/index.html#compensationReadinessList">查看课时费接入状态</a>
+          </div>
+        </article>
+        <article class="hero quick-card">
+          <h2>财务现在怎么接最稳</h2>
+          <p>现阶段先继续保留老师原来的工资表习惯，再把每个月最新课时费表导入系统做对账、沉淀规则和生成后续自动结算底稿。</p>
+          <div class="inline-list">
+            - 5 月、6 月这类历史工资表先做口径还原和规则沉淀<br>
+            - 7、8 月开始逐步把真实结算迁进系统<br>
+            - 后面目标是先让系统能“对账 + 复核 + 汇总”，再慢慢替代表格
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>老师怎么用最顺</h2>
+          <ul>
+            <li>先在首页上传老师最新总表，不用等全部填完再上传</li>
+            <li>临时要改 6 月或平时课，直接进平时模式</li>
+            <li>临时要改 7、8 月暑假课，直接进暑假模式</li>
+            <li>缺教室、缺标准班名时，先保留课程事实，后面再补</li>
+            <li>当前真正重点是 6 月、7 月、8 月；4、5 月历史数据主要做参考</li>
+            <li>如果不在同一局域网，或主控电脑后台没开，系统会直接拦住，不能误录</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>补充说明</h2>
+          <p>老师如果还是习惯先在 Excel 里整理，完全可以继续这样做。系统当前就是围绕这个习惯来吸收和拆分数据。</p>
+          <a class="text-link" href="./templates/import/teachers-template.csv">老师模板</a>
+          <a class="text-link" href="./templates/import/classrooms-template.csv">教室模板</a>
+          <a class="text-link" href="./templates/import/demands-template.csv">待开班模板</a>
+          <a class="text-link" href="./templates/import/teacher-schedules-template.csv">老师排课模板</a>
+          <a class="text-link" href="./templates/import/settlement-statements-template.csv">老师结算汇总模板</a>
+          <a class="text-link" href="./templates/import/settlement-lines-template.csv">老师结算明细模板</a>
+          <a class="text-link" href="./templates/import/profit-statements-template.csv">月度利润模板</a>
+          <a class="text-link" href="./templates/import/dividend-policy-template.csv">分红规则模板</a>
+          <div class="inline-list">
+            - 试听课会单独标记，不和正式课混在一起<br>
+            - 直播课 / 免费课 / 答疑 / 出门测按非正式占位课处理<br>
+            - 刷题班按正式小班课处理<br>
+            - 课时费工资表、分红表后面按“先导入、先对账、再替代 Excel”的节奏推进
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      (async () => {
+        const STORAGE_KEY = "paike-june-system-v1";
+        const STORAGE_META_KEY = "paike-june-system-meta-v1";
+        const SUMMER_REVIEW_STORAGE_KEY = "paike-summer-import-review-v1";
+        const BACKEND_STATE_KEY = "june_regular";
+        const REGULAR_XLSX_IMPORT_PATH = "/api/import/june-regular-xlsx";
+        const REGULAR_CSV_IMPORT_PATH = "/api/import/june-regular-csv";
+        const gateNode = document.getElementById("accessGate");
+        const shellNode = document.querySelector(".shell");
+        const uploadInput = document.getElementById("homeTeacherWorkbookInput");
+        const uploadButton = document.getElementById("homeUploadButton");
+        const uploadResultNode = document.getElementById("homeUploadResult");
+
+        function escapeHtml(value) {
+          return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function getFileExtension(fileName) {
+          const parts = String(fileName || "").toLowerCase().split(".");
+          return parts.length > 1 ? parts.pop() : "";
+        }
+
+        function arrayBufferToBase64(buffer) {
+          let binary = "";
+          const bytes = new Uint8Array(buffer);
+          const chunkSize = 0x8000;
+          for (let index = 0; index < bytes.length; index += chunkSize) {
+            const slice = bytes.subarray(index, index + chunkSize);
+            binary += String.fromCharCode(...slice);
+          }
+          return window.btoa(binary);
+        }
+
+        function buildStateScopedUrl(path, stateKey) {
+          const url = new URL(path, window.location.origin);
+          url.searchParams.set("state_key", stateKey);
+          return url.toString();
+        }
+
+        function updateUploadResult(message, type = "") {
+          uploadResultNode.textContent = message;
+          uploadResultNode.className = `upload-result${type ? ` is-${type}` : ""}`;
+        }
+
+        function updateUploadResultHtml(html, type = "") {
+          uploadResultNode.innerHTML = html;
+          uploadResultNode.className = `upload-result${type ? ` is-${type}` : ""}`;
+        }
+
+        function persistRegularImportResult(payload, message) {
+          if (payload && payload.snapshot) {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.snapshot));
+          }
+          const currentMetaRaw = window.localStorage.getItem(STORAGE_META_KEY);
+          let currentMeta = {};
+          try {
+            currentMeta = currentMetaRaw ? JSON.parse(currentMetaRaw) : {};
+          } catch (error) {}
+          const nextMeta = {
+            ...currentMeta,
+            lastSavedAt: new Date().toISOString(),
+            browserSnapshotOrigin: "backend_database",
+            importLog: message,
+            importQuestions: Array.isArray(payload?.questions) ? payload.questions : [],
+          };
+          window.localStorage.setItem(STORAGE_META_KEY, JSON.stringify(nextMeta));
+        }
+
+        function persistSummerReviewItems(items) {
+          window.localStorage.setItem(
+            SUMMER_REVIEW_STORAGE_KEY,
+            JSON.stringify(Array.isArray(items) ? items : [])
+          );
+        }
+
+        async function uploadWorkbookFile(file) {
+          const extension = getFileExtension(file.name);
+          let response;
+          if (extension === "xlsx") {
+            response = await fetch(buildStateScopedUrl(REGULAR_XLSX_IMPORT_PATH, BACKEND_STATE_KEY), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                file_name: file.name,
+                file_base64: arrayBufferToBase64(await file.arrayBuffer()),
+              }),
+            });
+          } else {
+            response = await fetch(buildStateScopedUrl(REGULAR_CSV_IMPORT_PATH, BACKEND_STATE_KEY), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                file_name: file.name,
+                csv_text: await file.text(),
+              }),
+            });
+          }
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        }
+
+        async function handleWorkbookUpload() {
+          const files = Array.from(uploadInput?.files || []);
+          if (!files.length) {
+            updateUploadResult("请先选择老师总表文件。", "error");
+            return;
+          }
+          const invalidFile = files.find((file) => !["xlsx", "csv"].includes(getFileExtension(file.name)));
+          if (invalidFile) {
+            updateUploadResult(`当前只支持上传 .xlsx 或 .csv 文件。${invalidFile.name} 不符合要求。`, "error");
+            return;
+          }
+
+          uploadButton.disabled = true;
+          updateUploadResult(`正在批量上传并自动拆分，共 ${files.length} 个文件，请稍等...`);
+          try {
+            let totalAcceptedCount = 0;
+            let totalQuestionCount = 0;
+            let totalWarningCount = 0;
+            let totalSummerDemandCount = 0;
+            let successCount = 0;
+            const perFileLines = [];
+            const questionFiles = [];
+            const failedFiles = [];
+            const summerReviewItems = [];
+            let lastPayload = null;
+
+            for (let index = 0; index < files.length; index += 1) {
+              const file = files[index];
+              updateUploadResult(`正在上传并自动拆分（${index + 1}/${files.length}）：${file.name}`);
+              try {
+                const payload = await uploadWorkbookFile(file);
+                lastPayload = payload;
+                const acceptedCount = Number(payload.accepted_count || 0);
+                const questionCount = Number(payload.question_count || 0);
+                const warningCount = Number(payload.warning_count || 0);
+                const summerDemandCount = Number(payload.summer_sync?.demand_count || 0);
+                const reviewItems = Array.isArray(payload.summer_sync?.review_items)
+                  ? payload.summer_sync.review_items
+                  : [];
+                totalAcceptedCount += acceptedCount;
+                totalQuestionCount += questionCount;
+                totalWarningCount += warningCount;
+                totalSummerDemandCount += summerDemandCount;
+                successCount += 1;
+                summerReviewItems.push(...reviewItems);
+                if (questionCount) {
+                  questionFiles.push(`${file.name}（${questionCount} 行待确认）`);
+                }
+                perFileLines.push(
+                  `${file.name}：平时 ${acceptedCount} 行` +
+                    (questionCount ? `，待确认 ${questionCount} 行` : "") +
+                    (warningCount ? `，警告 ${warningCount} 行` : "") +
+                    `；暑假 ${summerDemandCount} 个待开班`
+                );
+              } catch (error) {
+                const message = `${file.name}：上传失败（${error.message || error}）`;
+                failedFiles.push(message);
+                perFileLines.push(message);
+              }
+            }
+
+            const summary =
+              `本次共上传 ${files.length} 个文件，成功 ${successCount} 个\n` +
+              `平时模式累计写入 ${totalAcceptedCount} 行` +
+              (totalQuestionCount ? `，待确认 ${totalQuestionCount} 行` : "") +
+              (totalWarningCount ? `，警告 ${totalWarningCount} 行` : "") +
+              `\n暑假模式累计同步 ${totalSummerDemandCount} 个待开班` +
+              `\n\n${perFileLines.join("\n")}` +
+              (totalQuestionCount ? `\n\n如需继续确认问题行，请打开平时模式完整版处理。` : "");
+            persistRegularImportResult(lastPayload, summary);
+            persistSummerReviewItems(summerReviewItems);
+            const resultHtml = `
+              <div class="upload-result-title">本次共上传 ${files.length} 个文件，成功 ${successCount} 个</div>
+              <div class="upload-result-section">
+                平时模式累计写入 ${totalAcceptedCount} 行${totalQuestionCount ? `，待确认 ${totalQuestionCount} 行` : ""}${totalWarningCount ? `，警告 ${totalWarningCount} 行` : ""}
+                <br>
+                暑假模式累计同步 ${totalSummerDemandCount} 个待开班${summerReviewItems.length ? `，其中 ${summerReviewItems.length} 项待在暑假模式确认` : ""}
+              </div>
+              ${
+                questionFiles.length
+                  ? `<div class="upload-result-section">
+                      <strong>待确认文件</strong>
+                      <div class="upload-result-chip-list">
+                        ${questionFiles.map((item) => `<span class="upload-result-chip">${escapeHtml(item)}</span>`).join("")}
+                      </div>
+                    </div>`
+                  : ""
+              }
+              ${
+                summerReviewItems.length
+                  ? `<div class="upload-result-section">
+                      <strong>暑假待确认项</strong>
+                      <div class="upload-result-chip-list">
+                        ${summerReviewItems
+                          .slice(0, 8)
+                          .map((item) => `<span class="upload-result-chip">${escapeHtml(item.name || "未命名班级")}｜${escapeHtml(item.message || "待确认")}</span>`)
+                          .join("")}
+                      </div>
+                    </div>`
+                  : ""
+              }
+              ${
+                failedFiles.length
+                  ? `<div class="upload-result-section">
+                      <strong>上传失败文件</strong>
+                      <ul class="upload-result-list">
+                        ${failedFiles.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                      </ul>
+                    </div>`
+                  : ""
+              }
+              <div class="upload-result-section">
+                <strong>逐文件结果</strong>
+                <ul class="upload-result-list">
+                  ${perFileLines.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                </ul>
+              </div>
+              ${
+                totalQuestionCount || summerReviewItems.length
+                  ? `<div class="upload-result-actions">
+                      ${totalQuestionCount ? `<a class="button button-secondary" href="./prototype/june.html">去平时模式处理待确认</a>` : ""}
+                      ${summerReviewItems.length ? `<a class="button button-secondary" href="./prototype/index.html">去暑假模式处理待确认</a>` : ""}
+                    </div>`
+                  : ""
+              }
+            `;
+            updateUploadResultHtml(resultHtml, "success");
+          } catch (error) {
+            updateUploadResult(`上传失败：${error.message || error}`, "error");
+          } finally {
+            uploadButton.disabled = false;
+          }
+        }
+
+        function renderGate(title, message, details) {
+          gateNode.hidden = false;
+          shellNode.hidden = true;
+          gateNode.innerHTML = `
+            <div class="access-gate-card">
+              <p class="eyebrow">Backend Required</p>
+              <h1 class="access-gate-title">${escapeHtml(title)}</h1>
+              <p class="access-gate-text">${escapeHtml(message)}</p>
+              <ol class="access-gate-list">
+                <li>请确认这台电脑和主控电脑在同一个局域网。</li>
+                <li>请确认打开的是主控电脑发出的局域网地址。</li>
+                <li>请确认主控电脑上的排课系统服务窗口仍在运行。</li>
+              </ol>
+              <div class="access-gate-detail">${escapeHtml(details)}</div>
+            </div>
+          `;
+        }
+
+        try {
+          if (!["http:", "https:"].includes(window.location.protocol)) {
+            renderGate(
+              "当前无法使用排课系统入口",
+              "这份页面不是通过主控电脑后台地址打开的，所以不能继续进入系统。",
+              "当前打开方式不是局域网页面。请直接使用主控电脑发出的 http://...:8000 链接。"
+            );
+            return;
+          }
+
+          const response = await fetch("./api/health", { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const stateResponse = await fetch("./api/state", { cache: "no-store" });
+          if (!stateResponse.ok) {
+            throw new Error(`后台状态不可读 HTTP ${stateResponse.status}`);
+          }
+          const statePayload = await stateResponse.json();
+          if (!statePayload || typeof statePayload !== "object") {
+            throw new Error("后台状态接口返回异常");
+          }
+
+          gateNode.hidden = true;
+          shellNode.hidden = false;
+          uploadButton?.addEventListener("click", handleWorkbookUpload);
+        } catch (error) {
+          renderGate(
+            "当前无法使用排课系统入口",
+            "这台电脑现在不在同一局域网，或无法正常读取主控电脑后台数据，禁止进入和录入。",
+            `当前地址：${window.location.origin}\n连接失败：${error.message || error}`
+          );
+        } finally {
+          document.documentElement.classList.remove("access-check-pending");
+        }
+      })();
+    </script>
+  </body>
+</html>
