@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜知识库与学管课堂</title>
+    <title>匠人程工作台｜知识库问答系统</title>
     <style>
       body {
         margin: 0;
@@ -16,11 +16,43 @@
         margin: 0 auto;
         padding: 32px 0 48px;
       }
+      .topbar,
       .card {
         background: rgba(255,255,255,0.96);
         border: 1px solid rgba(23,33,50,0.08);
         border-radius: 24px;
         box-shadow: 0 18px 50px rgba(23,33,50,0.12);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+      }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: #627086; font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: #172132;
+        text-decoration: none;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid rgba(23,33,50,0.08);
+        font-size: 13px;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+        color: #fff;
+        border-color: transparent;
+      }
+      .card {
         padding: 28px;
       }
       .card + .card { margin-top: 18px; }
@@ -67,21 +99,43 @@
         border: 1px solid rgba(13, 148, 136, 0.16);
         color: #627086;
       }
+      @media (max-width: 760px) {
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
     </style>
   </head>
   <body data-page-permission="knowledge.access">
     <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 02 · 知识库问答系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link active" href="./knowledge.html">知识库问答系统</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
+        </nav>
+      </section>
       <section class="card">
         <p class="eyebrow">System 02</p>
-        <h1>知识库问答 + 学管课堂</h1>
-        <p style="margin-top: 12px;">这个入口继续使用你们已经在线的知识库官网能力。后面统一门户和权限体系稳定后，再把视觉和导航进一步整合进来。</p>
+        <h1>知识库问答系统</h1>
+        <p style="margin-top: 12px;">这个入口继续使用你们已经在线的知识库问答能力；学管课堂作为系统内的学习与测试模块保留，不再作为对外系统名称单独展示。</p>
         <div class="auth-note" data-role-greeting></div>
       </section>
       <section class="card">
         <p class="eyebrow">Current Route</p>
         <h2>当前使用方式</h2>
         <ul>
-          <li>继续使用现有知识库问答与学管课堂页面</li>
+          <li>继续使用现有知识库问答页面</li>
+          <li>学管课堂学习内容和阶段测试保留在知识库问答系统内部</li>
           <li>统一门户现在先承担登录与总入口职责</li>
           <li>后面再逐步做成真正的一个站内子系统</li>
         </ul>

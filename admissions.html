@@ -3,58 +3,306 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="refresh" content="0; url=/jrcedu/advice-system/index.html">
-    <title>正在打开招生管理系统</title>
+    <title>匠人程工作台｜招生管理系统</title>
     <style>
+      :root {
+        --bg: #f6f4fb;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #1a2433;
+        --muted: #647084;
+        --line: rgba(26, 36, 51, 0.08);
+        --brand: #7c3aed;
+        --brand-dark: #6d28d9;
+        --accent: #0f766e;
+        --shadow: 0 18px 50px rgba(26, 36, 51, 0.12);
+      }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 24px;
-        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
-        color: #1f2933;
-        background: linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(124, 58, 237, 0.14), transparent 28%),
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.10), transparent 24%),
+          linear-gradient(180deg, #fcfbff 0%, #f1edf9 100%);
       }
+      .shell { width: min(1120px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
       .card {
-        width: min(520px, 100%);
-        padding: 28px;
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.72);
         border-radius: 24px;
-        background: rgba(255,255,255,0.96);
-        box-shadow: 0 18px 50px rgba(31,41,51,0.12);
-        text-align: center;
+        box-shadow: var(--shadow);
+        padding: 28px;
       }
-      h1 {
-        margin: 0;
-        font-size: 26px;
+      .card + .card { margin-top: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
-      p {
-        margin: 12px 0 0;
-        color: #66717c;
-        line-height: 1.7;
+      h1, h2, h3, p, li { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 18px; }
+      p, li { color: var(--muted); line-height: 1.75; }
+      ul { margin: 14px 0 0; padding-left: 18px; }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(124, 58, 237, 0.1);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 14px;
       }
-      a {
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+      .button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 44px;
-        margin-top: 18px;
         padding: 0 18px;
         border-radius: 999px;
-        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-        color: #fff;
         text-decoration: none;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+      }
+      .button-secondary {
+        background: rgba(255,255,255,0.82);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .phase-list {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .phase {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.7);
+      }
+      .phase strong { color: var(--ink); }
+      .skill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.09);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        margin: 10px 8px 0 0;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .flow-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255,255,255,0.74);
+      }
+      .flow-card p + p { margin-top: 8px; }
+      .auth-note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(124, 58, 237, 0.08);
+        border: 1px solid rgba(124, 58, 237, 0.16);
+        color: var(--muted);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.72);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        border-color: transparent;
+      }
+      @media (max-width: 900px) {
+        .grid, .flow { grid-template-columns: 1fr; }
+        .topbar { align-items: flex-start; flex-direction: column; }
       }
     </style>
   </head>
-  <body>
-    <main class="card">
-      <h1>正在打开招生管理系统</h1>
-      <p>如果页面没有自动跳转，请点击下面按钮进入。</p>
-      <a href="/jrcedu/advice-system/index.html">进入招生管理系统</a>
+  <body data-page-permission="admissions.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 05 · 招生管理系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./knowledge.html">知识库问答系统</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link active" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
+        </nav>
+      </section>
+      <section class="card">
+        <p class="eyebrow">System 05</p>
+        <h1>招生管理系统</h1>
+        <p style="margin-top: 12px;">这个系统不是普通 CRM，而是面向中小学数学教培机构的招生闭环系统。它要把线索来源、试听、报名、转介绍、提成归因和沉睡客户运营全部串起来，让以后每一个学生从“怎么来的”到“为什么成交或没成交”都能查清楚。</p>
+        <div class="tag">当前策略：先做主干，再分两轮增强</div>
+        <div class="auth-note" data-role-greeting></div>
+      </section>
+
+        <section class="card">
+          <p class="eyebrow">Core Loop</p>
+          <h2>第一版必须先打通的招生闭环</h2>
+        <div class="flow">
+          <div class="flow-card">
+            <h3>线索进入</h3>
+            <p>手工录入、批量导入、渠道来源、手机号去重、公海与私海。</p>
+          </div>
+          <div class="flow-card">
+            <h3>试听转化</h3>
+            <p>跟进记录、预约试听、试听反馈、意向分层、是否进群。</p>
+          </div>
+          <div class="flow-card">
+            <h3>报名建档</h3>
+            <p>报名缴费、课程班型、实收金额、开课时间、归属链锁定。</p>
+          </div>
+          <div class="flow-card">
+            <h3>后续沉淀</h3>
+            <p>转介绍关系、提成归因、沉睡召回、阶段性转化复盘。</p>
+          </div>
+        </div>
+        </section>
+
+      <section class="card">
+        <p class="eyebrow">Prototype</p>
+        <h2>第一阶段原型已经先搭出来</h2>
+        <p style="margin-top: 12px;">我先按“老师今天该做什么”的工作台逻辑做了主干原型，不是先堆很重的报表。你们后面看这个方向顺不顺，再继续往真实录入、自动化和提成联动扩。</p>
+        <div class="actions">
+          <a class="button" data-requires-permission="admissions.access" href="/jrcedu/advice-system/index.html">打开第一阶段原型</a>
+          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Plan</p>
+        <h2>建议分三阶段完成</h2>
+        <div class="phase-list">
+          <div class="phase">
+            <h3>第一阶段：主干版，先能用</h3>
+            <p style="margin-top: 10px;"><strong>目标：</strong>先把线索、跟进、试听、报名、渠道归属这五条主链跑通，保证老师可以开始录入和持续跟进。</p>
+            <ul>
+              <li>线索录入、手机号去重、负责人分配</li>
+              <li>固定状态流转和强制跟进留痕</li>
+              <li>试听预约、试听反馈、意向等级</li>
+              <li>报名缴费和学员建档</li>
+              <li>基础漏斗和渠道统计</li>
+            </ul>
+            <div class="skill">这阶段不急着加：短信</div>
+            <div class="skill">这阶段不急着加：复杂提成</div>
+            <div class="skill">这阶段先保留手工判断：沉睡运营</div>
+          </div>
+
+          <div class="phase">
+            <h3>第二阶段：转化增强版</h3>
+            <p style="margin-top: 10px;"><strong>目标：</strong>把二次追踪、转介绍和提成规则加进来，让系统开始承接真实招生归因和结算。</p>
+            <ul>
+              <li>试听后 SOP 待办：当天、3 天、7 天、14 天</li>
+              <li>老家长转介绍、员工推荐、渠道归属继承</li>
+              <li>网销提成、顾问提成、推荐奖励台账</li>
+              <li>未成交客户分层：高意向重点跟进，中低意向统一培育</li>
+            </ul>
+            <div class="skill">这阶段可选增加：短信提醒</div>
+            <div class="skill">这阶段可选增加：批量活动通知</div>
+            <div class="skill">这阶段可选增加：家长培育群标签</div>
+          </div>
+
+          <div class="phase">
+            <h3>第三阶段：自动化与精细运营版</h3>
+            <p style="margin-top: 10px;"><strong>目标：</strong>把沉睡召回、二维码绑定、批量运营、精细看板和财务对账进一步做深。</p>
+            <ul>
+              <li>30 / 60 / 90 天沉睡自动提醒</li>
+              <li>家长推荐二维码自动绑定推荐人</li>
+              <li>批量运营工具：资料、优惠券、公开课邀约</li>
+              <li>渠道 ROI、裂变排行、试听转化率、召回效果</li>
+              <li>提成导出与财务系统联动</li>
+            </ul>
+            <div class="skill">这阶段可选增加：短信网关对接</div>
+            <div class="skill">这阶段可选增加：移动端弹窗提醒</div>
+            <div class="skill">这阶段可选增加：更细的权限与操作日志</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <section class="card">
+          <p class="eyebrow">Design Rules</p>
+          <h2>这套系统会按什么原则来做</h2>
+          <ul>
+            <li>不是做通用销售 CRM，而是按教培试听转化链路来设计</li>
+            <li>所有状态变更必须有跟进记录，不能只改状态不留痕</li>
+            <li>所有学生必须能追到来源渠道、负责人和推荐关系</li>
+            <li>未报名客户也要保留并持续培育，不做一次性废弃</li>
+            <li>提成规则不写死，后面要能和财务系统衔接</li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <p class="eyebrow">Next Build</p>
+          <h2>我接下来实际要编的内容</h2>
+          <ul>
+            <li>先在总系统里把招生管理入口正式接进去</li>
+            <li>再做第一阶段原型页：线索、跟进、试听、报名、看板</li>
+            <li>然后根据你们真实话术和操作习惯再细化字段和按钮</li>
+            <li>后面每加一批功能，我都会先告诉你“这批增加了什么能力”</li>
+          </ul>
+          <div class="actions">
+            <a class="button" href="./index.html">返回总站首页</a>
+            <a class="button button-secondary" data-requires-permission="finance.access" href="./finance.html">查看财务系统</a>
+          </div>
+        </section>
+      </section>
     </main>
-    <script>
-      window.location.replace("/jrcedu/advice-system/index.html");
-    </script>
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
   </body>
 </html>

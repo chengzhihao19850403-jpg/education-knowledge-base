@@ -127,13 +127,62 @@
         border: 1px solid rgba(124, 58, 237, 0.16);
         color: var(--muted);
       }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.72);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        border-color: transparent;
+      }
       @media (max-width: 900px) {
         .grid, .flow { grid-template-columns: 1fr; }
+        .topbar { align-items: flex-start; flex-direction: column; }
       }
     </style>
   </head>
   <body data-page-permission="admissions.access">
     <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 05 · 招生管理系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./knowledge.html">知识库问答系统</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link active" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
+        </nav>
+      </section>
       <section class="card">
         <p class="eyebrow">System 05</p>
         <h1>招生管理系统</h1>
