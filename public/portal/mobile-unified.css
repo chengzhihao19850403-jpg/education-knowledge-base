@@ -1,0 +1,180 @@
+:root {
+  --jrc-touch-size: 46px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+.button,
+.nav-link,
+.status-chip,
+.badge,
+button {
+  min-height: var(--jrc-touch-size);
+}
+
+.button,
+button {
+  touch-action: manipulation;
+}
+
+.nav,
+.system-nav,
+.top-actions,
+.actions,
+.section-actions,
+.filters {
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap {
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.table-wrap::before {
+  content: "表格可左右滑动";
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: none;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted, #64748b);
+  border-bottom: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+  font-size: 12px;
+}
+
+.field input,
+.field select,
+.field textarea,
+label.field input,
+label.field select,
+label.field textarea,
+.compact-toolbar input,
+.compact-toolbar select {
+  min-height: var(--jrc-touch-size);
+}
+
+textarea {
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .shell {
+    width: min(100% - 20px, 1280px) !important;
+    padding-top: 18px !important;
+    padding-bottom: 34px !important;
+  }
+
+  .topbar,
+  .hero,
+  .card,
+  .panel,
+  .note,
+  .summary-card,
+  .metric {
+    border-radius: 16px !important;
+  }
+
+  .topbar,
+  .section-head,
+  .card-head {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .nav,
+  .system-nav {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 4px;
+  }
+
+  .nav-link,
+  .system-nav a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .top-actions,
+  .actions,
+  .section-actions,
+  .filters {
+    width: 100%;
+  }
+
+  .button,
+  .actions .button,
+  .section-actions .button,
+  .top-actions .button,
+  button[type="button"] {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .filters .status-chip,
+  .filters button {
+    width: auto;
+    flex: 1 1 150px;
+  }
+
+  .form-grid,
+  .compact-toolbar,
+  .data-sync-tools,
+  .workbench-grid,
+  .quick-actions,
+  .template-grid,
+  .linkage-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .span-2,
+  .span-3 {
+    grid-column: auto !important;
+  }
+
+  .table-wrap::before {
+    display: block;
+  }
+
+  table {
+    min-width: 760px;
+  }
+
+  th,
+  td {
+    padding: 11px 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  h1 {
+    font-size: 28px !important;
+  }
+
+  h2 {
+    font-size: 20px !important;
+  }
+
+  .card,
+  .panel,
+  .note,
+  .hero {
+    padding: 16px !important;
+  }
+}
