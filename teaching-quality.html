@@ -151,6 +151,7 @@
             <span class="status-chip">C 70 以下</span>
           </div>
         </div>
+        <div class="warning">当前排名和整改工单是演示样例，不代表任何老师的真实教学评价；正式启用前会改为真实数据和权限可见范围。</div>
         <div class="metrics">
           <div class="metric"><span>本月教师均分</span><strong id="qualityAverageScore">0</strong><p>按权重自动计算</p></div>
           <div class="metric"><span>S / A 级教师</span><strong id="qualityStrongCount">0</strong><p>优先分配优质试听班</p></div>
@@ -268,34 +269,40 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
     <script>
-      const STORAGE_KEY = "jrc-teaching-quality-system";
+      const STORAGE_KEY = "jrc-teaching-quality-system-v2-demo";
       const defaultState = {
-        selectedTeacher: "刘大君",
+        selectedTeacher: "程志豪",
         weights: { inspection: 35, studentSurvey: 20, parentSurvey: 35, objective: 10 },
         inspections: [
           { teacher: "刘大君", className: "初三数学冲刺班", lessonType: "在读班", date: "2026-06-18", scores: [92, 88, 90, 94, 91], note: "课堂节奏稳定，压轴题讲解清晰，薄弱学生答疑还可以再多留 5 分钟。", tags: ["分层关注"], attachment: "板书照片 1 张" },
           { teacher: "叶源泽", className: "初一数学暑假预备班", lessonType: "试听课", date: "2026-06-19", scores: [84, 80, 82, 86, 88], note: "互动不错，但例题梯度可以再清晰，试听后家长希望看到更明确的提分路径。", tags: ["试听转化观察"], attachment: "课堂记录截图" },
           { teacher: "海滢滢", className: "科学三升四小班", lessonType: "在读班", date: "2026-06-17", scores: [87, 89, 86, 90, 92], note: "课堂趣味性和耐心较好，家长沟通反馈要继续保持及时。", tags: [], attachment: "无" },
-          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [76, 74, 72, 80, 78], note: "课堂秩序管理偏弱，个别学生走神较多，建议教务一周后复查。", tags: ["重点整改"], attachment: "课堂记录截图" }
+          { teacher: "赵萱", className: "六年级数学复习班", lessonType: "在读班", date: "2026-06-16", scores: [78, 77, 76, 80, 79], note: "演示样例：课堂结构基本完整，后续继续观察练习反馈节奏。", tags: ["常规观察"], attachment: "课堂记录截图" },
+          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "演示样例：用于展示 B 级待提升教师的管理建议，不代表真实评价。", tags: ["演示样例"], attachment: "课堂记录截图" },
+          { teacher: "程志豪", className: "校长示范课", lessonType: "演示样例", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "演示样例：为了避免影响老师情绪，负面整改示例统一放在程志豪名下。", tags: ["重点整改"], attachment: "课堂记录截图" }
         ],
         studentSurveys: [
-          { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "李舒", score: 75 }
+          { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "赵萱", score: 78 }, { teacher: "李舒", score: 73 }, { teacher: "程志豪", score: 60 }
         ],
         parentSurveys: [
           { teacher: "刘大君", score: 88, tags: ["续课意愿高"] },
           { teacher: "叶源泽", score: 82, tags: ["价格匹配度顾虑"] },
           { teacher: "海滢滢", score: 91, tags: ["转介绍意愿高"] },
-          { teacher: "李舒", score: 72, tags: ["反馈不及时", "关注孩子不足"] }
+          { teacher: "赵萱", score: 78, tags: ["课堂节奏观察"] },
+          { teacher: "李舒", score: 72, tags: ["演示样例"] },
+          { teacher: "程志豪", score: 58, tags: ["课堂秩序管理", "课后反馈及时性不足"] }
         ],
         objectiveMetrics: [
           { teacher: "刘大君", renewalRate: 92, trialConversionRate: 66, referrals: 2, feedbackRecords: 18, complaints: 0, lateRecords: 0, missedHomework: 1, missedMakeup: 0 },
           { teacher: "叶源泽", renewalRate: 82, trialConversionRate: 45, referrals: 1, feedbackRecords: 11, complaints: 0, lateRecords: 1, missedHomework: 1, missedMakeup: 0 },
           { teacher: "海滢滢", renewalRate: 88, trialConversionRate: 50, referrals: 2, feedbackRecords: 14, complaints: 0, lateRecords: 0, missedHomework: 0, missedMakeup: 0 },
-          { teacher: "李舒", renewalRate: 70, trialConversionRate: 36, referrals: 0, feedbackRecords: 6, complaints: 1, lateRecords: 1, missedHomework: 2, missedMakeup: 1 }
+          { teacher: "赵萱", renewalRate: 73, trialConversionRate: 38, referrals: 0, feedbackRecords: 8, complaints: 0, lateRecords: 1, missedHomework: 1, missedMakeup: 1 },
+          { teacher: "李舒", renewalRate: 70, trialConversionRate: 36, referrals: 0, feedbackRecords: 6, complaints: 1, lateRecords: 1, missedHomework: 2, missedMakeup: 1 },
+          { teacher: "程志豪", renewalRate: 60, trialConversionRate: 25, referrals: 0, feedbackRecords: 2, complaints: 2, lateRecords: 2, missedHomework: 3, missedMakeup: 2 }
         ],
         tickets: [
-          { id: "TQ-202606-001", teacher: "李舒", problem: "课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
-          { id: "TQ-202606-002", teacher: "叶源泽", problem: "试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
+          { id: "TQ-202606-001", teacher: "程志豪", problem: "演示样例：课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
+          { id: "TQ-202606-002", teacher: "程志豪", problem: "演示样例：试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
         ],
         templates: [
           { type: "学生匿名问卷", enabled: true, sendAfter: "课程结束后 30 分钟", questions: "易懂程度、趣味性、答疑耐心、作业难度、课堂收获" },
