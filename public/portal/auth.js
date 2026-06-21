@@ -47,6 +47,44 @@ const JRC_DATA_CONTRACTS = {
     keyFields: ["studentName", "parentPhone", "channel", "owner", "trialTeacher", "enrolledAmount"]
   }
 };
+const JRC_QUALITY_COEFFICIENTS = { S: 1.1, A: 1, B: 0.9, C: 0.8 };
+const JRC_DATA_LINK_RULES = [
+  {
+    id: "schedule-to-finance",
+    from: "排课系统",
+    to: "财务系统",
+    rule: "按老师、月份汇总已排课/已上课课时，进入课时费、补课提成和分红基础数据。",
+    status: "foundation"
+  },
+  {
+    id: "quality-to-finance",
+    from: "教学质量系统",
+    to: "财务系统",
+    rule: "S/A/B/C 评级转成 1.1/1.0/0.9/0.8 绩效系数，参与课时奖金和教学质量奖励预核算。",
+    status: "foundation"
+  },
+  {
+    id: "admissions-to-schedule",
+    from: "招生管理系统",
+    to: "排课系统",
+    rule: "已预约试听线索自动形成试听排课候选；已报名线索转入正式班级排课候选。",
+    status: "foundation"
+  },
+  {
+    id: "admissions-to-student-service",
+    from: "招生管理系统",
+    to: "学生服务系统",
+    rule: "已报名学生自动形成学生档案、家长沟通和入学交接待办。",
+    status: "foundation"
+  },
+  {
+    id: "admissions-to-finance",
+    from: "招生管理系统",
+    to: "财务系统",
+    rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成预核算。",
+    status: "foundation"
+  }
+];
 const JRC_ROLE_PERMISSIONS = {
   管理员: [
     "portal.access",
@@ -451,11 +489,200 @@ function jrcResetLegacyBusinessDataOnce() {
   }));
 }
 
+function jrcReadJsonStore(key, fallback) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function jrcMonthFromDate(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/(\d{4})[-/.年](\d{1,2})/);
+  if (!match) return "";
+  return `${match[1]}-${String(match[2]).padStart(2, "0")}`;
+}
+
+function jrcToNumber(value) {
+  const num = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(num) ? num : 0;
+}
+
+function jrcTimeToMinutes(value) {
+  const match = String(value || "").match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function jrcEstimateHours(row) {
+  const direct = jrcToNumber(row.hours || row.classHours || row.lessonHours || row.settlementHours);
+  if (direct > 0) return direct;
+  const start = jrcTimeToMinutes(row.startTime || row.start || row.beginTime);
+  const end = jrcTimeToMinutes(row.endTime || row.end || row.finishTime);
+  return start && end && end > start ? Math.round(((end - start) / 60) * 100) / 100 : 0;
+}
+
+function jrcCollectScheduleRows() {
+  const regular = jrcReadJsonStore("paike-june-system-v1", {});
+  const holiday = jrcReadJsonStore("paike-system-prototype-v1", {});
+  const rows = [];
+  (Array.isArray(regular.scheduleEntries) ? regular.scheduleEntries : []).forEach((entry) => {
+    rows.push({
+      source: "平时课排课",
+      teacherName: String(entry.teacherName || "").trim(),
+      studentName: String(entry.studentName || entry.className || "").trim(),
+      className: String(entry.className || "").trim(),
+      date: entry.courseDate || entry.date,
+      period: jrcMonthFromDate(entry.courseDate || entry.date),
+      roomName: entry.classroomName || entry.roomName || "",
+      hours: jrcEstimateHours(entry),
+      status: entry.scheduleStatus || entry.confirmationStatus || ""
+    });
+  });
+  (Array.isArray(holiday.settlementLines) ? holiday.settlementLines : []).forEach((line) => {
+    rows.push({
+      source: "暑假课结算行",
+      teacherName: String(line.teacherName || "").trim(),
+      studentName: String(line.studentName || line.className || "").trim(),
+      className: String(line.className || "").trim(),
+      date: line.courseDate || line.date || line.settlementDate || "",
+      period: jrcMonthFromDate(line.courseDate || line.date || line.settlementDate) || String(line.period || ""),
+      roomName: line.roomName || "",
+      hours: jrcEstimateHours(line),
+      status: line.status || ""
+    });
+  });
+  return rows.filter((row) => row.teacherName);
+}
+
+function jrcCollectAdmissionsRows() {
+  const state = jrcReadJsonStore("advice-system-stage-prototype", {});
+  const leads = Array.isArray(state.leads) ? state.leads : [];
+  return leads.map((lead) => ({
+    studentName: String(lead.studentName || "").trim(),
+    parentPhone: String(lead.parentPhone || "").trim(),
+    status: String(lead.status || "").trim(),
+    owner: String(lead.owner || "").trim(),
+    trialTeacher: String(lead.trialTeacher || "").trim(),
+    trialTime: lead.trialTime || lead.trial || "",
+    period: jrcMonthFromDate(lead.trialTime || lead.trial || lead.createdAt),
+    channel: String(lead.channel || "").trim(),
+    referrerName: String(lead.referrerName || "").trim(),
+    enrolledAmount: jrcToNumber(lead.enrolledAmount)
+  }));
+}
+
+function jrcCollectTeachingQualityRows() {
+  const state = jrcReadJsonStore("jrc-teaching-quality-system-v2-demo", {});
+  const names = new Set();
+  (Array.isArray(state.inspections) ? state.inspections : []).forEach((row) => row.teacher && names.add(row.teacher));
+  (Array.isArray(state.studentSurveys) ? state.studentSurveys : []).forEach((row) => row.teacher && names.add(row.teacher));
+  (Array.isArray(state.parentSurveys) ? state.parentSurveys : []).forEach((row) => row.teacher && names.add(row.teacher));
+  (Array.isArray(state.objectiveMetrics) ? state.objectiveMetrics : []).forEach((row) => row.teacher && names.add(row.teacher));
+
+  function avg(values) {
+    const valid = values.map(Number).filter((value) => Number.isFinite(value));
+    return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 82;
+  }
+  function inspectionScore(record) {
+    return avg(Array.isArray(record.scores) ? record.scores : []);
+  }
+  function objectiveScore(metrics = {}) {
+    return Math.max(0, Math.min(100, Math.round(
+      78 +
+      Math.max(0, Number(metrics.renewalRate || 0) - 70) * 0.25 +
+      Math.max(0, Number(metrics.trialConversionRate || 0) - 35) * 0.18 +
+      Number(metrics.referrals || 0) * 2.5 +
+      Math.min(8, Number(metrics.feedbackRecords || 0) * 0.35) -
+      Number(metrics.complaints || 0) * 8 -
+      Number(metrics.lateRecords || 0) * 4 -
+      Number(metrics.missedHomework || 0) * 3 -
+      Number(metrics.missedMakeup || 0) * 4
+    )));
+  }
+
+  return Array.from(names).filter(Boolean).map((teacherName) => {
+    const inspection = avg((state.inspections || []).filter((row) => row.teacher === teacherName).map(inspectionScore));
+    const studentSurvey = avg((state.studentSurveys || []).filter((row) => row.teacher === teacherName).map((row) => row.score));
+    const parentSurvey = avg((state.parentSurveys || []).filter((row) => row.teacher === teacherName).map((row) => row.score));
+    const objective = objectiveScore((state.objectiveMetrics || []).find((row) => row.teacher === teacherName));
+    const total = Math.round((inspection * 0.35 + studentSurvey * 0.20 + parentSurvey * 0.35 + objective * 0.10) * 10) / 10;
+    const grade = total >= 90 ? "S" : total >= 80 ? "A" : total >= 70 ? "B" : "C";
+    return { teacherName, total, grade, coefficient: JRC_QUALITY_COEFFICIENTS[grade] };
+  });
+}
+
+function jrcDeriveSystemLinks() {
+  const schedules = jrcCollectScheduleRows();
+  const admissions = jrcCollectAdmissionsRows();
+  const quality = jrcCollectTeachingQualityRows();
+  const employees = jrcGetAllEmployees();
+  const qualityByTeacher = new Map(quality.map((row) => [row.teacherName, row]));
+  const employeeByName = new Map(employees.map((employee) => [employee.name, employee]));
+  const teacherMonth = new Map();
+
+  function ensureTeacherMonth(teacherName, period) {
+    const key = `${teacherName || "未匹配老师"}|${period || "待定月份"}`;
+    if (!teacherMonth.has(key)) {
+      const employee = employeeByName.get(teacherName) || {};
+      const qualityRow = qualityByTeacher.get(teacherName) || {};
+      teacherMonth.set(key, {
+        teacherName: teacherName || "未匹配老师",
+        period: period || "待定月份",
+        scheduledHours: 0,
+        trialCount: 0,
+        enrolledAmount: 0,
+        commissionRate: employee.commissionRate || "",
+        qualityGrade: qualityRow.grade || "",
+        qualityCoefficient: qualityRow.coefficient || 1
+      });
+    }
+    return teacherMonth.get(key);
+  }
+
+  schedules.forEach((row) => {
+    ensureTeacherMonth(row.teacherName, row.period).scheduledHours += row.hours;
+  });
+  admissions.forEach((lead) => {
+    if (lead.trialTeacher) {
+      const row = ensureTeacherMonth(lead.trialTeacher, lead.period);
+      row.trialCount += lead.status.includes("试听") || lead.status.includes("报名") ? 1 : 0;
+      row.enrolledAmount += lead.enrolledAmount;
+    }
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    contracts: JSON.parse(JSON.stringify(JRC_DATA_CONTRACTS)),
+    rules: JSON.parse(JSON.stringify(JRC_DATA_LINK_RULES)),
+    counts: {
+      scheduleRows: schedules.length,
+      admissionsRows: admissions.length,
+      teachingQualityTeachers: quality.length,
+      employees: employees.length
+    },
+    teacherMonthRows: Array.from(teacherMonth.values()).map((row) => ({
+      ...row,
+      scheduledHours: Math.round(row.scheduledHours * 100) / 100,
+      financeBasis: `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
+    })),
+    pendingLinks: {
+      trialScheduleCandidates: admissions.filter((lead) => lead.status === "已预约试听"),
+      enrolledStudentCandidates: admissions.filter((lead) => lead.status === "定金 / 已报名" || lead.enrolledAmount > 0),
+      financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0)
+    }
+  };
+}
+
 function jrcExposeDataFoundation() {
   window.JRC_DATA_FOUNDATION = {
     resetKey: JRC_DATA_FOUNDATION_RESET_KEY,
     legacyBusinessDataKeys: [...JRC_LEGACY_BUSINESS_DATA_KEYS],
+    linkRules: JSON.parse(JSON.stringify(JRC_DATA_LINK_RULES)),
     contracts: JSON.parse(JSON.stringify(JRC_DATA_CONTRACTS)),
+    deriveSystemLinks: jrcDeriveSystemLinks,
     readResetState() {
       try {
         return JSON.parse(localStorage.getItem(JRC_DATA_FOUNDATION_RESET_KEY) || "null");

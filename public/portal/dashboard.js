@@ -143,6 +143,15 @@
     return safeParse(localStorage.getItem(key), fallback);
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function countStoreRows(config) {
     const data = readStore(config.key, null);
     if (data === null) return 0;
@@ -328,6 +337,7 @@
     if (holder) holder.innerHTML = todos.join("");
 
     renderDataStates();
+    renderDataFlows();
   }
 
   function renderDataStates() {
@@ -343,6 +353,50 @@
         </a>
       `;
     }).join("");
+  }
+
+  function renderDataFlows() {
+    const holder = $("portalDataFlowList");
+    if (!holder) return;
+    const foundation = window.JRC_DATA_FOUNDATION;
+    if (!foundation?.deriveSystemLinks) {
+      holder.innerHTML = `<div class="data-state-card"><strong>联动层未加载</strong><span class="badge status-warn">待检查</span><p>请刷新页面，或检查统一登录脚本是否加载成功。</p></div>`;
+      return;
+    }
+    const derived = foundation.deriveSystemLinks();
+    const countCards = [
+      ["排课课次", derived.counts.scheduleRows],
+      ["招生线索", derived.counts.admissionsRows],
+      ["质量档案", derived.counts.teachingQualityTeachers],
+      ["员工主数据", derived.counts.employees]
+    ].map(([label, count]) => `
+      <div class="data-state-card">
+        <strong>${escapeHtml(label)}</strong>
+        <span class="badge ${count > 0 ? "status-ok" : "status-warn"}">${escapeHtml(count)}</span>
+        <p>${count > 0 ? "已进入底层联动统计。" : "等待重新导入真实数据后参与联动。"}</p>
+      </div>
+    `).join("");
+    const flowCards = (derived.rules || []).map((rule) => `
+      <div class="data-state-card">
+        <strong>${escapeHtml(rule.from)} → ${escapeHtml(rule.to)}</strong>
+        <span class="badge status-ok">规则已建</span>
+        <p>${escapeHtml(rule.rule)}</p>
+      </div>
+    `).join("");
+    const financePreview = (derived.teacherMonthRows || []).slice(0, 4).map((row) => `
+      <div class="data-state-card">
+        <strong>${escapeHtml(row.teacherName)}｜${escapeHtml(row.period)}</strong>
+        <span class="badge status-ok">财务预核算</span>
+        <p>${escapeHtml(row.financeBasis)}${row.commissionRate ? `；提成 ${escapeHtml(row.commissionRate)}` : ""}</p>
+      </div>
+    `).join("");
+    holder.innerHTML = countCards + flowCards + (financePreview || `
+      <div class="data-state-card">
+        <strong>财务预核算草表</strong>
+        <span class="badge status-warn">待导入</span>
+        <p>重新导入真实排课、教学质量和招生数据后，这里会按老师和月份形成课时、评级系数、招生实收的联动草表。</p>
+      </div>
+    `);
   }
 
   document.addEventListener("DOMContentLoaded", renderPortalDashboard);
