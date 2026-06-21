@@ -6,14 +6,17 @@
     <title>匠人程工作台｜排课系统</title>
     <style>
       :root {
-        --bg: #f6f3ee;
-        --panel: rgba(255, 252, 247, 0.96);
-        --ink: #1f2933;
-        --muted: #66717c;
-        --line: rgba(31, 41, 51, 0.08);
-        --brand: #bc582e;
-        --brand-dark: #8c3f24;
-        --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+        --bg: #f4f7f8;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #16202a;
+        --muted: #62707d;
+        --line: rgba(22, 32, 42, 0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --brand-soft: rgba(13, 148, 136, 0.10);
+        --amber: #b45309;
+        --red: #b91c1c;
+        --shadow: 0 18px 50px rgba(22, 32, 42, 0.12);
       }
       * { box-sizing: border-box; }
       body {
@@ -21,180 +24,180 @@
         font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(188, 88, 46, 0.16), transparent 30%),
-          linear-gradient(180deg, #faf7f2 0%, #f0e7db 100%);
+          radial-gradient(circle at top left, rgba(13, 148, 136, 0.14), transparent 30%),
+          linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
       }
-      .shell { width: min(960px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }
-      .topbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        margin-bottom: 18px;
-        padding: 14px 18px;
-        background: rgba(255,255,255,0.82);
-        border: 1px solid rgba(255,255,255,0.68);
-        border-radius: 20px;
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-      }
-      .brand-name { font-size: 18px; font-weight: 700; }
+      button, input, select, textarea { font: inherit; }
+      .shell { width: min(1280px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+      .topbar, .card, .metric { background: var(--panel); border: 1px solid rgba(255,255,255,0.70); border-radius: 22px; box-shadow: var(--shadow); }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; padding: 14px 18px; }
+      .brand-name { font-size: 18px; font-weight: 800; }
       .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
       .nav { display: flex; flex-wrap: wrap; gap: 8px; }
-      .nav-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 36px;
-        padding: 0 12px;
-        border-radius: 999px;
-        text-decoration: none;
-        color: var(--ink);
-        background: rgba(255,255,255,0.78);
-        border: 1px solid var(--line);
-        font-size: 13px;
+      .nav-link, .button {
+        display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px;
+        border-radius: 999px; text-decoration: none; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 13px;
       }
-      .nav-link.active {
-        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-        color: #fff;
-        border-color: transparent;
-      }
-      .card {
-        background: var(--panel);
-        border: 1px solid rgba(255,255,255,0.65);
-        border-radius: 24px;
-        box-shadow: var(--shadow);
-        padding: 28px;
-      }
-      .card + .card { margin-top: 18px; }
-      .eyebrow {
-        margin: 0 0 10px;
-        color: var(--brand);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      h1, h2, p, li { margin: 0; }
-      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
+      .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
+      .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+      .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); gap: 18px; }
+      .card { padding: 22px; }
+      .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
       h2 { font-size: 22px; }
-      p, li { color: var(--muted); line-height: 1.75; }
-      ul { margin: 14px 0 0; padding-left: 18px; }
-      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        padding: 0 18px;
-        border-radius: 999px;
-        text-decoration: none;
-        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-        color: #fff;
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row, .actions, .section-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .section-head { justify-content: space-between; margin-bottom: 14px; }
+      .tag, .status-pill {
+        display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800;
       }
-      .button-secondary {
-        background: rgba(255,255,255,0.8);
-        color: var(--ink);
-        border: 1px solid var(--line);
+      .tag.warn, .status-pill.warn { background: rgba(180,83,9,0.10); color: var(--amber); }
+      .tag.red, .status-pill.red { background: rgba(185,28,28,0.10); color: var(--red); }
+      .auth-note, .cloud-note {
+        margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted);
       }
-      .tag {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 6px 10px;
-        background: rgba(188, 88, 46, 0.1);
-        color: var(--brand-dark);
-        font-size: 12px;
-        font-weight: 700;
-        margin-top: 14px;
-      }
-      .panel-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 18px;
-      }
-      .mini-card {
-        background: rgba(255,255,255,0.74);
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 18px;
-      }
-      .mini-card h3 {
-        margin: 0 0 8px;
-        font-size: 18px;
-      }
-      .mini-card p {
-        color: var(--muted);
-        line-height: 1.7;
-      }
-      @media (max-width: 760px) {
-        .topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .panel-grid {
-          grid-template-columns: 1fr;
-        }
-      }
+      .cloud-note { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+      .metric { padding: 16px; }
+      .metric span { color: var(--muted); font-size: 13px; }
+      .metric strong { display: block; margin-top: 8px; font-size: 28px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 0.75fr); gap: 18px; }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      table { width: 100%; min-width: 840px; border-collapse: collapse; }
+      th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
+      th { background: rgba(13,148,136,0.05); color: var(--ink); font-weight: 800; }
+      tr:last-child td { border-bottom: 0; }
+      .mini-list { display: grid; gap: 12px; margin-top: 14px; }
+      .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+      .mini-item strong { display: block; margin-bottom: 6px; }
+      .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+      .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
+      .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .span-3 { grid-column: 1 / -1; }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
     </style>
   </head>
-  <body>
+  <body data-page-permission="paike.access">
     <main class="shell">
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 01 · 排课系统入口</div>
+          <div class="brand-subtitle">System 01 · 排课系统云端版</div>
         </div>
         <nav class="nav">
           <a class="nav-link" href="./index.html">总站首页</a>
-          <a class="nav-link" href="./knowledge.html">知识库</a>
-          <a class="nav-link" href="./suggestions.html">建议系统</a>
           <a class="nav-link active" href="./paike.html">排课系统</a>
           <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
         </nav>
       </section>
 
-      <section class="card">
-        <p class="eyebrow">System 01</p>
-        <h1>排课系统</h1>
-        <p style="margin-top: 12px;">排课系统目前不是纯静态网页，它依赖主控电脑后台、局域网访问、Excel 导入和本地数据库。所以统一总站里先提供清晰入口和使用说明，真正操作时仍进入实际运行中的排课系统。</p>
-        <div class="tag">当前重点：6 月、7 月、8 月排课</div>
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Cloud Scheduling</p>
+          <h1>排课系统</h1>
+          <p class="hero-text">排课系统现在按云端 B/S 网页版启动建设：目标是任何有网络的地方都能登录查看和处理排课，不再按局域网、本地主控电脑、本地 SQLite 作为正式方向。6、7、8 月继续以人工 Excel 为标准，同时让云端版并行磨合。</p>
+          <div class="tag-row">
+            <span class="tag">公网访问</span>
+            <span class="tag">统一账号权限</span>
+            <span class="tag">云端唯一数据源</span>
+            <span class="tag warn">第一阶段先做云端工作台</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+          <div class="cloud-note">当前页面先启动云端版业务骨架。真正多人异地同时修改同一份课表，需要下一步接入云数据库和云端接口；接入后本地电脑关机不会影响排课系统运行。</div>
+        </article>
+        <article class="card">
+          <h2>云端版推进策略</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>现在开始</strong><p>云端版作为正式方向启动，人工 Excel 继续作为 6、7、8 月核对标准。</p></div>
+            <div class="mini-item"><strong>第一阶段</strong><p>把课表、冲突、调课、教室占用、权限和日志这些核心结构先放进网页。</p></div>
+            <div class="mini-item"><strong>第二阶段</strong><p>接云数据库后开放异地实时编辑，逐步替代局域网版本。</p></div>
+          </div>
+        </article>
       </section>
 
       <section class="card">
-        <p class="eyebrow">How To Use</p>
-        <h2>老师和员工现在这样进入最稳</h2>
-        <ul>
-          <li>先在主控电脑或同一局域网环境里打开排课系统</li>
-          <li>首页先上传老师最新 Excel 总表</li>
-          <li>改 6 月和平时课进平时模式</li>
-          <li>改 7、8 月暑假课进暑假模式</li>
-          <li>缺教室、缺标准班名可以先保留课程事实，后面再逐步补规范</li>
-        </ul>
-        <div class="actions">
-          <a class="button" href="/paike/">打开排课系统入口</a>
-          <a class="button button-secondary" href="./index.html">返回总站首页</a>
+        <div class="section-head">
+          <div>
+            <h2>云端排课总览</h2>
+            <p>这里先按正式云端版的运营视角组织数据，后面接云数据库后直接替换为真实实时数据。</p>
+          </div>
+          <span class="status-pill warn">云数据库待接入</span>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>本周课程</span><strong>126</strong><p>平时课 + 暑假课合并口径</p></div>
+          <div class="metric"><span>待确认排课</span><strong>18</strong><p>缺教室、班名或时间待核</p></div>
+          <div class="metric"><span>冲突预警</span><strong>6</strong><p>教师 / 教室 / 学员三类冲突</p></div>
+          <div class="metric"><span>调课申请</span><strong>4</strong><p>手机端提交，教务审核</p></div>
         </div>
       </section>
 
-      <section class="panel-grid">
-        <article class="mini-card">
-          <h3>老师现在的常用路径</h3>
-          <p>先上传总表，再按平时模式 / 暑假模式分别处理。这样既保留老师现有 Excel 习惯，也让系统逐步接管规范字段和校验逻辑。</p>
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>云端课表样例</h2>
+              <p>先保留老师熟悉的表格视图，同时按云端字段拆成可校验数据。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>日期</th><th>时间</th><th>教师</th><th>班级 / 学员</th><th>教室</th><th>状态</th><th>联动</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>2026-06-22</td><td>18:00-19:30</td><td>刘大君</td><td>初三数学冲刺班</td><td>二楼2号</td><td><span class="tag">已排课</span></td><td>同步财务课时、教学质量问卷</td></tr>
+                <tr><td>2026-06-22</td><td>19:00-20:30</td><td>叶源泽</td><td>李同学试听</td><td>一楼3号</td><td><span class="tag warn">试听课</span></td><td>同步招生试听、家长问卷</td></tr>
+                <tr><td>2026-07-08</td><td>08:30-10:00</td><td>李舒</td><td>暑假二年级提升班</td><td>待补</td><td><span class="tag red">缺教室</span></td><td>进入待确认队列</td></tr>
+              </tbody>
+            </table>
+          </div>
         </article>
-        <article class="mini-card">
-          <h3>系统当前负责什么</h3>
-          <p>负责收口真实排课数据、处理待确认项、校验课程冲突、沉淀后续财务所需的基础课表数据，不只是一个展示页。</p>
+
+        <article class="card">
+          <h2>云端冲突校验</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>教师时间冲突</strong><p>同一教师同一时间不能安排两节课。</p></div>
+            <div class="mini-item"><strong>教室占用冲突</strong><p>同一教室同一时间只能锁定一节课。</p></div>
+            <div class="mini-item"><strong>学员多班冲突</strong><p>同一学员不能同时出现在两个班。</p></div>
+            <div class="mini-item"><strong>课时费联动</strong><p>正式课自动进入财务课时统计，试听课进入招生转化。</p></div>
+          </div>
         </article>
       </section>
 
-      <section class="card">
-        <p class="eyebrow">Note</p>
-        <h2>为什么这里不直接做成纯网页版</h2>
-        <p style="margin-top: 12px;">因为排课系统现在已经接入了真实业务数据：老师表格上传、后台 SQLite、局域网访问限制、平时模式与暑假模式拆分、以及后续财务联动。为了保证数据准确和安全，排课系统继续保持独立运行更合理，总站只负责统一入口。</p>
-        <p style="margin-top: 12px;">后续如果要做成完全公网版本，也必须重新处理后台、权限和数据同步，不适合直接把现有内网排课页面原样搬到公网。</p>
+      <section class="grid">
+        <article class="card">
+          <h2>Excel 并行导入区</h2>
+          <p>6、7、8 月人工老师继续用 Excel 排课，云端版定期导入对比。系统只把已明确内容固化为课表，疑问项留给教务拍板。</p>
+          <div class="form-grid">
+            <label class="field"><span>导入批次</span><input value="2026 暑假排课核对批次"></label>
+            <label class="field"><span>导入来源</span><select><option>老师 Excel 总表</option><option>单个老师表格</option><option>人工修正表</option></select></label>
+            <label class="field"><span>处理模式</span><select><option>自动识别平时 / 暑假</option></select></label>
+            <label class="field span-3"><span>导入后待确认</span><textarea>缺教室、班名不规范、时间冲突、学生重名、试听课归属不明，会进入待确认队列。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" type="button">云端导入入口待接入</button>
+            <a class="button secondary" href="./index.html">返回总站首页</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>云端运维</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>自动备份</strong><p>目标：每日凌晨全量备份，保留 30 天。</p></div>
+            <div class="mini-item"><strong>访问日志</strong><p>记录账号、时间、设备和关键修改动作。</p></div>
+            <div class="mini-item"><strong>异常预警</strong><p>陌生设备、异地高风险操作、批量删除都要提醒管理员。</p></div>
+          </div>
+        </article>
       </section>
     </main>
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
   </body>
 </html>

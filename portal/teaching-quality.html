@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜教学质量系统</title>
+    <style>
+      :root {
+        --bg: #f4f6fb;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #172132;
+        --muted: #627086;
+        --line: rgba(23, 33, 50, 0.08);
+        --brand: #7c3aed;
+        --brand-dark: #6d28d9;
+        --brand-soft: rgba(124, 58, 237, 0.10);
+        --green: #0f766e;
+        --amber: #b45309;
+        --red: #b91c1c;
+        --shadow: 0 18px 46px rgba(23, 33, 50, 0.10);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, #f9fafe 0%, #edf1f8 100%);
+      }
+      button, input, select, textarea { font: inherit; }
+      .shell { width: min(1280px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+      .topbar, .card, .metric { background: var(--panel); border: 1px solid rgba(255,255,255,0.70); border-radius: 22px; box-shadow: var(--shadow); }
+      .topbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 18px; margin-bottom: 18px; }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link, .button {
+        display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px;
+        border-radius: 999px; text-decoration: none; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 13px;
+      }
+      .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
+      .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+      .button.small { min-height: 34px; padding: 0 12px; font-size: 12px; }
+      .button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: 0.58; }
+      .hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); gap: 18px; }
+      .card { padding: 22px; }
+      .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row, .actions, .section-head, .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .section-head { justify-content: space-between; margin-bottom: 14px; }
+      .tag, .status-chip, .grade {
+        display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px;
+        background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 800;
+      }
+      .tag.green { background: rgba(15,118,110,0.10); color: var(--green); }
+      .tag.amber { background: rgba(180,83,9,0.10); color: var(--amber); }
+      .tag.red { background: rgba(185,28,28,0.10); color: var(--red); }
+      .auth-note, .warning {
+        margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(124,58,237,0.16); color: var(--muted);
+      }
+      .warning { background: rgba(180,83,9,0.10); color: var(--amber); }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+      .metric { padding: 16px; }
+      .metric span { color: var(--muted); font-size: 13px; }
+      .metric strong { display: block; margin-top: 8px; font-size: 28px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr); gap: 18px; }
+      .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+      .field input, .field select, .field textarea {
+        width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff;
+      }
+      .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .span-2 { grid-column: span 2; }
+      .span-3 { grid-column: 1 / -1; }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      table { width: 100%; min-width: 860px; border-collapse: collapse; }
+      th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
+      th { background: #fafbfe; color: var(--ink); font-weight: 800; }
+      tr:last-child td { border-bottom: 0; }
+      .score-bar { height: 8px; border-radius: 999px; background: #edf1f8; overflow: hidden; margin-top: 7px; }
+      .score-bar span { display: block; width: var(--w, 0%); height: 100%; background: linear-gradient(90deg, var(--green), var(--brand)); }
+      .grade { min-width: 32px; justify-content: center; border-radius: 10px; }
+      .grade.s { background: rgba(15,118,110,0.12); color: var(--green); }
+      .grade.a { background: rgba(124,58,237,0.12); color: var(--brand); }
+      .grade.b { background: rgba(180,83,9,0.12); color: var(--amber); }
+      .grade.c { background: rgba(185,28,28,0.12); color: var(--red); }
+      .mini-list { display: grid; gap: 12px; margin-top: 14px; }
+      .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+      .mini-item strong { display: block; margin-bottom: 6px; }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-2, .span-3 { grid-column: auto; } }
+    </style>
+  </head>
+  <body data-page-permission="teachingQuality.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 06 · 教学质量系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link active" href="./teaching-quality.html">教学质量系统</a>
+        </nav>
+      </section>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Teaching Quality Desk</p>
+          <h1>教学质量系统</h1>
+          <p class="hero-text">这个系统和招生、财务、排课并列，负责管理授课老师的课堂质量、家长反馈、学生反馈、整改闭环和教学质量绩效。第一阶段采用轻量化方式：教务抽样巡课 + 学生匿名问卷 + 家长匿名问卷 + 系统客观数据。</p>
+          <div class="tag-row">
+            <span class="tag">抽样巡课 35%</span>
+            <span class="tag">学生问卷 20%</span>
+            <span class="tag">家长问卷 35%</span>
+            <span class="tag">客观数据 10%</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+          <div class="warning" id="qualityEditWarning" hidden>当前账号可以查看教学质量数据，但没有教学质量管理权限。需要学管、教务组长或总管理员账号才能录入巡课和处理整改。</div>
+        </article>
+        <article class="card">
+          <h2>本阶段边界</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>做什么</strong><p>抽样听课、匿名问卷、月度评分、整改工单、教师档案、财务绩效预估。</p></div>
+            <div class="mini-item"><strong>不做什么</strong><p>不做实时视频监控、全课录制、每节课强制巡课、教案多级审批。</p></div>
+            <div class="mini-item"><strong>后续联动</strong><p>从排课系统同步课时，从招生系统同步试听，从财务系统同步绩效核算。</p></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>教学质量月度总览</h2>
+            <p>按当前权重自动计算教师月度综合评分，并输出 S/A/B/C 等级和管理建议。</p>
+          </div>
+          <div class="filters">
+            <span class="status-chip">S 90+</span>
+            <span class="status-chip">A 80-89</span>
+            <span class="status-chip">B 70-79</span>
+            <span class="status-chip">C 70 以下</span>
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>本月教师均分</span><strong id="qualityAverageScore">0</strong><p>按权重自动计算</p></div>
+          <div class="metric"><span>S / A 级教师</span><strong id="qualityStrongCount">0</strong><p>优先分配优质试听班</p></div>
+          <div class="metric"><span>B / C 预警</span><strong id="qualityAlertCount">0</strong><p>增加抽样和教研帮扶</p></div>
+          <div class="metric"><span>未闭环整改</span><strong id="qualityTicketCount">0</strong><p>到期前提醒教务复查</p></div>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>教师</th>
+                <th>综合评分</th>
+                <th>等级</th>
+                <th>绩效系数</th>
+                <th>巡课</th>
+                <th>学生问卷</th>
+                <th>家长问卷</th>
+                <th>客观数据</th>
+                <th>管理建议</th>
+              </tr>
+            </thead>
+            <tbody id="qualityRankingBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>教务抽样巡课录入</h2>
+              <p>低分或标记重点整改后，会自动生成整改工单。</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="field"><span>授课教师</span><select id="inspectionTeacher"></select></label>
+            <label class="field"><span>班级 / 课程</span><input id="inspectionClass" value="暑假数学小班"></label>
+            <label class="field"><span>课程类型</span><select id="inspectionType"><option>在读班</option><option>试听课</option><option>暑假班</option></select></label>
+            <label class="field"><span>巡课日期</span><input id="inspectionDate" type="date" value="2026-06-21"></label>
+            <label class="field"><span>备课与课堂逻辑</span><input id="scoreLogic" type="number" min="0" max="100" value="86"></label>
+            <label class="field"><span>互动与分层关注</span><input id="scoreInteraction" type="number" min="0" max="100" value="86"></label>
+            <label class="field"><span>课堂秩序管理</span><input id="scoreOrder" type="number" min="0" max="100" value="86"></label>
+            <label class="field"><span>课堂时间规范</span><input id="scoreTime" type="number" min="0" max="100" value="86"></label>
+            <label class="field"><span>授课服务仪态</span><input id="scoreService" type="number" min="0" max="100" value="86"></label>
+            <label class="field"><span>课堂记录图片</span><input id="inspectionAttachment" value="板书照片 / 课堂记录截图"></label>
+            <label class="field"><span>是否重点整改</span><select id="inspectionFocus"><option>否</option><option>是</option></select></label>
+            <label class="field span-3"><span>巡课备注</span><textarea id="inspectionNote">记录课堂亮点、扣分原因和教务建议。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" id="saveInspectionButton" type="button">保存巡课记录</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>问卷模板</h2>
+          <div class="mini-list" id="templateList"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>巡课记录</h2>
+              <p>单次巡课永久留档，后续接云数据库后同步到教师档案。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>日期</th><th>教师</th><th>班级</th><th>均分</th><th>标签</th><th>备注</th></tr></thead>
+              <tbody id="inspectionBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>整改工单</h2>
+          <div class="table-wrap" style="margin-top:16px;">
+            <table>
+              <thead><tr><th>工单</th><th>教师</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="ticketBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>教师个人教学质量档案</h2>
+              <p>老师看自身短板，教务看整改和趋势。</p>
+            </div>
+            <select id="profileTeacher"></select>
+          </div>
+          <div class="metrics">
+            <div class="metric"><span>综合评分</span><strong id="profileScore">0</strong><p id="profileGrade">等级待计算</p></div>
+            <div class="metric"><span>巡课均分</span><strong id="profileInspection">0</strong><p>抽样记录均值</p></div>
+            <div class="metric"><span>家长异议</span><strong id="profileWeakTag">暂无</strong><p>匿名问卷高频标签</p></div>
+            <div class="metric"><span>未闭环整改</span><strong id="profileTicket">0</strong><p>当前待处理工单</p></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>财务绩效预核算</h2>
+          <div class="table-wrap" style="margin-top:16px;">
+            <table>
+              <thead><tr><th>教师</th><th>评级</th><th>系数</th><th>财务建议</th></tr></thead>
+              <tbody id="financePreviewBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
+    <script>
+      const STORAGE_KEY = "jrc-teaching-quality-system";
+      const defaultState = {
+        selectedTeacher: "刘大君",
+        weights: { inspection: 35, studentSurvey: 20, parentSurvey: 35, objective: 10 },
+        inspections: [
+          { teacher: "刘大君", className: "初三数学冲刺班", lessonType: "在读班", date: "2026-06-18", scores: [92, 88, 90, 94, 91], note: "课堂节奏稳定，压轴题讲解清晰，薄弱学生答疑还可以再多留 5 分钟。", tags: ["分层关注"], attachment: "板书照片 1 张" },
+          { teacher: "叶源泽", className: "初一数学暑假预备班", lessonType: "试听课", date: "2026-06-19", scores: [84, 80, 82, 86, 88], note: "互动不错，但例题梯度可以再清晰，试听后家长希望看到更明确的提分路径。", tags: ["试听转化观察"], attachment: "课堂记录截图" },
+          { teacher: "海滢滢", className: "科学三升四小班", lessonType: "在读班", date: "2026-06-17", scores: [87, 89, 86, 90, 92], note: "课堂趣味性和耐心较好，家长沟通反馈要继续保持及时。", tags: [], attachment: "无" },
+          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [76, 74, 72, 80, 78], note: "课堂秩序管理偏弱，个别学生走神较多，建议教务一周后复查。", tags: ["重点整改"], attachment: "课堂记录截图" }
+        ],
+        studentSurveys: [
+          { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "李舒", score: 75 }
+        ],
+        parentSurveys: [
+          { teacher: "刘大君", score: 88, tags: ["续课意愿高"] },
+          { teacher: "叶源泽", score: 82, tags: ["价格匹配度顾虑"] },
+          { teacher: "海滢滢", score: 91, tags: ["转介绍意愿高"] },
+          { teacher: "李舒", score: 72, tags: ["反馈不及时", "关注孩子不足"] }
+        ],
+        objectiveMetrics: [
+          { teacher: "刘大君", renewalRate: 92, trialConversionRate: 66, referrals: 2, feedbackRecords: 18, complaints: 0, lateRecords: 0, missedHomework: 1, missedMakeup: 0 },
+          { teacher: "叶源泽", renewalRate: 82, trialConversionRate: 45, referrals: 1, feedbackRecords: 11, complaints: 0, lateRecords: 1, missedHomework: 1, missedMakeup: 0 },
+          { teacher: "海滢滢", renewalRate: 88, trialConversionRate: 50, referrals: 2, feedbackRecords: 14, complaints: 0, lateRecords: 0, missedHomework: 0, missedMakeup: 0 },
+          { teacher: "李舒", renewalRate: 70, trialConversionRate: 36, referrals: 0, feedbackRecords: 6, complaints: 1, lateRecords: 1, missedHomework: 2, missedMakeup: 1 }
+        ],
+        tickets: [
+          { id: "TQ-202606-001", teacher: "李舒", problem: "课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
+          { id: "TQ-202606-002", teacher: "叶源泽", problem: "试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
+        ],
+        templates: [
+          { type: "学生匿名问卷", enabled: true, sendAfter: "课程结束后 30 分钟", questions: "易懂程度、趣味性、答疑耐心、作业难度、课堂收获" },
+          { type: "在读家长问卷", enabled: true, sendAfter: "每月抽样推送", questions: "课堂吸收、课后反馈、回复速度、责任心、续课意愿、转介绍意愿" },
+          { type: "试听家长问卷", enabled: true, sendAfter: "试听结束后 2 小时", questions: "试听满意度、未报名异议、意向等级、是否进培育群" }
+        ]
+      };
+      let state = loadState();
+      function byId(id) { return document.getElementById(id); }
+      function loadState() {
+        try { return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")) }; }
+        catch { return structuredClone(defaultState); }
+      }
+      function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function currentEmployee() { return window.JRC_CURRENT_EMPLOYEE || null; }
+      function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
+      function canEdit() { return hasPermission("teachingQuality.edit") || hasPermission("admin.access"); }
+      function avg(values) { const valid = values.map(Number).filter(Number.isFinite); return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0; }
+      function clamp(value) { return Math.max(0, Math.min(100, Math.round(Number(value) || 0))); }
+      function inspectionAvg(record) { return clamp(avg(record.scores || [])); }
+      function teachers() {
+        const names = new Set();
+        const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
+        employees.filter((e) => e.role === "授课老师" || e.commissionRate || e.subject).forEach((e) => names.add(e.name));
+        state.inspections.forEach((r) => names.add(r.teacher));
+        state.studentSurveys.forEach((r) => names.add(r.teacher));
+        state.parentSurveys.forEach((r) => names.add(r.teacher));
+        state.objectiveMetrics.forEach((r) => names.add(r.teacher));
+        return Array.from(names).filter(Boolean);
+      }
+      function objectiveScore(metrics = {}) {
+        return clamp(78 + Math.max(0, Number(metrics.renewalRate || 0) - 70) * 0.25 + Math.max(0, Number(metrics.trialConversionRate || 0) - 35) * 0.18 + Number(metrics.referrals || 0) * 2.5 + Math.min(8, Number(metrics.feedbackRecords || 0) * 0.35) - Number(metrics.complaints || 0) * 8 - Number(metrics.lateRecords || 0) * 4 - Number(metrics.missedHomework || 0) * 3 - Number(metrics.missedMakeup || 0) * 4);
+      }
+      function stats(teacher) {
+        const inspection = avg(state.inspections.filter((r) => r.teacher === teacher).map(inspectionAvg)) || 82;
+        const studentSurvey = avg(state.studentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score)) || 82;
+        const parentSurvey = avg(state.parentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score)) || 82;
+        const objective = objectiveScore(state.objectiveMetrics.find((r) => r.teacher === teacher));
+        const total = Math.round((inspection * 0.35 + studentSurvey * 0.20 + parentSurvey * 0.35 + objective * 0.10) * 10) / 10;
+        const grade = total >= 90 ? "S" : total >= 80 ? "A" : total >= 70 ? "B" : "C";
+        const coefficient = grade === "S" ? 1.1 : grade === "A" ? 1.0 : grade === "B" ? 0.9 : 0.8;
+        const advice = grade === "S" ? "优先分配优质试听班，可纳入评优。" : grade === "A" ? "正常排课与奖励，继续保持。" : grade === "B" ? "增加抽样听课频次，安排教研帮扶。" : "强制整改，连续两月 C 级触发人事预警。";
+        return { teacher, inspection: Math.round(inspection * 10) / 10, studentSurvey: Math.round(studentSurvey * 10) / 10, parentSurvey: Math.round(parentSurvey * 10) / 10, objective, total, grade, coefficient, advice };
+      }
+      function ranking() { return teachers().map(stats).sort((a, b) => b.total - a.total); }
+      function scoreCell(score) { return `<strong>${score}</strong><div class="score-bar" style="--w:${Math.round(score)}%"><span></span></div>`; }
+      function renderOptions() {
+        const options = teachers().map((name) => `<option value="${name}">${name}</option>`).join("");
+        ["inspectionTeacher", "profileTeacher"].forEach((id) => {
+          const select = byId(id);
+          if (!select) return;
+          const current = select.value || state.selectedTeacher;
+          select.innerHTML = options;
+          select.value = teachers().includes(current) ? current : teachers()[0] || "";
+        });
+      }
+      function renderAll() {
+        persist();
+        renderOptions();
+        const items = ranking();
+        byId("qualityAverageScore").textContent = String(Math.round(avg(items.map((i) => i.total)) * 10) / 10);
+        byId("qualityStrongCount").textContent = String(items.filter((i) => i.grade === "S" || i.grade === "A").length);
+        byId("qualityAlertCount").textContent = String(items.filter((i) => i.grade === "B" || i.grade === "C").length);
+        byId("qualityTicketCount").textContent = String(state.tickets.filter((t) => !t.status.includes("已闭环")).length);
+        byId("qualityRankingBody").innerHTML = items.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button">${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("");
+        byId("inspectionBody").innerHTML = state.inspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("");
+        byId("templateList").innerHTML = state.templates.map((t) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p></div>`).join("");
+        byId("ticketBody").innerHTML = state.tickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("");
+        const selected = byId("profileTeacher").value || state.selectedTeacher || teachers()[0];
+        state.selectedTeacher = selected;
+        const selectedStats = stats(selected);
+        const weakTag = getWeakTag(selected);
+        byId("profileScore").textContent = String(selectedStats.total);
+        byId("profileGrade").textContent = `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}`;
+        byId("profileInspection").textContent = String(selectedStats.inspection);
+        byId("profileWeakTag").textContent = weakTag;
+        byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
+        byId("financePreviewBody").innerHTML = items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("");
+        byId("qualityEditWarning").hidden = canEdit();
+        document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());
+        bindDynamicActions();
+      }
+      function getWeakTag(teacher) {
+        const count = new Map();
+        state.parentSurveys.filter((r) => r.teacher === teacher).forEach((r) => (r.tags || []).forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1)));
+        return Array.from(count.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
+      }
+      function bindDynamicActions() {
+        document.querySelectorAll("[data-select-teacher]").forEach((button) => button.onclick = () => { state.selectedTeacher = button.dataset.selectTeacher; renderAll(); });
+        document.querySelectorAll("[data-ticket-close]").forEach((button) => button.onclick = () => { const ticket = state.tickets.find((t) => t.id === button.dataset.ticketClose); if (ticket && canEdit()) { ticket.status = "已闭环"; renderAll(); } });
+        document.querySelectorAll("[data-ticket-plan]").forEach((button) => button.onclick = () => { const ticket = state.tickets.find((t) => t.id === button.dataset.ticketPlan); if (ticket && canEdit()) { ticket.status = "整改中"; renderAll(); } });
+      }
+      byId("saveInspectionButton").addEventListener("click", () => {
+        if (!canEdit()) return;
+        const scores = ["scoreLogic", "scoreInteraction", "scoreOrder", "scoreTime", "scoreService"].map((id) => clamp(byId(id).value));
+        const record = {
+          teacher: byId("inspectionTeacher").value,
+          className: byId("inspectionClass").value.trim() || "未命名课程",
+          lessonType: byId("inspectionType").value,
+          date: byId("inspectionDate").value || "2026-06-21",
+          scores,
+          note: byId("inspectionNote").value.trim() || "常规抽样巡课。",
+          tags: byId("inspectionFocus").value === "是" || avg(scores) < 75 ? ["重点整改"] : [],
+          attachment: byId("inspectionAttachment").value.trim() || "无"
+        };
+        state.inspections.unshift(record);
+        state.selectedTeacher = record.teacher;
+        if (inspectionAvg(record) < 75 || record.tags.includes("重点整改")) {
+          state.tickets.unshift({ id: `TQ-${Date.now().toString().slice(-8)}`, teacher: record.teacher, problem: record.note, dueDate: record.date, status: "待教师提交整改" });
+        }
+        renderAll();
+      });
+      byId("profileTeacher").addEventListener("change", () => { state.selectedTeacher = byId("profileTeacher").value; renderAll(); });
+      renderAll();
+    </script>
+  </body>
+</html>

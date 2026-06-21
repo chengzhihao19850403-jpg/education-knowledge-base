@@ -177,6 +177,10 @@
         border: 1px solid rgba(13, 148, 136, 0.16);
       }
 
+      .auth-note + .auth-note {
+        margin-top: 12px;
+      }
+
       @media (max-width: 900px) {
         .grid {
           grid-template-columns: 1fr;
@@ -189,31 +193,33 @@
       <section class="hero">
         <p class="eyebrow">JRC EDU Portal</p>
         <h1>匠人程工作台</h1>
-        <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库与学管课堂、建议管理、财务、招生管理。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
+        <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库与学管课堂、建议管理、财务、招生管理、教学质量。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
         <div class="auth-note" data-employee-summary></div>
+        <div class="auth-note" data-employee-directory hidden></div>
+        <div class="auth-note" data-role-greeting></div>
       </section>
 
       <section class="grid">
-        <article class="card">
+        <article class="card" data-requires-permission-card="paike.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 01</p>
               <h2>排课系统</h2>
             </div>
-            <span class="badge">当前重点</span>
+            <span class="badge">云端版</span>
           </div>
-          <p>负责 6 月平时课与 7、8 月暑假课排课。支持老师继续按 Excel 工作习惯录入，再在系统里逐步补教室、班名和规范字段。</p>
+          <p>负责 6 月平时课与 7、8 月暑假课排课。现在开始按云端 B/S 版建设，先让老师和人工 Excel 并行磨合，再逐步切到云端唯一数据源。</p>
           <ul class="list">
-            <li>先上传老师最新总表</li>
-            <li>平时模式处理 6 月和平时课</li>
-            <li>暑假模式处理 7、8 月排课</li>
+            <li>公网账号登录，不再按局域网设计</li>
+            <li>先做云端课表、冲突校验、调课记录</li>
+            <li>后续接云数据库和财务课时统计</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./paike.html">进入排课系统</a>
+            <a class="button" data-requires-permission="paike.access" href="./paike.html">进入排课系统</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="knowledge.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 02</p>
@@ -228,11 +234,11 @@
             <li>阶段测试与培训验收</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./knowledge.html">进入知识库与学管课堂</a>
+            <a class="button" data-requires-permission="knowledge.access" href="./knowledge.html">进入知识库与学管课堂</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="suggestions.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 03</p>
@@ -247,11 +253,11 @@
             <li>沉淀团队改进事项</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./suggestions.html">进入建议管理系统</a>
+            <a class="button" data-requires-permission="suggestions.access" href="./suggestions.html">进入建议管理系统</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="finance.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 04</p>
@@ -266,11 +272,11 @@
             <li>毛利润、分红池和留存利润</li>
           </ul>
           <div class="actions">
-            <a class="button" href="./finance.html">进入财务系统</a>
+            <a class="button" data-requires-permission="finance.access" href="./finance.html">进入财务系统</a>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" data-requires-permission-card="admissions.access">
           <div class="card-head">
             <div>
               <p class="eyebrow">System 05</p>
@@ -285,12 +291,31 @@
             <li>后续再加短信、二维码、批量运营和看板深化</li>
           </ul>
           <div class="actions">
-            <a class="button" href="/jrcedu/advice-system/index.html">进入招生管理系统</a>
+            <a class="button" data-requires-permission="admissions.access" data-open-admissions-direct href="/jrcedu/advice-system/index.html">进入招生管理系统</a>
+          </div>
+        </article>
+
+        <article class="card" data-requires-permission-card="teachingQuality.access">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 06</p>
+              <h2>教学质量系统</h2>
+            </div>
+            <span class="badge">新独立</span>
+          </div>
+          <p>负责授课老师教学质量管理，包含教务抽样巡课、学生和家长匿名问卷、月度评分、整改闭环、教学质量绩效预核算。</p>
+          <ul class="list">
+            <li>抽样巡课和匿名问卷采集</li>
+            <li>S/A/B/C 教师评级与整改工单</li>
+            <li>联动排课、招生试听、财务绩效</li>
+          </ul>
+          <div class="actions">
+            <a class="button" data-requires-permission="teachingQuality.access" href="./teaching-quality.html">进入教学质量系统</a>
           </div>
         </article>
       </section>
 
     </main>
-    <script src="/jrcedu/portal/auth.js"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
   </body>
 </html>
