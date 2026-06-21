@@ -156,13 +156,14 @@
             <span class="status-chip">C 70 以下</span>
           </div>
         </div>
-        <div class="warning">当前排名和整改工单是演示样例，不代表任何老师的真实教学评价；正式启用前会改为真实数据和权限可见范围。</div>
+        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开倒数排名。完整排名仅管理员和教研/教务负责人可见，授课老师默认只看自己的档案、趋势和整改建议。</div>
         <div class="metrics">
-          <div class="metric"><span>本月教师均分</span><strong id="qualityAverageScore">0</strong><p>按权重自动计算</p></div>
-          <div class="metric"><span>S / A 级教师</span><strong id="qualityStrongCount">0</strong><p>优先分配优质试听班</p></div>
-          <div class="metric"><span>B / C 预警</span><strong id="qualityAlertCount">0</strong><p>增加抽样和教研帮扶</p></div>
-          <div class="metric"><span>未闭环整改</span><strong id="qualityTicketCount">0</strong><p>到期前提醒教务复查</p></div>
+          <div class="metric"><span id="qualityMetricOneLabel">本月教师均分</span><strong id="qualityAverageScore">0</strong><p id="qualityMetricOneHint">按权重自动计算</p></div>
+          <div class="metric"><span id="qualityMetricTwoLabel">S / A 级教师</span><strong id="qualityStrongCount">0</strong><p id="qualityMetricTwoHint">优先分配优质试听班</p></div>
+          <div class="metric"><span id="qualityMetricThreeLabel">B / C 预警</span><strong id="qualityAlertCount">0</strong><p id="qualityMetricThreeHint">增加抽样和教研帮扶</p></div>
+          <div class="metric"><span id="qualityMetricFourLabel">未闭环整改</span><strong id="qualityTicketCount">0</strong><p id="qualityMetricFourHint">到期前提醒教务复查</p></div>
         </div>
+        <div class="mini-list" id="qualityPublicBoard"></div>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
@@ -184,7 +185,7 @@
       </section>
 
       <section class="grid">
-        <article class="card">
+        <article class="card" id="inspectionEntryCard">
           <div class="section-head">
             <div>
               <h2>教务抽样巡课录入</h2>
@@ -210,14 +211,14 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" id="templateCard">
           <h2>问卷模板</h2>
           <div class="mini-list" id="templateList"></div>
         </article>
       </section>
 
       <section class="grid">
-        <article class="card">
+        <article class="card" id="inspectionRecordsCard">
           <div class="section-head">
             <div>
               <h2>巡课记录</h2>
@@ -232,7 +233,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" id="ticketCard">
           <h2>整改工单</h2>
           <div class="table-wrap" style="margin-top:16px;">
             <table>
@@ -244,7 +245,7 @@
       </section>
 
       <section class="grid">
-        <article class="card">
+        <article class="card" id="financePreviewCard">
           <div class="section-head">
             <div>
               <h2>教师个人教学质量档案</h2>
@@ -274,7 +275,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260621e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260621f"></script>
     <script>
       const STORAGE_KEY = "jrc-teaching-quality-system-v2-demo";
       const defaultState = {
@@ -327,6 +328,13 @@
       function currentEmployee() { return window.JRC_CURRENT_EMPLOYEE || null; }
       function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
       function canEdit() { return hasPermission("teachingQuality.edit") || hasPermission("admin.access"); }
+      function canViewFullQuality() { return canEdit() || hasPermission("admin.access"); }
+      function currentTeacherName() { return currentEmployee()?.name || state.selectedTeacher || ""; }
+      function visibleTeacherNames() {
+        if (canViewFullQuality()) return teachers();
+        const name = currentTeacherName();
+        return teachers().includes(name) ? [name] : [];
+      }
       function avg(values) { const valid = values.map(Number).filter(Number.isFinite); return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0; }
       function clamp(value) { return Math.max(0, Math.min(100, Math.round(Number(value) || 0))); }
       function inspectionAvg(record) { return clamp(avg(record.scores || [])); }
@@ -357,37 +365,112 @@
       function ranking() { return teachers().map(stats).sort((a, b) => b.total - a.total); }
       function scoreCell(score) { return `<strong>${score}</strong><div class="score-bar" style="--w:${Math.round(score)}%"><span></span></div>`; }
       function renderOptions() {
-        const options = teachers().map((name) => `<option value="${name}">${name}</option>`).join("");
+        const selectableTeachers = canViewFullQuality() ? teachers() : visibleTeacherNames();
+        const options = selectableTeachers.map((name) => `<option value="${name}">${name}</option>`).join("");
         ["inspectionTeacher", "profileTeacher"].forEach((id) => {
           const select = byId(id);
           if (!select) return;
           const current = select.value || state.selectedTeacher;
           select.innerHTML = options;
-          select.value = teachers().includes(current) ? current : teachers()[0] || "";
+          select.value = selectableTeachers.includes(current) ? current : selectableTeachers[0] || "";
+          if (id === "profileTeacher") select.disabled = !canViewFullQuality();
         });
+      }
+      function commonQualityTags() {
+        const count = new Map();
+        state.parentSurveys.forEach((record) => {
+          (record.tags || []).filter((tag) => tag !== "演示样例").forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1));
+        });
+        return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
+      }
+      function renderPublicBoard(allItems) {
+        const strongItems = allItems
+          .filter((item) => item.grade === "S" || item.grade === "A")
+          .slice(0, 3)
+          .map((item) => item.teacher)
+          .join("、") || "暂无";
+        const commonTags = commonQualityTags().slice(0, 3).join("、") || "暂无集中问题";
+        const personalLine = canViewFullQuality()
+          ? "完整排名只在管理端内部使用，正式启用后不建议在全员群里公布倒数或低分名单。"
+          : "你当前只看到自己的教学质量档案；别人的低分、整改和财务绩效不会在老师端展示。";
+        byId("qualityPublicBoard").innerHTML = `
+          <div class="mini-item">
+            <strong>可公开的正向榜单</strong>
+            <p>建议只公开优秀案例、进步明显、家长反馈亮点。本月可表扬对象：${strongItems}。</p>
+          </div>
+          <div class="mini-item">
+            <strong>全校共性改进方向</strong>
+            <p>系统只汇总问题类型，不在全员页点名批评。当前高频观察项：${commonTags}。</p>
+          </div>
+          <div class="mini-item">
+            <strong>隐私规则</strong>
+            <p>${personalLine}</p>
+          </div>
+        `;
       }
       function renderAll() {
         persist();
         renderOptions();
         const items = ranking();
-        byId("qualityAverageScore").textContent = String(Math.round(avg(items.map((i) => i.total)) * 10) / 10);
-        byId("qualityStrongCount").textContent = String(items.filter((i) => i.grade === "S" || i.grade === "A").length);
-        byId("qualityAlertCount").textContent = String(items.filter((i) => i.grade === "B" || i.grade === "C").length);
-        byId("qualityTicketCount").textContent = String(state.tickets.filter((t) => !t.status.includes("已闭环")).length);
-        byId("qualityRankingBody").innerHTML = items.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button">${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("");
-        byId("inspectionBody").innerHTML = state.inspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("");
+        const visibleNames = visibleTeacherNames();
+        const visibleItems = canViewFullQuality() ? items : items.filter((item) => visibleNames.includes(item.teacher));
+        const selected = canViewFullQuality()
+          ? byId("profileTeacher").value || state.selectedTeacher || teachers()[0]
+          : currentTeacherName();
+        const selectedStats = selected ? stats(selected) : null;
+        const visibleTickets = canViewFullQuality()
+          ? state.tickets
+          : state.tickets.filter((ticket) => ticket.teacher === selected);
+        const visibleInspections = canViewFullQuality()
+          ? state.inspections
+          : state.inspections.filter((record) => record.teacher === selected);
+
+        renderPublicBoard(items);
+
+        if (canViewFullQuality()) {
+          byId("qualityMetricOneLabel").textContent = "本月教师均分";
+          byId("qualityAverageScore").textContent = String(Math.round(avg(items.map((i) => i.total)) * 10) / 10);
+          byId("qualityMetricOneHint").textContent = "按权重自动计算";
+          byId("qualityMetricTwoLabel").textContent = "S / A 级教师";
+          byId("qualityStrongCount").textContent = String(items.filter((i) => i.grade === "S" || i.grade === "A").length);
+          byId("qualityMetricTwoHint").textContent = "优先分配优质试听班";
+          byId("qualityMetricThreeLabel").textContent = "B / C 预警";
+          byId("qualityAlertCount").textContent = String(items.filter((i) => i.grade === "B" || i.grade === "C").length);
+          byId("qualityMetricThreeHint").textContent = "增加抽样和教研帮扶";
+          byId("qualityMetricFourLabel").textContent = "未闭环整改";
+          byId("qualityTicketCount").textContent = String(state.tickets.filter((t) => !t.status.includes("已闭环")).length);
+          byId("qualityMetricFourHint").textContent = "到期前提醒教务复查";
+        } else {
+          byId("qualityMetricOneLabel").textContent = "我的综合评分";
+          byId("qualityAverageScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
+          byId("qualityMetricOneHint").textContent = "只显示本人数据";
+          byId("qualityMetricTwoLabel").textContent = "我的等级";
+          byId("qualityStrongCount").textContent = selectedStats ? selectedStats.grade : "-";
+          byId("qualityMetricTwoHint").textContent = selectedStats ? `绩效系数 ${selectedStats.coefficient}` : "暂无本人档案";
+          byId("qualityMetricThreeLabel").textContent = "我的改进方向";
+          byId("qualityAlertCount").textContent = selectedStats ? "查看" : "暂无";
+          byId("qualityMetricThreeHint").textContent = selectedStats ? getWeakTag(selected) : "来自问卷和巡课汇总";
+          byId("qualityMetricFourLabel").textContent = "我的未闭环整改";
+          byId("qualityTicketCount").textContent = String(visibleTickets.filter((t) => !t.status.includes("已闭环")).length);
+          byId("qualityMetricFourHint").textContent = "仅显示本人相关工单";
+        }
+
+        byId("qualityRankingBody").innerHTML = visibleItems.length
+          ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${canViewFullQuality() ? item.coefficient : "本人可见"}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("")
+          : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，后续由管理员在人事系统补齐姓名和任课信息后自动显示。</td></tr>`;
+        byId("inspectionBody").innerHTML = visibleInspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("") || `<tr><td colspan="6">当前账号暂无巡课记录。</td></tr>`;
         byId("templateList").innerHTML = state.templates.map((t) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p></div>`).join("");
-        byId("ticketBody").innerHTML = state.tickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("");
-        const selected = byId("profileTeacher").value || state.selectedTeacher || teachers()[0];
+        byId("ticketBody").innerHTML = visibleTickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("") || `<tr><td colspan="4">当前账号暂无整改工单。</td></tr>`;
         state.selectedTeacher = selected;
-        const selectedStats = stats(selected);
         const weakTag = getWeakTag(selected);
-        byId("profileScore").textContent = String(selectedStats.total);
-        byId("profileGrade").textContent = `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}`;
-        byId("profileInspection").textContent = String(selectedStats.inspection);
+        byId("profileScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
+        byId("profileGrade").textContent = selectedStats ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : "暂未匹配本人档案";
+        byId("profileInspection").textContent = selectedStats ? String(selectedStats.inspection) : "0";
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
         byId("financePreviewBody").innerHTML = items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("");
+        byId("financePreviewCard").hidden = !canViewFullQuality();
+        byId("inspectionEntryCard").hidden = !canEdit();
         byId("qualityEditWarning").hidden = canEdit();
         document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());
         bindDynamicActions();
