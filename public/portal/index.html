@@ -222,6 +222,15 @@
         color: var(--ink);
         font-size: 24px;
       }
+      .role-welcome {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.08);
+        border: 1px solid rgba(13, 148, 136, 0.16);
+        color: var(--muted);
+        line-height: 1.7;
+      }
       .data-state-list {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -408,11 +417,12 @@
           <div class="card-head">
             <div>
               <p class="eyebrow">Today</p>
-              <h2>今日工作台</h2>
+              <h2 id="portalTodayTitle">今日工作台</h2>
             </div>
-            <span class="badge">试用重点</span>
+            <span class="badge" id="portalRoleBadge">试用重点</span>
           </div>
-          <p>云数据库明天再接，今天先把本机试用阶段最容易遗漏的事项集中到首页。管理员每天先看这里，再进入具体系统处理。</p>
+          <p id="portalTodayIntro">今天先把和你有关的工作放在这里；不同岗位看到的提醒会不一样。</p>
+          <div class="role-welcome" id="portalRoleWelcome">正在识别当前账号和岗位。</div>
           <div class="workbench-list" id="portalTodoList">
             <div class="workbench-item">
               <span class="badge">加载中</span>
@@ -425,7 +435,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" id="portalLocalDataCard">
           <div class="card-head">
             <div>
               <p class="eyebrow">Local Data</p>
@@ -455,7 +465,7 @@
         </article>
       </section>
 
-      <section class="note">
+      <section class="note" id="portalDataStateSection">
         <div class="card-head">
           <div>
             <p class="eyebrow">Data Status</p>

@@ -55,6 +55,62 @@
     return { leads, pending };
   }
 
+  function currentEmployee() {
+    return window.JRC_CURRENT_EMPLOYEE || null;
+  }
+
+  function hasPermission(permission) {
+    if (typeof window.jrcHasPermission !== "function") return true;
+    return window.jrcHasPermission(permission, currentEmployee());
+  }
+
+  function isAdminLike() {
+    return hasPermission("admin.access");
+  }
+
+  function roleTone() {
+    const employee = currentEmployee();
+    const role = employee?.role || "员工";
+    if (isAdminLike()) {
+      return {
+        title: "总览工作台",
+        badge: "全局管理",
+        intro: "这里放全校区今天最该先看的事项：数据、备份、待办和试用风险。",
+        welcome: `${employee?.name || "管理员"}，今天先看全局有没有漏项；老师们具体工作不需要都看这些管理数据。`
+      };
+    }
+    if (role === "学管") {
+      return {
+        title: "学管工作台",
+        badge: "学生与家长",
+        intro: "这里优先放招生跟进、学生服务、教学质量和家长沟通相关事项。",
+        welcome: `${employee?.name || "学管老师"}，今天重点看家长有没有要跟、学生服务有没有要补、试听反馈有没有漏。`
+      };
+    }
+    if (role === "财务") {
+      return {
+        title: "财务工作台",
+        badge: "结算与备份",
+        intro: "这里优先放财务数据、备份提醒和需要结算核对的事项。",
+        welcome: `${employee?.name || "财务老师"}，今天先确认数据有没有备份，财务系统里的收入、支出和结算口径是否需要补录。`
+      };
+    }
+    if (role === "授课老师") {
+      return {
+        title: "老师工作台",
+        badge: "上课与反馈",
+        intro: "这里会尽量只放和上课、课表、建议反馈有关的事项。",
+        welcome: `${employee?.name || "老师"}，这里不放复杂管理报表；主要看课表入口、教学质量反馈和建议系统。`
+      };
+    }
+    return {
+      title: "今日工作台",
+      badge: "我的事项",
+      intro: "这里会根据岗位显示今天和你有关的提醒。",
+      welcome: `${employee?.name || "你好"}，先看这里，再进入对应系统处理。`
+    };
+  }
+
   function readAuditCount() {
     const rows = safeParse(localStorage.getItem(auditKey), []);
     return Array.isArray(rows) ? rows.length : 0;
@@ -145,7 +201,25 @@
     `;
   }
 
+  function setRoleCopy() {
+    const tone = roleTone();
+    if ($("portalTodayTitle")) $("portalTodayTitle").textContent = tone.title;
+    if ($("portalRoleBadge")) $("portalRoleBadge").textContent = tone.badge;
+    if ($("portalTodayIntro")) $("portalTodayIntro").textContent = tone.intro;
+    if ($("portalRoleWelcome")) $("portalRoleWelcome").textContent = tone.welcome;
+  }
+
+  function setManagementVisibility() {
+    const visible = isAdminLike();
+    const localDataCard = $("portalLocalDataCard");
+    const dataStateSection = $("portalDataStateSection");
+    if (localDataCard) localDataCard.hidden = !visible;
+    if (dataStateSection) dataStateSection.hidden = !visible;
+  }
+
   function renderPortalDashboard() {
+    setRoleCopy();
+    setManagementVisibility();
     const { leads, pending } = readAdmissions();
     const auditCount = readAuditCount();
     const backupStoreCount = countBackupStores();
@@ -160,7 +234,7 @@
     if ($("portalBackupStoreCount")) $("portalBackupStoreCount").textContent = String(backupStoreCount);
 
     const todos = [];
-    if (pending.length > 0) {
+    if (hasPermission("admissions.access") && pending.length > 0) {
       todos.push(todoItem(
         "紧急",
         `招生系统有 ${pending.length} 条待处理线索`,
@@ -168,7 +242,7 @@
         "/jrcedu/advice-system/index.html",
         "处理招生"
       ));
-    } else {
+    } else if (hasPermission("admissions.access")) {
       todos.push(todoItem(
         "正常",
         "招生系统暂无紧急待办",
@@ -178,7 +252,7 @@
       ));
     }
 
-    if (paikeReviewCount > 0) {
+    if (hasPermission("paike.access") && paikeReviewCount > 0) {
       todos.push(todoItem(
         "紧急",
         `排课系统有 ${paikeReviewCount} 条待确认项`,
@@ -188,7 +262,7 @@
       ));
     }
 
-    if (qualityOpenTickets.length > 0) {
+    if (hasPermission("teachingQuality.access") && qualityOpenTickets.length > 0) {
       todos.push(todoItem(
         "提醒",
         `教学质量有 ${qualityOpenTickets.length} 条未闭环整改`,
@@ -198,7 +272,7 @@
       ));
     }
 
-    if (backupStoreCount === 0) {
+    if (isAdminLike() && backupStoreCount === 0) {
       todos.push(todoItem(
         "提醒",
         "当前浏览器还没有可备份业务数据",
@@ -206,7 +280,7 @@
         "#dataSyncSection",
         "看备份"
       ));
-    } else if (!lastBackupState.exportedToday) {
+    } else if (isAdminLike() && !lastBackupState.exportedToday) {
       todos.push(todoItem(
         "紧急",
         "今天还没有导出整站备份",
@@ -214,7 +288,7 @@
         "#dataSyncSection",
         "立即备份"
       ));
-    } else {
+    } else if (isAdminLike()) {
       todos.push(todoItem(
         "正常",
         "今天已经导出过整站备份",
@@ -224,7 +298,7 @@
       ));
     }
 
-    if (employeeState.missing > 0) {
+    if (hasPermission("hr.access") && employeeState.missing > 0) {
       todos.push(todoItem(
         "提醒",
         `员工资料还有 ${employeeState.missing} 人待补齐`,
@@ -234,13 +308,43 @@
       ));
     }
 
-    if (auditCount === 0) {
+    if (isAdminLike() && auditCount === 0) {
       todos.push(todoItem(
         "提醒",
         "操作日志还没有形成记录",
         "多人试用时，请尽量通过系统新增、修改、导入，不要只在群里口头改。",
         "./suggestions.html",
         "看日志"
+      ));
+    }
+
+    if (hasPermission("finance.access")) {
+      todos.push(todoItem(
+        "提醒",
+        "财务系统可继续补录收入、支出和结算数据",
+        "今天如果有课时费、报销、成本或分红口径调整，建议先录进财务系统，后面接云库时更容易迁移。",
+        "./finance.html",
+        "进入财务"
+      ));
+    }
+
+    if (hasPermission("suggestions.access")) {
+      todos.push(todoItem(
+        "正常",
+        "有想法可以随时丢进建议系统",
+        "试用期里，哪里不好用、哪里看不懂、哪里和老师习惯不一致，都可以先记下来。",
+        "./suggestions.html",
+        "提交建议"
+      ));
+    }
+
+    if (todos.length === 0) {
+      todos.push(todoItem(
+        "正常",
+        "今天没有必须处理的系统提醒",
+        "可以从下面的系统入口进入自己的工作模块；如果发现不好用，先到建议系统留一条。",
+        "./suggestions.html",
+        "写建议"
       ));
     }
 
