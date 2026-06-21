@@ -134,10 +134,10 @@
           <span class="status-chip">样例数据</span>
         </div>
         <div class="metrics">
-          <div class="metric"><span>在读学生档案</span><strong>待同步</strong><p>后续从招生和排课同步</p></div>
-          <div class="metric"><span>本周课后反馈</span><strong>待接入</strong><p>按课次生成待办</p></div>
-          <div class="metric"><span>续费风险</span><strong>待评估</strong><p>剩余课时 + 满意度</p></div>
-          <div class="metric"><span>家长沟通记录</span><strong>待沉淀</strong><p>按学生永久留痕</p></div>
+          <div class="metric"><span>在读学生档案</span><strong id="studentMetricTotal">0</strong><p>后续从招生和排课同步</p></div>
+          <div class="metric"><span>本周课后反馈</span><strong id="studentMetricFeedback">0</strong><p>按课次生成待办</p></div>
+          <div class="metric"><span>续费风险</span><strong id="studentMetricRisk">0</strong><p>剩余课时 + 满意度</p></div>
+          <div class="metric"><span>家长沟通记录</span><strong id="studentMetricCommunication">0</strong><p>按学生永久留痕</p></div>
         </div>
       </section>
 
@@ -154,11 +154,7 @@
               <thead>
                 <tr><th>学生</th><th>班级 / 课程</th><th>任课老师</th><th>最近反馈</th><th>家长沟通</th><th>续费风险</th><th>下一步</th></tr>
               </thead>
-              <tbody>
-                <tr><td>学生 A</td><td>暑假数学提升班</td><td>待同步</td><td>待从课后反馈同步</td><td>待学管记录</td><td>待计算</td><td>建立真实档案字段</td></tr>
-                <tr><td>学生 B</td><td>六月份平时课</td><td>待同步</td><td>待从排课课次同步</td><td>待学管记录</td><td>待计算</td><td>同步剩余课时</td></tr>
-                <tr><td>学生 C</td><td>试听转正式</td><td>待同步</td><td>待从招生试听同步</td><td>待学管接手</td><td>待计算</td><td>生成入学交接单</td></tr>
-              </tbody>
+              <tbody id="studentServiceTableBody"></tbody>
             </table>
           </div>
         </article>
@@ -167,19 +163,24 @@
           <h2>服务记录录入</h2>
           <p>第一版先定义老师和学管都看得懂的字段，后面再接真实保存。</p>
           <div class="form-grid">
-            <label class="field"><span>学生姓名</span><input value="学生 A"></label>
-            <label class="field"><span>服务类型</span><select><option>课后反馈</option><option>家长沟通</option><option>续费风险</option><option>学习跟踪</option></select></label>
-            <label class="field"><span>风险等级</span><select><option>正常</option><option>关注</option><option>高风险</option></select></label>
-            <label class="field span-3"><span>记录内容</span><textarea>记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。</textarea></label>
+            <label class="field"><span>学生姓名</span><input id="studentNameInput" value="学生 A"></label>
+            <label class="field"><span>班级 / 课程</span><input id="studentClassInput" value="暑假数学提升班"></label>
+            <label class="field"><span>任课老师</span><input id="studentTeacherInput" value="待同步"></label>
+            <label class="field"><span>服务类型</span><select id="studentServiceTypeInput"><option>课后反馈</option><option>家长沟通</option><option>续费风险</option><option>学习跟踪</option></select></label>
+            <label class="field"><span>风险等级</span><select id="studentRiskInput"><option>正常</option><option>关注</option><option>高风险</option></select></label>
+            <label class="field"><span>下一步</span><input id="studentNextActionInput" value="建立真实档案字段"></label>
+            <label class="field span-3"><span>记录内容</span><textarea id="studentContentInput">记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。</textarea></label>
           </div>
           <div class="actions">
-            <button class="button" type="button">保存服务记录</button>
-            <button class="button secondary" type="button">生成家长反馈</button>
+            <button class="button" id="studentSaveButton" type="button">保存服务记录</button>
+            <button class="button secondary" id="studentExportButton" type="button">导出服务数据</button>
+            <button class="button secondary" id="studentResetButton" type="button">恢复样例数据</button>
           </div>
-          <div class="notice">当前按钮先作为页面流程展示；接云数据库后会保存到学生个人档案。</div>
+          <div class="notice" id="studentServiceMessage">当前数据先保存在本机浏览器；接云数据库后会同步到学生个人档案。</div>
         </article>
       </section>
     </main>
     <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260621a"></script>
   </body>
 </html>
