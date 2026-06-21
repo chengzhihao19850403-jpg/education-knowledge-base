@@ -299,6 +299,30 @@ function createImportResult(studentName, status, detail) {
   return { studentName, status, detail };
 }
 
+function pushFollowup(studentName, text, time = "刚刚") {
+  if (!Array.isArray(state.followups)) {
+    state.followups = [];
+  }
+  state.followups.push({ studentName, time, text });
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadTextFile(filename, content, type = "text/csv;charset=utf-8") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function buildAttributionSnapshot(lead) {
   return {
     channel: lead.channel,
@@ -442,6 +466,36 @@ function buildSopTasks() {
   return sopRows;
 }
 
+function getFilteredLeads() {
+  return state.leads.filter((lead) => {
+    if (state.activeLeadFilter === "new" && lead.status !== "新建未联系") return false;
+    if (state.activeLeadFilter === "trial")
+      if (!(lead.status === "已预约试听" || lead.status === "试听完成待转化")) return false;
+    if (state.activeLeadFilter === "enrolled" && lead.status !== "定金 / 已报名") return false;
+    const query = normalizeText(state.leadSearchQuery);
+    if (query) {
+      const haystack = normalizeText([
+        lead.studentName,
+        lead.parentPhone,
+        lead.grade,
+        lead.subject,
+        lead.channel,
+        lead.channelMeta,
+        lead.owner,
+        lead.status,
+        lead.intent,
+        lead.note,
+        lead.nextAction,
+      ].join(" "));
+      if (!haystack.includes(query)) return false;
+    }
+    if (state.leadOwnerFilter && lead.owner !== state.leadOwnerFilter) return false;
+    if (state.leadChannelFilter && lead.channel !== state.leadChannelFilter) return false;
+    if (state.leadIntentFilter && lead.intent !== state.leadIntentFilter) return false;
+    return true;
+  });
+}
+
 function parseImportLine(line, headerMap) {
   const cols = line.split("\t").map((item) => item.trim());
   if (headerMap) {
@@ -517,33 +571,7 @@ function renderLeadTable() {
   const body = byId("leadTableBody");
   if (!body) return;
   const editable = canEditAdmissions();
-  const filteredLeads = state.leads.filter((lead) => {
-    if (state.activeLeadFilter === "new" && lead.status !== "新建未联系") return false;
-    if (state.activeLeadFilter === "trial")
-      if (!(lead.status === "已预约试听" || lead.status === "试听完成待转化")) return false;
-    if (state.activeLeadFilter === "enrolled" && lead.status !== "定金 / 已报名") return false;
-    const query = normalizeText(state.leadSearchQuery);
-    if (query) {
-      const haystack = normalizeText([
-        lead.studentName,
-        lead.parentPhone,
-        lead.grade,
-        lead.subject,
-        lead.channel,
-        lead.channelMeta,
-        lead.owner,
-        lead.status,
-        lead.intent,
-        lead.note,
-        lead.nextAction,
-      ].join(" "));
-      if (!haystack.includes(query)) return false;
-    }
-    if (state.leadOwnerFilter && lead.owner !== state.leadOwnerFilter) return false;
-    if (state.leadChannelFilter && lead.channel !== state.leadChannelFilter) return false;
-    if (state.leadIntentFilter && lead.intent !== state.leadIntentFilter) return false;
-    return true;
-  });
+  const filteredLeads = getFilteredLeads();
   body.innerHTML = filteredLeads
     .map(
       (lead) => `
@@ -686,6 +714,61 @@ function renderSopTasks() {
       `;
 }
 
+function exportFilteredLeads() {
+  const leads = getFilteredLeads();
+  const headers = [
+    "学生姓名",
+    "年级",
+    "家长电话",
+    "意向学科",
+    "来源渠道",
+    "渠道归属",
+    "推荐人",
+    "当前负责人",
+    "当前状态",
+    "意向等级",
+    "是否进群",
+    "试听时间",
+    "试听老师",
+    "实收金额",
+    "下一步动作",
+    "最近备注",
+    "归属链",
+  ];
+  const rows = leads.map((lead) => {
+    const attribution = lead.attributionLocked && lead.attributionSnapshot
+      ? lead.attributionSnapshot
+      : buildAttributionSnapshot(lead);
+    return [
+      lead.studentName,
+      lead.grade,
+      lead.parentPhone,
+      lead.subject,
+      lead.channel,
+      deriveChannelOwner(lead),
+      lead.referrerName || deriveReferrerText(lead.channelMeta),
+      lead.owner,
+      lead.status,
+      lead.intent,
+      lead.inGroup,
+      lead.trialTime ? formatTrialDisplay(lead.trialTime) : lead.trial,
+      lead.trialTeacher,
+      lead.enrolledAmount || 0,
+      lead.nextAction,
+      lead.note,
+      formatAttributionSnapshot(attribution),
+    ];
+  });
+  const csv = [
+    headers.map(csvEscape).join(","),
+    ...rows.map((row) => row.map(csvEscape).join(",")),
+  ].join("\n");
+  const date = new Date().toISOString().slice(0, 10);
+  downloadTextFile(`招生线索导出-${date}.csv`, `\ufeff${csv}`);
+  logAudit("导出招生线索", "当前筛选", `导出 ${leads.length} 条线索。`);
+  persistState();
+}
+
 function renderTrialTable() {
   const body = byId("trialTableBody");
   if (!body) return;
@@ -770,6 +853,35 @@ function renderLeadDetail() {
     : "未锁定";
   byId("detailNextActionInput").value = lead.nextAction;
   byId("detailNoteInput").value = lead.note;
+  renderLeadDetailFollowups(lead);
+}
+
+function renderLeadDetailFollowups(lead) {
+  const timeline = byId("detailFollowupTimeline");
+  if (!timeline || !lead) return;
+  const items = state.followups
+    .filter((item) => item.studentName === lead.studentName)
+    .slice()
+    .reverse();
+  const countNode = byId("detailFollowupCount");
+  if (countNode) countNode.textContent = `${items.length} 条记录`;
+  timeline.innerHTML = items.length
+    ? items
+        .map(
+          (item) => `
+            <div class="timeline-item">
+              <div class="timeline-time">${item.time} · ${item.studentName}</div>
+              <p>${item.text}</p>
+            </div>
+          `
+        )
+        .join("")
+    : `
+        <div class="timeline-item">
+          <div class="timeline-time">暂无跟进记录</div>
+          <p>新增跟进、状态推进、试听反馈、报名登记后，这里会自动留下历史。</p>
+        </div>
+      `;
 }
 
 function renderImportSummary() {
@@ -901,11 +1013,7 @@ function bindPendingLeadFixActions() {
       target.lastFollowup = "刚刚补负责人";
       target.nextAction =
         nextOwner === "待分配" ? "仍待分配负责人" : "负责人已补齐，尽快首联";
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `在待补字段处理中补齐负责人：${nextOwner}。`,
-      });
+      pushFollowup(target.studentName, `在待补字段处理中补齐负责人：${nextOwner}。`);
       logAudit("待补字段-补负责人", target.studentName, `改为 ${nextOwner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -925,11 +1033,7 @@ function bindPendingLeadFixActions() {
       target.channel = nextChannel;
       target.channelMeta = buildChannelMeta(nextChannel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补来源";
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `在待补字段处理中补齐来源渠道：${nextChannel}。`,
-      });
+      pushFollowup(target.studentName, `在待补字段处理中补齐来源渠道：${nextChannel}。`);
       logAudit("待补字段-补来源", target.studentName, `改为 ${nextChannel}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -949,11 +1053,7 @@ function bindPendingLeadFixActions() {
       if (!nextNote) return;
       target.note = nextNote;
       target.lastFollowup = "刚刚补备注";
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `在待补字段处理中补齐首条备注：${nextNote}。`,
-      });
+      pushFollowup(target.studentName, `在待补字段处理中补齐首条备注：${nextNote}。`);
       logAudit("待补字段-补备注", target.studentName, nextNote);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -973,11 +1073,7 @@ function bindPendingLeadFixActions() {
       target.channelOwner = nextChannelOwner;
       target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补渠道归属";
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `在待补字段处理中补齐渠道归属：${nextChannelOwner}。`,
-      });
+      pushFollowup(target.studentName, `在待补字段处理中补齐渠道归属：${nextChannelOwner}。`);
       logAudit("待补字段-补渠道归属", target.studentName, `改为 ${nextChannelOwner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -998,11 +1094,7 @@ function bindPendingLeadFixActions() {
       target.referrerName = nextReferrer;
       target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补推荐人";
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `在待补字段处理中补齐推荐人：${nextReferrer}。`,
-      });
+      pushFollowup(target.studentName, `在待补字段处理中补齐推荐人：${nextReferrer}。`);
       logAudit("待补字段-补推荐人", target.studentName, nextReferrer);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -1376,11 +1468,10 @@ function bindEnrollmentCreate() {
       target.nextAction = byId("enrollRemark").value.trim() || "已报名";
       target.lastFollowup = "刚刚报名";
       target.note = `报名登记完成 / 渠道：${byId("enrollChannel").value} / 顾问：${byId("enrollOwner").value}`;
-      state.followups.push({
-        studentName: target.studentName,
-        time: "刚刚",
-        text: `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`,
-      });
+      pushFollowup(
+        target.studentName,
+        `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`
+      );
       logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
     }
     renderAll();
@@ -1395,11 +1486,7 @@ function bindFollowupCreate() {
     const leadName = byId("followupLeadSelect").value;
     const text = byId("followupInput").value.trim();
     if (!text) return;
-    state.followups.push({
-      studentName: leadName,
-      time: "刚刚",
-      text,
-    });
+    pushFollowup(leadName, text);
     const target = state.leads.find((lead) => lead.studentName === leadName);
     if (target) {
       target.lastFollowup = "刚刚";
@@ -1450,11 +1537,10 @@ function bindRenewalCreate() {
       referralReward: target.referrerName ? "待判断" : "无",
     };
 
-    state.followups.push({
-      studentName: target.studentName,
-      time: "刚刚",
-      text: `已登记${renewalRecord.type}，项目：${renewalRecord.courseName}，实收 ${amount}。默认继承归属链：${formatAttributionSnapshot(inheritedSnapshot)}。`,
-    });
+    pushFollowup(
+      target.studentName,
+      `已登记${renewalRecord.type}，项目：${renewalRecord.courseName}，实收 ${amount}。默认继承归属链：${formatAttributionSnapshot(inheritedSnapshot)}。`
+    );
     target.lastFollowup = "刚刚登记续费/扩科";
     target.nextAction = `${renewalRecord.type}已登记，继续按既有归属链结算`;
     logAudit(`登记${renewalRecord.type}`, target.studentName, `${renewalRecord.courseName} / 实收 ${amount} / 继承 ${formatAttributionSnapshot(inheritedSnapshot)}。`);
@@ -1605,11 +1691,10 @@ function bindBatchImport() {
           existingLead.owner && existingLead.owner !== "待分配"
             ? "已并入旧线索，继续跟进"
             : "已并入旧线索，仍待分配负责人";
-        state.followups.push({
-          studentName: existingLead.studentName,
-          time: "刚刚",
-          text: `批量导入检测到重复手机号，已并入原线索。${mergeNotes.length ? `本次补充：${mergeNotes.join("，")}。` : "本次未新增字段，仅提醒复核。"}`
-        });
+        pushFollowup(
+          existingLead.studentName,
+          `批量导入检测到重复手机号，已并入原线索。${mergeNotes.length ? `本次补充：${mergeNotes.join("，")}。` : "本次未新增字段，仅提醒复核。"}`
+        );
         summary.duplicates += 1;
         summary.results.push(
           createImportResult(
@@ -1770,11 +1855,16 @@ function bindLeadActions() {
       const target = state.leads.find((lead) => lead.studentName === studentName);
       if (!target) return;
       if (!canEditAdmissions()) return;
+      const previousStatus = target.status;
       if (target.status === "新建未联系") target.status = "已沟通待邀约";
       else if (target.status === "已沟通待邀约") target.status = "持续跟进中";
       else if (target.status === "试听完成待转化") target.status = "持续跟进中";
       target.lastFollowup = "刚刚推进";
       target.nextAction = "继续跟进并补下一步动作";
+      pushFollowup(
+        target.studentName,
+        `状态推进：${previousStatus} → ${target.status}。系统提醒：状态变化后需要补充具体沟通内容和下一步动作。`
+      );
       logAudit("推进线索状态", target.studentName, `推进后状态 ${target.status}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -1806,6 +1896,10 @@ function bindLeadActions() {
       target.trial = "已试听";
       target.nextAction = "48 小时内给报名方案";
       target.lastFollowup = "刚刚完成试听";
+      pushFollowup(
+        target.studentName,
+        "已标记试听完成，进入试听完成待转化。下一步必须补试听反馈、家长异议、意向等级和报名方案。"
+      );
       logAudit("完成试听", target.studentName, "已转入试听完成待转化。");
       syncSelectedLead(target.studentName);
       renderAll();
@@ -1842,6 +1936,7 @@ function bindLeadActions() {
       target.owner = ownerSelect?.value || ownerOptions[0];
       target.nextAction = "已重新分配，尽快首联";
       target.lastFollowup = "刚刚重分配";
+      pushFollowup(target.studentName, `公海线索已重新分配给 ${target.owner}，需要尽快首联。`);
       logAudit("公海线索重分配", target.studentName, `改为 ${target.owner}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -1940,6 +2035,11 @@ function applyPermissionState() {
   importNodes.forEach((node) => {
     node.disabled = !importable;
   });
+  const exportButton = byId("exportFilteredLeadsButton");
+  if (exportButton) {
+    exportButton.disabled = !importable;
+    exportButton.title = importable ? "导出当前筛选结果" : "当前账号没有招生导出权限";
+  }
 }
 
 function bindLeadFilters() {
@@ -1973,6 +2073,15 @@ function bindLeadFilters() {
       renderLeadTable();
     });
   });
+
+  const exportButton = byId("exportFilteredLeadsButton");
+  if (exportButton) {
+    exportButton.addEventListener("click", () => {
+      if (!canImportAdmissions()) return;
+      exportFilteredLeads();
+      renderAuditLogs();
+    });
+  }
 }
 
 function renderAll() {

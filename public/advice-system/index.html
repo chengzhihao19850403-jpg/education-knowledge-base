@@ -762,6 +762,7 @@
                 <button class="status-chip" id="filterNewButton" type="button">新建未联系</button>
                 <button class="status-chip" id="filterTrialButton" type="button">待试听 / 已试听</button>
                 <button class="status-chip" id="filterEnrolledButton" type="button">已报名</button>
+                <button class="status-chip" id="exportFilteredLeadsButton" type="button">导出当前筛选</button>
               </div>
             </div>
             <div class="compact-toolbar">
@@ -964,6 +965,16 @@
             <div class="section-actions">
               <button class="button small" id="saveDetailButton" type="button">保存当前线索修改</button>
             </div>
+            <div class="section-head" style="margin-top: 20px;">
+              <div>
+                <h2>当前线索跟进历史</h2>
+                <div class="hint">查看这个家长前面每一次沟通、报名、试听、导入和状态变化，避免只凭记忆交接。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip" id="detailFollowupCount">0 条记录</span>
+              </div>
+            </div>
+            <div class="timeline" id="detailFollowupTimeline"></div>
           </section>
 
           <section class="panel content-section" data-section-group="leads">
