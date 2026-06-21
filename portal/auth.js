@@ -530,7 +530,6 @@ function jrcEnsureEmployeeSummary() {
       <strong>当前已录入 ${employeeCount} 名员工账号</strong>
       <button type="button" class="jrc-employee-directory-toggle" data-employee-directory-toggle>全员名单</button>
     </div>
-    <span>用户名统一用姓名拼音；初始密码统一为 10281028。当前已经接入基础岗位权限，不同岗位看到的系统入口会开始区分。</span>
   `;
 }
 
