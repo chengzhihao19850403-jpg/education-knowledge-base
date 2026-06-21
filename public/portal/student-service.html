@@ -149,10 +149,13 @@
               <p>后面 Excel 或云端数据接入后，这张表会变成真实在读学生服务列表。</p>
             </div>
           </div>
+          <div class="actions" style="margin:0 0 14px;">
+            <input id="studentFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索学生 / 班级 / 老师 / 记录内容">
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>学生</th><th>班级 / 课程</th><th>任课老师</th><th>最近反馈</th><th>家长沟通</th><th>续费风险</th><th>下一步</th></tr>
+                <tr><th>学生</th><th>班级 / 课程</th><th>任课老师</th><th>最近反馈</th><th>家长沟通</th><th>续费风险</th><th>下一步</th><th>操作</th></tr>
               </thead>
               <tbody id="studentServiceTableBody"></tbody>
             </table>

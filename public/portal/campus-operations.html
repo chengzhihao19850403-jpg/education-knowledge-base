@@ -138,10 +138,13 @@
               <p>按事项类型、责任人、截止时间和处理状态记录校区日常工作。</p>
             </div>
           </div>
+          <div class="actions" style="margin:0 0 14px;">
+            <input id="campusFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索事项 / 类型 / 责任人 / 范围">
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>事项</th><th>类型</th><th>位置 / 范围</th><th>责任人</th><th>状态</th><th>截止时间</th><th>处理要求</th></tr>
+                <tr><th>事项</th><th>类型</th><th>位置 / 范围</th><th>责任人</th><th>状态</th><th>截止时间</th><th>处理要求</th><th>操作</th></tr>
               </thead>
               <tbody id="campusTableBody"></tbody>
             </table>
