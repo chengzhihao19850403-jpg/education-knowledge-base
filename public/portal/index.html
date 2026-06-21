@@ -191,6 +191,38 @@
         margin-top: 8px;
         font-size: 22px;
       }
+      .data-sync-item em {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 11px;
+        font-style: normal;
+        line-height: 1.45;
+      }
+      .data-sync-item.is-empty {
+        opacity: 0.62;
+      }
+      .data-sync-status-list {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .data-sync-status-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: rgba(13, 148, 136, 0.07);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .data-sync-status-card strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+        font-size: 13px;
+      }
       .data-sync-tools {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 280px;
@@ -470,6 +502,7 @@
           <span class="badge">本机数据</span>
         </div>
         <p>当前还没有接云数据库时，先把本浏览器里的关键业务数据统一打包备份。换电脑、换手机或正式接云前，可以用这个整包做临时迁移和校验。</p>
+        <div class="data-sync-status-list" id="dataSyncStatusList"></div>
         <div class="data-sync-grid" id="dataSyncSummary"></div>
         <div class="data-sync-tools">
           <textarea id="dataSyncPayload" placeholder="点击导出后会生成整站本机备份；也可以粘贴备份 JSON 后恢复。"></textarea>

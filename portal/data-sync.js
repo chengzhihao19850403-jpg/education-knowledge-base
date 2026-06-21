@@ -42,6 +42,18 @@
     };
   }
 
+  function formatDateTime(value) {
+    if (!value) return "暂无保存时间";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString("zh-CN", { hour12: false });
+  }
+
+  function detectSavedAt(parsed) {
+    if (!parsed || typeof parsed !== "object") return "";
+    return parsed.lastSavedAt || parsed.updatedAt || parsed.exportedAt || parsed.savedAt || "";
+  }
+
   function countRows(store) {
     if (Array.isArray(store.parsed)) return store.parsed.length;
     if (!store.parsed || typeof store.parsed !== "object") return 0;
@@ -80,13 +92,37 @@
     holder.innerHTML = managedStores.map((item) => {
       const store = { ...item, ...readStore(item.key) };
       const count = countRows(store);
+      const savedAt = detectSavedAt(store.parsed);
       return `
-        <div class="data-sync-item">
+        <div class="data-sync-item${store.raw === null ? " is-empty" : ""}">
           <span>${item.label}</span>
           <strong>${count}</strong>
+          <em>${store.raw === null ? "当前浏览器暂无数据" : `最近保存：${formatDateTime(savedAt)}`}</em>
         </div>
       `;
     }).join("");
+  }
+
+  function renderStatusCards() {
+    const holder = $("dataSyncStatusList");
+    if (!holder) return;
+    const existingStores = managedStores.filter((item) => localStorage.getItem(item.key) !== null);
+    const backupReady = existingStores.length;
+    const cloudEnabled = Boolean(window.JRC_CLOUD?.isEnabled?.());
+    holder.innerHTML = `
+      <div class="data-sync-status-card">
+        <strong>当前数据来源</strong>
+        ${cloudEnabled ? "已配置云端 API；本机仍保留备份兜底。" : "暂未接云数据库，当前以本浏览器数据为准。"}
+      </div>
+      <div class="data-sync-status-card">
+        <strong>可备份数据</strong>
+        当前浏览器检测到 ${backupReady} 类可导出的业务数据。
+      </div>
+      <div class="data-sync-status-card">
+        <strong>下一步</strong>
+        阿里云开通后，先同步账号、权限、操作日志和备份记录。
+      </div>
+    `;
   }
 
   function buildBackup() {
@@ -132,6 +168,7 @@
     downloadJson(`匠人程整站本机备份-${new Date().toISOString().slice(0, 10)}.json`, backup);
     window.JRC_CLOUD?.recordBackupExport?.(backup, { operator: window.JRC_CURRENT_EMPLOYEE || null });
     setMessage(`已生成整站本机备份，共包含 ${Object.keys(backup.entries).length} 类数据。`);
+    renderStatusCards();
   }
 
   function restoreBackup(rawText) {
@@ -153,12 +190,14 @@
       restored.push(key);
     });
     renderSummary();
+    renderStatusCards();
     setMessage(`已恢复 ${restored.length} 类本机数据。请刷新页面查看最新结果。`);
   }
 
   function initDataSync() {
     if (!$("dataSyncSummary")) return;
     renderSummary();
+    renderStatusCards();
     $("dataSyncExportButton")?.addEventListener("click", exportBackup);
     $("dataSyncChooseFileButton")?.addEventListener("click", () => $("dataSyncFileInput")?.click());
     $("dataSyncFileInput")?.addEventListener("change", (event) => {
