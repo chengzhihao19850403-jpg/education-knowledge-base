@@ -849,10 +849,6 @@
             </div>
             <div class="timeline" id="followupTimeline"></div>
             <div class="form-grid">
-              <div class="field span-2">
-                <label>新增跟进记录</label>
-                <textarea id="followupInput"></textarea>
-              </div>
               <div class="field">
                 <label>跟进对象</label>
                 <select id="followupLeadSelect">
@@ -860,6 +856,44 @@
                   <option>李同学</option>
                   <option>周同学</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>沟通方式</label>
+                <select id="followupMethodSelect">
+                  <option>电话</option>
+                  <option>微信</option>
+                  <option>到访面谈</option>
+                  <option>群内沟通</option>
+                  <option>短信 / 其他</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>下次跟进日期</label>
+                <input id="followupNextDateInput" type="date">
+              </div>
+              <div class="field">
+                <label>家长核心诉求</label>
+                <input id="followupNeedInput" placeholder="例如：暑假提分、六升初衔接">
+              </div>
+              <div class="field">
+                <label>学生薄弱点</label>
+                <input id="followupPainInput" placeholder="例如：计算、应用题、课堂专注">
+              </div>
+              <div class="field">
+                <label>报名异议</label>
+                <select id="followupObjectionSelect">
+                  <option>暂无明确异议</option>
+                  <option>价格异议</option>
+                  <option>时间不匹配</option>
+                  <option>老师稳定性顾虑</option>
+                  <option>距离 / 接送顾虑</option>
+                  <option>还在比较其他机构</option>
+                  <option>孩子意愿不强</option>
+                </select>
+              </div>
+              <div class="field span-3">
+                <label>新增跟进记录</label>
+                <textarea id="followupInput" placeholder="补充这次沟通的关键内容"></textarea>
               </div>
             </div>
             <div class="section-actions">
@@ -956,6 +990,30 @@
               <div class="field span-2">
                 <label>下一步动作</label>
                 <input id="detailNextActionInput" value="">
+              </div>
+              <div class="field">
+                <label>家长核心诉求</label>
+                <input id="detailNeedInput" value="">
+              </div>
+              <div class="field">
+                <label>学生薄弱点</label>
+                <input id="detailPainInput" value="">
+              </div>
+              <div class="field">
+                <label>报名异议</label>
+                <select id="detailObjectionSelect">
+                  <option>暂无明确异议</option>
+                  <option>价格异议</option>
+                  <option>时间不匹配</option>
+                  <option>老师稳定性顾虑</option>
+                  <option>距离 / 接送顾虑</option>
+                  <option>还在比较其他机构</option>
+                  <option>孩子意愿不强</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>下次跟进日期</label>
+                <input id="detailNextFollowupDateInput" type="date" value="">
               </div>
               <div class="field span-2">
                 <label>当前备注 / 最近沟通重点</label>

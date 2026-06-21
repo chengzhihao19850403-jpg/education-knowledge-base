@@ -34,6 +34,10 @@ const defaultState = {
       lastFollowup: "今天 10:20",
       note: "关心提分速度和老师稳定性",
       nextAction: "今晚发案例，明天定试听时间",
+      parentNeed: "六升初衔接，想提升应用题和计算稳定性",
+      studentPainPoint: "应用题审题和计算准确率",
+      objection: "暂无明确异议",
+      nextFollowupDate: "2026-06-21",
       trialTeacher: "",
       trialTime: "",
       enrolledAmount: 0,
@@ -59,6 +63,10 @@ const defaultState = {
       lastFollowup: "今天 09:15",
       note: "已确认到场",
       nextAction: "试听后当天必须回填反馈",
+      parentNeed: "想先确认孩子是否适应小班节奏",
+      studentPainPoint: "初一数学基础衔接",
+      objection: "时间不匹配",
+      nextFollowupDate: "2026-06-22",
       trialTeacher: "刘老师",
       trialTime: "2026-06-22T19:00",
       enrolledAmount: 0,
@@ -84,6 +92,10 @@ const defaultState = {
       lastFollowup: "昨天 18:40",
       note: "家长认可刘老师，价格有异议",
       nextAction: "48 小时内给报名方案",
+      parentNeed: "暑假集中提升，开学前补薄弱模块",
+      studentPainPoint: "基础题稳定性和综合题思路",
+      objection: "价格异议",
+      nextFollowupDate: "2026-06-21",
       trialTeacher: "刘老师",
       trialTime: "2026-06-19T18:00",
       enrolledAmount: 6200,
@@ -145,15 +157,29 @@ function byId(id) {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(defaultState);
+    if (!raw) return normalizeState(structuredClone(defaultState));
     const parsed = JSON.parse(raw);
-    return {
+    return normalizeState({
       ...structuredClone(defaultState),
       ...parsed,
-    };
+    });
   } catch {
-    return structuredClone(defaultState);
+    return normalizeState(structuredClone(defaultState));
   }
+}
+
+function normalizeState(nextState) {
+  nextState.leads = (nextState.leads || []).map((lead) => ({
+    ...lead,
+    parentNeed: lead.parentNeed || "",
+    studentPainPoint: lead.studentPainPoint || "",
+    objection: lead.objection || "暂无明确异议",
+    nextFollowupDate: lead.nextFollowupDate || "",
+    renewalRecords: Array.isArray(lead.renewalRecords) ? lead.renewalRecords : [],
+  }));
+  nextState.followups = Array.isArray(nextState.followups) ? nextState.followups : [];
+  nextState.auditLogs = Array.isArray(nextState.auditLogs) ? nextState.auditLogs : [];
+  return nextState;
 }
 
 function persistState() {
@@ -484,6 +510,9 @@ function getFilteredLeads() {
         lead.owner,
         lead.status,
         lead.intent,
+        lead.parentNeed,
+        lead.studentPainPoint,
+        lead.objection,
         lead.note,
         lead.nextAction,
       ].join(" "));
@@ -518,6 +547,10 @@ function parseImportLine(line, headerMap) {
       trialTeacher: at("试听老师", "trial_teacher"),
       inGroup: at("是否进群", "is_in_parent_group"),
       note: at("首条备注", "备注", "followup_note"),
+      parentNeed: at("家长核心诉求", "家长诉求", "parent_need"),
+      studentPainPoint: at("学生薄弱点", "薄弱点", "student_pain_point"),
+      objection: at("报名异议", "异议", "objection"),
+      nextFollowupDate: at("下次跟进日期", "next_followup_date"),
       nextAction: at("下一步动作", "next_action"),
     };
   }
@@ -731,6 +764,10 @@ function exportFilteredLeads() {
     "试听时间",
     "试听老师",
     "实收金额",
+    "家长核心诉求",
+    "学生薄弱点",
+    "报名异议",
+    "下次跟进日期",
     "下一步动作",
     "最近备注",
     "归属链",
@@ -754,6 +791,10 @@ function exportFilteredLeads() {
       lead.trialTime ? formatTrialDisplay(lead.trialTime) : lead.trial,
       lead.trialTeacher,
       lead.enrolledAmount || 0,
+      lead.parentNeed,
+      lead.studentPainPoint,
+      lead.objection,
+      lead.nextFollowupDate,
       lead.nextAction,
       lead.note,
       formatAttributionSnapshot(attribution),
@@ -852,6 +893,10 @@ function renderLeadDetail() {
     ? `已锁定：${formatAttributionSnapshot(lead.attributionSnapshot)}`
     : "未锁定";
   byId("detailNextActionInput").value = lead.nextAction;
+  byId("detailNeedInput").value = lead.parentNeed || "";
+  byId("detailPainInput").value = lead.studentPainPoint || "";
+  byId("detailObjectionSelect").value = lead.objection || "暂无明确异议";
+  byId("detailNextFollowupDateInput").value = lead.nextFollowupDate || "";
   byId("detailNoteInput").value = lead.note;
   renderLeadDetailFollowups(lead);
 }
@@ -1397,6 +1442,10 @@ function bindLeadCreate() {
       lastFollowup: "刚刚录入",
       note: byId("leadNote").value.trim() || "待补首条记录",
       nextAction: "尽快首联并补下一步动作",
+      parentNeed: "",
+      studentPainPoint: "",
+      objection: "暂无明确异议",
+      nextFollowupDate: "",
       trialTeacher: "",
       trialTime: "",
       enrolledAmount: 0,
@@ -1486,14 +1535,36 @@ function bindFollowupCreate() {
     const leadName = byId("followupLeadSelect").value;
     const text = byId("followupInput").value.trim();
     if (!text) return;
-    pushFollowup(leadName, text);
     const target = state.leads.find((lead) => lead.studentName === leadName);
     if (target) {
       target.lastFollowup = "刚刚";
-      target.note = text;
-      logAudit("新增跟进", target.studentName, text);
+      const method = byId("followupMethodSelect")?.value || "沟通";
+      const parentNeed = byId("followupNeedInput")?.value.trim() || "";
+      const painPoint = byId("followupPainInput")?.value.trim() || "";
+      const objection = byId("followupObjectionSelect")?.value || "暂无明确异议";
+      const nextDate = byId("followupNextDateInput")?.value || "";
+      if (parentNeed) target.parentNeed = parentNeed;
+      if (painPoint) target.studentPainPoint = painPoint;
+      target.objection = objection;
+      target.nextFollowupDate = nextDate;
+      target.nextAction = nextDate ? `下次跟进：${nextDate}` : target.nextAction;
+      const structuredText = [
+        `${method}跟进。`,
+        parentNeed ? `家长诉求：${parentNeed}。` : "",
+        painPoint ? `学生薄弱点：${painPoint}。` : "",
+        objection && objection !== "暂无明确异议" ? `报名异议：${objection}。` : "",
+        text ? `沟通记录：${text}` : "",
+        nextDate ? `下次跟进：${nextDate}。` : "",
+      ].filter(Boolean).join("");
+      const finalText = structuredText || text;
+      target.note = finalText;
+      pushFollowup(leadName, finalText);
+      logAudit("新增跟进", target.studentName, finalText);
     }
     byId("followupInput").value = "";
+    byId("followupNeedInput").value = "";
+    byId("followupPainInput").value = "";
+    byId("followupNextDateInput").value = "";
     renderAll();
   });
 
@@ -1616,6 +1687,10 @@ function bindBatchImport() {
         trialTime = "",
         trialTeacher = "",
         inGroup = "",
+        parentNeed = "",
+        studentPainPoint = "",
+        objection = "",
+        nextFollowupDate = "",
         nextAction = "",
       } = parsed;
 
@@ -1680,6 +1755,22 @@ function bindBatchImport() {
           existingLead.nextAction = nextAction;
           mergeNotes.push("更新下一步");
         }
+        if (parentNeed) {
+          existingLead.parentNeed = parentNeed;
+          mergeNotes.push("补家长诉求");
+        }
+        if (studentPainPoint) {
+          existingLead.studentPainPoint = studentPainPoint;
+          mergeNotes.push("补学生薄弱点");
+        }
+        if (objection) {
+          existingLead.objection = objection;
+          mergeNotes.push(`更新异议=${objection}`);
+        }
+        if (nextFollowupDate) {
+          existingLead.nextFollowupDate = nextFollowupDate;
+          mergeNotes.push(`补下次跟进=${nextFollowupDate}`);
+        }
         existingLead.channelOwner = deriveChannelOwner(existingLead);
         existingLead.channelMeta = buildChannelMeta(
           existingLead.channel,
@@ -1737,6 +1828,10 @@ function bindBatchImport() {
         lastFollowup: "刚刚导入",
         note: note || "待补首条记录",
         nextAction: nextAction || (owner ? "导入完成，尽快首联" : "待分配负责人后首联"),
+        parentNeed,
+        studentPainPoint,
+        objection: objection || "暂无明确异议",
+        nextFollowupDate,
         trialTeacher: trialTeacher || "",
         trialTime: normalizeDateTimeLocal(trialTime),
         enrolledAmount: 0,
@@ -1803,6 +1898,9 @@ function bindDetailSave() {
     const target = getSelectedLead();
     if (!target) return;
     const beforeSnapshot = formatAttributionSnapshot(target.attributionLocked && target.attributionSnapshot ? target.attributionSnapshot : buildAttributionSnapshot(target));
+    const beforeStatus = target.status;
+    const beforeOwner = target.owner;
+    const beforeIntent = target.intent;
     target.owner = byId("detailOwnerSelect").value;
     target.status = byId("detailStatusSelect").value;
     target.intent = byId("detailIntentSelect").value;
@@ -1811,8 +1909,19 @@ function bindDetailSave() {
     target.referrerName = byId("detailReferrerInput").value.trim();
     target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
     target.nextAction = byId("detailNextActionInput").value.trim() || target.nextAction;
+    target.parentNeed = byId("detailNeedInput").value.trim();
+    target.studentPainPoint = byId("detailPainInput").value.trim();
+    target.objection = byId("detailObjectionSelect").value;
+    target.nextFollowupDate = byId("detailNextFollowupDateInput").value;
     target.note = byId("detailNoteInput").value.trim() || target.note;
     target.lastFollowup = "刚刚修改";
+    const changedParts = [];
+    if (beforeStatus !== target.status) changedParts.push(`状态：${beforeStatus} → ${target.status}`);
+    if (beforeOwner !== target.owner) changedParts.push(`负责人：${beforeOwner} → ${target.owner}`);
+    if (beforeIntent !== target.intent) changedParts.push(`意向：${beforeIntent} → ${target.intent}`);
+    if (changedParts.length) {
+      pushFollowup(target.studentName, `线索详情已更新：${changedParts.join("；")}。下一步：${target.nextAction}`);
+    }
     logAudit("修改线索详情", target.studentName, `状态 ${target.status}，负责人 ${target.owner}，当前归属链 ${beforeSnapshot}。`);
     renderAll();
   });
@@ -2020,7 +2129,12 @@ function applyPermissionState() {
     '#addFollowupButton',
     '#createRenewalButton',
     '#saveTrialButton',
-    '#saveDetailButton'  ];
+    '#saveDetailButton',
+    '#followupMethodSelect',
+    '#followupNextDateInput',
+    '#followupNeedInput',
+    '#followupPainInput',
+    '#followupObjectionSelect'  ];
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
     if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
