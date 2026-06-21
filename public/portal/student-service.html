@@ -129,6 +129,24 @@
       <section class="card">
         <div class="section-head">
           <div>
+            <h2>招生转入候选</h2>
+            <p>从招生系统读取已报名学生，后续会一键生成学生档案、家长沟通记录和入学交接待办。</p>
+          </div>
+          <span class="status-chip">联动预览</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>来源渠道</th><th>招生顾问</th><th>试听老师</th><th>实收金额</th><th>下一步</th></tr>
+            </thead>
+            <tbody id="studentAdmissionLinkBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
             <h2>学生服务总览</h2>
             <p>以下是第一版工作台结构，当前为演示数据，不代表真实学生情况。</p>
           </div>
@@ -208,6 +226,39 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260622b"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260621e"></script>
+    <script>
+      (function () {
+        const body = document.getElementById("studentAdmissionLinkBody");
+        if (!body) return;
+        const escapeHtml = (value) => String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        const money = (value) => new Intl.NumberFormat("zh-CN", {
+          style: "currency",
+          currency: "CNY",
+          maximumFractionDigits: 0
+        }).format(Number(value) || 0);
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const rows = derived?.pendingLinks?.enrolledStudentCandidates || [];
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="6">当前还没有从招生系统转入的真实报名学生。重新导入招生表后，这里会自动显示可建档名单。</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.studentName || "-")}</td>
+            <td>${escapeHtml(row.channel || "-")}</td>
+            <td>${escapeHtml(row.owner || "-")}</td>
+            <td>${escapeHtml(row.trialTeacher || "-")}</td>
+            <td>${money(row.enrolledAmount || 0)}</td>
+            <td>生成学生档案、入学交接、首次家长沟通待办</td>
+          </tr>
+        `).join("");
+      })();
+    </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>
 </html>

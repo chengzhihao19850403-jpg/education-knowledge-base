@@ -422,6 +422,29 @@
         </article>
       </section>
 
+      <section class="card">
+        <p class="eyebrow">Linked Data Preview</p>
+        <h2>系统联动预核算</h2>
+        <p style="margin-top: 8px;">这里从底层数据联动层读取排课课时、教学质量评级系数、招生实收金额。后面真实表格导入后，财务老师先在这里核对，再写入正式月结。</p>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>月份</th>
+                <th>老师</th>
+                <th>排课课时</th>
+                <th>教学评级</th>
+                <th>绩效系数</th>
+                <th>当前提成</th>
+                <th>招生实收</th>
+                <th>财务影响</th>
+              </tr>
+            </thead>
+            <tbody id="financeLinkedBody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="grid">
         <article class="card">
           <p class="eyebrow">Monthly Inputs</p>
@@ -753,10 +776,34 @@
         `).join("");
       }
 
+      function renderLinkedFinancePreview() {
+        const body = byId("financeLinkedBody");
+        if (!body) return;
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const rows = (derived?.teacherMonthRows || []).filter((row) => !row.period || row.period === currentPeriod || row.period === "待定月份");
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前还没有可联动的真实排课、教学质量或招生数据。重新导入最新表格后，这里会自动生成老师月度财务预核算草表。</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.period || "-")}</td>
+            <td>${escapeHtml(row.teacherName || "-")}</td>
+            <td>${escapeHtml(row.scheduledHours || 0)}</td>
+            <td>${escapeHtml(row.qualityGrade || "待评分")}</td>
+            <td>${escapeHtml(row.qualityCoefficient || 1)}</td>
+            <td>${escapeHtml(row.commissionRate || "待人事确认")}</td>
+            <td class="money-cell">${money(row.enrolledAmount || 0)}</td>
+            <td>${escapeHtml(row.financeBasis || "-")}</td>
+          </tr>
+        `).join("");
+      }
+
       function render() {
         const period = getPeriod();
         renderSummary(period);
         renderExpenses(period);
+        renderLinkedFinancePreview();
       }
 
       function addExpense() {
