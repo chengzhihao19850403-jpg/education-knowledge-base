@@ -428,9 +428,9 @@
               <span class="badge">加载中</span>
               <div>
                 <strong>正在读取本机数据</strong>
-                <p>会自动汇总招生、备份、操作日志和员工资料状态。</p>
+                <p>会自动汇总招生、操作日志和员工资料状态。</p>
               </div>
-              <a class="text-link" href="#dataSyncSection">查看</a>
+              <a class="text-link" href="#portalDataStateSection">查看</a>
             </div>
           </div>
         </article>
@@ -443,7 +443,7 @@
             </div>
             <span class="badge">云库前</span>
           </div>
-          <p>正式接云数据库前，这里先提示哪些数据已经在当前浏览器里，哪些还缺备份或需要继续录入。</p>
+          <p>正式接云数据库前，这里只做数据状态查看，暂不作为跨电脑同步入口。</p>
           <div class="workbench-kpi">
             <div class="workbench-kpi-card">
               <span>招生线索</span>
@@ -456,10 +456,6 @@
             <div class="workbench-kpi-card">
               <span>操作日志</span>
               <strong id="portalAuditCount">0</strong>
-            </div>
-            <div class="workbench-kpi-card">
-              <span>可备份数据类</span>
-              <strong id="portalBackupStoreCount">0</strong>
             </div>
           </div>
         </article>
@@ -669,35 +665,11 @@
         </article>
       </section>
 
-      <section class="note" id="dataSyncSection" data-requires-permission-card="admin.access">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">Data Sync</p>
-            <h2>数据同步与备份中心</h2>
-          </div>
-          <span class="badge">本机数据</span>
-        </div>
-        <p>当前还没有接云数据库时，先把本浏览器里的关键业务数据统一打包备份。换电脑、换手机或正式接云前，可以用这个整包做临时迁移和校验。</p>
-        <div class="data-sync-status-list" id="dataSyncStatusList"></div>
-        <div class="data-sync-grid" id="dataSyncSummary"></div>
-        <div class="data-sync-tools">
-          <textarea id="dataSyncPayload" placeholder="点击导出后会生成整站本机备份；也可以粘贴备份 JSON 后恢复。"></textarea>
-          <div class="data-sync-tool-actions">
-            <button class="button" id="dataSyncExportButton" type="button">导出整站备份</button>
-            <button class="button button-secondary" id="dataSyncChooseFileButton" type="button">选择备份文件</button>
-            <button class="button button-secondary" id="dataSyncRestoreButton" type="button">恢复到当前浏览器</button>
-            <input id="dataSyncFileInput" type="file" accept="application/json,.json" hidden>
-          </div>
-        </div>
-        <div class="data-sync-message" id="dataSyncMessage">正式接云数据库前，请每天下班前由管理员导出一次整站备份。</div>
-      </section>
-
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260621f"></script>
     <script src="/jrcedu/portal/dashboard.js?v=20260621b"></script>
-    <script src="/jrcedu/portal/data-sync.js?v=20260621b"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>
 </html>

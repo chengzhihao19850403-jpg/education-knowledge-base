@@ -1,20 +1,6 @@
 (function () {
   const admissionsKey = "advice-system-stage-prototype";
   const auditKey = "jrc-business-audit-log-v1";
-  const backupStoreKeys = [
-    "paike-june-system-v1",
-    "paike-system-prototype-v1",
-    "advice-system-stage-prototype",
-    "jrc-suggestion-management-v2",
-    "jrc-finance-ledger-v1",
-    "jrc-teaching-quality-system-v2-demo",
-    "jrc-student-service-v2",
-    "jrc-curriculum-products-v2",
-    "jrc-hr-training-tasks-v2",
-    "jrc-campus-operations-v2",
-    "jrc-business-audit-log-v1",
-    "jrc-employee-directory-extra"
-  ];
   const systemStores = [
     { key: "paike-summer-import-review-v1", label: "排课待确认", href: "./paike.html", type: "array" },
     { key: "advice-system-stage-prototype", label: "招生线索", href: "/jrcedu/advice-system/index.html", type: "admissions" },
@@ -75,7 +61,7 @@
       return {
         title: "总览工作台",
         badge: "全局管理",
-        intro: "这里放全校区今天最该先看的事项：数据、备份、待办和试用风险。",
+        intro: "这里放全校区今天最该先看的事项：数据状态、待办和试用风险。",
         welcome: `${employee?.name || "管理员"}，今天先看全局有没有漏项；老师们具体工作不需要都看这些管理数据。`
       };
     }
@@ -90,9 +76,9 @@
     if (role === "财务") {
       return {
         title: "财务工作台",
-        badge: "结算与备份",
-        intro: "这里优先放财务数据、备份提醒和需要结算核对的事项。",
-        welcome: `${employee?.name || "财务老师"}，今天先确认数据有没有备份，财务系统里的收入、支出和结算口径是否需要补录。`
+        badge: "结算核对",
+        intro: "这里优先放财务数据和需要结算核对的事项。",
+        welcome: `${employee?.name || "财务老师"}，今天先看财务系统里的收入、支出和结算口径是否需要补录。`
       };
     }
     if (role === "授课老师") {
@@ -197,25 +183,6 @@
     return { label: "本机数据", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录。` };
   }
 
-  function countBackupStores() {
-    return backupStoreKeys.filter((key) => localStorage.getItem(key) !== null).length;
-  }
-
-  function readLastBackupState() {
-    const data = readStore("jrc-last-local-backup-export", null);
-    if (!data?.exportedAt) return { exportedToday: false, text: "当前浏览器还没有整站备份记录" };
-    const exported = new Date(data.exportedAt);
-    const now = new Date();
-    const exportedToday =
-      exported.getFullYear() === now.getFullYear() &&
-      exported.getMonth() === now.getMonth() &&
-      exported.getDate() === now.getDate();
-    return {
-      exportedToday,
-      text: `最近备份：${exported.toLocaleString("zh-CN", { hour12: false })}`
-    };
-  }
-
   function getEmployeeState() {
     const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
     const custom = safeParse(localStorage.getItem("jrc-employee-directory-extra"), []);
@@ -250,10 +217,8 @@
     const visible = isAdminLike();
     const localDataCard = $("portalLocalDataCard");
     const dataStateSection = $("portalDataStateSection");
-    const dataSyncSection = $("dataSyncSection");
     if (localDataCard) localDataCard.hidden = !visible;
     if (dataStateSection) dataStateSection.hidden = !visible;
-    if (dataSyncSection) dataSyncSection.hidden = !visible;
   }
 
   function renderPortalDashboard() {
@@ -262,8 +227,6 @@
     reorderSystemCards();
     const { leads, pending } = readAdmissions();
     const auditCount = readAuditCount();
-    const backupStoreCount = countBackupStores();
-    const lastBackupState = readLastBackupState();
     const employeeState = getEmployeeState();
     const paikeReviewCount = getPaikeReviewCount();
     const qualityOpenTickets = getTeachingQualityOpenTickets();
@@ -271,7 +234,6 @@
     if ($("portalAdmissionsCount")) $("portalAdmissionsCount").textContent = String(leads.length);
     if ($("portalAdmissionsTodoCount")) $("portalAdmissionsTodoCount").textContent = String(pending.length);
     if ($("portalAuditCount")) $("portalAuditCount").textContent = String(auditCount);
-    if ($("portalBackupStoreCount")) $("portalBackupStoreCount").textContent = String(backupStoreCount);
 
     const todos = [];
     if (hasPermission("admissions.access") && pending.length > 0) {
@@ -309,32 +271,6 @@
         "当前多为演示样例，但正式试用前要确认哪些是真实整改，哪些只是示例。",
         "./teaching-quality.html",
         "看教学质量"
-      ));
-    }
-
-    if (isAdminLike() && backupStoreCount === 0) {
-      todos.push(todoItem(
-        "提醒",
-        "当前浏览器还没有可备份业务数据",
-        "下周试用前请先录入或导入一批真实数据，再由管理员导出整站备份。",
-        "#dataSyncSection",
-        "看备份"
-      ));
-    } else if (isAdminLike() && !lastBackupState.exportedToday) {
-      todos.push(todoItem(
-        "紧急",
-        "今天还没有导出整站备份",
-        `${lastBackupState.text}。云数据库接入前，建议每天下班前导出一次。`,
-        "#dataSyncSection",
-        "立即备份"
-      ));
-    } else if (isAdminLike()) {
-      todos.push(todoItem(
-        "正常",
-        "今天已经导出过整站备份",
-        `${lastBackupState.text}。明天接云数据库前，这个备份可以作为兜底。`,
-        "#dataSyncSection",
-        "查看备份"
       ));
     }
 
