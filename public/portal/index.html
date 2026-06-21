@@ -222,6 +222,32 @@
         color: var(--ink);
         font-size: 24px;
       }
+      .data-state-list {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .data-state-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        padding: 14px;
+      }
+      .data-state-card strong {
+        display: block;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .data-state-card span {
+        display: inline-flex;
+        margin-top: 8px;
+      }
+      .data-state-card p {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.55;
+      }
       .status-danger {
         background: rgba(188, 88, 46, 0.12);
         color: #9a3412;
@@ -335,6 +361,7 @@
           grid-template-columns: 1fr;
         }
         .data-sync-grid,
+        .data-state-list,
         .data-sync-tools {
           grid-template-columns: 1fr;
         }
@@ -426,6 +453,18 @@
             </div>
           </div>
         </article>
+      </section>
+
+      <section class="note">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Data Status</p>
+            <h2>各系统数据状态</h2>
+          </div>
+          <span class="badge">试用提醒</span>
+        </div>
+        <p>下周试用时，先看清每个系统当前是“本机真实数据”“样例数据”还是“待录入”。这样老师不会把演示排名、演示金额、演示学生误认为真实业务结果。</p>
+        <div class="data-state-list" id="portalDataStateList"></div>
       </section>
 
       <section class="grid">

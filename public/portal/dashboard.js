@@ -15,6 +15,17 @@
     "jrc-business-audit-log-v1",
     "jrc-employee-directory-extra"
   ];
+  const systemStores = [
+    { key: "paike-summer-import-review-v1", label: "排课待确认", href: "./paike.html", type: "array" },
+    { key: "advice-system-stage-prototype", label: "招生线索", href: "/jrcedu/advice-system/index.html", type: "admissions" },
+    { key: "jrc-finance-ledger-v1", label: "财务系统", href: "./finance.html", type: "finance" },
+    { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", href: "./teaching-quality.html", type: "teachingQuality" },
+    { key: "jrc-student-service-v2", label: "学生服务", href: "./student-service.html", type: "array" },
+    { key: "jrc-curriculum-products-v2", label: "教研课程", href: "./curriculum-products.html", type: "array" },
+    { key: "jrc-hr-training-tasks-v2", label: "人事培训", href: "./hr-training.html", type: "array" },
+    { key: "jrc-campus-operations-v2", label: "校区运营", href: "./campus-operations.html", type: "array" },
+    { key: "jrc-suggestion-management-v2", label: "建议系统", href: "./suggestions.html", type: "array" }
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -49,8 +60,67 @@
     return Array.isArray(rows) ? rows.length : 0;
   }
 
+  function readStore(key, fallback = null) {
+    return safeParse(localStorage.getItem(key), fallback);
+  }
+
+  function countStoreRows(config) {
+    const data = readStore(config.key, null);
+    if (data === null) return 0;
+    if (Array.isArray(data)) return data.length;
+    if (config.type === "admissions") {
+      return Array.isArray(data.leads) ? data.leads.length : 0;
+    }
+    if (config.type === "finance") {
+      return Object.keys(data.periods || {}).length + (data.expenses || []).length;
+    }
+    if (config.type === "teachingQuality") {
+      return (data.teachers || []).length + (data.tickets || []).length + (data.inspections || []).length;
+    }
+    if (typeof data === "object") return Object.keys(data).length;
+    return 0;
+  }
+
+  function getTeachingQualityOpenTickets() {
+    const data = readStore("jrc-teaching-quality-system-v2-demo", {});
+    const tickets = Array.isArray(data.tickets) ? data.tickets : [];
+    return tickets.filter((ticket) => !String(ticket.status || "").includes("已闭环"));
+  }
+
+  function getPaikeReviewCount() {
+    const rows = readStore("paike-summer-import-review-v1", []);
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  function getDataStatus(config) {
+    const hasData = localStorage.getItem(config.key) !== null;
+    const count = countStoreRows(config);
+    if (!hasData) {
+      return { label: "待录入", className: "status-warn", detail: "当前浏览器暂无本系统数据。" };
+    }
+    if (config.type === "teachingQuality") {
+      return { label: "演示样例", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需换成真实数据。` };
+    }
+    return { label: "本机数据", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录。` };
+  }
+
   function countBackupStores() {
     return backupStoreKeys.filter((key) => localStorage.getItem(key) !== null).length;
+  }
+
+  function readLastBackupState() {
+    const data = readStore("jrc-last-local-backup-export", null);
+    if (!data?.exportedAt) return { exportedToday: false, text: "当前浏览器还没有整站备份记录" };
+    const exported = new Date(data.exportedAt);
+    const now = new Date();
+    const exportedToday =
+      exported.getFullYear() === now.getFullYear() &&
+      exported.getMonth() === now.getMonth() &&
+      exported.getDate() === now.getDate();
+    return {
+      exportedToday,
+      text: `最近备份：${exported.toLocaleString("zh-CN", { hour12: false })}`
+    };
   }
 
   function getEmployeeState() {
@@ -79,7 +149,10 @@
     const { leads, pending } = readAdmissions();
     const auditCount = readAuditCount();
     const backupStoreCount = countBackupStores();
+    const lastBackupState = readLastBackupState();
     const employeeState = getEmployeeState();
+    const paikeReviewCount = getPaikeReviewCount();
+    const qualityOpenTickets = getTeachingQualityOpenTickets();
 
     if ($("portalAdmissionsCount")) $("portalAdmissionsCount").textContent = String(leads.length);
     if ($("portalAdmissionsTodoCount")) $("portalAdmissionsTodoCount").textContent = String(pending.length);
@@ -105,6 +178,26 @@
       ));
     }
 
+    if (paikeReviewCount > 0) {
+      todos.push(todoItem(
+        "紧急",
+        `排课系统有 ${paikeReviewCount} 条待确认项`,
+        "老师 Excel 导入后留下的疑问、缺教室、命名不一致或待排课老师拍板事项，需要优先清理。",
+        "./paike.html",
+        "处理排课"
+      ));
+    }
+
+    if (qualityOpenTickets.length > 0) {
+      todos.push(todoItem(
+        "提醒",
+        `教学质量有 ${qualityOpenTickets.length} 条未闭环整改`,
+        "当前多为演示样例，但正式试用前要确认哪些是真实整改，哪些只是示例。",
+        "./teaching-quality.html",
+        "看教学质量"
+      ));
+    }
+
     if (backupStoreCount === 0) {
       todos.push(todoItem(
         "提醒",
@@ -113,13 +206,21 @@
         "#dataSyncSection",
         "看备份"
       ));
+    } else if (!lastBackupState.exportedToday) {
+      todos.push(todoItem(
+        "紧急",
+        "今天还没有导出整站备份",
+        `${lastBackupState.text}。云数据库接入前，建议每天下班前导出一次。`,
+        "#dataSyncSection",
+        "立即备份"
+      ));
     } else {
       todos.push(todoItem(
-        "提醒",
-        `当前浏览器检测到 ${backupStoreCount} 类可备份数据`,
-        "云数据库接入前，每天下班前建议管理员导出一次整站备份。",
+        "正常",
+        "今天已经导出过整站备份",
+        `${lastBackupState.text}。明天接云数据库前，这个备份可以作为兜底。`,
         "#dataSyncSection",
-        "导出备份"
+        "查看备份"
       ));
     }
 
@@ -145,6 +246,23 @@
 
     const holder = $("portalTodoList");
     if (holder) holder.innerHTML = todos.join("");
+
+    renderDataStates();
+  }
+
+  function renderDataStates() {
+    const holder = $("portalDataStateList");
+    if (!holder) return;
+    holder.innerHTML = systemStores.map((config) => {
+      const status = getDataStatus(config);
+      return `
+        <a class="data-state-card" href="${config.href}" style="text-decoration:none;">
+          <strong>${config.label}</strong>
+          <span class="badge ${status.className}">${status.label}</span>
+          <p>${status.detail}</p>
+        </a>
+      `;
+    }).join("");
   }
 
   document.addEventListener("DOMContentLoaded", renderPortalDashboard);

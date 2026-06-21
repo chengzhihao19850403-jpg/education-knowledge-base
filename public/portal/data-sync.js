@@ -1,5 +1,6 @@
 (function () {
   const backupVersion = "2026-06-21-local-backup-v2";
+  const lastBackupKey = "jrc-last-local-backup-export";
   const managedStores = [
     { key: "paike-june-system-v1", label: "排课系统·平时课数据", shape: "paikeRegular" },
     { key: "paike-june-system-meta-v1", label: "排课系统·平时状态", shape: "object" },
@@ -174,6 +175,7 @@
     const textarea = $("dataSyncPayload");
     if (textarea) textarea.value = payload;
     downloadJson(`匠人程整站本机备份-${new Date().toISOString().slice(0, 10)}.json`, backup);
+    localStorage.setItem(lastBackupKey, JSON.stringify({ exportedAt: backup.exportedAt, version: backup.version }));
     window.JRC_CLOUD?.recordBackupExport?.(backup, { operator: window.JRC_CURRENT_EMPLOYEE || null });
     setMessage(`已生成整站本机备份，共包含 ${Object.keys(backup.entries).length} 类数据。`);
     renderStatusCards();
