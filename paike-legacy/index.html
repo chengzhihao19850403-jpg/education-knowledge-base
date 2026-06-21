@@ -736,7 +736,18 @@
           `;
         }
 
+        function isCloudTransitionMode() {
+          return window.location.hostname.endsWith("github.io") || window.location.pathname.includes("/paike-legacy/");
+        }
+
         try {
+          if (isCloudTransitionMode()) {
+            gateNode.hidden = true;
+            shellNode.hidden = false;
+            uploadButton?.addEventListener("click", handleWorkbookUpload);
+            return;
+          }
+
           if (!["http:", "https:"].includes(window.location.protocol)) {
             renderGate(
               "当前无法使用排课系统入口",

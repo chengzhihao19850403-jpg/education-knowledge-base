@@ -10283,10 +10283,17 @@ function getBackendConnectionText() {
       ? `已连接系统后台（暑假模式）：${formatLocalDbTarget()}`
       : `已连接寒暑假后台：${formatLocalDbTarget()}`;
   }
+  if (isCloudTransitionMode()) {
+    return "云端过渡模式：当前先使用老师熟悉的暑假排课界面，数据保存在当前浏览器；正式多人同步会逐步接入云数据库。";
+  }
   if (configuredBaseUrl) {
     return `已配置系统后台（暑假模式）：${configuredBaseUrl}。当前未连通，请确认后台服务已启动，且两台电脑在同一网络。`;
   }
   return "当前未连接系统后台（暑假模式）。老师在自己电脑打开页面时，可在这里填写后台地址，例如 http://192.168.1.20:8000。";
+}
+
+function isCloudTransitionMode() {
+  return window.location.hostname.endsWith("github.io") || window.location.pathname.includes("/paike-legacy/");
 }
 
 function renderAccessGate() {
@@ -10296,7 +10303,7 @@ function renderAccessGate() {
     return;
   }
   document.documentElement.classList.remove("access-check-pending");
-  const blocked = !localDbStatus.available;
+  const blocked = !localDbStatus.available && !isCloudTransitionMode();
   gateNode.hidden = !blocked;
   shellNode.hidden = blocked;
   if (!blocked) {
@@ -10401,6 +10408,8 @@ function renderSaveStatus() {
     const historySuffix = localDbHistoryEntries.length ? `；最近保留历史 ${localDbHistoryEntries.length} 条` : "";
     const errorSuffix = localDbStatus.lastError ? `；最近一次后台同步失败：${localDbStatus.lastError}` : "";
     statusNode.textContent = `当前数据会先保存在当前浏览器，并同步写入寒暑假后台（${formatLocalDbTarget()}）。浏览器最近保存：${browserSavedAt}；后台最近写入：${databaseSavedAt}${historySuffix}${errorSuffix}`;
+  } else if (isCloudTransitionMode()) {
+    statusNode.textContent = `云端过渡模式：当前未连接局域网后台，数据会先保存在当前浏览器。浏览器最近保存：${browserSavedAt}。`;
   } else if (getConfiguredBackendBaseUrl()) {
     const errorSuffix = localDbStatus.lastError ? `；连接失败：${localDbStatus.lastError}` : "";
     statusNode.textContent = `当前未连通寒暑假后台，系统已锁定，不能继续使用。已配置后台地址：${getConfiguredBackendBaseUrl()}${errorSuffix}`;
