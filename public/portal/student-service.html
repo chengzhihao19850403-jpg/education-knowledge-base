@@ -161,8 +161,11 @@
         </div>
         <div class="actions">
           <button class="button" id="attendanceBuildButton" type="button">生成点名名单</button>
+          <button class="button secondary" id="attendanceImportButton" type="button">上传名单 Excel / CSV</button>
+          <button class="button secondary" id="attendanceTemplateButton" type="button">下载名单模板</button>
           <button class="button secondary" id="attendanceSaveButton" type="button">保存本节点名</button>
           <button class="button secondary" id="attendanceExportButton" type="button">导出点名 CSV</button>
+          <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
         <div class="notice" id="attendanceMessage">到课学生默认“计老师课时费 + 计家长课销”。缺席或待核对学生必须选择后续处理；有出门测成绩的学生会自动作为已到课二次确认。</div>
         <div class="table-wrap" style="margin-top:16px;">
@@ -265,6 +268,7 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260622c"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260621e"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
         const body = document.getElementById("studentAdmissionLinkBody");
@@ -321,12 +325,15 @@
           rosterInput: document.getElementById("attendanceRosterInput")
         };
         const buildButton = document.getElementById("attendanceBuildButton");
+        const importButton = document.getElementById("attendanceImportButton");
+        const templateButton = document.getElementById("attendanceTemplateButton");
+        const importInput = document.getElementById("attendanceImportInput");
         const saveButton = document.getElementById("attendanceSaveButton");
         const exportButton = document.getElementById("attendanceExportButton");
         const message = document.getElementById("attendanceMessage");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
-        if (!rosterBody || !historyBody || !buildButton || !saveButton || !exportButton) return;
+        if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
 
@@ -390,10 +397,131 @@
           if (status === "请假") return "请假顺延";
           return "待联系家长";
         };
-        const parseRoster = () => String(fields.rosterInput?.value || "")
-          .split(/[\n,，、;；]+/)
-          .map((name) => name.trim())
-          .filter(Boolean);
+        const normalizeKey = (value) => String(value || "").replace(/\s+/g, "").replace(/[：:]/g, "").toLowerCase();
+        const findColumn = (headers, candidates) => {
+          const normalized = headers.map(normalizeKey);
+          return normalized.findIndex((header) => candidates.some((candidate) => header.includes(normalizeKey(candidate))));
+        };
+        const splitTableLine = (line) => {
+          if (line.includes("\t")) return line.split("\t");
+          if (line.includes(",")) return line.split(",");
+          if (line.includes("，")) return line.split("，");
+          return [line];
+        };
+        const parseRosterRecords = (text) => {
+          const rawText = String(text || "").trim();
+          if (!rawText) return { rows: [] };
+          const lines = rawText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+          const looksTabular = lines.some((line) => /[\t,，]/.test(line));
+          if (!looksTabular) {
+            return {
+              rows: rawText
+                .split(/[\n,，、;；]+/)
+                .map((name) => name.trim())
+                .filter(Boolean)
+                .map((studentName) => ({ studentName }))
+            };
+          }
+          const table = lines.map(splitTableLine).map((row) => row.map((cell) => String(cell || "").trim()));
+          const headers = table[0] || [];
+          const studentIndex = findColumn(headers, ["学生姓名", "学生", "姓名", "学员姓名", "学员"]);
+          const scoreIndex = findColumn(headers, ["出门测成绩", "出门测", "小测成绩", "成绩", "分数"]);
+          const dateIndex = findColumn(headers, ["日期", "上课日期", "课程日期"]);
+          const teacherIndex = findColumn(headers, ["任课老师", "老师", "教师"]);
+          const classIndex = findColumn(headers, ["班级/课程", "班级", "课程", "课程名称"]);
+          const lessonTypeIndex = findColumn(headers, ["课程类型", "类型"]);
+          const dataRows = studentIndex >= 0 ? table.slice(1) : table;
+          const safeCell = (row, index) => index >= 0 ? String(row[index] || "").trim() : "";
+          const rows = dataRows
+            .map((row) => {
+              const studentName = studentIndex >= 0 ? safeCell(row, studentIndex) : safeCell(row, 0);
+              return {
+                studentName,
+                exitScore: safeCell(row, scoreIndex)
+              };
+            })
+            .filter((row) => row.studentName && !["学生", "学生姓名", "姓名"].includes(row.studentName));
+          const firstDataRow = dataRows.find((row) => row.some(Boolean)) || [];
+          return {
+            rows,
+            date: safeCell(firstDataRow, dateIndex),
+            teacher: safeCell(firstDataRow, teacherIndex),
+            className: safeCell(firstDataRow, classIndex),
+            lessonType: safeCell(firstDataRow, lessonTypeIndex)
+          };
+        };
+        const normalizeDateInput = (value) => {
+          const text = String(value || "").trim();
+          const match = text.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+          if (!match) return text;
+          return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`;
+        };
+        const parseRoster = () => parseRosterRecords(fields.rosterInput?.value || "").rows.map((row) => row.studentName);
+        const ensureTeacherOption = (teacherName) => {
+          const name = String(teacherName || "").trim();
+          if (!name || !fields.teacher) return;
+          const exists = Array.from(fields.teacher.options).some((option) => option.value === name);
+          if (!exists) {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            fields.teacher.appendChild(option);
+          }
+          if (canManageAll()) fields.teacher.value = name;
+        };
+        const applyRosterImport = (parsed, sourceLabel) => {
+          if (!parsed.rows.length) {
+            setMessage("没有识别到学生姓名。请确认表格里有“学生姓名”这一列，或直接复制学生姓名那一列。");
+            return;
+          }
+          if (parsed.date && fields.date) fields.date.value = normalizeDateInput(parsed.date);
+          if (parsed.teacher) ensureTeacherOption(parsed.teacher);
+          if (parsed.className && fields.className) fields.className.value = parsed.className;
+          if (parsed.lessonType && fields.lessonType) fields.lessonType.value = parsed.lessonType;
+          fields.rosterInput.value = parsed.rows.map((row) => row.studentName).join("\n");
+          const teacher = getSelectedTeacher();
+          draftRows = parsed.rows.map((row) => ({
+            studentName: row.studentName,
+            teacher,
+            status: "到课",
+            exitScore: row.exitScore || "",
+            followup: "正常销课并计课时"
+          }));
+          renderRoster();
+          setMessage(`已从${sourceLabel}识别 ${draftRows.length} 名学生${draftRows.some((row) => row.exitScore) ? "，并带入出门测成绩。" : "。"}`);
+        };
+        const readImportFile = async (file) => {
+          const fileName = file.name || "";
+          const lowerName = fileName.toLowerCase();
+          if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+            if (!window.XLSX) {
+              setMessage("当前浏览器没有加载 Excel 解析组件。可以先把 Excel 另存为 CSV 上传，或直接复制学生姓名列粘贴。");
+              return;
+            }
+            const buffer = await file.arrayBuffer();
+            const workbook = window.XLSX.read(buffer, { type: "array" });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const csvText = window.XLSX.utils.sheet_to_csv(firstSheet);
+            applyRosterImport(parseRosterRecords(csvText), `Excel 文件 ${fileName}`);
+            return;
+          }
+          const text = await file.text();
+          applyRosterImport(parseRosterRecords(text), `文件 ${fileName}`);
+        };
+        const downloadTemplate = () => {
+          const header = ["日期", "任课老师", "课程类型", "班级/课程", "学生姓名", "出门测成绩", "备注"];
+          const example = [today(), getSelectedTeacher(), "正常课", "暑假数学提升班", "学生姓名示例", "", "可空"];
+          const csv = [header, example].map((row) => row.map(toCsvCell).join(",")).join("\n");
+          const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `点名名单导入模板-${today()}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        };
         const getSelectedTeacher = () => {
           const employee = currentEmployee();
           if (!canManageAll() && employee?.role === "授课老师") return employee.name;
@@ -514,9 +642,28 @@
 
         if (fields.date && !fields.date.value) fields.date.value = today();
         populateTeachers();
+        importButton.addEventListener("click", () => {
+          if (!canUseAttendance()) return;
+          importInput.click();
+        });
+        importInput.addEventListener("change", async () => {
+          const file = importInput.files?.[0];
+          importInput.value = "";
+          if (!file) return;
+          try {
+            await readImportFile(file);
+          } catch (error) {
+            console.error(error);
+            setMessage("名单文件读取失败。可以先把 Excel 另存为 CSV 上传，或直接复制学生姓名列粘贴。");
+          }
+        });
+        templateButton.addEventListener("click", () => {
+          downloadTemplate();
+        });
         buildButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
-          const names = parseRoster();
+          const parsed = parseRosterRecords(fields.rosterInput?.value || "");
+          const names = parsed.rows.map((row) => row.studentName);
           if (!fields.className?.value?.trim()) {
             setMessage("请先填写班级或课程名称，后面课销和课时费才好核对。");
             return;
@@ -526,15 +673,15 @@
             return;
           }
           const teacher = getSelectedTeacher();
-          draftRows = names.map((studentName) => ({
-            studentName,
+          draftRows = parsed.rows.map((row) => ({
+            studentName: row.studentName,
             teacher,
             status: "到课",
-            exitScore: "",
+            exitScore: row.exitScore || "",
             followup: "正常销课并计课时"
           }));
           renderRoster();
-          setMessage(`已生成 ${draftRows.length} 人点名名单。可以在 iPad 上直接点选到课状态。`);
+          setMessage(`已生成 ${draftRows.length} 人点名名单。可以在 iPad 上直接点选到课状态${draftRows.some((row) => row.exitScore) ? "，出门测成绩也已带入。" : "。"}`);
         });
         saveButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
