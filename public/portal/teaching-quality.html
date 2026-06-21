@@ -245,7 +245,7 @@
       </section>
 
       <section class="grid">
-        <article class="card" id="financePreviewCard">
+        <article class="card" id="teacherProfileCard">
           <div class="section-head">
             <div>
               <h2>教师个人教学质量档案</h2>
@@ -261,7 +261,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card" id="financePreviewCard">
           <h2>财务绩效预核算</h2>
           <div class="table-wrap" style="margin-top:16px;">
             <table>
@@ -471,8 +471,15 @@
         byId("profileInspection").textContent = selectedStats ? String(selectedStats.inspection) : "0";
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
-        byId("financePreviewBody").innerHTML = items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("");
-        byId("financePreviewCard").hidden = !canViewQualityFinance();
+        const financeCard = byId("financePreviewCard");
+        const financeBody = byId("financePreviewBody");
+        const showFinancePreview = canViewQualityFinance();
+        if (financeCard) financeCard.hidden = !showFinancePreview;
+        if (financeBody) {
+          financeBody.innerHTML = showFinancePreview
+            ? items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("")
+            : "";
+        }
         byId("inspectionEntryCard").hidden = !canEdit();
         byId("qualityEditWarning").hidden = canEdit();
         document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());
