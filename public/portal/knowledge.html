@@ -3,152 +3,53 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜知识库问答系统</title>
+    <title>知识库问答系统</title>
     <style>
       body {
         margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
         font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
-        background: linear-gradient(180deg, #fbfcff 0%, #edf3fb 100%);
+        background: #f8fafc;
         color: #172132;
       }
-      .shell {
-        width: min(960px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 32px 0 48px;
-      }
-      .topbar,
-      .card {
-        background: rgba(255,255,255,0.96);
-        border: 1px solid rgba(23,33,50,0.08);
-        border-radius: 24px;
-        box-shadow: 0 18px 50px rgba(23,33,50,0.12);
-      }
-      .topbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        margin-bottom: 18px;
-        padding: 14px 18px;
-      }
-      .brand-name { font-size: 18px; font-weight: 800; }
-      .brand-subtitle { margin-top: 4px; color: #627086; font-size: 13px; }
-      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
-      .nav-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 36px;
-        padding: 0 12px;
-        border-radius: 999px;
-        color: #172132;
-        text-decoration: none;
-        background: rgba(255,255,255,0.82);
-        border: 1px solid rgba(23,33,50,0.08);
-        font-size: 13px;
-      }
-      .nav-link.active {
-        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-        color: #fff;
-        border-color: transparent;
-      }
-      .card {
+      main {
+        width: min(520px, calc(100vw - 32px));
         padding: 28px;
+        border: 1px solid rgba(23, 33, 50, 0.08);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 18px 50px rgba(23, 33, 50, 0.12);
       }
-      .card + .card { margin-top: 18px; }
-      h1, h2, p, li { margin: 0; }
-      h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.08; }
-      h2 { font-size: 22px; }
-      p, li { color: #627086; line-height: 1.75; }
-      ul { margin: 14px 0 0; padding-left: 18px; }
-      .eyebrow {
-        margin: 0 0 10px;
-        color: #0d9488;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      .actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-top: 18px;
-      }
-      .button {
+      h1 { margin: 0; font-size: 24px; }
+      p { margin: 12px 0 0; color: #627086; line-height: 1.7; }
+      a {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 44px;
+        min-height: 42px;
+        margin-top: 18px;
         padding: 0 18px;
         border-radius: 999px;
-        text-decoration: none;
-        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+        background: #0d9488;
         color: #fff;
-      }
-      .button-secondary {
-        background: #fff;
-        color: #172132;
-        border: 1px solid rgba(23,33,50,0.08);
-      }
-      .auth-note {
-        margin-top: 16px;
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: rgba(13, 148, 136, 0.08);
-        border: 1px solid rgba(13, 148, 136, 0.16);
-        color: #627086;
-      }
-      @media (max-width: 760px) {
-        .topbar {
-          align-items: flex-start;
-          flex-direction: column;
-        }
+        text-decoration: none;
+        font-weight: 700;
       }
     </style>
   </head>
   <body data-page-permission="knowledge.access">
-    <main class="shell">
-      <section class="topbar">
-        <div>
-          <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 02 · 知识库问答系统</div>
-        </div>
-        <nav class="nav">
-          <a class="nav-link" href="./index.html">总站首页</a>
-          <a class="nav-link" href="./paike.html">排课系统</a>
-          <a class="nav-link active" href="./knowledge.html">知识库问答系统</a>
-          <a class="nav-link" href="./suggestions.html">建议系统</a>
-          <a class="nav-link" href="./finance.html">财务系统</a>
-          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
-          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
-          <a class="nav-link" href="./student-service.html">学生服务</a>
-          <a class="nav-link" href="./curriculum-products.html">教研课程</a>
-          <a class="nav-link" href="./hr-training.html">人事培训</a>
-          <a class="nav-link" href="./campus-operations.html">校区运营</a>
-        </nav>
-      </section>
-      <section class="card">
-        <p class="eyebrow">System 02</p>
-        <h1>知识库问答系统</h1>
-        <p style="margin-top: 12px;">这个入口继续使用你们已经在线的知识库问答能力；学管课堂作为系统内的学习与测试模块保留，不再作为对外系统名称单独展示。</p>
-        <div class="auth-note" data-role-greeting></div>
-      </section>
-      <section class="card">
-        <p class="eyebrow">Current Route</p>
-        <h2>当前使用方式</h2>
-        <ul>
-          <li>继续使用现有知识库问答页面</li>
-          <li>学管课堂学习内容和阶段测试保留在知识库问答系统内部</li>
-          <li>统一门户现在先承担登录与总入口职责</li>
-          <li>后面再逐步做成真正的一个站内子系统</li>
-        </ul>
-        <div class="actions">
-          <a class="button" href="/jrcedu/">打开现有知识库首页</a>
-          <a class="button button-secondary" href="./index.html">返回总站首页</a>
-        </div>
-      </section>
+    <main>
+      <h1>正在打开知识库问答系统</h1>
+      <p>这里会跳转到原来的知识库页面，里面保留搜索查询、学管课堂学习内容和阶段测试。</p>
+      <a data-requires-permission="knowledge.access" href="/jrcedu/">立即打开</a>
     </main>
-    <script src="/jrcedu/portal/auth.js?v=20260621e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260621f"></script>
+    <script>
+      if (window.JRC_CURRENT_EMPLOYEE && window.jrcHasPermission?.("knowledge.access")) {
+        window.location.replace("/jrcedu/");
+      }
+    </script>
   </body>
 </html>
