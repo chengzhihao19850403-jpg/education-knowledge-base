@@ -109,6 +109,7 @@
     const textarea = $("dataSyncPayload");
     if (textarea) textarea.value = payload;
     downloadJson(`匠人程整站本机备份-${new Date().toISOString().slice(0, 10)}.json`, backup);
+    window.JRC_CLOUD?.recordBackupExport?.(backup, { operator: window.JRC_CURRENT_EMPLOYEE || null });
     setMessage(`已生成整站本机备份，共包含 ${Object.keys(backup.entries).length} 类数据。`);
   }
 

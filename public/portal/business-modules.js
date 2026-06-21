@@ -71,6 +71,7 @@
       at: nowText()
     };
     writeAuditLog([entry, ...readAuditLog()]);
+    window.JRC_CLOUD?.writeAuditLog?.(entry);
   }
 
   function renderAuditLog(module, tableBodyId) {
