@@ -156,7 +156,7 @@
             <span class="status-chip">C 70 以下</span>
           </div>
         </div>
-        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开倒数排名。完整排名仅管理员和教研/教务负责人可见，授课老师默认只看自己的档案、趋势和整改建议。</div>
+        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开倒数排名。完整排名仅总管理员可见；财务绩效预核算仅总管理员和财务可见；其他老师默认只看自己的档案、趋势和整改建议。</div>
         <div class="metrics">
           <div class="metric"><span id="qualityMetricOneLabel">本月教师均分</span><strong id="qualityAverageScore">0</strong><p id="qualityMetricOneHint">按权重自动计算</p></div>
           <div class="metric"><span id="qualityMetricTwoLabel">S / A 级教师</span><strong id="qualityStrongCount">0</strong><p id="qualityMetricTwoHint">优先分配优质试听班</p></div>
@@ -328,7 +328,8 @@
       function currentEmployee() { return window.JRC_CURRENT_EMPLOYEE || null; }
       function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
       function canEdit() { return hasPermission("teachingQuality.edit") || hasPermission("admin.access"); }
-      function canViewFullQuality() { return canEdit() || hasPermission("admin.access"); }
+      function canViewFullQuality() { return hasPermission("admin.access"); }
+      function canViewQualityFinance() { return hasPermission("admin.access") || hasPermission("finance.access"); }
       function currentTeacherName() { return currentEmployee()?.name || state.selectedTeacher || ""; }
       function visibleTeacherNames() {
         if (canViewFullQuality()) return teachers();
@@ -365,11 +366,13 @@
       function ranking() { return teachers().map(stats).sort((a, b) => b.total - a.total); }
       function scoreCell(score) { return `<strong>${score}</strong><div class="score-bar" style="--w:${Math.round(score)}%"><span></span></div>`; }
       function renderOptions() {
-        const selectableTeachers = canViewFullQuality() ? teachers() : visibleTeacherNames();
-        const options = selectableTeachers.map((name) => `<option value="${name}">${name}</option>`).join("");
+        const profileTeachers = canViewFullQuality() ? teachers() : visibleTeacherNames();
+        const inspectionTeachers = canEdit() ? teachers() : profileTeachers;
         ["inspectionTeacher", "profileTeacher"].forEach((id) => {
           const select = byId(id);
           if (!select) return;
+          const selectableTeachers = id === "inspectionTeacher" ? inspectionTeachers : profileTeachers;
+          const options = selectableTeachers.map((name) => `<option value="${name}">${name}</option>`).join("");
           const current = select.value || state.selectedTeacher;
           select.innerHTML = options;
           select.value = selectableTeachers.includes(current) ? current : selectableTeachers[0] || "";
@@ -391,7 +394,7 @@
           .join("、") || "暂无";
         const commonTags = commonQualityTags().slice(0, 3).join("、") || "暂无集中问题";
         const personalLine = canViewFullQuality()
-          ? "完整排名只在管理端内部使用，正式启用后不建议在全员群里公布倒数或低分名单。"
+          ? "完整排名只在总管理员端内部使用，正式启用后不建议在全员群里公布倒数或低分名单。"
           : "你当前只看到自己的教学质量档案；别人的低分、整改和财务绩效不会在老师端展示。";
         byId("qualityPublicBoard").innerHTML = `
           <div class="mini-item">
@@ -469,7 +472,7 @@
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
         byId("financePreviewBody").innerHTML = items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("");
-        byId("financePreviewCard").hidden = !canViewFullQuality();
+        byId("financePreviewCard").hidden = !canViewQualityFinance();
         byId("inspectionEntryCard").hidden = !canEdit();
         byId("qualityEditWarning").hidden = canEdit();
         document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());
