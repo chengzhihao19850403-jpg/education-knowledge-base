@@ -1,6 +1,7 @@
 const STORAGE_KEY = "advice-system-stage-prototype";
 
 const defaultState = {
+  activeView: "dashboard",
   activeLeadFilter: "all",
   leadSearchQuery: "",
   leadOwnerFilter: "",
@@ -1983,17 +1984,36 @@ function bindDetailSave() {
 function bindNavigation() {
   const navItems = Array.from(document.querySelectorAll(".nav-item[data-nav-target]"));
   const sections = Array.from(document.querySelectorAll("[data-section-group]"));
+
+  const applyView = (target) => {
+    const nextTarget = navItems.some((item) => item.getAttribute("data-nav-target") === target)
+      ? target
+      : "dashboard";
+    state.activeView = nextTarget;
+    navItems.forEach((nav) => {
+      nav.classList.toggle("active", nav.getAttribute("data-nav-target") === nextTarget);
+    });
+    sections.forEach((section) => {
+      const groups = (section.getAttribute("data-section-group") || "").split(" ");
+      section.classList.toggle("hidden-section", !groups.includes(nextTarget));
+    });
+    persistState();
+  };
+
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
-      navItems.forEach((nav) => nav.classList.remove("active"));
-      item.classList.add("active");
-      const target = item.getAttribute("data-nav-target");
-      sections.forEach((section) => {
-        const groups = (section.getAttribute("data-section-group") || "").split(" ");
-        section.classList.toggle("hidden-section", !groups.includes(target));
-      });
+      applyView(item.getAttribute("data-nav-target"));
     });
   });
+
+  document.querySelectorAll("[data-jump-view]").forEach((node) => {
+    node.addEventListener("click", () => {
+      applyView(node.getAttribute("data-jump-view"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+
+  applyView(state.activeView || "dashboard");
 }
 
 function bindLeadActions() {

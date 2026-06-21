@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>招生管理系统｜第一阶段原型</title>
+    <title>招生管理系统｜匠人程工作台</title>
     <style>
       :root {
         --bg: #f4f6fb;
@@ -178,7 +178,9 @@
         border-radius: 16px;
         background: #fff;
         padding: 16px;
+        cursor: pointer;
       }
+      .quick-card:hover { border-color: rgba(124, 58, 237, 0.28); box-shadow: 0 10px 24px rgba(23, 33, 50, 0.08); }
       .quick-card strong {
         display: block;
         color: var(--ink);
@@ -549,9 +551,9 @@
       </nav>
       <div class="topbar">
         <div class="title-wrap">
-          <p>Stage 1 Prototype</p>
+          <p>Admissions CRM</p>
           <h1>招生管理系统</h1>
-          <div class="hint">第一阶段先把线索、跟进、试听、报名、渠道归属五条主链跑通，后续再继续加转介绍、提成、沉睡召回。</div>
+          <div class="hint">按老师日常工作顺序管理线索、跟进、试听、报名、渠道归属和转介绍数据，先处理今天该做的事，再进入各业务页签。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
           <div class="readonly-note" id="permissionNotice" hidden></div>
         </div>
@@ -586,19 +588,23 @@
               <h3>渠道与看板</h3>
               <p>先做基础渠道漏斗，后面再接 ROI、提成和裂变分析。</p>
             </div>
+            <div class="nav-item" data-nav-target="settings">
+              <h3>导入与规则</h3>
+              <p>Excel 导入、渠道配置、提成规则、通知触达和推荐二维码。</p>
+            </div>
           </div>
           <div class="inline-note">
-            <p><strong>这版先不做死的地方：</strong></p>
+            <p><strong>当前使用重点：</strong></p>
             <ul>
-              <li>短信和微信通知先不强依赖</li>
-              <li>提成只留接口位置，不急着一次做满</li>
-              <li>沉睡客户先做字段和筛选，不急着全自动触达</li>
+              <li>新线索先首联，不能过夜没人接</li>
+              <li>试听当天回填反馈，避免后面靠记忆补</li>
+              <li>报名后锁定归属链，方便财务和提成对账</li>
             </ul>
           </div>
         </aside>
 
         <section>
-          <section class="panel content-section" data-section-group="dashboard leads insights">
+          <section class="panel content-section" data-section-group="dashboard">
             <div class="section-head">
               <div>
                 <h2>今日工作台</h2>
@@ -633,19 +639,19 @@
               </div>
             </div>
             <div class="quick-actions">
-              <div class="quick-card">
+              <div class="quick-card" data-jump-view="leads">
                 <strong>先清新线索</strong>
                 <p>先处理“新建未联系”和“已沟通待邀约”，不要让新线索过夜没人接。</p>
               </div>
-              <div class="quick-card">
+              <div class="quick-card" data-jump-view="trials">
                 <strong>再定试听</strong>
                 <p>把今天有希望推进的家长先约试听，优先锁定老师和时间段。</p>
               </div>
-              <div class="quick-card">
+              <div class="quick-card" data-jump-view="trials">
                 <strong>回填反馈</strong>
                 <p>试听结束当天必须回填课堂吸收、家长异议、意向等级和是否进群。</p>
               </div>
-              <div class="quick-card">
+              <div class="quick-card" data-jump-view="enrollment">
                 <strong>追报名方案</strong>
                 <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
               </div>
@@ -788,7 +794,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="leads trials">
+          <section class="panel content-section" data-section-group="leads">
             <div class="section-head">
               <div>
                 <h2>线索主表</h2>
@@ -1153,7 +1159,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="leads">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>Excel 批量导入入口</h2>
@@ -1280,7 +1286,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="leads">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>渠道来源配置</h2>
@@ -1803,7 +1809,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="insights">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>提成链结构页</h2>
@@ -1889,7 +1895,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="insights">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>转介绍奖励规则页</h2>
@@ -1933,7 +1939,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="insights">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>提成规则配置页</h2>
@@ -2121,7 +2127,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="insights">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>通知与触达入口</h2>
@@ -2156,7 +2162,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="insights">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
                 <h2>推荐二维码入口</h2>
