@@ -842,37 +842,7 @@
                 </thead>
                 <tbody id="leadTableBody">
                   <tr>
-                    <td>张同学<br>家长：138****2165<br>六年级 / 数学</td>
-                    <td><span class="tag">抖音投流</span><br>网销归属：叶老师</td>
-                    <td>招生顾问：陈老师</td>
-                    <td><span class="tag amber">已沟通待邀约</span></td>
-                    <td>未预约</td>
-                    <td>A 高意向</td>
-                    <td>未进群</td>
-                    <td>今天 10:20<br>关心提分速度和老师稳定性</td>
-                    <td>今晚发案例，明天定试听时间</td>
-                  </tr>
-                  <tr>
-                    <td>李同学<br>家长：139****8721<br>初一 / 数学</td>
-                    <td><span class="tag green">老家长转介绍</span><br>推荐人：王妈妈</td>
-                    <td>招生顾问：何老师</td>
-                    <td><span class="tag">已预约试听</span></td>
-                    <td>6 月 22 日 19:00<br>试听老师：刘老师</td>
-                    <td>B 中意向</td>
-                    <td>已进群</td>
-                    <td>今天 09:15<br>已确认到场</td>
-                    <td>试听后当天必须回填反馈</td>
-                  </tr>
-                  <tr>
-                    <td>周同学<br>家长：136****5549<br>五年级 / 数学</td>
-                    <td><span class="tag red">自然到访</span><br>校区前台登记</td>
-                    <td>招生顾问：赵老师</td>
-                    <td><span class="tag red">试听完成待转化</span></td>
-                    <td>已试听</td>
-                    <td>A 高意向</td>
-                    <td>已进群</td>
-                    <td>昨天 18:40<br>家长认可老师，价格有异议</td>
-                    <td>48 小时内给报名方案</td>
+                    <td colspan="10">当前还没有真实线索。请先手动新增，或到“批量导入”粘贴老师 Excel 里的线索表。</td>
                   </tr>
                 </tbody>
               </table>
@@ -895,9 +865,7 @@
               <div class="field">
                 <label>跟进对象</label>
                 <select id="followupLeadSelect">
-                  <option>张同学</option>
-                  <option>李同学</option>
-                  <option>周同学</option>
+                  <option value="">暂无线索</option>
                 </select>
               </div>
               <div class="field">
@@ -954,23 +922,23 @@
             <div class="metrics" id="leadDetailPanel">
               <div class="metric">
                 <div class="metric-meta">当前学生</div>
-                <strong id="detailStudentName">张同学</strong>
-                <div class="metric-meta" id="detailGradeSubject">六年级 / 数学</div>
+                <strong id="detailStudentName">暂无线索</strong>
+                <div class="metric-meta" id="detailGradeSubject">请先新增或导入</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">负责人</div>
-                <strong id="detailOwner">陈老师</strong>
-                <div class="metric-meta" id="detailStatus">已沟通待邀约</div>
+                <strong id="detailOwner">-</strong>
+                <div class="metric-meta" id="detailStatus">待录入</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">渠道来源</div>
-                <strong id="detailChannel">抖音投流</strong>
-                <div class="metric-meta" id="detailChannelMeta">网销归属：叶老师</div>
+                <strong id="detailChannel">-</strong>
+                <div class="metric-meta" id="detailChannelMeta">-</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">下一步</div>
-                <strong id="detailNextAction">今晚发案例</strong>
-                <div class="metric-meta" id="detailFollowup">今天 10:20 / 关心提分速度和老师稳定性</div>
+                <strong id="detailNextAction">先录入第一条线索</strong>
+                <div class="metric-meta" id="detailFollowup">暂无跟进记录</div>
               </div>
             </div>
             <div class="form-grid">
@@ -978,9 +946,13 @@
                 <label>当前负责人</label>
                 <select id="detailOwnerSelect">
                   <option>待分配</option>
-                  <option>陈老师</option>
-                  <option>何老师</option>
-                  <option>赵老师</option>
+                  <option>陈雨晴</option>
+                  <option>高芳燕</option>
+                  <option>颜雨涵</option>
+                  <option>周珊</option>
+                  <option>徐嘉丽</option>
+                  <option>张艳</option>
+                  <option>程志豪</option>
                 </select>
               </div>
               <div class="field">
@@ -1015,10 +987,10 @@
                 <label>渠道归属</label>
                 <select id="detailChannelOwnerSelect">
                   <option>待补渠道归属</option>
-                  <option>叶老师</option>
-                  <option>陈老师</option>
-                  <option>何老师</option>
-                  <option>赵老师</option>
+                  <option>陈雨晴</option>
+                  <option>颜雨涵</option>
+                  <option>高芳燕</option>
+                  <option>周珊</option>
                   <option>前台</option>
                 </select>
               </div>
@@ -1125,9 +1097,13 @@
                 <label>负责人</label>
                 <select id="leadOwner">
                   <option>待分配</option>
-                  <option>陈老师</option>
-                  <option>何老师</option>
-                  <option>赵老师</option>
+                  <option>陈雨晴</option>
+                  <option>高芳燕</option>
+                  <option>颜雨涵</option>
+                  <option>周珊</option>
+                  <option>徐嘉丽</option>
+                  <option>张艳</option>
+                  <option>程志豪</option>
                 </select>
               </div>
               <div class="field">
@@ -1206,14 +1182,13 @@
               </div>
               <div class="field span-3">
                 <label>粘贴导入数据（每行一条，Tab 分列）</label>
-                <textarea id="importBatchInput">王同学	六年级	13700001111	数学	抖音投流		陈老师
-孙同学	初一	13900002222	数学	老家长转介绍	李妈妈	
-周同学	五年级	13600003333	数学	自然到访		赵老师</textarea>
+                <textarea id="importBatchInput" placeholder="从 Excel 复制表格后粘贴到这里。建议包含表头：学生姓名、年级、家长电话、意向学科、来源渠道、推荐人、当前负责人、当前状态、意向等级、试听时间、试听老师、是否进群、首条备注、下一步动作"></textarea>
               </div>
             </div>
             <div class="section-actions">
               <button class="button small secondary" id="copyImportTemplateButton" type="button">复制导入模板字段</button>
               <button class="button small" id="importBatchButton" type="button">导入这批线索</button>
+              <button class="button small secondary" id="resetAdmissionsButton" type="button">清空本机招生数据</button>
             </div>
             <div class="metrics">
               <div class="metric">
@@ -1312,14 +1287,14 @@
                   <tr>
                     <td>线上网络渠道</td>
                     <td>抖音投流</td>
-                    <td>叶老师</td>
+                    <td>对应网销 / 招生负责人</td>
                     <td>是</td>
                     <td>首单计入网销归属，续费默认不重复算渠道提成。</td>
                   </tr>
                   <tr>
                     <td>线上网络渠道</td>
                     <td>官网表单</td>
-                    <td>陈老师</td>
+                    <td>对应网销 / 招生负责人</td>
                     <td>是</td>
                     <td>按表单来源进线，需保留原始提交时间。</td>
                   </tr>
@@ -1357,16 +1332,25 @@
               <div class="field">
                 <label>试听学生</label>
                 <select id="trialLeadSelect">
-                  <option>张同学</option>
+                  <option value="">暂无可预约学生</option>
                 </select>
               </div>
               <div class="field">
                 <label>试听老师</label>
                 <select id="trialTeacherSelect">
-                  <option>刘老师</option>
-                  <option>叶老师</option>
-                  <option>陈老师</option>
-                  <option>何老师</option>
+                  <option>待安排</option>
+                  <option>叶源泽</option>
+                  <option>李舒</option>
+                  <option>赵萱</option>
+                  <option>朱永乐</option>
+                  <option>郑嘉艺</option>
+                  <option>潘云贵</option>
+                  <option>曹德顺</option>
+                  <option>何建军</option>
+                  <option>吴水琴</option>
+                  <option>吴建勇</option>
+                  <option>海滢滢</option>
+                  <option>程志豪</option>
                 </select>
               </div>
               <div class="field">
@@ -1398,7 +1382,7 @@
               <div class="field">
                 <label>反馈对应学生</label>
                 <select id="feedbackLeadSelect">
-                  <option>周同学</option>
+                  <option value="">暂无待反馈学生</option>
                 </select>
               </div>
               <div class="field">
@@ -1452,11 +1436,11 @@
               </div>
               <div class="field span-3">
                 <label>反馈总结</label>
-                <textarea id="feedbackSummary">学生基础还可以，课堂专注度不错，家长认可刘老师，但对价格还想比较。建议当天发学情总结，48 小时内给报名方案。</textarea>
+                <textarea id="feedbackSummary" placeholder="记录学生课堂吸收、家长反馈、未报名异议、下一步跟进方案。"></textarea>
               </div>
             </div>
             <div class="section-actions">
-              <button class="button small" id="saveFeedbackButton" type="button">保存试听反馈到当前示例</button>
+              <button class="button small" id="saveFeedbackButton" type="button">保存试听反馈</button>
             </div>
           </section>
 
@@ -1516,11 +1500,11 @@
               </div>
               <div class="field">
                 <label>总课时</label>
-                <input value="15">
+                <input value="">
               </div>
               <div class="field">
                 <label>标准学费</label>
-                <input value="6800">
+                <input value="">
               </div>
               <div class="field">
                 <label>实收金额</label>
@@ -1528,7 +1512,7 @@
               </div>
               <div class="field">
                 <label>优惠抵扣</label>
-                <input value="600">
+                <input value="">
               </div>
               <div class="field">
                 <label>缴费方式</label>
@@ -1538,19 +1522,19 @@
               </div>
               <div class="field">
                 <label>开课时间</label>
-                <input id="enrollStartDate" value="2026-07-05">
+                <input id="enrollStartDate" value="">
               </div>
               <div class="field">
                 <label>渠道归属</label>
-                <input id="enrollChannel" value="自然到访">
+                <input id="enrollChannel" value="">
               </div>
               <div class="field">
                 <label>招生顾问</label>
-                <input id="enrollOwner" value="赵老师">
+                <input id="enrollOwner" value="">
               </div>
               <div class="field">
                 <label>推荐人</label>
-                <input id="enrollReferrer" value="无">
+                <input id="enrollReferrer" value="">
               </div>
               <div class="field span-3">
                 <label>报名后锁定归属链</label>
@@ -1558,7 +1542,7 @@
               </div>
               <div class="field span-3">
                 <label>报名备注</label>
-                <textarea id="enrollRemark">家长已接受报价，7 月开课。后续如果扩科英语，需要继承当前顾问和来源归属。</textarea>
+                <textarea id="enrollRemark" placeholder="写清楚缴费、班型、开课时间、特殊优惠和后续交接事项。"></textarea>
               </div>
             </div>
             <div class="section-actions">
@@ -1788,8 +1772,8 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">推荐家长</div>
-                <strong>王妈妈</strong>
-                <div class="metric-meta">当前已推荐 3 名新生，1 名已报名</div>
+                <strong>待生成</strong>
+                <div class="metric-meta">导入转介绍线索后自动统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">推荐方式</div>
@@ -1798,7 +1782,7 @@
               </div>
               <div class="metric">
                 <div class="metric-meta">员工推荐</div>
-                <strong>叶老师</strong>
+                <strong>待生成</strong>
                 <div class="metric-meta">推荐奖与顾问提成可并行</div>
               </div>
               <div class="metric">
@@ -2016,25 +2000,7 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td>张同学家长</td>
-                    <td>32 天</td>
-                    <td>A</td>
-                    <td>顾问一对一电话 + 新班型方案</td>
-                    <td>高</td>
-                  </tr>
-                  <tr>
-                    <td>许同学家长</td>
-                    <td>61 天</td>
-                    <td>B</td>
-                    <td>活动课邀约 + 提分案例</td>
-                    <td>中</td>
-                  </tr>
-                  <tr>
-                    <td>周同学家长</td>
-                    <td>94 天</td>
-                    <td>C</td>
-                    <td>长期资料培育群 + 低频活动提醒</td>
-                    <td>低</td>
+                    <td colspan="5">导入真实线索并产生沉睡客户后，这里会按 30 / 60 / 90 天自动生成召回清单。</td>
                   </tr>
                 </tbody>
               </table>
@@ -2054,22 +2020,22 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">本月新增线索</div>
-                <strong>23</strong>
-                <div class="metric-meta">陈老师当前负责线索总量</div>
+                <strong>0</strong>
+                <div class="metric-meta">导入真实线索后自动统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">试听邀约率</div>
-                <strong>41%</strong>
+                <strong>0%</strong>
                 <div class="metric-meta">已接通线索中的预约占比</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">报名成交</div>
-                <strong>6</strong>
+                <strong>0</strong>
                 <div class="metric-meta">本月已成交人数</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">预计提成</div>
-                <strong>7,800</strong>
+                <strong>待计算</strong>
                 <div class="metric-meta">后面接真实规则计算</div>
               </div>
             </div>
@@ -2176,7 +2142,7 @@
               <div class="field">
                 <label>推荐主体</label>
                 <select>
-                  <option>王妈妈</option>
+                  <option>导入转介绍数据后可选择</option>
                 </select>
               </div>
               <div class="field">
@@ -2386,7 +2352,7 @@
       </div>
     </main>
     <script src="/jrcedu/portal/auth.js?v=20260622b"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260622a"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>
 </html>

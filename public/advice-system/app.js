@@ -7,7 +7,7 @@ const defaultState = {
   leadOwnerFilter: "",
   leadChannelFilter: "",
   leadIntentFilter: "",
-  selectedLeadName: "张同学",
+  selectedLeadName: "",
   employees: [],
   auditLogs: [],
   importSummary: {
@@ -17,109 +17,8 @@ const defaultState = {
     missingFields: 0,
     results: [],
   },
-  leads: [
-    {
-      studentName: "张同学",
-      parentPhone: "138****2165",
-      grade: "六年级",
-      subject: "数学",
-      channel: "抖音投流",
-      channelMeta: "网销归属：叶老师",
-      channelOwner: "叶老师",
-      referrerName: "",
-      owner: "陈老师",
-      status: "已沟通待邀约",
-      trial: "未预约",
-      intent: "A 高意向",
-      inGroup: "未进群",
-      lastFollowup: "今天 10:20",
-      note: "关心提分速度和老师稳定性",
-      nextAction: "今晚发案例，明天定试听时间",
-      parentNeed: "六升初衔接，想提升应用题和计算稳定性",
-      studentPainPoint: "应用题审题和计算准确率",
-      objection: "暂无明确异议",
-      nextFollowupDate: "2026-06-21",
-      trialTeacher: "",
-      trialTime: "",
-      enrolledAmount: 0,
-      attributionLocked: false,
-      attributionSnapshot: null,
-      renewalRecords: [],
-      financeProfile: null,
-    },
-    {
-      studentName: "李同学",
-      parentPhone: "139****8721",
-      grade: "初一",
-      subject: "数学",
-      channel: "老家长转介绍",
-      channelMeta: "推荐人：王妈妈",
-      channelOwner: "",
-      referrerName: "王妈妈",
-      owner: "何老师",
-      status: "已预约试听",
-      trial: "6 月 22 日 19:00",
-      intent: "B 中意向",
-      inGroup: "已进群",
-      lastFollowup: "今天 09:15",
-      note: "已确认到场",
-      nextAction: "试听后当天必须回填反馈",
-      parentNeed: "想先确认孩子是否适应小班节奏",
-      studentPainPoint: "初一数学基础衔接",
-      objection: "时间不匹配",
-      nextFollowupDate: "2026-06-22",
-      trialTeacher: "刘老师",
-      trialTime: "2026-06-22T19:00",
-      enrolledAmount: 0,
-      attributionLocked: false,
-      attributionSnapshot: null,
-      renewalRecords: [],
-      financeProfile: null,
-    },
-    {
-      studentName: "周同学",
-      parentPhone: "136****5549",
-      grade: "五年级",
-      subject: "数学",
-      channel: "自然到访",
-      channelMeta: "校区前台登记",
-      channelOwner: "前台",
-      referrerName: "",
-      owner: "赵老师",
-      status: "试听完成待转化",
-      trial: "已试听",
-      intent: "A 高意向",
-      inGroup: "已进群",
-      lastFollowup: "昨天 18:40",
-      note: "家长认可刘老师，价格有异议",
-      nextAction: "48 小时内给报名方案",
-      parentNeed: "暑假集中提升，开学前补薄弱模块",
-      studentPainPoint: "基础题稳定性和综合题思路",
-      objection: "价格异议",
-      nextFollowupDate: "2026-06-21",
-      trialTeacher: "刘老师",
-      trialTime: "2026-06-19T18:00",
-      enrolledAmount: 6200,
-      attributionLocked: true,
-      attributionSnapshot: {
-        channel: "自然到访",
-        channelOwner: "前台",
-        owner: "赵老师",
-        referrerName: "",
-      },
-      renewalRecords: [],
-      financeProfile: {
-        settledAmount: 6200,
-        pendingCommission: "待结算",
-        referralReward: "无",
-      },
-    },
-  ],
-  followups: [
-    { studentName: "张同学", time: "2026-06-20 10:20", text: "陈老师电话沟通。家长关注六升初衔接，主要担心应用题和计算能力，接受先试听再决定。" },
-    { studentName: "张同学", time: "2026-06-20 10:35", text: "已发送课程案例和暑假班时间表。下一步：今晚确认试听时间，争取约到周末前。" },
-    { studentName: "周同学", time: "2026-06-19 18:40", text: "试听已完成。家长认可刘老师，但对价格有比较。状态先转试听完成待转化，必须 48 小时内给报名方案。" },
-  ],
+  leads: [],
+  followups: [],
 };
 
 const state = loadState();
@@ -129,10 +28,10 @@ const statusClassMap = {
   "试听完成待转化": "red",
 };
 
-const ownerOptions = ["待分配", "陈老师", "何老师", "赵老师"];
-const trialTeacherOptions = ["刘老师", "叶老师", "陈老师", "何老师"];
+const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "张艳", "程志豪"];
+const trialTeacherOptions = ["待安排", "叶源泽", "李舒", "赵萱", "朱永乐", "郑嘉艺", "潘云贵", "曹德顺", "何建军", "吴水琴", "吴建勇", "海滢滢", "程志豪"];
 const channelOptions = ["待补来源", "抖音投流", "老家长转介绍", "自然到访", "官网表单"];
-const channelOwnerOptions = ["待补渠道归属", "叶老师", "陈老师", "何老师", "赵老师", "前台"];
+const channelOwnerOptions = ["待补渠道归属", "陈雨晴", "颜雨涵", "高芳燕", "周珊", "前台"];
 const importTemplateFields = [
   "学生姓名",
   "年级",
@@ -927,7 +826,24 @@ function renderFeedbackLeadOptions() {
 
 function renderLeadDetail() {
   const lead = getSelectedLead();
-  if (!lead) return;
+  if (!lead) {
+    byId("detailStudentName").textContent = "暂无线索";
+    byId("detailGradeSubject").textContent = "请先新增线索或批量导入";
+    byId("detailOwner").textContent = "-";
+    byId("detailStatus").textContent = "待录入";
+    byId("detailChannel").textContent = "-";
+    byId("detailChannelMeta").textContent = "-";
+    byId("detailNextAction").textContent = "先从 Excel 复制线索到批量导入区，或手动新增第一条线索。";
+    byId("detailFollowup").textContent = "暂无跟进记录";
+    byId("detailFollowupCount").textContent = "0 条记录";
+    byId("detailFollowupTimeline").innerHTML = `
+      <div class="timeline-item">
+        <div class="timeline-time">暂无线索</div>
+        <p>新增或导入线索后，这里会显示该学生的完整跟进历史。</p>
+      </div>
+    `;
+    return;
+  }
   byId("detailStudentName").textContent = lead.studentName;
   byId("detailGradeSubject").textContent = `${lead.grade} / ${lead.subject}`;
   byId("detailOwner").textContent = lead.owner;
@@ -1215,7 +1131,17 @@ function renderEnrollmentLeadOptions() {
 
   const activeLead =
     state.leads.find((leadItem) => leadItem.studentName === input.value) || lead;
-  if (!activeLead) return;
+  if (!activeLead) {
+    input.value = "";
+    byId("enrollChannel").value = "";
+    byId("enrollOwner").value = "";
+    byId("enrollReferrer").value = "";
+    byId("enrollAttributionPreview").value = "暂无可报名线索";
+    byId("enrollRemark").value = "请先新增或导入线索，再登记报名。";
+    byId("renewStudentName").value = "";
+    byId("renewAttributionPreview").value = "暂无可续费/扩科学生";
+    return;
+  }
 
   byId("enrollChannel").value = activeLead.channel;
   byId("enrollOwner").value = activeLead.owner;
@@ -1692,8 +1618,26 @@ function bindBatchImport() {
           field.select?.();
         }
       }
-    });
+      });
   }
+  byId("resetAdmissionsButton")?.addEventListener("click", () => {
+    if (!canEditAdmissions()) return;
+    const confirmed = window.confirm("确认清空当前浏览器里的招生线索、跟进记录、导入结果和操作日志吗？员工账号不会被清空。");
+    if (!confirmed) return;
+    state.leads = [];
+    state.followups = [];
+    state.auditLogs = [];
+    state.importSummary = {
+      added: 0,
+      duplicates: 0,
+      missingOwner: 0,
+      missingFields: 0,
+      results: [],
+    };
+    state.selectedLeadName = "";
+    localStorage.removeItem(STORAGE_KEY);
+    renderAll();
+  });
   button.addEventListener("click", () => {
     if (!canImportAdmissions()) return;
     const raw = byId("importBatchInput").value.trim();
