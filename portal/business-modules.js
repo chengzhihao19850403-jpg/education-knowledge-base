@@ -235,6 +235,93 @@
     callback();
   }
 
+  function injectBusinessModuleStyles() {
+    if (document.getElementById("jrcBusinessModuleResponsiveStyles")) return;
+    const style = document.createElement("style");
+    style.id = "jrcBusinessModuleResponsiveStyles";
+    style.textContent = `
+      .table-wrap {
+        -webkit-overflow-scrolling: touch;
+      }
+      .table-wrap::after {
+        content: "";
+        display: block;
+        height: 0;
+      }
+      @media (max-width: 720px) {
+        body {
+          -webkit-text-size-adjust: 100%;
+        }
+        .shell {
+          width: min(100% - 20px, 1280px) !important;
+          padding: 18px 0 34px !important;
+        }
+        .topbar,
+        .card,
+        .metric {
+          border-radius: 16px !important;
+        }
+        .topbar,
+        .card {
+          padding: 16px !important;
+        }
+        .nav {
+          width: 100%;
+          flex-wrap: nowrap !important;
+          overflow-x: auto;
+          padding-bottom: 4px;
+          scrollbar-width: thin;
+        }
+        .nav-link,
+        .button {
+          min-height: 44px !important;
+          white-space: nowrap;
+        }
+        .actions {
+          align-items: stretch !important;
+        }
+        .actions > input,
+        .actions > select,
+        .actions > button,
+        .actions > a {
+          width: 100% !important;
+          flex: 1 1 100% !important;
+        }
+        .section-head {
+          align-items: flex-start !important;
+          flex-direction: column;
+        }
+        .table-wrap {
+          margin-left: -4px;
+          margin-right: -4px;
+          border-radius: 12px !important;
+          overflow-x: auto;
+        }
+        table {
+          min-width: 720px !important;
+        }
+        th,
+        td {
+          padding: 10px !important;
+          font-size: 12px !important;
+        }
+        .field input,
+        .field select,
+        .field textarea {
+          min-height: 46px !important;
+          font-size: 16px !important;
+        }
+        .metric {
+          padding: 14px !important;
+        }
+        .metric strong {
+          font-size: 24px !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function setText(id, value) {
     const node = $(id);
     if (node) node.textContent = String(value);
@@ -1047,6 +1134,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    injectBusinessModuleStyles();
     initStudentService();
     initCurriculumProducts();
     initHrTraining();
