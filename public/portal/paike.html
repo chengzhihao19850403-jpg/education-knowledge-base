@@ -46,10 +46,10 @@
   </head>
   <body data-page-permission="paike.access">
     <main>
-      <h1>正在打开排课系统云端版</h1>
-      <p>默认进入老师已经熟悉的 Excel 上传、平时模式和暑假模式界面。云端版先沿用成熟界面，底层数据再逐步接入云数据库。</p>
+      <h1>正在打开排课系统</h1>
+      <p>默认进入老师已经熟悉的 Excel 上传、平时模式和暑假模式界面。系统已经放到统一网站入口，底层数据会继续接入云数据库。</p>
       <div class="actions">
-        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html?cloud=1">打开排课系统云端版</a>
+        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html">打开排课系统</a>
         <a class="secondary" href="/jrcedu/portal/index.html">返回工作台</a>
       </div>
     </main>
@@ -57,7 +57,7 @@
     <script src="/jrcedu/portal/auth.js?v=20260621e"></script>
     <script>
       if (window.JRC_CURRENT_EMPLOYEE && window.jrcHasPermission?.("paike.access")) {
-        window.location.replace("/jrcedu/paike-legacy/index.html?cloud=1");
+        window.location.replace("/jrcedu/paike-legacy/index.html");
       }
     </script>
   </body>

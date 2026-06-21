@@ -3,63 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>排课系统云端版</title>
-    <meta http-equiv="refresh" content="1; url=/jrcedu/paike-legacy/index.html?cloud=1">
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
-        background: #f6f8f7;
-        color: #172132;
-      }
-      main {
-        width: min(620px, calc(100vw - 32px));
-        padding: 28px;
-        border: 1px solid rgba(23, 33, 50, 0.08);
-        border-radius: 18px;
-        background: #fff;
-        box-shadow: 0 18px 50px rgba(23, 33, 50, 0.12);
-      }
-      h1 { margin: 0; font-size: 26px; }
-      p { margin: 12px 0 0; color: #627086; line-height: 1.7; }
-      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-      a {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 42px;
-        padding: 0 18px;
-        border-radius: 999px;
-        background: #0d9488;
-        color: #fff;
-        text-decoration: none;
-        font-weight: 700;
-      }
-      a.secondary {
-        background: #fff;
-        color: #172132;
-        border: 1px solid rgba(23, 33, 50, 0.10);
-      }
-    </style>
+    <title>排课系统</title>
+    <meta http-equiv="refresh" content="0; url=/jrcedu/portal/paike.html">
   </head>
-  <body data-page-permission="paike.access">
-    <main>
-      <h1>正在打开排课系统云端版</h1>
-      <p>云端版不再使用陌生新界面，直接进入老师熟悉的旧版成熟排课界面：Excel 上传、平时模式、暑假模式都保持原来的操作习惯。底层数据会继续从当前浏览器保存逐步替换为云数据库。</p>
-      <div class="actions">
-        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html?cloud=1">立即进入云端版</a>
-        <a class="secondary" href="/jrcedu/portal/index.html">返回工作台</a>
-      </div>
-    </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260621e"></script>
-    <script>
-      if (window.JRC_CURRENT_EMPLOYEE && window.jrcHasPermission?.("paike.access")) {
-        window.location.replace("/jrcedu/paike-legacy/index.html?cloud=1");
-      }
-    </script>
+  <body>
+    <p>正在进入排课系统。如果没有自动跳转，请点击 <a href="/jrcedu/portal/paike.html">这里</a>。</p>
   </body>
 </html>
