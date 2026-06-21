@@ -191,8 +191,8 @@
         <article class="card">
           <div class="section-head">
             <div>
-              <h2>新增云端排课</h2>
-              <p>教务先按云端字段录入，系统会即时校验教师、教室、学员冲突。正式接云数据库后，这里就是公网编辑入口。</p>
+              <h2 id="sessionFormTitle">新增云端排课</h2>
+              <p id="sessionFormHint">教务先按云端字段录入，系统会即时校验教师、教室、学员冲突。正式接云数据库后，这里就是公网编辑入口。</p>
             </div>
             <span class="status-pill" id="editPermissionStatus">权限读取中</span>
           </div>
@@ -204,12 +204,14 @@
             <label class="field"><span>班级 / 学员</span><input id="sessionClass" value="暑假五年级提升班"></label>
             <label class="field"><span>教室</span><select id="sessionRoom"><option>待补</option><option>一楼1号</option><option>一楼3号</option><option>二楼2号</option><option>三楼2号</option></select></label>
             <label class="field"><span>课程类型</span><select id="sessionType"><option>正式课</option><option>试听课</option><option>补课</option><option>调课</option><option>占位</option></select></label>
-            <label class="field"><span>处理状态</span><select id="sessionStatus"><option>已排课</option><option>待确认</option><option>缺教室</option><option>已调课</option></select></label>
-            <label class="field"><span>联动口径</span><select id="sessionLinkage"><option>同步财务课时、教学质量问卷</option><option>同步招生试听、家长问卷</option><option>仅锁定教室占用</option><option>待人工确认</option></select></label>
+            <label class="field"><span>处理状态</span><select id="sessionStatus"><option>已排课</option><option>待确认</option><option>缺教室</option><option>冲突待处理</option><option>已调课</option></select></label>
+            <label class="field"><span>联动口径</span><select id="sessionLinkage"><option>同步财务课时、教学质量问卷</option><option>同步招生试听、家长问卷</option><option>仅锁定教室占用</option><option>进入待确认队列</option><option>待人工确认</option></select></label>
             <label class="field span-3"><span>备注</span><textarea id="sessionNote">从人工 Excel 对照录入，后续与云数据库同步。</textarea></label>
           </div>
           <div class="actions">
             <button class="button" id="addSessionButton" type="button">新增排课并校验冲突</button>
+            <button class="button" id="updateSessionButton" type="button" hidden>保存修改并校验</button>
+            <button class="button secondary" id="cancelEditButton" type="button" hidden>取消编辑</button>
             <button class="button ghost" id="checkOnlyButton" type="button">只校验不新增</button>
             <button class="button secondary" id="resetScheduleButton" type="button">恢复示例数据</button>
           </div>
@@ -258,6 +260,7 @@
           <div class="actions">
             <button class="button" id="exportBackupButton" type="button">导出当前数据</button>
             <button class="button ghost" id="importBackupButton" type="button">导入备份数据</button>
+            <button class="button secondary" id="exportCsvButton" type="button">导出课表 CSV</button>
           </div>
           <div class="cloud-note" id="backupResult">导入前请确认备份来自本系统，导入会覆盖当前浏览器里的模拟数据。</div>
         </article>
@@ -317,6 +320,7 @@
         ]
       };
       let state = loadState();
+      let editingSessionId = "";
       function byId(id) { return document.getElementById(id); }
       function cloneData(value) { return JSON.parse(JSON.stringify(value)); }
       function loadState() {
@@ -396,10 +400,11 @@
           .map((item) => item.trim())
           .filter(Boolean);
       }
-      function detectConflicts(candidate) {
+      function detectConflicts(candidate, ignoreId = "") {
         const conflicts = [];
         const candidateStudents = splitStudents(candidate.className);
         state.sessions.forEach((session) => {
+          if (ignoreId && session.id === ignoreId) return;
           if (session.date !== candidate.date) return;
           if (!overlaps(candidate.start, candidate.end, session.start, session.end)) return;
           if (session.teacher === candidate.teacher) conflicts.push(`教师冲突：${candidate.teacher} 已在 ${session.start}-${session.end} 上 ${session.className}`);
@@ -475,6 +480,8 @@
               <td>
                 <div class="row-actions">
                   <button class="small-button primary" data-session-action="confirm" data-session-id="${escapeHtml(session.id)}" type="button" ${canConfirmSession(session) ? "" : "disabled"}>确认</button>
+                  <button class="small-button" data-session-action="edit" data-session-id="${escapeHtml(session.id)}" type="button" ${canEditPaike() ? "" : "disabled"}>编辑</button>
+                  <button class="small-button" data-session-action="copy" data-session-id="${escapeHtml(session.id)}" type="button" ${canEditPaike() ? "" : "disabled"}>复制</button>
                   <button class="small-button" data-session-action="pending" data-session-id="${escapeHtml(session.id)}" type="button" ${canEditPaike() && session.status !== "待确认" ? "" : "disabled"}>待确认</button>
                   <button class="small-button danger" data-session-action="remove" data-session-id="${escapeHtml(session.id)}" type="button" ${canEditPaike() ? "" : "disabled"}>删除</button>
                 </div>
@@ -507,7 +514,7 @@
       }
       function applyPermissionState() {
         const editable = canEditPaike();
-        ["sessionDate", "sessionStart", "sessionEnd", "sessionTeacher", "sessionClass", "sessionRoom", "sessionType", "sessionStatus", "sessionLinkage", "sessionNote", "addSessionButton", "checkOnlyButton", "resetScheduleButton"].forEach((id) => {
+        ["sessionDate", "sessionStart", "sessionEnd", "sessionTeacher", "sessionClass", "sessionRoom", "sessionType", "sessionStatus", "sessionLinkage", "sessionNote", "addSessionButton", "updateSessionButton", "cancelEditButton", "checkOnlyButton", "resetScheduleButton"].forEach((id) => {
           const node = byId(id);
           if (node) node.disabled = !editable;
         });
@@ -515,10 +522,13 @@
           const node = byId(id);
           if (node) node.disabled = !canRequestChange();
         });
-        ["exportBackupButton", "importBackupButton", "backupPayload"].forEach((id) => {
+        ["exportBackupButton", "importBackupButton", "exportCsvButton", "backupPayload"].forEach((id) => {
           const node = byId(id);
           if (node) node.disabled = !editable;
         });
+        byId("updateSessionButton").hidden = !editingSessionId;
+        byId("cancelEditButton").hidden = !editingSessionId;
+        byId("addSessionButton").hidden = !!editingSessionId;
       }
       function renderAll() {
         persist();
@@ -544,6 +554,37 @@
           linkage: byId("sessionLinkage").value,
           note: byId("sessionNote").value.trim()
         };
+      }
+      function fillSessionForm(session) {
+        byId("sessionDate").value = session.date || "";
+        byId("sessionStart").value = session.start || "";
+        byId("sessionEnd").value = session.end || "";
+        byId("sessionTeacher").value = session.teacher || "";
+        byId("sessionClass").value = session.className || "";
+        byId("sessionRoom").value = session.room || "待补";
+        byId("sessionType").value = session.type || "正式课";
+        byId("sessionStatus").value = session.status || "待确认";
+        byId("sessionLinkage").value = session.linkage || "待人工确认";
+        byId("sessionNote").value = session.note || "";
+      }
+      function resetSessionForm() {
+        editingSessionId = "";
+        byId("sessionFormTitle").textContent = "新增云端排课";
+        byId("sessionFormHint").textContent = "教务先按云端字段录入，系统会即时校验教师、教室、学员冲突。正式接云数据库后，这里就是公网编辑入口。";
+        fillSessionForm({
+          date: "2026-07-08",
+          start: "10:20",
+          end: "11:50",
+          teacher: teacherOptions()[0] || "",
+          className: "暑假五年级提升班",
+          room: "待补",
+          type: "正式课",
+          status: "已排课",
+          linkage: "同步财务课时、教学质量问卷",
+          note: "从人工 Excel 对照录入，后续与云数据库同步。"
+        });
+        setConflictMessage("新增排课前，系统会在这里显示冲突校验结果。");
+        renderAll();
       }
       function validateCandidate(candidate) {
         if (!candidate.date || !candidate.start || !candidate.end || !candidate.teacher || !candidate.className) {
@@ -624,14 +665,14 @@
         }
         renderAll();
       }
-      function previewCandidate() {
+      function previewCandidate(ignoreId = "") {
         const candidate = buildCandidate();
         const error = validateCandidate(candidate);
         if (error) {
           setConflictMessage(error, "error");
           return null;
         }
-        const conflicts = detectConflicts(candidate);
+        const conflicts = detectConflicts(candidate, ignoreId);
         if (conflicts.length) {
           setConflictMessage(`发现 ${conflicts.length} 个冲突：${conflicts.join("；")}`, "error");
         } else {
@@ -641,7 +682,7 @@
       }
       byId("checkOnlyButton").addEventListener("click", () => {
         if (!canEditPaike()) return;
-        previewCandidate();
+        previewCandidate(editingSessionId);
       });
       byId("addSessionButton").addEventListener("click", () => {
         if (!canEditPaike()) return;
@@ -657,6 +698,36 @@
         state.sessions.unshift(candidate);
         logAudit("新增云端排课", `${candidate.date} ${candidate.start}-${candidate.end} ${candidate.teacher} ${candidate.className}。${conflicts.length ? `冲突 ${conflicts.length} 项。` : "无冲突。"}`);
         renderAll();
+      });
+      byId("updateSessionButton").addEventListener("click", () => {
+        if (!canEditPaike() || !editingSessionId) return;
+        const session = findSession(editingSessionId);
+        if (!session) return;
+        const preview = previewCandidate(editingSessionId);
+        if (!preview) return;
+        const { candidate, conflicts } = preview;
+        Object.assign(session, {
+          date: candidate.date,
+          start: candidate.start,
+          end: candidate.end,
+          teacher: candidate.teacher,
+          className: candidate.className,
+          room: candidate.room,
+          type: candidate.type,
+          status: conflicts.length ? "冲突待处理" : candidate.status,
+          linkage: candidate.linkage,
+          note: conflicts.length ? `${candidate.note}｜冲突：${conflicts.join("；")}` : candidate.note
+        });
+        logAudit("修改排课", `${session.date} ${session.start}-${session.end} ${session.teacher} ${session.className}。${conflicts.length ? `冲突 ${conflicts.length} 项。` : "无冲突。"}`);
+        editingSessionId = "";
+        byId("sessionFormTitle").textContent = "新增云端排课";
+        byId("sessionFormHint").textContent = "教务先按云端字段录入，系统会即时校验教师、教室、学员冲突。正式接云数据库后，这里就是公网编辑入口。";
+        setConflictMessage(conflicts.length ? `保存后仍有 ${conflicts.length} 个冲突，请继续处理。` : "排课修改已保存，未发现冲突。", conflicts.length ? "error" : "ok");
+        renderAll();
+      });
+      byId("cancelEditButton").addEventListener("click", () => {
+        if (!canEditPaike()) return;
+        resetSessionForm();
       });
       byId("submitChangeButton").addEventListener("click", () => {
         const teacher = byId("changeTeacher").value;
@@ -684,6 +755,26 @@
         if (!button) return;
         const id = button.dataset.sessionId;
         if (button.dataset.sessionAction === "confirm") updateSessionStatus(id, "已排课");
+        if (button.dataset.sessionAction === "edit") {
+          const session = findSession(id);
+          if (!session || !canEditPaike()) return;
+          editingSessionId = id;
+          fillSessionForm(session);
+          byId("sessionFormTitle").textContent = "编辑云端排课";
+          byId("sessionFormHint").textContent = "正在修改已有课程。保存前会重新校验教师、教室、班级 / 学员冲突。";
+          setConflictMessage(`正在编辑：${session.date} ${session.start}-${session.end} ${session.teacher} ${session.className}`, "ok");
+          renderAll();
+        }
+        if (button.dataset.sessionAction === "copy") {
+          const session = findSession(id);
+          if (!session || !canEditPaike()) return;
+          editingSessionId = "";
+          fillSessionForm({ ...session, note: `${session.note || ""}｜复制生成，请修改日期时间后保存。` });
+          byId("sessionFormTitle").textContent = "复制新增排课";
+          byId("sessionFormHint").textContent = "已复制原课程内容，修改日期、时间、教师或教室后可作为新课保存。";
+          setConflictMessage(`已复制：${session.teacher} ${session.className}。请修改关键字段后新增。`, "ok");
+          renderAll();
+        }
         if (button.dataset.sessionAction === "pending") updateSessionStatus(id, "待确认");
         if (button.dataset.sessionAction === "remove") removeSession(id);
       });
@@ -706,6 +797,20 @@
         byId("backupPayload").value = JSON.stringify(payload, null, 2);
         setBackupMessage("已生成当前浏览器模拟数据备份。正式云数据库接入前，可用它临时迁移或回滚。", "ok");
         logAudit("导出排课备份", "生成本机模拟数据 JSON 备份。");
+        renderAll();
+      });
+      function toCsvCell(value) {
+        return `"${String(value ?? "").replace(/"/g, '""')}"`;
+      }
+      byId("exportCsvButton").addEventListener("click", () => {
+        if (!canEditPaike()) return;
+        const rows = [
+          ["日期", "开始时间", "结束时间", "教师", "班级/学员", "教室", "课程类型", "状态", "联动", "备注"],
+          ...getFilteredSessions().map((session) => [session.date, session.start, session.end, session.teacher, session.className, session.room, session.type, session.status, session.linkage, session.note || ""])
+        ];
+        byId("backupPayload").value = rows.map((row) => row.map(toCsvCell).join(",")).join("\n");
+        setBackupMessage("已按当前筛选条件导出课表 CSV，可直接复制到表格软件里查看。", "ok");
+        logAudit("导出课表 CSV", `导出 ${rows.length - 1} 条课程记录。`);
         renderAll();
       });
       byId("importBackupButton").addEventListener("click", () => {
