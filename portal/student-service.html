@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜学生与家长服务系统</title>
+    <style>
+      :root {
+        --bg: #f5f8f7;
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #172132;
+        --muted: #637083;
+        --line: rgba(23, 33, 50, 0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --brand-soft: rgba(13, 148, 136, 0.10);
+        --amber: #b45309;
+        --red: #b91c1c;
+        --shadow: 0 18px 46px rgba(23, 33, 50, 0.10);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, #fbfefd 0%, #edf5f3 100%);
+      }
+      button, input, select, textarea { font: inherit; }
+      .shell { width: min(1280px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+      .topbar, .card, .metric { background: var(--panel); border: 1px solid rgba(255,255,255,0.70); border-radius: 22px; box-shadow: var(--shadow); }
+      .topbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 18px; margin-bottom: 18px; }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav, .tag-row, .actions, .section-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .nav-link, .button {
+        display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px;
+        border-radius: 999px; text-decoration: none; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 13px;
+      }
+      .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
+      .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+      .hero, .grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr); gap: 18px; }
+      .card { padding: 22px; }
+      .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag, .status-chip {
+        display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px;
+        background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800;
+      }
+      .tag.warn { background: rgba(180,83,9,0.10); color: var(--amber); }
+      .auth-note, .notice {
+        margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted);
+      }
+      .notice { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+      .metric { padding: 16px; }
+      .metric span { color: var(--muted); font-size: 13px; }
+      .metric strong { display: block; margin-top: 8px; font-size: 28px; }
+      .mini-list { display: grid; gap: 12px; margin-top: 14px; }
+      .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+      .mini-item strong { display: block; margin-bottom: 6px; }
+      .section-head { justify-content: space-between; margin-bottom: 14px; }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      table { width: 100%; min-width: 860px; border-collapse: collapse; }
+      th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
+      th { background: rgba(13,148,136,0.05); color: var(--ink); font-weight: 800; }
+      tr:last-child td { border-bottom: 0; }
+      .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+      .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
+      .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .span-3 { grid-column: 1 / -1; }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+    </style>
+  </head>
+  <body data-page-permission="studentService.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 07 · 学生与家长服务系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./knowledge.html">知识库问答系统</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
+          <a class="nav-link active" href="./student-service.html">学生服务</a>
+          <a class="nav-link" href="./curriculum-products.html">教研课程</a>
+          <a class="nav-link" href="./hr-training.html">人事培训</a>
+          <a class="nav-link" href="./campus-operations.html">校区运营</a>
+        </nav>
+      </section>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Student & Parent Service</p>
+          <h1>学生与家长服务系统</h1>
+          <p class="hero-text">这个系统负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险。它后面会连接排课系统、招生系统和财务系统，形成从报名入学到续费维护的完整服务记录。</p>
+          <div class="tag-row">
+            <span class="tag">学生档案</span>
+            <span class="tag">学习跟踪</span>
+            <span class="tag">课后反馈</span>
+            <span class="tag">家长沟通</span>
+            <span class="tag warn">续费风险</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+        </article>
+        <article class="card">
+          <h2>第一阶段先落地</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>一人一档</strong><p>把学生基础信息、班级、任课老师、家长联系方式、报名来源放在一个档案里。</p></div>
+            <div class="mini-item"><strong>课后反馈</strong><p>老师或学管按课次记录掌握情况、作业情况、家长需要知道的问题。</p></div>
+            <div class="mini-item"><strong>续费预警</strong><p>根据剩余课时、到课情况、家长反馈和学习状态，提前提醒学管跟进。</p></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>学生服务总览</h2>
+            <p>以下是第一版工作台结构，当前为演示数据，不代表真实学生情况。</p>
+          </div>
+          <span class="status-chip">样例数据</span>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>在读学生档案</span><strong>待同步</strong><p>后续从招生和排课同步</p></div>
+          <div class="metric"><span>本周课后反馈</span><strong>待接入</strong><p>按课次生成待办</p></div>
+          <div class="metric"><span>续费风险</span><strong>待评估</strong><p>剩余课时 + 满意度</p></div>
+          <div class="metric"><span>家长沟通记录</span><strong>待沉淀</strong><p>按学生永久留痕</p></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>学生服务台账</h2>
+              <p>后面 Excel 或云端数据接入后，这张表会变成真实在读学生服务列表。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>学生</th><th>班级 / 课程</th><th>任课老师</th><th>最近反馈</th><th>家长沟通</th><th>续费风险</th><th>下一步</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>学生 A</td><td>暑假数学提升班</td><td>待同步</td><td>待从课后反馈同步</td><td>待学管记录</td><td>待计算</td><td>建立真实档案字段</td></tr>
+                <tr><td>学生 B</td><td>六月份平时课</td><td>待同步</td><td>待从排课课次同步</td><td>待学管记录</td><td>待计算</td><td>同步剩余课时</td></tr>
+                <tr><td>学生 C</td><td>试听转正式</td><td>待同步</td><td>待从招生试听同步</td><td>待学管接手</td><td>待计算</td><td>生成入学交接单</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>服务记录录入</h2>
+          <p>第一版先定义老师和学管都看得懂的字段，后面再接真实保存。</p>
+          <div class="form-grid">
+            <label class="field"><span>学生姓名</span><input value="学生 A"></label>
+            <label class="field"><span>服务类型</span><select><option>课后反馈</option><option>家长沟通</option><option>续费风险</option><option>学习跟踪</option></select></label>
+            <label class="field"><span>风险等级</span><select><option>正常</option><option>关注</option><option>高风险</option></select></label>
+            <label class="field span-3"><span>记录内容</span><textarea>记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" type="button">保存服务记录</button>
+            <button class="button secondary" type="button">生成家长反馈</button>
+          </div>
+          <div class="notice">当前按钮先作为页面流程展示；接云数据库后会保存到学生个人档案。</div>
+        </article>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
+  </body>
+</html>

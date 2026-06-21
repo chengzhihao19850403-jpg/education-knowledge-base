@@ -7,6 +7,14 @@ const JRC_ROLE_PERMISSIONS = {
     "suggestions.access",
     "teachingQuality.access",
     "teachingQuality.edit",
+    "studentService.access",
+    "studentService.edit",
+    "curriculum.access",
+    "curriculum.edit",
+    "hr.access",
+    "hr.edit",
+    "campus.access",
+    "campus.edit",
     "admin.access"
   ],
   学管: [
@@ -15,7 +23,12 @@ const JRC_ROLE_PERMISSIONS = {
     "knowledge.access",
     "suggestions.access",
     "teachingQuality.access",
-    "teachingQuality.edit"
+    "teachingQuality.edit",
+    "studentService.access",
+    "studentService.edit",
+    "curriculum.access",
+    "campus.access",
+    "campus.edit"
   ],
   财务: [
     "portal.access",
@@ -27,7 +40,9 @@ const JRC_ROLE_PERMISSIONS = {
     "portal.access",
     "paike.access",
     "suggestions.access",
-    "teachingQuality.access"
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access"
   ]
 };
 
@@ -294,6 +309,14 @@ const JRC_PERMISSION_OPTIONS = [
   ["admissions.finance", "招生财务归因"],
   ["teachingQuality.access", "教学质量查看"],
   ["teachingQuality.edit", "教学质量管理"],
+  ["studentService.access", "学生服务进入"],
+  ["studentService.edit", "学生服务管理"],
+  ["curriculum.access", "教研课程进入"],
+  ["curriculum.edit", "教研课程管理"],
+  ["hr.access", "人事培训进入"],
+  ["hr.edit", "人事培训管理"],
+  ["campus.access", "校区运营进入"],
+  ["campus.edit", "校区运营管理"],
   ["finance.access", "财务进入"],
   ["finance.edit", "财务修改"],
   ["admin.access", "系统管理"]
@@ -368,12 +391,22 @@ function jrcGetPermissions(subject) {
     permissions.add("knowledge.access");
   }
 
+  if (subject.role === "授课老师") {
+    permissions.add("studentService.access");
+    permissions.add("curriculum.access");
+  }
+
   if (subject.role === "学管") {
     permissions.add("admissions.access");
     permissions.add("admissions.edit");
     permissions.add("admissions.import");
     permissions.add("teachingQuality.access");
     permissions.add("teachingQuality.edit");
+    permissions.add("studentService.access");
+    permissions.add("studentService.edit");
+    permissions.add("curriculum.access");
+    permissions.add("campus.access");
+    permissions.add("campus.edit");
   }
 
   if (JRC_SUPER_ADMIN_USERNAMES.includes(username)) {
@@ -391,6 +424,14 @@ function jrcGetPermissions(subject) {
       "admissions.finance",
       "teachingQuality.access",
       "teachingQuality.edit",
+      "studentService.access",
+      "studentService.edit",
+      "curriculum.access",
+      "curriculum.edit",
+      "hr.access",
+      "hr.edit",
+      "campus.access",
+      "campus.edit",
       "finance.access",
       "finance.edit",
       "admin.access"
@@ -434,6 +475,10 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   if (permissions.includes("paike.access")) summaries.push("排课");
   if (permissions.includes("admissions.access")) summaries.push("招生");
   if (permissions.includes("teachingQuality.access")) summaries.push("教学质量");
+  if (permissions.includes("studentService.access")) summaries.push("学生服务");
+  if (permissions.includes("curriculum.access")) summaries.push("教研课程");
+  if (permissions.includes("hr.access")) summaries.push("人事培训");
+  if (permissions.includes("campus.access")) summaries.push("校区运营");
   if (permissions.includes("finance.access")) summaries.push("财务");
   if (permissions.includes("knowledge.access")) summaries.push("知识库");
   if (permissions.includes("suggestions.access")) summaries.push("建议");

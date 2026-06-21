@@ -193,7 +193,7 @@
       <section class="hero">
         <p class="eyebrow">JRC EDU Portal</p>
         <h1>匠人程工作台</h1>
-        <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库问答、建议管理、财务、招生管理、教学质量。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
+        <p>员工以后只需要记一个网址。进入首页后，再按工作内容进入对应系统：排课、知识库问答、建议管理、财务、招生管理、教学质量、学生服务、教研课程、人事培训、校区运营。这样入口统一，但每个系统仍然独立，既好找，也方便后面继续优化。</p>
         <div class="auth-note" data-employee-summary></div>
         <div class="auth-note" data-employee-directory hidden></div>
         <div class="auth-note" data-role-greeting></div>
@@ -313,9 +313,85 @@
             <a class="button" data-requires-permission="teachingQuality.access" href="./teaching-quality.html">进入教学质量系统</a>
           </div>
         </article>
+
+        <article class="card" data-requires-permission-card="studentService.access">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 07</p>
+              <h2>学生与家长服务系统</h2>
+            </div>
+            <span class="badge">服务闭环</span>
+          </div>
+          <p>负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险，把学生入学后的服务过程集中沉淀。</p>
+          <ul class="list">
+            <li>一人一档，记录学习和沟通全过程</li>
+            <li>课后反馈、家长沟通、续费预警集中处理</li>
+            <li>后续联动招生、排课和财务课时数据</li>
+          </ul>
+          <div class="actions">
+            <a class="button" data-requires-permission="studentService.access" href="./student-service.html">进入学生服务系统</a>
+          </div>
+        </article>
+
+        <article class="card" data-requires-permission-card="curriculum.access">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 08</p>
+              <h2>教研与课程产品系统</h2>
+            </div>
+            <span class="badge">课程资产</span>
+          </div>
+          <p>负责课程大纲、讲义题库、班型产品、老师备课资料和版本管理，把老师经验沉淀成可复用课程资产。</p>
+          <ul class="list">
+            <li>按学科、年级、专题管理课程资料</li>
+            <li>讲义题库和备课资料保留版本记录</li>
+            <li>后续联动教学质量反馈优化课程产品</li>
+          </ul>
+          <div class="actions">
+            <a class="button" data-requires-permission="curriculum.access" href="./curriculum-products.html">进入教研课程系统</a>
+          </div>
+        </article>
+
+        <article class="card" data-requires-permission-card="hr.access">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 09</p>
+              <h2>人事与培训系统</h2>
+            </div>
+            <span class="badge">管理权限</span>
+          </div>
+          <p>负责员工档案、入职转正、系统权限、提成档位、培训记录和考核结果，后续接统一登录与财务规则。</p>
+          <ul class="list">
+            <li>员工基础档案和岗位信息统一管理</li>
+            <li>入职、转正、提成档位和权限调整留痕</li>
+            <li>培训学习和考核结果进入个人档案</li>
+          </ul>
+          <div class="actions">
+            <a class="button" data-requires-permission="hr.access" href="./hr-training.html">进入人事培训系统</a>
+          </div>
+        </article>
+
+        <article class="card" data-requires-permission-card="campus.access">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">System 10</p>
+              <h2>校区运营系统</h2>
+            </div>
+            <span class="badge">日常运营</span>
+          </div>
+          <p>负责教室、卫生、安全检查、值班、暑假排班、门店日常事务和异常记录，让校区运营事项不再散落在群聊里。</p>
+          <ul class="list">
+            <li>教室可用状态、值班和暑假排班集中管理</li>
+            <li>卫生、安全检查和异常事项有记录</li>
+            <li>后续联动排课教室占用和校区提醒</li>
+          </ul>
+          <div class="actions">
+            <a class="button" data-requires-permission="campus.access" href="./campus-operations.html">进入校区运营系统</a>
+          </div>
+        </article>
       </section>
 
     </main>
-    <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
   </body>
 </html>

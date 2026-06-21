@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜校区运营系统</title>
+    <style>
+      :root {
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #172132;
+        --muted: #637083;
+        --line: rgba(23, 33, 50, 0.08);
+        --brand: #bc582e;
+        --brand-dark: #9a3412;
+        --brand-soft: rgba(188, 88, 46, 0.10);
+        --green: #0f766e;
+        --amber: #b45309;
+        --red: #b91c1c;
+        --shadow: 0 18px 46px rgba(23, 33, 50, 0.10);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif; color: var(--ink); background: linear-gradient(180deg, #fffdfb 0%, #f6eee8 100%); }
+      button, input, select, textarea { font: inherit; }
+      .shell { width: min(1280px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+      .topbar, .card, .metric { background: var(--panel); border: 1px solid rgba(255,255,255,0.70); border-radius: 22px; box-shadow: var(--shadow); }
+      .topbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 18px; margin-bottom: 18px; }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav, .tag-row, .actions, .section-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .nav-link, .button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px; border-radius: 999px; text-decoration: none; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 13px; }
+      .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
+      .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+      .hero, .grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr); gap: 18px; }
+      .card { padding: 22px; }
+      .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag, .status-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800; }
+      .tag.green { background: rgba(15,118,110,0.10); color: var(--green); }
+      .tag.red { background: rgba(185,28,28,0.10); color: var(--red); }
+      .auth-note, .notice { margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(188,88,46,0.16); color: var(--muted); }
+      .notice { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+      .metric { padding: 16px; }
+      .metric span { color: var(--muted); font-size: 13px; }
+      .metric strong { display: block; margin-top: 8px; font-size: 28px; }
+      .mini-list { display: grid; gap: 12px; margin-top: 14px; }
+      .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+      .mini-item strong { display: block; margin-bottom: 6px; }
+      .section-head { justify-content: space-between; margin-bottom: 14px; }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      table { width: 100%; min-width: 860px; border-collapse: collapse; }
+      th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
+      th { background: rgba(188,88,46,0.05); color: var(--ink); font-weight: 800; }
+      tr:last-child td { border-bottom: 0; }
+      .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+      .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
+      .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .span-3 { grid-column: 1 / -1; }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+    </style>
+  </head>
+  <body data-page-permission="campus.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 10 · 校区运营系统</div>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">总站首页</a>
+          <a class="nav-link" href="./paike.html">排课系统</a>
+          <a class="nav-link" href="./knowledge.html">知识库问答系统</a>
+          <a class="nav-link" href="./suggestions.html">建议系统</a>
+          <a class="nav-link" href="./finance.html">财务系统</a>
+          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
+          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
+          <a class="nav-link" href="./student-service.html">学生服务</a>
+          <a class="nav-link" href="./curriculum-products.html">教研课程</a>
+          <a class="nav-link" href="./hr-training.html">人事培训</a>
+          <a class="nav-link active" href="./campus-operations.html">校区运营</a>
+        </nav>
+      </section>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Campus Operations Desk</p>
+          <h1>校区运营系统</h1>
+          <p class="hero-text">这个系统负责教室、卫生、安全检查、值班、暑假排班、门店日常事务和异常记录。它不是教学内容本身，但会影响每天校区能不能稳定运行。</p>
+          <div class="tag-row">
+            <span class="tag">教室</span>
+            <span class="tag">卫生</span>
+            <span class="tag red">安全检查</span>
+            <span class="tag">值班</span>
+            <span class="tag green">暑假排班</span>
+            <span class="tag">异常记录</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+        </article>
+        <article class="card">
+          <h2>为什么单独成系统</h2>
+          <div class="mini-list">
+            <div class="mini-item"><strong>和排课联动</strong><p>教室是否可用、暑假值班和校区开放时间会影响排课安排。</p></div>
+            <div class="mini-item"><strong>日常事务留痕</strong><p>卫生、安全、门店异常不能只靠口头提醒，要有记录和责任人。</p></div>
+            <div class="mini-item"><strong>减少临时混乱</strong><p>暑假高峰期把教室、值班、异常集中管理，避免信息分散在群聊里。</p></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>校区运营总览</h2>
+            <p>先建管理框架，后续再和排课教室占用、暑假班安排打通。</p>
+          </div>
+          <span class="status-chip">运营台账</span>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>教室资源</span><strong>待同步</strong><p>连接排课占用</p></div>
+          <div class="metric"><span>今日值班</span><strong>待排班</strong><p>暑假高峰重点</p></div>
+          <div class="metric"><span>安全检查</span><strong>待记录</strong><p>每日/每周检查</p></div>
+          <div class="metric"><span>异常事项</span><strong>待闭环</strong><p>记录、跟进、复盘</p></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>运营事项台账</h2>
+              <p>按事项类型、责任人、截止时间和处理状态记录校区日常工作。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>事项</th><th>类型</th><th>位置 / 范围</th><th>责任人</th><th>状态</th><th>截止时间</th><th>处理要求</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>教室可用状态核对</td><td>教室</td><td>全校区</td><td>待指定</td><td>待处理</td><td>暑假班前</td><td>同步到排课教室占用</td></tr>
+                <tr><td>暑假值班表</td><td>值班</td><td>前台 / 教室</td><td>待指定</td><td>待排班</td><td>每周更新</td><td>和暑假课程高峰匹配</td></tr>
+                <tr><td>门店异常记录</td><td>异常</td><td>校区日常</td><td>待指定</td><td>待闭环</td><td>即时处理</td><td>记录原因、处理人、复盘结果</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>新增运营事项</h2>
+          <p>适合记录卫生、安全、教室、值班和校区异常。</p>
+          <div class="form-grid">
+            <label class="field"><span>事项类型</span><select><option>教室</option><option>卫生</option><option>安全检查</option><option>值班</option><option>暑假排班</option><option>异常记录</option></select></label>
+            <label class="field"><span>责任人</span><input value="待指定"></label>
+            <label class="field"><span>处理状态</span><select><option>待处理</option><option>处理中</option><option>已完成</option><option>需复盘</option></select></label>
+            <label class="field span-3"><span>事项说明</span><textarea>记录发生时间、地点、影响范围、处理要求和是否需要通知家长或老师。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" type="button">保存运营事项</button>
+            <button class="button secondary" type="button">生成值班/检查提醒</button>
+          </div>
+          <div class="notice">当前为流程展示；接数据库后会生成待办、提醒和运营日志。</div>
+        </article>
+      </section>
+    </main>
+    <script src="/jrcedu/portal/auth.js?v=20260621d"></script>
+  </body>
+</html>
