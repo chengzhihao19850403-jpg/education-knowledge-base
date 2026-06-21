@@ -1,5 +1,52 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
 const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
+const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
+const JRC_LEGACY_BUSINESS_DATA_KEYS = [
+  "paike-june-system-v1",
+  "paike-june-system-meta-v1",
+  "paike-system-prototype-v1",
+  "paike-system-prototype-meta-v1",
+  "paike-summer-import-review-v1",
+  "jrc-paike-legacy-cloud-transition-v1",
+  "advice-system-stage-prototype",
+  "jrc-finance-ledger-v1",
+  "jrc-teaching-quality-system-v2-demo",
+  "jrc-student-service-v2",
+  "jrc-curriculum-products-v2",
+  "jrc-hr-training-tasks-v2",
+  "jrc-campus-operations-v2",
+  "jrc-suggestion-management-v2",
+  "jrc-business-audit-log-v1",
+  "jrc-last-local-backup-export",
+  "jrc-cloud-sync-pending-v1"
+];
+const JRC_DATA_CONTRACTS = {
+  employee: {
+    owner: "人事培训系统",
+    feeds: ["排课系统", "财务系统", "教学质量系统", "招生管理系统"],
+    keyFields: ["teacherName", "username", "role", "hireDate", "commissionRate"]
+  },
+  schedule: {
+    owner: "排课系统",
+    feeds: ["财务系统", "教学质量系统", "学生服务系统"],
+    keyFields: ["courseDate", "startTime", "endTime", "teacherName", "studentName", "className", "roomName", "hours"]
+  },
+  finance: {
+    owner: "财务系统",
+    feeds: ["经营看板", "人事培训系统"],
+    keyFields: ["period", "teacherName", "hours", "commissionRate", "qualityCoefficient", "expenseAmount", "profitShare"]
+  },
+  teachingQuality: {
+    owner: "教学质量系统",
+    feeds: ["财务系统", "排课系统", "招生管理系统"],
+    keyFields: ["period", "teacherName", "score", "grade", "performanceCoefficient", "ticketStatus"]
+  },
+  admissions: {
+    owner: "招生管理系统",
+    feeds: ["排课系统", "学生服务系统", "财务系统"],
+    keyFields: ["studentName", "parentPhone", "channel", "owner", "trialTeacher", "enrolledAmount"]
+  }
+};
 const JRC_ROLE_PERMISSIONS = {
   管理员: [
     "portal.access",
@@ -387,6 +434,36 @@ function jrcWriteSession(employee) {
 
 function jrcClearSession() {
   localStorage.removeItem(JRC_AUTH_STORAGE_KEY);
+}
+
+function jrcResetLegacyBusinessDataOnce() {
+  if (localStorage.getItem(JRC_DATA_FOUNDATION_RESET_KEY)) return;
+  const removedKeys = [];
+  JRC_LEGACY_BUSINESS_DATA_KEYS.forEach((key) => {
+    if (localStorage.getItem(key) === null) return;
+    localStorage.removeItem(key);
+    removedKeys.push(key);
+  });
+  localStorage.setItem(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
+    resetAt: new Date().toISOString(),
+    reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
+    removedKeys
+  }));
+}
+
+function jrcExposeDataFoundation() {
+  window.JRC_DATA_FOUNDATION = {
+    resetKey: JRC_DATA_FOUNDATION_RESET_KEY,
+    legacyBusinessDataKeys: [...JRC_LEGACY_BUSINESS_DATA_KEYS],
+    contracts: JSON.parse(JSON.stringify(JRC_DATA_CONTRACTS)),
+    readResetState() {
+      try {
+        return JSON.parse(localStorage.getItem(JRC_DATA_FOUNDATION_RESET_KEY) || "null");
+      } catch {
+        return null;
+      }
+    }
+  };
 }
 
 function jrcFindEmployeeByUsername(username) {
@@ -1297,6 +1374,8 @@ function jrcShowLoginOverlay() {
 }
 
 function jrcBootstrapAuth() {
+  jrcResetLegacyBusinessDataOnce();
+  jrcExposeDataFoundation();
   jrcInjectStyles();
   jrcEnsureEmployeeSummary();
   window.JRC_EMPLOYEES = jrcGetAllEmployees();
