@@ -57,9 +57,13 @@
       }
       .tag.warn, .status-pill.warn { background: rgba(180,83,9,0.10); color: var(--amber); }
       .tag.red, .status-pill.red { background: rgba(185,28,28,0.10); color: var(--red); }
+      .button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: 0.58; }
+      .button.ghost { background: #fff; color: var(--brand-dark); border-color: rgba(13,148,136,0.22); }
       .auth-note, .cloud-note {
         margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted);
       }
+      .cloud-note.ok { background: rgba(13,148,136,0.10); border-color: rgba(13,148,136,0.20); }
+      .cloud-note.error { background: rgba(185,28,28,0.08); border-color: rgba(185,28,28,0.18); color: var(--red); }
       .cloud-note { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
       .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
       .metric { padding: 16px; }
@@ -129,13 +133,13 @@
             <h2>云端排课总览</h2>
             <p>这里先按正式云端版的运营视角组织数据，后面接云数据库后直接替换为真实实时数据。</p>
           </div>
-          <span class="status-pill warn">云数据库待接入</span>
+          <span class="status-pill warn" id="cloudStorageStatus">本机模拟数据</span>
         </div>
         <div class="metrics">
-          <div class="metric"><span>本周课程</span><strong>126</strong><p>平时课 + 暑假课合并口径</p></div>
-          <div class="metric"><span>待确认排课</span><strong>18</strong><p>缺教室、班名或时间待核</p></div>
-          <div class="metric"><span>冲突预警</span><strong>6</strong><p>教师 / 教室 / 学员三类冲突</p></div>
-          <div class="metric"><span>调课申请</span><strong>4</strong><p>手机端提交，教务审核</p></div>
+          <div class="metric"><span>本周课程</span><strong id="metricSessionCount">0</strong><p>平时课 + 暑假课合并口径</p></div>
+          <div class="metric"><span>待确认排课</span><strong id="metricPendingCount">0</strong><p>缺教室、班名或时间待核</p></div>
+          <div class="metric"><span>冲突预警</span><strong id="metricConflictCount">0</strong><p>教师 / 教室 / 学员三类冲突</p></div>
+          <div class="metric"><span>调课申请</span><strong id="metricChangeCount">0</strong><p>手机端提交，教务审核</p></div>
         </div>
       </section>
 
@@ -152,11 +156,7 @@
               <thead>
                 <tr><th>日期</th><th>时间</th><th>教师</th><th>班级 / 学员</th><th>教室</th><th>状态</th><th>联动</th></tr>
               </thead>
-              <tbody>
-                <tr><td>2026-06-22</td><td>18:00-19:30</td><td>刘大君</td><td>初三数学冲刺班</td><td>二楼2号</td><td><span class="tag">已排课</span></td><td>同步财务课时、教学质量问卷</td></tr>
-                <tr><td>2026-06-22</td><td>19:00-20:30</td><td>叶源泽</td><td>李同学试听</td><td>一楼3号</td><td><span class="tag warn">试听课</span></td><td>同步招生试听、家长问卷</td></tr>
-                <tr><td>2026-07-08</td><td>08:30-10:00</td><td>李舒</td><td>暑假二年级提升班</td><td>待补</td><td><span class="tag red">缺教室</span></td><td>进入待确认队列</td></tr>
-              </tbody>
+              <tbody id="scheduleTableBody"></tbody>
             </table>
           </div>
         </article>
@@ -174,6 +174,51 @@
 
       <section class="grid">
         <article class="card">
+          <div class="section-head">
+            <div>
+              <h2>新增云端排课</h2>
+              <p>教务先按云端字段录入，系统会即时校验教师、教室、学员冲突。正式接云数据库后，这里就是公网编辑入口。</p>
+            </div>
+            <span class="status-pill" id="editPermissionStatus">权限读取中</span>
+          </div>
+          <div class="form-grid">
+            <label class="field"><span>日期</span><input id="sessionDate" type="date" value="2026-07-08"></label>
+            <label class="field"><span>开始时间</span><input id="sessionStart" type="time" value="10:20"></label>
+            <label class="field"><span>结束时间</span><input id="sessionEnd" type="time" value="11:50"></label>
+            <label class="field"><span>教师</span><select id="sessionTeacher"></select></label>
+            <label class="field"><span>班级 / 学员</span><input id="sessionClass" value="暑假五年级提升班"></label>
+            <label class="field"><span>教室</span><select id="sessionRoom"><option>待补</option><option>一楼1号</option><option>一楼3号</option><option>二楼2号</option><option>三楼2号</option></select></label>
+            <label class="field"><span>课程类型</span><select id="sessionType"><option>正式课</option><option>试听课</option><option>补课</option><option>调课</option><option>占位</option></select></label>
+            <label class="field"><span>处理状态</span><select id="sessionStatus"><option>已排课</option><option>待确认</option><option>缺教室</option><option>已调课</option></select></label>
+            <label class="field"><span>联动口径</span><select id="sessionLinkage"><option>同步财务课时、教学质量问卷</option><option>同步招生试听、家长问卷</option><option>仅锁定教室占用</option><option>待人工确认</option></select></label>
+            <label class="field span-3"><span>备注</span><textarea id="sessionNote">从人工 Excel 对照录入，后续与云数据库同步。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" id="addSessionButton" type="button">新增排课并校验冲突</button>
+            <button class="button ghost" id="checkOnlyButton" type="button">只校验不新增</button>
+            <button class="button secondary" id="resetScheduleButton" type="button">恢复示例数据</button>
+          </div>
+          <div class="cloud-note" id="conflictResult">新增排课前，系统会在这里显示冲突校验结果。</div>
+        </article>
+
+        <article class="card">
+          <h2>调课申请</h2>
+          <p>老师手机端后续走这里提交调课，教务审核后写入正式课表。</p>
+          <div class="form-grid">
+            <label class="field"><span>申请教师</span><select id="changeTeacher"></select></label>
+            <label class="field"><span>原课程</span><select id="changeSession"></select></label>
+            <label class="field"><span>申请类型</span><select id="changeType"><option>调课</option><option>停课</option><option>补课</option><option>换教室</option></select></label>
+            <label class="field span-3"><span>原因和建议时间</span><textarea id="changeReason">请写清楚调课原因、建议新时间、是否已和家长沟通。</textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" id="submitChangeButton" type="button">提交调课申请</button>
+          </div>
+          <div class="mini-list" id="changeRequestList"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
           <h2>Excel 并行导入区</h2>
           <p>6、7、8 月人工老师继续用 Excel 排课，云端版定期导入对比。系统只把已明确内容固化为课表，疑问项留给教务拍板。</p>
           <div class="form-grid">
@@ -183,7 +228,7 @@
             <label class="field span-3"><span>导入后待确认</span><textarea>缺教室、班名不规范、时间冲突、学生重名、试听课归属不明，会进入待确认队列。</textarea></label>
           </div>
           <div class="actions">
-            <button class="button" type="button">云端导入入口待接入</button>
+            <button class="button" type="button" disabled>云数据库接入后开放导入</button>
             <a class="button secondary" href="./index.html">返回总站首页</a>
           </div>
         </article>
@@ -197,7 +242,299 @@
           </div>
         </article>
       </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>云端操作日志</h2>
+            <p>正式云端版会永久记录操作账号、时间、设备和修改内容；当前先在浏览器里模拟留痕。</p>
+          </div>
+          <span class="status-pill">审计日志</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>时间</th><th>操作人</th><th>动作</th><th>内容</th></tr>
+            </thead>
+            <tbody id="auditLogBody"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
     <script src="/jrcedu/portal/auth.js?v=20260621c"></script>
+    <script>
+      const STORAGE_KEY = "jrc-cloud-paike-prototype";
+      const defaultState = {
+        sessions: [
+          { id: "PK-20260622-001", date: "2026-06-22", start: "18:00", end: "19:30", teacher: "刘大君", className: "初三数学冲刺班", room: "二楼2号", type: "正式课", status: "已排课", linkage: "同步财务课时、教学质量问卷", note: "示例：正式课进入财务课时统计。" },
+          { id: "PK-20260622-002", date: "2026-06-22", start: "19:00", end: "20:30", teacher: "叶源泽", className: "李同学试听", room: "一楼3号", type: "试听课", status: "已排课", linkage: "同步招生试听、家长问卷", note: "示例：试听课同步招生和教学质量问卷。" },
+          { id: "PK-20260708-001", date: "2026-07-08", start: "08:30", end: "10:00", teacher: "李舒", className: "暑假二年级提升班", room: "待补", type: "正式课", status: "缺教室", linkage: "进入待确认队列", note: "示例：人工 Excel 导入后缺教室。" }
+        ],
+        changeRequests: [
+          { id: "CR-001", teacher: "李舒", sessionId: "PK-20260708-001", type: "换教室", reason: "原教室待补，请教务确认。", status: "待教务审核" }
+        ],
+        auditLogs: [
+          { time: "2026-06-21 10:30", operator: "系统", action: "初始化云端版原型", detail: "创建排课、冲突、调课、日志四个基础模块。" }
+        ]
+      };
+      let state = loadState();
+      function byId(id) { return document.getElementById(id); }
+      function cloneData(value) { return JSON.parse(JSON.stringify(value)); }
+      function loadState() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          return parsed ? { ...cloneData(defaultState), ...parsed } : cloneData(defaultState);
+        } catch {
+          return cloneData(defaultState);
+        }
+      }
+      function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function currentEmployee() { return window.JRC_CURRENT_EMPLOYEE || null; }
+      function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
+      function canEditPaike() { return hasPermission("paike.edit") || hasPermission("admin.access"); }
+      function canRequestChange() { return hasPermission("paike.access") || canEditPaike(); }
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[char]));
+      }
+      function setConflictMessage(message, type = "warn") {
+        const node = byId("conflictResult");
+        node.classList.remove("ok", "error");
+        if (type === "ok") node.classList.add("ok");
+        if (type === "error") node.classList.add("error");
+        node.textContent = message;
+      }
+      function operatorLabel() {
+        const employee = currentEmployee();
+        return employee ? `${employee.name}（${employee.role}）` : "未登录访客";
+      }
+      function timeStamp() {
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, "0");
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      }
+      function logAudit(action, detail) {
+        state.auditLogs.unshift({ time: timeStamp(), operator: operatorLabel(), action, detail });
+        state.auditLogs = state.auditLogs.slice(0, 80);
+      }
+      function teacherOptions() {
+        const names = new Set(["刘大君", "叶源泽", "李舒", "海滢滢"]);
+        if (Array.isArray(window.JRC_EMPLOYEES)) {
+          window.JRC_EMPLOYEES.filter((employee) => employee.role === "授课老师" || employee.commissionRate).forEach((employee) => names.add(employee.name));
+        }
+        state.sessions.forEach((session) => names.add(session.teacher));
+        return Array.from(names).filter(Boolean);
+      }
+      function toMinutes(time) {
+        const [hour, minute] = String(time || "00:00").split(":").map(Number);
+        return hour * 60 + minute;
+      }
+      function overlaps(aStart, aEnd, bStart, bEnd) {
+        return toMinutes(aStart) < toMinutes(bEnd) && toMinutes(bStart) < toMinutes(aEnd);
+      }
+      function splitStudents(className) {
+        return String(className || "")
+          .split(/[+、，,]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+      function detectConflicts(candidate) {
+        const conflicts = [];
+        const candidateStudents = splitStudents(candidate.className);
+        state.sessions.forEach((session) => {
+          if (session.date !== candidate.date) return;
+          if (!overlaps(candidate.start, candidate.end, session.start, session.end)) return;
+          if (session.teacher === candidate.teacher) conflicts.push(`教师冲突：${candidate.teacher} 已在 ${session.start}-${session.end} 上 ${session.className}`);
+          if (candidate.room !== "待补" && session.room === candidate.room) conflicts.push(`教室冲突：${candidate.room} 已被 ${session.className} 占用`);
+          const repeatedStudent = candidateStudents.find((student) => splitStudents(session.className).includes(student));
+          if (repeatedStudent) conflicts.push(`班级 / 学员冲突：${repeatedStudent} 同时出现在 ${session.className}`);
+        });
+        return conflicts;
+      }
+      function renderTeacherSelects() {
+        const options = teacherOptions().map((teacher) => `<option value="${escapeHtml(teacher)}">${escapeHtml(teacher)}</option>`).join("");
+        ["sessionTeacher", "changeTeacher"].forEach((id) => {
+          const node = byId(id);
+          if (!node) return;
+          const current = node.value;
+          node.innerHTML = options;
+          if (current && teacherOptions().includes(current)) node.value = current;
+        });
+      }
+      function renderSessionSelect() {
+        const selectedTeacher = byId("changeTeacher")?.value;
+        const sessions = selectedTeacher ? state.sessions.filter((session) => session.teacher === selectedTeacher) : state.sessions;
+        byId("changeSession").innerHTML = sessions.length
+          ? sessions.map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.date)} ${escapeHtml(session.start)}-${escapeHtml(session.end)} ${escapeHtml(session.teacher)} ${escapeHtml(session.className)}</option>`).join("")
+          : `<option value="">该教师暂无可申请调课的课程</option>`;
+      }
+      function renderMetrics() {
+        byId("metricSessionCount").textContent = String(state.sessions.length);
+        byId("metricPendingCount").textContent = String(state.sessions.filter((session) => session.status.includes("待") || session.status.includes("缺")).length);
+        byId("metricConflictCount").textContent = String(countCurrentConflicts());
+        byId("metricChangeCount").textContent = String(state.changeRequests.filter((item) => item.status !== "已处理").length);
+        byId("editPermissionStatus").textContent = canEditPaike() ? "当前账号可编辑排课" : "当前账号只读";
+        byId("cloudStorageStatus").textContent = "本机模拟数据，待接云数据库";
+      }
+      function countCurrentConflicts() {
+        let count = 0;
+        state.sessions.forEach((session, index) => {
+          const rest = state.sessions.slice(index + 1);
+          rest.forEach((other) => {
+            if (session.date === other.date && overlaps(session.start, session.end, other.start, other.end)) {
+              if (session.teacher === other.teacher) count += 1;
+              if (session.room !== "待补" && session.room === other.room) count += 1;
+              if (splitStudents(session.className).some((student) => splitStudents(other.className).includes(student))) count += 1;
+            }
+          });
+        });
+        return count;
+      }
+      function statusTag(status) {
+        const className = status.includes("缺") || status.includes("冲突") ? "red" : status.includes("待") || status.includes("试听") ? "warn" : "";
+        return `<span class="tag ${className}">${escapeHtml(status)}</span>`;
+      }
+      function renderSessions() {
+        byId("scheduleTableBody").innerHTML = state.sessions
+          .slice()
+          .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`))
+          .map((session) => `
+            <tr>
+              <td>${escapeHtml(session.date)}</td>
+              <td>${escapeHtml(session.start)}-${escapeHtml(session.end)}</td>
+              <td>${escapeHtml(session.teacher)}</td>
+              <td>${escapeHtml(session.className)}<br>${escapeHtml(session.type)}</td>
+              <td>${escapeHtml(session.room)}</td>
+              <td>${statusTag(session.status)}</td>
+              <td>${escapeHtml(session.linkage)}<br>${escapeHtml(session.note || "")}</td>
+            </tr>
+          `).join("");
+      }
+      function renderChangeRequests() {
+        byId("changeRequestList").innerHTML = state.changeRequests.length
+          ? state.changeRequests.map((item) => {
+              const session = state.sessions.find((target) => target.id === item.sessionId);
+              return `<div class="mini-item"><strong>${escapeHtml(item.type)}｜${escapeHtml(item.teacher)}</strong><p>${session ? `${escapeHtml(session.date)} ${escapeHtml(session.start)}-${escapeHtml(session.end)} ${escapeHtml(session.className)}` : "原课程已变动"}</p><p>${escapeHtml(item.reason)}</p><p>${escapeHtml(item.status)}</p></div>`;
+            }).join("")
+          : `<div class="mini-item"><strong>暂无调课申请</strong><p>老师提交后会显示在这里。</p></div>`;
+      }
+      function renderAuditLogs() {
+        byId("auditLogBody").innerHTML = state.auditLogs.length
+          ? state.auditLogs.map((item) => `<tr><td>${escapeHtml(item.time)}</td><td>${escapeHtml(item.operator)}</td><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.detail)}</td></tr>`).join("")
+          : `<tr><td colspan="4">暂无操作日志</td></tr>`;
+      }
+      function applyPermissionState() {
+        const editable = canEditPaike();
+        ["sessionDate", "sessionStart", "sessionEnd", "sessionTeacher", "sessionClass", "sessionRoom", "sessionType", "sessionStatus", "sessionLinkage", "sessionNote", "addSessionButton", "checkOnlyButton", "resetScheduleButton"].forEach((id) => {
+          const node = byId(id);
+          if (node) node.disabled = !editable;
+        });
+        ["changeTeacher", "changeSession", "changeType", "changeReason", "submitChangeButton"].forEach((id) => {
+          const node = byId(id);
+          if (node) node.disabled = !canRequestChange();
+        });
+      }
+      function renderAll() {
+        persist();
+        renderTeacherSelects();
+        renderSessionSelect();
+        renderMetrics();
+        renderSessions();
+        renderChangeRequests();
+        renderAuditLogs();
+        applyPermissionState();
+      }
+      function buildCandidate() {
+        return {
+          id: `PK-${Date.now()}`,
+          date: byId("sessionDate").value,
+          start: byId("sessionStart").value,
+          end: byId("sessionEnd").value,
+          teacher: byId("sessionTeacher").value,
+          className: byId("sessionClass").value.trim(),
+          room: byId("sessionRoom").value,
+          type: byId("sessionType").value,
+          status: byId("sessionStatus").value,
+          linkage: byId("sessionLinkage").value,
+          note: byId("sessionNote").value.trim()
+        };
+      }
+      function validateCandidate(candidate) {
+        if (!candidate.date || !candidate.start || !candidate.end || !candidate.teacher || !candidate.className) {
+          return "请先补齐日期、时间、教师和班级。";
+        }
+        if (toMinutes(candidate.start) >= toMinutes(candidate.end)) {
+          return "结束时间必须晚于开始时间。";
+        }
+        return "";
+      }
+      function previewCandidate() {
+        const candidate = buildCandidate();
+        const error = validateCandidate(candidate);
+        if (error) {
+          setConflictMessage(error, "error");
+          return null;
+        }
+        const conflicts = detectConflicts(candidate);
+        if (conflicts.length) {
+          setConflictMessage(`发现 ${conflicts.length} 个冲突：${conflicts.join("；")}`, "error");
+        } else {
+          setConflictMessage("未发现教师、教室或学员时间冲突，可以加入云端版课表。", "ok");
+        }
+        return { candidate, conflicts };
+      }
+      byId("checkOnlyButton").addEventListener("click", () => {
+        if (!canEditPaike()) return;
+        previewCandidate();
+      });
+      byId("addSessionButton").addEventListener("click", () => {
+        if (!canEditPaike()) return;
+        const preview = previewCandidate();
+        if (!preview) return;
+        const { candidate, conflicts } = preview;
+        if (conflicts.length) {
+          candidate.status = "冲突待处理";
+          candidate.note = `${candidate.note}｜冲突：${conflicts.join("；")}`;
+        } else {
+          setConflictMessage("未发现教师、教室或学员时间冲突，已加入云端版课表。", "ok");
+        }
+        state.sessions.unshift(candidate);
+        logAudit("新增云端排课", `${candidate.date} ${candidate.start}-${candidate.end} ${candidate.teacher} ${candidate.className}。${conflicts.length ? `冲突 ${conflicts.length} 项。` : "无冲突。"}`);
+        renderAll();
+      });
+      byId("submitChangeButton").addEventListener("click", () => {
+        const teacher = byId("changeTeacher").value;
+        const sessionId = byId("changeSession").value;
+        const type = byId("changeType").value;
+        const reason = byId("changeReason").value.trim();
+        if (!canRequestChange() || !sessionId) return;
+        const session = state.sessions.find((target) => target.id === sessionId);
+        if (!session || session.teacher !== teacher) {
+          setConflictMessage("申请教师和原课程不一致，请重新选择原课程。", "error");
+          renderSessionSelect();
+          return;
+        }
+        if (!reason) {
+          setConflictMessage("提交调课申请前，请先写清楚原因和建议时间。", "error");
+          return;
+        }
+        state.changeRequests.unshift({ id: `CR-${Date.now()}`, teacher, sessionId, type, reason, status: "待教务审核" });
+        logAudit("提交调课申请", `${teacher} 申请${type}：${reason}`);
+        renderAll();
+      });
+      byId("changeTeacher").addEventListener("change", renderSessionSelect);
+      byId("resetScheduleButton").addEventListener("click", () => {
+        if (!canEditPaike()) return;
+        state = cloneData(defaultState);
+        logAudit("恢复示例数据", "重置为云端排课初始示例。");
+        renderAll();
+      });
+      renderAll();
+    </script>
   </body>
 </html>
