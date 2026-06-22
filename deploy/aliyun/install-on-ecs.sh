@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_REPO_URL="${APP_REPO_URL:-https://github.com/jrc-edu/jrcedu.git}"
+APP_DIR="${APP_DIR:-/opt/jrcedu}"
+API_DIR="${APP_DIR}/deploy/aliyun/api"
+ENV_FILE="${ENV_FILE:-/etc/jrcedu-api.env}"
+NGINX_SITE="/etc/nginx/sites-available/jrcedu"
+SERVICE_FILE="/etc/systemd/system/jrcedu-api.service"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Please run as root, or use: sudo bash deploy/aliyun/install-on-ecs.sh"
+  exit 1
+fi
+
+echo "==> Installing base packages"
+apt-get update
+apt-get install -y ca-certificates curl git nginx postgresql postgresql-contrib openssl
+
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | sed 's/^v//' | cut -d. -f1)" -lt 20 ]]; then
+  echo "==> Installing Node.js 20"
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y nodejs
+fi
+
+echo "==> Preparing PostgreSQL"
+systemctl enable --now postgresql
+
+if [[ -f "${ENV_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+fi
+
+JRC_DB_PASSWORD="${JRC_DB_PASSWORD:-$(openssl rand -base64 32 | tr -d '\n')}"
+JRC_API_TOKEN="${JRC_API_TOKEN:-$(openssl rand -hex 24)}"
+
+cat > "${ENV_FILE}" <<EOF
+PORT=3000
+JRC_SITE_ID=jrcedu-main
+JRC_ALLOWED_ORIGINS=http://8.218.84.228,https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000
+JRC_API_TOKEN=${JRC_API_TOKEN}
+JRC_DB_HOST=127.0.0.1
+JRC_DB_PORT=5432
+JRC_DB_NAME=jrcedu
+JRC_DB_USER=jrcedu_app
+JRC_DB_PASSWORD=${JRC_DB_PASSWORD}
+JRC_DB_SSL=false
+JRC_DB_POOL_MAX=5
+EOF
+chmod 600 "${ENV_FILE}"
+
+sudo -u postgres psql <<SQL
+do \$\$
+begin
+  if not exists (select from pg_roles where rolname = 'jrcedu_app') then
+    create role jrcedu_app login password '${JRC_DB_PASSWORD}';
+  else
+    alter role jrcedu_app with login password '${JRC_DB_PASSWORD}';
+  end if;
+end
+\$\$;
+select 'create database jrcedu owner jrcedu_app'
+where not exists (select from pg_database where datname = 'jrcedu')\gexec
+grant all privileges on database jrcedu to jrcedu_app;
+SQL
+
+echo "==> Fetching application"
+if [[ -d "${APP_DIR}/.git" ]]; then
+  git -C "${APP_DIR}" fetch origin
+  git -C "${APP_DIR}" reset --hard origin/master
+else
+  rm -rf "${APP_DIR}"
+  git clone "${APP_REPO_URL}" "${APP_DIR}"
+fi
+
+echo "==> Loading schema and seed data"
+sudo -u postgres psql -d jrcedu -f "${APP_DIR}/database/cloud-schema-v1.sql"
+sudo -u postgres psql -d jrcedu -f "${APP_DIR}/deploy/aliyun/seed-employees.sql"
+
+echo "==> Installing API dependencies"
+npm --prefix "${API_DIR}" ci --omit=dev
+
+echo "==> Creating API systemd service"
+cat > "${SERVICE_FILE}" <<EOF
+[Unit]
+Description=JRC Education Cloud API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=${API_DIR}
+EnvironmentFile=${ENV_FILE}
+ExecStart=/usr/bin/node ${API_DIR}/server.mjs
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now jrcedu-api
+
+echo "==> Configuring Nginx"
+cat > "${NGINX_SITE}" <<'EOF'
+server {
+  listen 80 default_server;
+  listen [::]:80 default_server;
+  server_name _;
+
+  root /opt;
+  index index.html;
+
+  location = / {
+    return 302 /jrcedu/portal/index.html;
+  }
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location /jrcedu/ {
+    try_files $uri $uri/ /jrcedu/portal/index.html;
+  }
+}
+EOF
+
+rm -f /etc/nginx/sites-enabled/default
+ln -sf "${NGINX_SITE}" /etc/nginx/sites-enabled/jrcedu
+nginx -t
+systemctl enable --now nginx
+systemctl reload nginx
+
+if command -v ufw >/dev/null 2>&1; then
+  ufw allow 22/tcp || true
+  ufw allow 80/tcp || true
+fi
+
+echo "==> Smoke tests"
+curl -fsS http://127.0.0.1:3000/health
+echo
+curl -fsS http://127.0.0.1/api/health
+echo
+
+echo "Deployment complete."
+echo "Portal: http://8.218.84.228/jrcedu/portal/index.html"
+echo "API health: http://8.218.84.228/api/health"

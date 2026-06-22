@@ -12,9 +12,12 @@
 
   function readConfig() {
     const config = safeJsonParse(localStorage.getItem(configKey), {});
+    const isGithubPages = location.hostname.endsWith("github.io");
+    const sameOriginApiBase = `${location.origin}/api`;
+    const apiBaseUrl = String(config.apiBaseUrl || (!isGithubPages ? sameOriginApiBase : "")).replace(/\/+$/g, "");
     return {
-      enabled: Boolean(config.enabled && config.apiBaseUrl),
-      apiBaseUrl: String(config.apiBaseUrl || "").replace(/\/+$/g, ""),
+      enabled: Boolean((config.enabled && config.apiBaseUrl) || (!isGithubPages && apiBaseUrl)),
+      apiBaseUrl,
       apiToken: String(config.apiToken || ""),
       siteId: String(config.siteId || "jrcedu-main")
     };
@@ -166,4 +169,3 @@
     flushPending
   };
 })();
-
