@@ -226,7 +226,7 @@
       }
       .filters {
         display: grid;
-        grid-template-columns: 1fr 150px 150px;
+        grid-template-columns: minmax(220px, 1fr) 150px 150px 150px;
         gap: 10px;
         margin-top: 16px;
       }
@@ -497,7 +497,7 @@
 
         <article class="card">
           <p class="eyebrow">筛选</p>
-          <h2>管理筛选</h2>
+          <h2>建议与任务筛选</h2>
           <div class="filters">
             <input id="searchInput" type="search" placeholder="搜索标题、内容、负责人">
             <select id="statusFilter">
@@ -510,6 +510,16 @@
               <option value="review">待验收</option>
               <option value="launched">已落地</option>
               <option value="paused">暂缓</option>
+            </select>
+            <select id="taskViewFilter">
+              <option value="">全部事项</option>
+              <option value="my">与我有关</option>
+              <option value="owner">我负责</option>
+              <option value="verifier">我验收</option>
+              <option value="author">我提交</option>
+              <option value="open">未完成任务</option>
+              <option value="overdue">逾期任务</option>
+              <option value="reward">奖励候选</option>
             </select>
             <select id="categoryFilter">
               <option value="">全部分类</option>
@@ -600,6 +610,7 @@
             verifier: "程志豪",
             dueDate: "2026-06-24",
             taskStandard: "下周排课变更在固定时间前完成收口，并记录遗漏问题。",
+            subtasks: "1. 确定每周排课变更收口时间\n2. 通知老师统一提交变更\n3. 汇总遗漏问题",
             completionReport: "",
             rewardLevel: "monthly",
             rewardAmount: "",
@@ -626,6 +637,7 @@
             verifier: "程志豪",
             dueDate: "2026-06-28",
             taskStandard: "完成设备台账登记，明确维修或采购处理结果。",
+            subtasks: "1. 登记三楼 5 号教室投影仪问题\n2. 询价维修或采购方案\n3. 给出处理时间",
             completionReport: "",
             rewardLevel: "none",
             rewardAmount: "",
@@ -650,6 +662,7 @@
             verifier: "程志豪",
             dueDate: "",
             taskStandard: "",
+            subtasks: "",
             completionReport: "",
             rewardLevel: "none",
             rewardAmount: "",
@@ -675,6 +688,7 @@
         normalized.entryType = normalized.entryType || (normalized.taskId ? "task" : "suggestion");
         normalized.verifier = normalized.verifier || "";
         normalized.taskStandard = normalized.taskStandard || "";
+        normalized.subtasks = normalized.subtasks || "";
         normalized.completionReport = normalized.completionReport || "";
         normalized.rewardLevel = normalized.rewardLevel || "none";
         normalized.rewardAmount = normalized.rewardAmount || "";
@@ -742,15 +756,33 @@
         return due < now;
       }
 
+      function isOpenTask(item) {
+        return ["assigned", "doing", "review"].includes(item.status);
+      }
+
+      function matchesTaskView(item, view) {
+        if (!view) return true;
+        if (view === "my") return [item.owner, item.verifier, item.author].some((value) => String(value || "") === currentName);
+        if (view === "owner") return String(item.owner || "") === currentName;
+        if (view === "verifier") return String(item.verifier || "") === currentName;
+        if (view === "author") return String(item.author || "") === currentName;
+        if (view === "open") return isOpenTask(item);
+        if (view === "overdue") return isOverdue(item);
+        if (view === "reward") return item.rewardStatus === "candidate";
+        return true;
+      }
+
       function filteredSuggestions() {
         const keyword = byId("searchInput").value.trim().toLowerCase();
         const status = byId("statusFilter").value;
         const category = byId("categoryFilter").value;
+        const taskView = byId("taskViewFilter").value;
         return suggestions.filter((item) => {
           const haystack = [item.title, item.content, item.owner, item.author, item.category].join(" ").toLowerCase();
           return (!keyword || haystack.includes(keyword)) &&
             (!status || item.status === status) &&
-            (!category || item.category === category);
+            (!category || item.category === category) &&
+            matchesTaskView(item, taskView);
         }).sort((left, right) => {
           if (isOverdue(left) !== isOverdue(right)) return isOverdue(left) ? -1 : 1;
           return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
@@ -814,6 +846,7 @@
               ${canManage ? `<button class="button danger" type="button" data-action="delete">删除</button>` : ""}
             </div>
             ${item.taskId ? `<div class="comment-item"><strong>任务编号：</strong>${escapeHtml(item.taskId)}${item.taskStandard ? `｜<strong>完成标准：</strong>${escapeHtml(item.taskStandard)}` : ""}</div>` : ""}
+            ${item.subtasks ? `<div class="comment-item"><strong>子任务：</strong><br>${escapeHtml(item.subtasks).replace(/\n/g, "<br>")}</div>` : ""}
             ${item.completionReport ? `<div class="comment-item"><strong>完成反馈：</strong>${escapeHtml(item.completionReport)}</div>` : ""}
             ${item.decision ? `<div class="comment-item"><strong>处理结论：</strong>${escapeHtml(item.decision)}</div>` : ""}
             ${item.rewardStatus !== "none" || item.rewardLevel !== "none" ? `
@@ -852,6 +885,10 @@
                 <label class="field span-2">
                   任务完成标准
                   <textarea data-manager-field="taskStandard">${escapeHtml(item.taskStandard || "")}</textarea>
+                </label>
+                <label class="field span-2">
+                  子任务清单
+                  <textarea data-manager-field="subtasks" placeholder="每行一条，可先拆给不同组员线下执行。">${escapeHtml(item.subtasks || "")}</textarea>
                 </label>
                 <label class="field">
                   贡献奖励
@@ -926,6 +963,7 @@
           verifier: isDirectTask ? currentName : "",
           taskId: isDirectTask ? `task-${Date.now()}` : "",
           taskStandard: isDirectTask ? content : "",
+          subtasks: "",
           completionReport: "",
           rewardLevel: "none",
           rewardAmount: "",
@@ -1010,7 +1048,7 @@
 
       function exportCsv() {
         const rows = [
-          ["标题", "分类", "影响程度", "状态", "提交人", "负责人", "验收人", "任务编号", "截止日期", "支持数", "完成标准", "完成反馈", "奖励类型", "奖励状态", "奖励金额建议", "奖励理由", "内容", "处理结论"],
+          ["标题", "分类", "影响程度", "状态", "提交人", "负责人", "验收人", "任务编号", "截止日期", "支持数", "完成标准", "子任务", "完成反馈", "奖励类型", "奖励状态", "奖励金额建议", "奖励理由", "内容", "处理结论"],
           ...suggestions.map((item) => [
             item.title,
             item.category,
@@ -1023,6 +1061,7 @@
             item.dueDate,
             item.votes,
             item.taskStandard,
+            item.subtasks,
             item.completionReport,
             rewardMap[item.rewardLevel] || item.rewardLevel,
             rewardStatusMap[item.rewardStatus] || item.rewardStatus,
@@ -1049,7 +1088,7 @@
 
       byId("submitSuggestionButton").addEventListener("click", addSuggestion);
       byId("exportSuggestionsButton").addEventListener("click", exportCsv);
-      ["searchInput", "statusFilter", "categoryFilter"].forEach((id) => {
+      ["searchInput", "statusFilter", "taskViewFilter", "categoryFilter"].forEach((id) => {
         byId(id).addEventListener("input", renderList);
         byId(id).addEventListener("change", renderList);
       });
