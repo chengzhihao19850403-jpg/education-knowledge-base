@@ -11,9 +11,43 @@
     }
   }
 
+  function safeStorageGet(key) {
+    try {
+      return window.localStorage?.getItem(key) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      window.localStorage?.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function readCookie(name) {
+    const prefix = `${encodeURIComponent(name)}=`;
+    return document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(prefix))
+      ?.slice(prefix.length) || "";
+  }
+
+  function writeCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
+    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+  }
+
+  function readSession() {
+    return safeJsonParse(safeStorageGet(sessionKey) || decodeURIComponent(readCookie(sessionKey) || ""), {});
+  }
+
   function readConfig() {
-    const config = safeJsonParse(localStorage.getItem(configKey), {});
-    const session = safeJsonParse(localStorage.getItem(sessionKey), {});
+    const config = safeJsonParse(safeStorageGet(configKey), {});
+    const session = readSession();
     const isGithubPages = location.hostname.endsWith("github.io");
     const sameOriginApiBase = `${location.origin}/api`;
     const apiBaseUrl = String(config.apiBaseUrl || (!isGithubPages ? sameOriginApiBase : "")).replace(/\/+$/g, "");
@@ -26,22 +60,24 @@
   }
 
   function readPendingQueue() {
-    const rows = safeJsonParse(localStorage.getItem(pendingKey), []);
+    const rows = safeJsonParse(safeStorageGet(pendingKey), []);
     return Array.isArray(rows) ? rows : [];
   }
 
   function writePendingQueue(rows) {
-    localStorage.setItem(pendingKey, JSON.stringify(rows.slice(-200)));
+    safeStorageSet(pendingKey, JSON.stringify(rows.slice(-200)));
   }
 
   function writeSession(session) {
-    localStorage.setItem(sessionKey, JSON.stringify(session || {}));
+    const serialized = JSON.stringify(session || {});
+    safeStorageSet(sessionKey, serialized);
+    writeCookie(sessionKey, serialized);
   }
 
   async function ensureSessionToken() {
     const config = readConfig();
     if (!config.enabled || config.apiToken) return config;
-    const session = safeJsonParse(localStorage.getItem(sessionKey), {});
+    const session = readSession();
     const username = String(session.username || "").trim().toLowerCase();
     if (!username) return config;
     try {

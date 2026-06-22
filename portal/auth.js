@@ -443,9 +443,51 @@ function jrcExpandGranularPermissions(permissions) {
   });
 }
 
+function jrcSafeStorageGet(key) {
+  try {
+    return window.localStorage?.getItem(key) || null;
+  } catch {
+    return null;
+  }
+}
+
+function jrcSafeStorageSet(key, value) {
+  try {
+    window.localStorage?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function jrcSafeStorageRemove(key) {
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {
+    // Ignore storage failures; cookie fallback still handles login state.
+  }
+}
+
+function jrcReadCookie(name) {
+  const prefix = `${encodeURIComponent(name)}=`;
+  return document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+}
+
+function jrcWriteCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+}
+
+function jrcClearCookie(name) {
+  document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 function jrcReadCustomEmployees() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(jrcSafeStorageGet(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -453,7 +495,7 @@ function jrcReadCustomEmployees() {
 }
 
 function jrcWriteCustomEmployees(employees) {
-  localStorage.setItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, JSON.stringify(employees));
+  jrcSafeStorageSet(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, JSON.stringify(employees));
 }
 
 function jrcGetAllEmployees() {
@@ -462,7 +504,8 @@ function jrcGetAllEmployees() {
 
 function jrcReadSession() {
   try {
-    return JSON.parse(localStorage.getItem(JRC_AUTH_STORAGE_KEY) || "null");
+    const raw = jrcSafeStorageGet(JRC_AUTH_STORAGE_KEY) || decodeURIComponent(jrcReadCookie(JRC_AUTH_STORAGE_KEY) || "");
+    return JSON.parse(raw || "null");
   } catch {
     return null;
   }
@@ -478,32 +521,39 @@ function jrcWriteSession(employee, extras = {}) {
     cloudTokenExpiresAt: extras.cloudTokenExpiresAt || null,
     cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : ""
   };
-  localStorage.setItem(JRC_AUTH_STORAGE_KEY, JSON.stringify(session));
+  const serialized = JSON.stringify(session);
+  jrcSafeStorageSet(JRC_AUTH_STORAGE_KEY, serialized);
+  jrcWriteCookie(JRC_AUTH_STORAGE_KEY, serialized);
   return session;
 }
 
 function jrcClearSession() {
-  localStorage.removeItem(JRC_AUTH_STORAGE_KEY);
+  jrcSafeStorageRemove(JRC_AUTH_STORAGE_KEY);
+  jrcClearCookie(JRC_AUTH_STORAGE_KEY);
 }
 
 function jrcResetLegacyBusinessDataOnce() {
-  if (localStorage.getItem(JRC_DATA_FOUNDATION_RESET_KEY)) return;
-  const removedKeys = [];
-  JRC_LEGACY_BUSINESS_DATA_KEYS.forEach((key) => {
-    if (localStorage.getItem(key) === null) return;
-    localStorage.removeItem(key);
-    removedKeys.push(key);
-  });
-  localStorage.setItem(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
-    resetAt: new Date().toISOString(),
-    reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
-    removedKeys
-  }));
+  try {
+    if (jrcSafeStorageGet(JRC_DATA_FOUNDATION_RESET_KEY)) return;
+    const removedKeys = [];
+    JRC_LEGACY_BUSINESS_DATA_KEYS.forEach((key) => {
+      if (jrcSafeStorageGet(key) === null) return;
+      jrcSafeStorageRemove(key);
+      removedKeys.push(key);
+    });
+    jrcSafeStorageSet(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
+      resetAt: new Date().toISOString(),
+      reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
+      removedKeys
+    }));
+  } catch {
+    // Storage cleanup must never block employee login.
+  }
 }
 
 function jrcReadJsonStore(key, fallback) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    const parsed = JSON.parse(jrcSafeStorageGet(key) || "null");
     return parsed ?? fallback;
   } catch {
     return fallback;
