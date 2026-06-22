@@ -211,6 +211,14 @@
             <tbody id="attendanceSettlementBody"></tbody>
           </table>
         </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>日期 / 课程</th><th>老师</th><th>当前状态</th><th>应处理方式</th><th>为什么要处理</th></tr>
+            </thead>
+            <tbody id="attendanceFollowupBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card">
@@ -385,6 +393,7 @@
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
         const settlementBody = document.getElementById("attendanceSettlementBody");
+        const followupBody = document.getElementById("attendanceFollowupBody");
         const attendanceMetricTotal = document.getElementById("attendanceMetricTotal");
         const attendanceMetricPresent = document.getElementById("attendanceMetricPresent");
         const attendanceMetricFollowup = document.getElementById("attendanceMetricFollowup");
@@ -704,6 +713,42 @@
           if (isSpecialSettlementTeacher(row.teacher)) return "按有效到课/实到人数单独结算课时费";
           return "普通老师：有效到课进入课时费预核算，缺席进入补课/课销追踪";
         };
+        const followupReason = (row, session) => {
+          if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) {
+            return "点名未到但有出门测成绩，说明学生可能后来到了，需要修正点名和课销。";
+          }
+          if (!isEffectivePresent(row)) {
+            return session.teacher === "程志豪"
+              ? "程老师学生缺课后，需要确认视频课、线下补课或一对一补齐。"
+              : "学生未形成有效到课，不能直接计课时费和家长课销。";
+          }
+          if (row.followup === "待联系家长") return "到课/缺课结果还没有和家长处理口径确认。";
+          return "需要人工复核。";
+        };
+        const deriveFollowupRows = () => {
+          return readRows().flatMap((session) => (session.rows || [])
+            .filter((row) => needsFollowup(row) || (hasExitScore(row) && !["到课", "迟到"].includes(row.status)))
+            .map((row) => ({ session, row })))
+            .sort((a, b) => String(b.session.date || "").localeCompare(String(a.session.date || "")));
+        };
+        const renderFollowups = () => {
+          if (!followupBody) return;
+          const rows = deriveFollowupRows();
+          if (!rows.length) {
+            followupBody.innerHTML = `<tr><td colspan="6">暂无待追踪学生。缺席、请假、待核对或缺测学生保存后会自动进入这里。</td></tr>`;
+            return;
+          }
+          followupBody.innerHTML = rows.slice(0, 30).map(({ session, row }) => `
+            <tr>
+              <td><strong>${escapeHtml(row.studentName)}</strong></td>
+              <td>${escapeHtml(session.date || "-")}<br>${escapeHtml(session.className || "-")}</td>
+              <td>${escapeHtml(session.teacher || "-")}</td>
+              <td>${escapeHtml(row.status || "-")}${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
+              <td>${escapeHtml(row.followup || "待联系家长")}</td>
+              <td>${escapeHtml(followupReason(row, session))}</td>
+            </tr>
+          `).join("");
+        };
         const renderSettlement = () => {
           if (!settlementBody) return;
           const rows = deriveSettlementRows();
@@ -859,6 +904,7 @@
           renderRoster();
           renderHistory();
           renderSettlement();
+          renderFollowups();
           renderScoreAnalytics();
         };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -964,6 +1010,7 @@
           saveRows(sessions);
           renderHistory();
           renderSettlement();
+          renderFollowups();
           renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
           setMessage(unresolved
