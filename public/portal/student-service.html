@@ -315,11 +315,11 @@
         </div>
       </section>
     </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260623a"></script>
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260623d"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260623e"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
@@ -431,6 +431,15 @@
             return [];
           }
         };
+        const shouldScopeToCurrentTeacher = () => {
+          const employee = currentEmployee();
+          return employee?.role === "授课老师" && !canManageAll();
+        };
+        const sessionVisibleToCurrentUser = (session) => {
+          if (!shouldScopeToCurrentTeacher()) return true;
+          return String(session?.teacher || "") === String(currentEmployee()?.name || "");
+        };
+        const readVisibleRows = () => readRows().filter(sessionVisibleToCurrentUser);
         const saveRows = (rows) => {
           localStorage.setItem(STORE_KEY, JSON.stringify(rows));
           window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", rows).catch((error) => {
@@ -772,7 +781,7 @@
         };
         const deriveSettlementRows = () => {
           const groups = new Map();
-          readRows().forEach((session) => {
+          readVisibleRows().forEach((session) => {
             const teacher = session.teacher || "未填老师";
             const period = periodFromDate(session.date);
             const key = `${period}|${teacher}`;
@@ -820,7 +829,7 @@
           return "需要人工复核。";
         };
         const deriveFollowupRows = () => {
-          return readRows().flatMap((session) => (session.rows || [])
+          return readVisibleRows().flatMap((session) => (session.rows || [])
             .filter((row) => needsFollowup(row) || (hasExitScore(row) && !["到课", "迟到"].includes(row.status)))
             .map((row) => ({ session, row })))
             .sort((a, b) => String(b.session.date || "").localeCompare(String(a.session.date || "")));
@@ -865,7 +874,7 @@
           `).join("");
         };
         const renderHistory = () => {
-          const sessions = readRows();
+          const sessions = readVisibleRows();
           if (!sessions.length) {
             historyBody.innerHTML = `<tr><td colspan="7">暂无已保存点名记录。</td></tr>`;
             return;
@@ -913,7 +922,7 @@
           return "成绩处于正常区间，可结合课堂表现做常规反馈。";
         };
         const deriveScoreAnalytics = () => {
-          const sessions = readRows();
+          const sessions = readVisibleRows();
           const studentHistory = new Map();
           const result = [];
           sessions.slice().reverse().forEach((session) => {
@@ -1004,7 +1013,7 @@
         };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
         const exportCsv = () => {
-          const sessions = readRows();
+          const sessions = readVisibleRows();
           if (!sessions.length) {
             setMessage("当前没有可导出的点名记录。");
             return;
