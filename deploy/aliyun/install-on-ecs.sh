@@ -9,6 +9,96 @@ NGINX_SITE="/etc/nginx/sites-available/jrcedu"
 SERVICE_FILE="/etc/systemd/system/jrcedu-api.service"
 JRC_DOMAIN="${JRC_DOMAIN:-jrcwork.cn}"
 JRC_WWW_DOMAIN="${JRC_WWW_DOMAIN:-www.jrcwork.cn}"
+ENABLE_HTTPS="${ENABLE_HTTPS:-false}"
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
+CERTBOT_STAGING="${CERTBOT_STAGING:-false}"
+CERTBOT_WEBROOT="${CERTBOT_WEBROOT:-/var/www/certbot}"
+
+write_nginx_config() {
+  local ssl_enabled="false"
+  if [[ -f "/etc/letsencrypt/live/${JRC_DOMAIN}/fullchain.pem" && -f "/etc/letsencrypt/live/${JRC_DOMAIN}/privkey.pem" ]]; then
+    ssl_enabled="true"
+  fi
+
+  if [[ "${ssl_enabled}" == "true" ]]; then
+    cat > "${NGINX_SITE}" <<EOF
+server {
+  listen 80 default_server;
+  listen [::]:80 default_server;
+  server_name _ ${JRC_DOMAIN} ${JRC_WWW_DOMAIN};
+
+  location /.well-known/acme-challenge/ {
+    root ${CERTBOT_WEBROOT};
+  }
+
+  location / {
+    return 301 https://\$host\$request_uri;
+  }
+}
+
+server {
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name ${JRC_DOMAIN} ${JRC_WWW_DOMAIN};
+
+  root /opt;
+  index index.html;
+
+  ssl_certificate /etc/letsencrypt/live/${JRC_DOMAIN}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${JRC_DOMAIN}/privkey.pem;
+
+  location = / {
+    return 302 /jrcedu/portal/index.html;
+  }
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+  }
+
+  location /jrcedu/ {
+    try_files \$uri \$uri/ /jrcedu/portal/index.html;
+  }
+}
+EOF
+  else
+    cat > "${NGINX_SITE}" <<EOF
+server {
+  listen 80 default_server;
+  listen [::]:80 default_server;
+  server_name _ ${JRC_DOMAIN} ${JRC_WWW_DOMAIN};
+
+  root /opt;
+  index index.html;
+
+  location /.well-known/acme-challenge/ {
+    root ${CERTBOT_WEBROOT};
+  }
+
+  location = / {
+    return 302 /jrcedu/portal/index.html;
+  }
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+  }
+
+  location /jrcedu/ {
+    try_files \$uri \$uri/ /jrcedu/portal/index.html;
+  }
+}
+EOF
+  fi
+}
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Please run as root, or use: sudo bash deploy/aliyun/install-on-ecs.sh"
@@ -18,6 +108,9 @@ fi
 echo "==> Installing base packages"
 apt-get update
 apt-get install -y ca-certificates curl git nginx postgresql postgresql-contrib openssl
+if [[ "${ENABLE_HTTPS}" == "true" ]]; then
+  apt-get install -y certbot
+fi
 
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | sed 's/^v//' | cut -d. -f1)" -lt 20 ]]; then
   echo "==> Installing Node.js 20"
@@ -117,34 +210,8 @@ systemctl enable --now jrcedu-api
 systemctl restart jrcedu-api
 
 echo "==> Configuring Nginx"
-cat > "${NGINX_SITE}" <<'EOF'
-server {
-  listen 80 default_server;
-  listen [::]:80 default_server;
-  server_name _ jrcwork.cn www.jrcwork.cn;
-
-  root /opt;
-  index index.html;
-
-  location = / {
-    return 302 /jrcedu/portal/index.html;
-  }
-
-  location /api/ {
-    proxy_pass http://127.0.0.1:3000/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-
-  location /jrcedu/ {
-    try_files $uri $uri/ /jrcedu/portal/index.html;
-  }
-}
-EOF
-
+mkdir -p "${CERTBOT_WEBROOT}"
+write_nginx_config
 rm -f /etc/nginx/sites-enabled/default
 ln -sf "${NGINX_SITE}" /etc/nginx/sites-enabled/jrcedu
 nginx -t
@@ -157,6 +224,23 @@ if command -v ufw >/dev/null 2>&1; then
   ufw allow 443/tcp || true
 fi
 
+if [[ "${ENABLE_HTTPS}" == "true" ]]; then
+  if [[ -z "${LETSENCRYPT_EMAIL}" ]]; then
+    echo "ENABLE_HTTPS=true requires LETSENCRYPT_EMAIL=your-email@example.com"
+    exit 1
+  fi
+
+  echo "==> Requesting HTTPS certificate"
+  certbot_args=(certonly --webroot -w "${CERTBOT_WEBROOT}" -d "${JRC_DOMAIN}" -d "${JRC_WWW_DOMAIN}" --non-interactive --agree-tos -m "${LETSENCRYPT_EMAIL}" --keep-until-expiring)
+  if [[ "${CERTBOT_STAGING}" == "true" ]]; then
+    certbot_args+=(--staging)
+  fi
+  certbot "${certbot_args[@]}"
+  write_nginx_config
+  nginx -t
+  systemctl reload nginx
+fi
+
 echo "==> Smoke tests"
 curl -fsS -H "Authorization: Bearer ${JRC_API_TOKEN}" http://127.0.0.1:3000/health
 echo
@@ -165,6 +249,7 @@ echo
 
 echo "Deployment complete."
 echo "Portal: http://jrcwork.cn/jrcedu/portal/index.html"
+echo "Portal HTTPS: https://jrcwork.cn/jrcedu/portal/index.html"
 echo "Portal www: http://www.jrcwork.cn/jrcedu/portal/index.html"
 echo "Portal IP: http://8.218.84.228/jrcedu/portal/index.html"
 echo "API health: http://8.218.84.228/api/health"
