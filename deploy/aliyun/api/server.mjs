@@ -102,6 +102,171 @@ function toEmployee(row, permissions = []) {
   };
 }
 
+function makeId(prefix) {
+  return `${prefix}-${crypto.randomBytes(4).toString("hex")}-${Date.now().toString(36)}`;
+}
+
+function parseCsvRecords(text) {
+  const rows = [];
+  let current = "";
+  let row = [];
+  let insideQuotes = false;
+  const input = String(text || "").replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const next = input[index + 1];
+    if (char === "\"") {
+      if (insideQuotes && next === "\"") {
+        current += "\"";
+        index += 1;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+      continue;
+    }
+    if (char === "," && !insideQuotes) {
+      row.push(current);
+      current = "";
+      continue;
+    }
+    if ((char === "\n" || char === "\r") && !insideQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(current);
+      current = "";
+      if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+      row = [];
+      continue;
+    }
+    current += char;
+  }
+
+  row.push(current);
+  if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+  if (!rows.length) return [];
+  const headers = rows[0].map((header) => header.trim());
+  return rows.slice(1).map((values) => {
+    const record = {};
+    headers.forEach((header, index) => {
+      record[header] = String(values[index] || "").trim();
+    });
+    return record;
+  });
+}
+
+function normalizeTimeText(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replaceAll("：", ":")
+    .replaceAll("；", ":")
+    .replaceAll(";", ":");
+  const match = normalized.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!match) return normalized;
+  return `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}`;
+}
+
+function normalizeScheduleStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["adjusted", "changed", "调课"].includes(normalized)) return "adjusted";
+  if (["makeup", "补课"].includes(normalized)) return "makeup";
+  if (["leave", "paused", "休息", "停课"].includes(normalized)) return "leave";
+  return "scheduled";
+}
+
+function normalizeConfirmationStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["confirmed", "done", "已确认"].includes(normalized) ? "confirmed" : "pending";
+}
+
+function normalizeRegularEntry(item) {
+  if (!item || typeof item !== "object") return null;
+  const teacherName = String(item.teacherName || item.teacher_name || "").trim();
+  const className = String(item.className || item.class_name || "").trim();
+  const courseDate = String(item.courseDate || item.course_date || "").trim();
+  const startTime = normalizeTimeText(item.startTime || item.start_time || "");
+  const endTime = normalizeTimeText(item.endTime || item.end_time || "");
+  const classroomName = String(item.classroomName || item.classroom_name || "").trim();
+  const notes = String(item.notes || "").trim();
+  if (!(teacherName || className || courseDate || startTime || endTime || classroomName || notes)) return null;
+  return {
+    id: item.id || makeId("june-entry"),
+    teacherName,
+    className,
+    courseDate,
+    slotIndex: Number(item.slotIndex || item.slot_index || 0),
+    startTime,
+    endTime,
+    classroomName,
+    scheduleStatus: normalizeScheduleStatus(item.scheduleStatus || item.schedule_status || ""),
+    confirmationStatus: normalizeConfirmationStatus(item.confirmationStatus || item.confirmation_status || ""),
+    notes
+  };
+}
+
+function compareRegularEntries(left, right) {
+  return (
+    String(left.courseDate || "").localeCompare(String(right.courseDate || "")) ||
+    String(left.startTime || "").localeCompare(String(right.startTime || "")) ||
+    Number(left.slotIndex || 0) - Number(right.slotIndex || 0) ||
+    String(left.teacherName || "").localeCompare(String(right.teacherName || ""), "zh-CN") ||
+    String(left.className || "").localeCompare(String(right.className || ""), "zh-CN")
+  );
+}
+
+function normalizeRegularState(snapshot = {}) {
+  const scheduleEntries = Array.isArray(snapshot.scheduleEntries)
+    ? snapshot.scheduleEntries.map(normalizeRegularEntry).filter(Boolean)
+    : Array.isArray(snapshot.schedule_entries)
+      ? snapshot.schedule_entries.map(normalizeRegularEntry).filter(Boolean)
+      : [];
+  const teachers = new Map();
+  (Array.isArray(snapshot.teachers) ? snapshot.teachers : []).forEach((teacher) => {
+    const name = String(teacher?.name || teacher?.teacher_name || teacher?.teacherName || "").trim();
+    if (name && !teachers.has(name)) teachers.set(name, { id: teacher.id || makeId("june-teacher"), name, subject: String(teacher.subject || "").trim() });
+  });
+  const rooms = new Map();
+  (Array.isArray(snapshot.rooms) ? snapshot.rooms : []).forEach((room) => {
+    const name = String(room?.name || room?.room_name || room?.roomName || "").trim();
+    if (name && !rooms.has(name)) rooms.set(name, { id: room.id || makeId("june-room"), name, floor: String(room.floor || room.floor_name || room.floorName || "").trim() });
+  });
+  scheduleEntries.forEach((entry) => {
+    if (entry.teacherName && !teachers.has(entry.teacherName)) {
+      teachers.set(entry.teacherName, { id: makeId("june-teacher"), name: entry.teacherName, subject: "" });
+    }
+    if (entry.classroomName && !rooms.has(entry.classroomName)) {
+      rooms.set(entry.classroomName, { id: makeId("june-room"), name: entry.classroomName, floor: "" });
+    }
+  });
+  return {
+    teachers: Array.from(teachers.values()).sort((left, right) => left.name.localeCompare(right.name, "zh-CN")),
+    rooms: Array.from(rooms.values()).sort((left, right) => left.name.localeCompare(right.name, "zh-CN")),
+    scheduleEntries: scheduleEntries.sort(compareRegularEntries)
+  };
+}
+
+async function readModulePayload(storeKey) {
+  const result = await pool.query("select payload from module_data_store where store_key = $1 limit 1", [storeKey]);
+  return result.rows[0]?.payload || null;
+}
+
+async function upsertModulePayload(storeKey, moduleKey, payload, operatorName = "-", operatorUsername = "-") {
+  const result = await pool.query(`
+    insert into module_data_store (
+      store_key, module_key, payload, version, updated_by_name, updated_by_username, updated_at
+    )
+    values ($1, $2, $3::jsonb, 1, $4, $5, now())
+    on conflict (store_key) do update set
+      module_key = excluded.module_key,
+      payload = excluded.payload,
+      version = module_data_store.version + 1,
+      updated_by_name = excluded.updated_by_name,
+      updated_by_username = excluded.updated_by_username,
+      updated_at = now()
+    returning store_key, module_key, version, updated_at
+  `, [storeKey, moduleKey, JSON.stringify(payload), operatorName, operatorUsername]);
+  return result.rows[0];
+}
+
 async function employeeWithPermissions(username) {
   const employee = await pool.query(`
     select id, name, username, role, phone, wechat, subject, scope, hire_date, regular_date, commission_rate, status
@@ -270,6 +435,101 @@ async function handlePutModuleData(req, res, headers) {
   }, headers);
 }
 
+async function handleImportJuneRegularCsv(req, res, headers, authorization) {
+  const body = await readJson(req);
+  const records = parseCsvRecords(body.csv_text || "");
+  const entries = records.map(normalizeRegularEntry).filter(Boolean);
+  if (!entries.length) {
+    send(res, 200, {
+      ok: true,
+      accepted_count: 0,
+      question_count: 0,
+      warning_count: 1,
+      warnings: ["CSV 没有识别到可导入的排课行。"],
+      questions: [],
+      snapshot: normalizeRegularState({}),
+      saved_at: new Date().toISOString(),
+      summer_sync: { demand_count: 0, warning_count: 0, warnings: [], review_items: [] }
+    }, headers);
+    return;
+  }
+
+  const storeKey = "paike-june-system-v1";
+  const metaKey = "paike-june-system-meta-v1";
+  const existingPayload = await readModulePayload(storeKey);
+  const existingSnapshot = existingPayload?.parsedValue || existingPayload || {};
+  const snapshot = normalizeRegularState({
+    ...existingSnapshot,
+    scheduleEntries: entries
+  });
+  const savedAt = new Date().toISOString();
+  const operatorName = authorization?.payload?.name || body.operatorName || "-";
+  const operatorUsername = authorization?.payload?.sub || body.operatorUsername || "-";
+  const summary = {
+    scheduleEntries: snapshot.scheduleEntries.length,
+    teachers: snapshot.teachers.length,
+    rooms: snapshot.rooms.length
+  };
+  await upsertModulePayload(storeKey, "paike-legacy", {
+    schemaVersion: "paike-legacy-cloud-store-v1",
+    storeKey,
+    rawValue: JSON.stringify(snapshot),
+    parsedValue: snapshot,
+    summary: {
+      key: storeKey,
+      label: "平时课数据",
+      mode: "regular",
+      summary
+    },
+    sourceUrl: body.source_url || "",
+    savedAt
+  }, operatorName, operatorUsername);
+  await upsertModulePayload(metaKey, "paike-legacy", {
+    schemaVersion: "paike-legacy-cloud-store-v1",
+    storeKey: metaKey,
+    rawValue: JSON.stringify({
+      lastSavedAt: savedAt,
+      browserSnapshotOrigin: "cloud_import",
+      importLog: `已通过云端 CSV 导入 ${body.file_name || "老师排课 CSV"}，写入 ${entries.length} 行。`,
+      importQuestions: []
+    }),
+    parsedValue: {
+      lastSavedAt: savedAt,
+      browserSnapshotOrigin: "cloud_import",
+      importLog: `已通过云端 CSV 导入 ${body.file_name || "老师排课 CSV"}，写入 ${entries.length} 行。`,
+      importQuestions: []
+    },
+    summary: {
+      key: metaKey,
+      label: "平时课状态",
+      mode: "regular-meta",
+      summary: { lastSavedAt: savedAt, importQuestions: 0 }
+    },
+    sourceUrl: body.source_url || "",
+    savedAt
+  }, operatorName, operatorUsername);
+
+  send(res, 200, {
+    ok: true,
+    accepted_count: entries.length,
+    question_count: 0,
+    warning_count: 0,
+    warnings: [],
+    questions: [],
+    snapshot,
+    saved_at: savedAt,
+    summer_sync: { demand_count: 0, warning_count: 0, warnings: [], review_items: [] }
+  }, headers);
+}
+
+async function handleImportJuneRegularXlsx(res, headers) {
+  send(res, 501, {
+    ok: false,
+    error: "xlsx_import_not_ready",
+    message: "云端 XLSX 自动拆分解析器还在迁移中。当前请先把老师排课表另存为 CSV 后上传，或在排课明细里直接新增/修改。"
+  }, headers);
+}
+
 async function handleAuditLog(req, res, headers) {
   const body = await readJson(req);
   const result = await pool.query(`
@@ -343,6 +603,12 @@ async function route(req, res) {
     if (req.method === "GET" && url.pathname === "/permissions") return await handlePermissions(res, headers);
     if (req.method === "GET" && url.pathname === "/module-data") return await handleGetModuleData(url, res, headers);
     if (req.method === "PUT" && url.pathname === "/module-data") return await handlePutModuleData(req, res, headers);
+    if (req.method === "POST" && url.pathname === "/import/june-regular-csv") {
+      return await handleImportJuneRegularCsv(req, res, headers, authorization);
+    }
+    if (req.method === "POST" && url.pathname === "/import/june-regular-xlsx") {
+      return await handleImportJuneRegularXlsx(res, headers);
+    }
     if (req.method === "POST" && url.pathname === "/audit-logs") return await handleAuditLog(req, res, headers);
     if (req.method === "POST" && url.pathname === "/backup-exports") return await handleBackupExport(req, res, headers);
     send(res, 404, { ok: false, error: "not found" }, headers);

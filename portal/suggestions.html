@@ -527,10 +527,10 @@
       </section>
 
     </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260622c"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260622d"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260622f"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260622g"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const statusMap = {
@@ -647,6 +647,28 @@
 
       function writeSuggestions() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+          console.warn("Failed to sync suggestions to cloud", error);
+        });
+      }
+
+      async function hydrateCloudSuggestions() {
+        if (!window.JRC_CLOUD?.readModuleData) return;
+        try {
+          const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+          if (!result?.ok) return;
+          if (!result.data?.found) {
+            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+              console.warn("Failed to seed suggestions to cloud", error);
+            });
+            return;
+          }
+          if (!Array.isArray(result.data.payload)) return;
+          suggestions = result.data.payload.map(normalizeSuggestion);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+        } catch (error) {
+          console.warn("Failed to hydrate suggestions from cloud", error);
+        }
       }
 
       let suggestions = readSuggestions();
@@ -871,7 +893,10 @@
         renderAll();
       });
 
-      renderAll();
+      (async () => {
+        await hydrateCloudSuggestions();
+        renderAll();
+      })();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>

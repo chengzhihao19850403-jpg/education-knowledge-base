@@ -557,7 +557,11 @@ async function detectLocalDatabase(options = {}) {
     try {
       const response = await fetch(buildLocalDbHealthUrl(candidate.baseUrl), { cache: "no-store" });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        let errorPayload = null;
+        try {
+          errorPayload = await response.json();
+        } catch (error) {}
+        throw new Error(errorPayload?.message || errorPayload?.error || `HTTP ${response.status}`);
       }
       const payload = await response.json();
       const stateUrl = buildLocalDbStateUrl(candidate.baseUrl);
@@ -1677,7 +1681,9 @@ async function importScheduleCsvFile() {
   }
 
   if (extension !== "csv") {
-    uiState.importLog = "当前未连接后台时，只能本地导入 CSV；XLSX 需要连接主控电脑后台后再上传。";
+    uiState.importLog = isCloudDataEnabled()
+      ? "云端 XLSX 自动拆分解析器还在迁移中。当前请先把老师排课表另存为 CSV 后上传，或直接在排课明细里新增/修改。"
+      : "当前未连接后台时，只能本地导入 CSV；XLSX 需要连接主控电脑后台后再上传。";
     uiState.importQuestions = [];
     persistUiState();
     renderSaveStatus();

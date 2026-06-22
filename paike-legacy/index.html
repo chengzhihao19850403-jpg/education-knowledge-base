@@ -605,7 +605,11 @@
             });
           }
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            let errorPayload = null;
+            try {
+              errorPayload = await response.json();
+            } catch (error) {}
+            throw new Error(errorPayload?.message || errorPayload?.error || `HTTP ${response.status}`);
           }
           return response.json();
         }
