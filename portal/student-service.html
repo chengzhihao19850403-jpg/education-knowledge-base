@@ -445,6 +445,8 @@
             if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
             localStorage.setItem(STORE_KEY, JSON.stringify(result.data.payload));
             renderHistory();
+            renderSettlement();
+            renderFollowups();
             renderScoreAnalytics();
             setMessage("已同步云端点名和出门测记录。");
           }).catch((error) => {
