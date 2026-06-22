@@ -1,5 +1,12 @@
 (function () {
   const auditKey = "jrc-business-audit-log-v1";
+  const cloudStoreModules = {
+    "jrc-student-service-v2": "studentService",
+    "jrc-curriculum-products-v2": "curriculum",
+    "jrc-hr-training-tasks-v2": "hr",
+    "jrc-campus-operations-v2": "campus",
+    "jrc-suggestion-management-v2": "suggestions"
+  };
   const nowText = () => new Date().toLocaleString("zh-CN", { hour12: false });
 
   function $(id) {
@@ -17,6 +24,7 @@
 
   function writeStore(key, rows) {
     localStorage.setItem(key, JSON.stringify(rows));
+    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], rows);
   }
 
   function readCloudStore(key, onRows) {
@@ -547,7 +555,6 @@
         setText("studentServiceMessage", `已保存 ${student} 的服务记录。`);
       }
       writeStore(key, rows);
-      writeCloudStore(key, moduleKey, rows);
       resetForm();
       render();
     });
@@ -561,7 +568,6 @@
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
-      writeCloudStore(key, moduleKey, rows);
       recordAudit(moduleKey, "恢复样例", "学生服务台账", `${rows.length} 条`);
       resetForm();
       render();
@@ -578,7 +584,6 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
-        writeCloudStore(key, moduleKey, rows);
         recordAudit(moduleKey, "删除", removed.student, removed.type);
         if (editingIndex === index) resetForm();
         render();
@@ -592,7 +597,6 @@
       setRows(nextRows) {
         rows = nextRows;
         writeStore(key, rows);
-        writeCloudStore(key, moduleKey, rows);
         resetForm();
         render();
       },
@@ -806,6 +810,12 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("curriculumMessage", "已同步云端教研课程台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "curriculumMessage",
@@ -980,6 +990,12 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("hrMessage", "已同步云端人事培训台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
@@ -1154,6 +1170,12 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("campusMessage", "已同步云端校区运营台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "campusMessage",
