@@ -70,6 +70,7 @@ values
   ('程志豪', 'chengzhihao', crypt('10281028', gen_salt('bf')), '管理员', '15888003051', 'jrc-math', '数学', '1-9年级', '2016-06-20'::date, '2016-07-20'::date, 100, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
   ('陈雨晴', 'chenyuqing', crypt('10281028', gen_salt('bf')), '财务', '15259085997', 'YQZH5208598', null, '1-9', '2020-10-02'::date, '2020-11-02'::date, null, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
   ('海滢滢', 'haiyingying', crypt('10281028', gen_salt('bf')), '授课老师', '18758400721', 'cathy125805', '科学', '3-8年级', '2021-03-20'::date, '2021-04-20'::date, 50, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
+  ('姚老师', 'yaolaoshi', crypt('10281028', gen_salt('bf')), '授课老师', null, null, '数学', '外聘老师', null, null, null, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'settlementRule', '单独按实到人数结算', 'source', 'portal/auth.js')),
   ('叶源泽', 'yeyuanze', crypt('10281028', gen_salt('bf')), '授课老师', '13738807822', 'YYZ-May-19', '数学', '初一', '2025-05-09'::date, '2025-06-09'::date, 23, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
   ('李舒', 'lishu', crypt('10281028', gen_salt('bf')), '授课老师', '19155389323', '19155389323', '数学', '1-3', '2025-07-05'::date, '2025-08-05'::date, 20, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
   ('刘大君', 'liudajun', crypt('10281028', gen_salt('bf')), '授课老师', '15639466839', '15639466839', '数学', '初三', '2024-01-20'::date, '2024-01-20'::date, 33.33, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js')),
@@ -83,6 +84,7 @@ values
   ('吴建勇', 'wujianyong', crypt('10281028', gen_salt('bf')), '授课老师', '17816636255', '-Woey1228', '数学', '五年级', '2026-05-20'::date, '2026-06-20'::date, 20, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js'))
 on conflict (username) do update set
   name = excluded.name,
+  password_hash = excluded.password_hash,
   role = excluded.role,
   phone = excluded.phone,
   wechat = excluded.wechat,
@@ -320,6 +322,13 @@ join (values
   ('haiyingying', 'suggestions.edit'),
   ('haiyingying', 'teachingQuality.access'),
   ('haiyingying', 'teachingQuality.edit'),
+  ('yaolaoshi', 'campus.access'),
+  ('yaolaoshi', 'curriculum.access'),
+  ('yaolaoshi', 'paike.access'),
+  ('yaolaoshi', 'portal.access'),
+  ('yaolaoshi', 'studentService.access'),
+  ('yaolaoshi', 'suggestions.access'),
+  ('yaolaoshi', 'teachingQuality.access'),
   ('yeyuanze', 'curriculum.access'),
   ('yeyuanze', 'paike.access'),
   ('yeyuanze', 'portal.access'),
@@ -400,4 +409,3 @@ on conflict (migration_key) do update set
   summary = excluded.summary;
 
 commit;
-

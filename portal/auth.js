@@ -711,7 +711,8 @@ function jrcExposeDataFoundation() {
 }
 
 function jrcFindEmployeeByUsername(username) {
-  return jrcGetAllEmployees().find((employee) => employee.username === username);
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  return jrcGetAllEmployees().find((employee) => employee.username === normalizedUsername);
 }
 
 function jrcResolveCurrentEmployee() {
@@ -1277,6 +1278,13 @@ function jrcInjectStyles() {
       color: #b91c1c;
       font-size: 13px;
     }
+    .jrc-login-error--success {
+      color: #0f766e;
+    }
+    .jrc-login-submit:disabled {
+      cursor: progress;
+      opacity: 0.72;
+    }
     [data-employee-summary] {
       display: flex;
       flex-direction: column;
@@ -1579,10 +1587,18 @@ function jrcInjectStyles() {
 function jrcShowLoginOverlay() {
   window.jrcHandleLoginSubmit = async function jrcHandleLoginSubmit(event) {
     if (event?.preventDefault) event.preventDefault();
-    const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase();
-    const password = document.getElementById("jrcPasswordInput")?.value.trim();
+    const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase() || "";
+    const password = document.getElementById("jrcPasswordInput")?.value.trim() || "";
     const errorBox = document.getElementById("jrcLoginError");
     const submitButton = document.getElementById("jrcLoginSubmitButton");
+    if (errorBox) {
+      errorBox.textContent = "";
+      errorBox.classList.remove("jrc-login-error--success");
+    }
+    if (!username || !password) {
+      if (errorBox) errorBox.textContent = "请填写用户名和密码。用户名用姓名拼音，初始密码为 10281028。";
+      return false;
+    }
     if (submitButton) {
       submitButton.disabled = true;
       submitButton.textContent = "正在登录...";
@@ -1608,6 +1624,10 @@ function jrcShowLoginOverlay() {
         return false;
       }
 
+      if (errorBox) {
+        errorBox.textContent = "登录成功，正在进入工作台...";
+        errorBox.classList.add("jrc-login-error--success");
+      }
       jrcWriteSession(employee);
       window.location.reload();
       return false;
@@ -1625,8 +1645,8 @@ function jrcShowLoginOverlay() {
     <div class="jrc-login-card">
       <p style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#0d9488; font-weight:700;">JRC Employee Login</p>
       <h2 style="margin-top:8px;">先登录，再进入系统</h2>
-      <p style="margin-top:12px;">现在网站已经接入员工登录。只有已录入的公司员工账号可以进入和使用各个系统。用户名统一用姓名拼音，初始密码统一为 10281028。</p>
-      <form id="jrcLoginForm" class="jrc-login-fields" onsubmit="return window.jrcHandleLoginSubmit(event)">
+      <p style="margin-top:12px;">用户名用姓名拼音，初始密码统一为 10281028。例：周珊 zhoushan，陈雨晴 chenyuqing，程志豪 chengzhihao。</p>
+      <form id="jrcLoginForm" class="jrc-login-fields">
         <label>
           用户名
           <input id="jrcUsernameInput" autocomplete="username" placeholder="例如：zhoushan">
@@ -1635,7 +1655,7 @@ function jrcShowLoginOverlay() {
           密码
           <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="统一初始密码">
         </label>
-        <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="button" onclick="return window.jrcHandleLoginSubmit(event)">登录进入工作台</button>
+        <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit">登录进入工作台</button>
       </form>
       <div id="jrcLoginError" class="jrc-login-error"></div>
     </div>
