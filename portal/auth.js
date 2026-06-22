@@ -1357,6 +1357,32 @@ function jrcInjectStyles() {
       cursor: progress;
       opacity: 0.72;
     }
+    .jrc-login-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .jrc-login-tools button {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(13, 148, 136, 0.22);
+      background: rgba(13, 148, 136, 0.08);
+      color: #0f766e;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+    }
+    .jrc-login-diagnostics {
+      width: 100%;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
     [data-employee-summary] {
       display: flex;
       flex-direction: column;
@@ -1660,6 +1686,41 @@ function jrcShowLoginOverlay() {
   document.body.classList.add("jrc-auth-required");
   let loginSubmitting = false;
 
+  async function jrcRunLoginDiagnostics(event) {
+    if (event?.preventDefault) event.preventDefault();
+    const box = document.getElementById("jrcLoginDiagnostics");
+    const button = document.getElementById("jrcLoginDiagnosticsButton");
+    if (!box) return false;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "正在检测...";
+    }
+    const lines = [];
+    const storageKey = "jrc-login-diagnostic";
+    const storageOk = jrcSafeStorageSet(storageKey, "ok") && jrcSafeStorageGet(storageKey) === "ok";
+    jrcSafeStorageRemove(storageKey);
+    const cookieOk = jrcWriteCookie(storageKey, "ok", 60) && decodeURIComponent(jrcReadCookie(storageKey) || "") === "ok";
+    jrcClearCookie(storageKey);
+    lines.push(`浏览器保存登录状态：${storageOk || cookieOk ? "正常" : "受限"}`);
+    lines.push(`云接口脚本：${window.JRC_CLOUD?.login ? "已加载" : "未加载"}`);
+    try {
+      const result = window.JRC_CLOUD?.login
+        ? await window.JRC_CLOUD.login("chengzhihao", "10281028")
+        : { ok: false, error: "云接口脚本未加载" };
+      lines.push(`云端登录接口：${result.ok ? "正常" : `异常 ${result.status || result.error || ""}`}`);
+    } catch (error) {
+      lines.push(`云端登录接口：异常 ${String(error?.message || error)}`);
+    }
+    lines.push(`当前页面：${location.href}`);
+    box.textContent = lines.join("\n");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "检测登录环境";
+    }
+    return false;
+  }
+  window.jrcRunLoginDiagnostics = jrcRunLoginDiagnostics;
+
   async function jrcHandleLoginSubmit(event) {
     if (event?.preventDefault) event.preventDefault();
     const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase() || "";
@@ -1744,6 +1805,10 @@ function jrcShowLoginOverlay() {
         <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit" onclick="return window.jrcHandleLoginSubmit(event)">登录进入工作台</button>
       </form>
       <div id="jrcLoginError" class="jrc-login-error"></div>
+      <div class="jrc-login-tools">
+        <button id="jrcLoginDiagnosticsButton" type="button" onclick="return window.jrcRunLoginDiagnostics(event)">检测登录环境</button>
+        <div id="jrcLoginDiagnostics" class="jrc-login-diagnostics"></div>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -1758,6 +1823,7 @@ function jrcShowLoginOverlay() {
     button.onclick = window.jrcHandleLoginSubmit;
     button.addEventListener("click", window.jrcHandleLoginSubmit);
   }
+  document.getElementById("jrcLoginDiagnosticsButton")?.addEventListener("click", window.jrcRunLoginDiagnostics);
 }
 
 function jrcBootstrapAuth() {
