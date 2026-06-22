@@ -724,10 +724,18 @@
     const key = "jrc-curriculum-products-v2";
     const maxLocalFileBytes = 8 * 1024 * 1024;
     const maxCloudFileBytes = 30 * 1024 * 1024;
+    const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
+    const gradeExpertRules = window.JRC_CURRICULUM_GRADE_EXPERTS || {};
+    const gradeExpertRule = gradeExpertRules[String(currentEmployee.username || "").toLowerCase()] || null;
+    const allGradeOptions = ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "初一", "初二", "初三"];
+    const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit") || currentEmployee.role !== "授课老师";
+    const isGradeRestricted = !canViewAllGrades;
+    const allowedGrades = isGradeRestricted ? (gradeExpertRule?.grades || []) : allGradeOptions;
+    const allowedSubject = isGradeRestricted ? String(gradeExpertRule?.subject || "").trim() : "";
     const defaults = {
       name: "",
       subject: "",
-      grade: "一年级",
+      grade: allowedGrades[0] || "一年级",
       track: "课内体系",
       lesson: "",
       type: "课程大纲",
@@ -750,16 +758,53 @@
     let rows = sanitizeRows(readStore(key, []));
     let editingIndex = -1;
 
+    function gradeScopeText() {
+      if (!isGradeRestricted) return "当前账号可查看全部年级课程资料。";
+      if (!allowedGrades.length) return "当前账号还没有配置教研课程年级范围，请联系人事培训系统管理员。";
+      return `当前账号仅开放：${allowedGrades.join("、")}${allowedSubject ? `｜${allowedSubject}` : ""}。`;
+    }
+
+    function subjectMatchesScope(row) {
+      if (!allowedSubject) return true;
+      const subjectText = String(row.subject || "").trim();
+      return Boolean(subjectText && subjectText !== "-" && subjectText.includes(allowedSubject));
+    }
+
+    function rowVisibleToCurrentUser(row) {
+      if (!isGradeRestricted) return true;
+      if (!allowedGrades.length) return false;
+      return allowedGrades.includes(row.grade) && subjectMatchesScope(row);
+    }
+
+    function normalizeSubjectForScope(value, grade) {
+      const text = normalizeText(value);
+      if (!isGradeRestricted || !allowedSubject) return text || "-";
+      return `${allowedSubject} / ${grade}`;
+    }
+
+    function applyGradeOptions() {
+      const select = $("curriculumGradeInput");
+      if (!select) return;
+      const options = allowedGrades.length ? allowedGrades : allGradeOptions;
+      select.innerHTML = options.map((grade) => `<option>${escapeHtml(grade)}</option>`).join("");
+      select.disabled = isGradeRestricted && allowedGrades.length === 0;
+    }
+
+    function visibleRows() {
+      return rows.filter(rowVisibleToCurrentUser);
+    }
+
     function fillForm(row) {
       $("curriculumNameInput").value = row.name || "";
-      $("curriculumSubjectInput").value = row.subject || "";
-      if ($("curriculumGradeInput")) $("curriculumGradeInput").value = row.grade || "一年级";
+      const grade = allowedGrades.includes(row.grade) || !isGradeRestricted ? (row.grade || allowedGrades[0] || "一年级") : (allowedGrades[0] || "一年级");
+      $("curriculumSubjectInput").value = row.subject || (allowedSubject && grade ? `${allowedSubject} / ${grade}` : "");
+      if ($("curriculumGradeInput")) $("curriculumGradeInput").value = grade;
       if ($("curriculumTrackInput")) $("curriculumTrackInput").value = row.track || "课内体系";
       $("curriculumTypeInput").value = row.type || "备课资料";
       $("curriculumClassTypeInput").value = row.classType || "";
       if ($("curriculumLessonInput")) $("curriculumLessonInput").value = row.lesson || "";
       $("curriculumVersionInput").value = row.version || "V1.0";
-      $("curriculumOwnerInput").value = row.owner || "";
+      $("curriculumOwnerInput").value = row.owner || currentEmployee.name || "";
       $("curriculumNoteInput").value = row.note || "";
       if ($("curriculumFileInput")) $("curriculumFileInput").value = "";
       renderFilePreview(row);
@@ -841,7 +886,18 @@
     function render() {
       const keyword = $("curriculumFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("curriculumSortSelect")?.value || "newest";
-      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待导入", "待整理", "待上传", "已录入"]);
+      const entries = rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => rowVisibleToCurrentUser(row))
+        .filter(({ row }) => rowMatches(row, keyword))
+        .sort((left, right) => {
+          if (sortValue === "oldest") return parseDateValue(left.row.createdAt) - parseDateValue(right.row.createdAt);
+          if (sortValue === "status") {
+            return statusRank(left.row.status, ["待导入", "待整理", "待上传", "已录入"]) - statusRank(right.row.status, ["待导入", "待整理", "待上传", "已录入"]);
+          }
+          return parseDateValue(right.row.createdAt) - parseDateValue(left.row.createdAt);
+        });
+      const scopedRows = visibleRows();
       $("curriculumTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
@@ -854,11 +910,11 @@
             <td>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("") : `<tr><td colspan="8">暂无课程资料。可以先新增课程大纲、讲义、题库或备课资料。</td></tr>`;
-      setText("curriculumMetricOutline", rows.filter((row) => row.type === "课程大纲").length);
-      setText("curriculumMetricMaterials", rows.filter((row) => ["课件PDF", "讲义Word", "题目图片", "老师版答案", "题库"].includes(row.type)).length);
-      setText("curriculumMetricProducts", new Set(rows.map((row) => `${row.grade || ""}|${row.track || ""}`).filter(Boolean)).size);
-      setText("curriculumMetricPreparation", rows.filter((row) => row.fileName).length);
+        `).join("") : `<tr><td colspan="8">${isGradeRestricted && !allowedGrades.length ? "当前账号还没有配置负责年级。" : "当前负责范围内暂无课程资料。"}</td></tr>`;
+      setText("curriculumMetricOutline", scopedRows.filter((row) => row.type === "课程大纲").length);
+      setText("curriculumMetricMaterials", scopedRows.filter((row) => ["课件PDF", "讲义Word", "题目图片", "老师版答案", "题库"].includes(row.type)).length);
+      setText("curriculumMetricProducts", new Set(scopedRows.map((row) => `${row.grade || ""}|${row.track || ""}`).filter(Boolean)).size);
+      setText("curriculumMetricPreparation", scopedRows.filter((row) => row.fileName).length);
       renderAuditLog(moduleKey, "curriculumAuditTableBody");
     }
 
@@ -883,18 +939,23 @@
         setText("curriculumMessage", "请先填写资料名称。");
         return;
       }
+      const selectedGrade = $("curriculumGradeInput")?.value || "";
+      if (isGradeRestricted && (!allowedGrades.length || !allowedGrades.includes(selectedGrade))) {
+        setText("curriculumMessage", "当前账号只能上传自己负责年级的课程资料。");
+        return;
+      }
       const existing = editingIndex >= 0 ? rows[editingIndex] : {};
       const basePayload = {
         name,
-        subject: normalizeText($("curriculumSubjectInput")?.value) || "-",
-        grade: $("curriculumGradeInput")?.value || "-",
+        subject: normalizeSubjectForScope($("curriculumSubjectInput")?.value, selectedGrade),
+        grade: selectedGrade || "-",
         track: $("curriculumTrackInput")?.value || "-",
         type: $("curriculumTypeInput")?.value || "备课资料",
         classType: $("curriculumClassTypeInput")?.value || "-",
         lesson: normalizeText($("curriculumLessonInput")?.value) || "-",
         status: editingIndex >= 0 ? rows[editingIndex].status : "已录入",
         version: normalizeText($("curriculumVersionInput")?.value) || "V1.0",
-        owner: normalizeName($("curriculumOwnerInput")?.value) || "-",
+        owner: normalizeName($("curriculumOwnerInput")?.value) || currentEmployee.name || "-",
         note: normalizeText($("curriculumNoteInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
@@ -925,7 +986,7 @@
     });
     $("curriculumFilterInput")?.addEventListener("input", render);
     $("curriculumSortSelect")?.addEventListener("change", render);
-    $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadCsv("教研与课程产品数据.csv", rows, [
+    $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadCsv("教研与课程产品数据.csv", visibleRows(), [
       { label: "资料名称", value: "name" },
       { label: "学科/年级", value: "subject" },
       { label: "年级", value: "grade" },
@@ -1023,10 +1084,12 @@
       normalizeRow(row) {
         const name = normalizeName(readField(row, ["name", "资料名称", "课程名称", "名称"]));
         if (!name) return null;
-        return {
+        const grade = normalizeText(readField(row, ["grade", "年级", "适用年级"], "")) || "-";
+        const subject = normalizeSubjectForScope(readField(row, ["subject", "学科", "年级", "学科 / 年级"], "-"), grade);
+        const normalized = {
           name,
-          subject: normalizeText(readField(row, ["subject", "学科", "年级", "学科 / 年级"], "-")) || "-",
-          grade: normalizeText(readField(row, ["grade", "年级", "适用年级"], "")) || "-",
+          subject,
+          grade,
           track: normalizeStatus(readField(row, ["track", "课程体系", "体系"], "课内体系"), ["课内体系", "培优体系", "奥数体系", "强基重高选拔体系"], "课内体系"),
           type: normalizeStatus(readField(row, ["type", "资料类型", "类型"], "备课资料"), ["课程大纲", "课件PDF", "讲义Word", "题目图片", "老师版答案", "板书照片", "题库", "备课资料", "其他"], "备课资料"),
           classType: normalizeText(readField(row, ["classType", "适用班型", "班型"], "-")) || "-",
@@ -1045,6 +1108,7 @@
           createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
           updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
+        return rowVisibleToCurrentUser(normalized) ? normalized : null;
       },
       onDone(count) {
         recordAudit(moduleKey, "导入", "教研课程台账", `${count} 条`);
@@ -1057,8 +1121,10 @@
       canUse: () => capabilities.import,
       onDenied: () => denyAction("curriculumMessage", "导入")
     });
+    applyGradeOptions();
     resetForm();
     render();
+    setText("curriculumMessage", gradeScopeText());
     readCloudStore(key, (cloudRows) => {
       rows = sanitizeRows(cloudRows);
       if (rows.length !== cloudRows.length) writeStore(key, rows);

@@ -40,6 +40,19 @@ function numberFromPercent(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function metadataSql(employee) {
+  const pairs = [
+    "'initialPasswordPolicy'",
+    sql(employee.password || "10281028"),
+    "'source'",
+    sql("portal/auth.js")
+  ];
+  if (employee.commissionRate && numberFromPercent(employee.commissionRate) === null) {
+    pairs.push("'settlementRule'", sql(employee.commissionRate));
+  }
+  return `jsonb_build_object(${pairs.join(", ")})`;
+}
+
 function moduleFromPermission(permissionKey) {
   return String(permissionKey || "").split(".")[0] || "portal";
 }
@@ -122,10 +135,11 @@ lines.push("insert into employees (name, username, password_hash, role, phone, w
 lines.push("values");
 lines.push(seed.employees.map((employee) => {
   const commission = numberFromPercent(employee.commissionRate);
-  return `  (${sql(employee.name)}, ${sql(employee.username)}, crypt(${sql(employee.password || "10281028")}, gen_salt('bf')), ${sql(employee.role)}, ${sql(employee.phone)}, ${sql(employee.wechat)}, ${sql(employee.subject)}, ${sql(employee.scope)}, ${sqlDate(employee.hireDate)}, ${sqlDate(employee.regularDate)}, ${commission === null ? "null" : commission}, 'active', jsonb_build_object('initialPasswordPolicy', '10281028', 'source', 'portal/auth.js'))`;
+  return `  (${sql(employee.name)}, ${sql(employee.username)}, crypt(${sql(employee.password || "10281028")}, gen_salt('bf')), ${sql(employee.role)}, ${sql(employee.phone)}, ${sql(employee.wechat)}, ${sql(employee.subject)}, ${sql(employee.scope)}, ${sqlDate(employee.hireDate)}, ${sqlDate(employee.regularDate)}, ${commission === null ? "null" : commission}, 'active', ${metadataSql(employee)})`;
 }).join(",\n"));
 lines.push("on conflict (username) do update set");
 lines.push("  name = excluded.name,");
+lines.push("  password_hash = excluded.password_hash,");
 lines.push("  role = excluded.role,");
 lines.push("  phone = excluded.phone,");
 lines.push("  wechat = excluded.wechat,");
@@ -164,7 +178,6 @@ lines.push("  finished_at = now(),");
 lines.push("  summary = excluded.summary;");
 lines.push("");
 lines.push("commit;");
-lines.push("");
 
 fs.writeFileSync(outputPath, `${lines.join("\n")}\n`);
 console.log(`Generated ${outputPath}`);

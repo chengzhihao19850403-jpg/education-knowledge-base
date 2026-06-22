@@ -44,6 +44,22 @@ const JRC_DATA_CONTRACTS = {
 };
 const JRC_QUALITY_COEFFICIENTS = { S: 1.1, A: 1, B: 0.9, C: 0.8 };
 const JRC_FINANCE_EXCLUDED_TEACHERS = ["程志豪", "海滢滢", "姚老师"];
+const JRC_CURRICULUM_GRADE_EXPERTS = {
+  lishu: { grades: ["一年级", "二年级", "三年级"], subject: "数学" },
+  wushuiqin: { grades: ["四年级"], subject: "数学" },
+  panyungui: { grades: ["五年级"], subject: "数学" },
+  hejianjun: { grades: ["五年级"], subject: "数学" },
+  zhaoxuan: { grades: ["六年级"], subject: "数学" },
+  yeyuanze: { grades: ["初一"], subject: "数学" },
+  wujianyong: { grades: ["初一"], subject: "数学" },
+  zhengjiayi: { grades: ["初二"], subject: "数学" },
+  caodeshun: { grades: ["初二"], subject: "数学" },
+  liudajun: { grades: ["初三"], subject: "数学" },
+  zhuyongle: { grades: ["初一"], subject: "科学" }
+};
+if (typeof window !== "undefined") {
+  window.JRC_CURRICULUM_GRADE_EXPERTS = JRC_CURRICULUM_GRADE_EXPERTS;
+}
 const JRC_DATA_LINK_RULES = [
   {
     id: "schedule-to-finance",
@@ -251,7 +267,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "13738807822",
     wechat: "YYZ-May-19",
-    scope: "初一",
+    scope: "初一（七年级）",
     hireDate: "2025-05-09",
     regularDate: "2025-06-09",
     subject: "数学",
@@ -264,7 +280,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "19155389323",
     wechat: "19155389323",
-    scope: "1-3",
+    scope: "一年级、二年级、三年级",
     hireDate: "2025-07-05",
     regularDate: "2025-08-05",
     subject: "数学",
@@ -277,7 +293,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "15639466839",
     wechat: "15639466839",
-    scope: "初三",
+    scope: "初三（九年级）",
     hireDate: "2024-01-20",
     regularDate: "2024-01-20",
     subject: "数学",
@@ -290,10 +306,10 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "18056627068",
     wechat: "fmkkii555",
-    scope: "1-6年级",
+    scope: "四年级",
     hireDate: "2026-05-16",
     regularDate: "2026-06-16",
-    subject: "小学数学",
+    subject: "数学",
     commissionRate: "20%"
   },
   {
@@ -303,7 +319,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "15205843546",
     wechat: "L2577593964",
-    scope: "初一",
+    scope: "初一科学（七年级）",
     hireDate: "2025-12-12",
     regularDate: "2026-06-12",
     subject: "科学",
@@ -316,10 +332,10 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "15968088762",
     wechat: "Joyee-yiyi",
-    scope: "1-9",
+    scope: "初二（八年级）",
     hireDate: "2025-12-22",
     regularDate: "2026-01-22",
-    subject: "初二",
+    subject: "数学",
     commissionRate: "20%"
   },
   {
@@ -342,7 +358,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "18003276656",
     wechat: "cds030418",
-    scope: "初二",
+    scope: "初二（八年级）",
     hireDate: "2026-04-23",
     regularDate: "2026-05-23",
     subject: "数学",
@@ -381,7 +397,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "17816636255",
     wechat: "-Woey1228",
-    scope: "五年级",
+    scope: "初一（七年级）",
     hireDate: "2026-05-20",
     regularDate: "2026-06-20",
     subject: "数学",
