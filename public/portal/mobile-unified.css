@@ -26,6 +26,41 @@ button {
   touch-action: manipulation;
 }
 
+.actions .button,
+.nav-link,
+.button {
+  white-space: nowrap;
+}
+
+.card,
+.note,
+.hero,
+.panel {
+  scroll-margin-top: 12px;
+}
+
+.jrc-floating-home {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+}
+
+.jrc-floating-home:visited {
+  color: #fff;
+}
+
 .nav,
 .system-nav,
 .top-actions,
@@ -39,6 +74,15 @@ button {
   position: relative;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
+}
+
+.table-wrap table {
+  table-layout: auto;
+}
+
+.table-wrap th,
+.table-wrap td {
+  word-break: keep-all;
 }
 
 .table-wrap::before {
@@ -67,6 +111,41 @@ label.field textarea,
 
 textarea {
   line-height: 1.6;
+}
+
+/* Public trial pages should read like tools, not product documents. */
+.hint,
+.mini-item p,
+.section-head p,
+.nav-item p,
+.inline-note,
+.hero-text + .hint,
+.card > p.helper-copy,
+.flow-card p,
+.module-card p {
+  display: none !important;
+}
+
+.hero-text,
+.card > p,
+.notice,
+.auth-note,
+.role-welcome {
+  line-height: 1.5 !important;
+}
+
+.compact-copy,
+.tool-inline-note,
+.metric-meta {
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.module-card,
+.workbench-item,
+.list-card,
+.suggestion-card {
+  gap: 8px;
 }
 
 @media (max-width: 760px) {
@@ -127,6 +206,16 @@ textarea {
     justify-content: center;
   }
 
+  .actions {
+    gap: 8px !important;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
   .filters .status-chip,
   .filters button {
     width: auto;
@@ -156,9 +245,71 @@ textarea {
     min-width: 760px;
   }
 
+  .attendance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .attendance-summary-card {
+    padding: 12px !important;
+  }
+
+  .attendance-summary-card strong {
+    font-size: 22px !important;
+  }
+
+  .attendance-touch-actions {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(74px, 1fr));
+    gap: 8px !important;
+    min-width: 430px !important;
+  }
+
+  .attendance-touch-actions .button {
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 0 10px !important;
+    white-space: nowrap;
+  }
+
+  [data-exit-score] {
+    min-width: 92px;
+  }
+
+  .jrc-floating-home {
+    display: inline-flex;
+  }
+
   th,
   td {
     padding: 11px 12px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .shell {
+    width: min(100% - 28px, 1280px) !important;
+  }
+
+  .nav {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+  }
+
+  .actions .button,
+  .section-actions .button {
+    min-height: 48px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .attendance-touch-actions .button {
+    min-height: 48px;
+    min-width: 76px;
   }
 }
 
@@ -176,5 +327,13 @@ textarea {
   .note,
   .hero {
     padding: 16px !important;
+  }
+
+  .attendance-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .attendance-touch-actions {
+    min-width: 390px !important;
   }
 }

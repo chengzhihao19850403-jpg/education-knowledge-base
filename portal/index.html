@@ -426,7 +426,7 @@
         <article class="card">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Today</p>
+              <p class="eyebrow">今日</p>
               <h2 id="portalTodayTitle">今日工作台</h2>
             </div>
             <span class="badge" id="portalRoleBadge">试用重点</span>
@@ -445,15 +445,15 @@
           </div>
         </article>
 
-        <article class="card" id="portalLocalDataCard">
+        <article class="card" id="portalLocalDataCard" data-requires-permission-card="admin.access" hidden>
           <div class="card-head">
             <div>
-              <p class="eyebrow">Cloud Trial</p>
+              <p class="eyebrow">云端</p>
               <h2>云端数据概览</h2>
             </div>
-            <span class="badge">试运行</span>
+            <span class="badge">管理</span>
           </div>
-          <p>当前已接入云端试运行。页面仍保留本机缓存作为断网兜底，但老师日常录入以云端数据为准。</p>
+          <p>管理员用于检查云端录入、待办和操作日志。</p>
           <div class="workbench-kpi">
             <div class="workbench-kpi-card">
               <span>招生线索</span>
@@ -471,27 +471,27 @@
         </article>
       </section>
 
-      <section class="note" id="portalDataStateSection">
+      <section class="note" id="portalDataStateSection" data-requires-permission-card="admin.access" hidden>
         <div class="card-head">
           <div>
-            <p class="eyebrow">Data Status</p>
+            <p class="eyebrow">数据</p>
             <h2>各系统数据状态</h2>
           </div>
-          <span class="badge">试用提醒</span>
+          <span class="badge">管理员</span>
         </div>
-        <p>只看三类状态：云端试运行、样例数据、待录入。</p>
+        <p>管理员检查各系统是否有真实数据、待录入数据和异常状态。</p>
         <div class="data-state-list" id="portalDataStateList"></div>
       </section>
 
       <section class="note" id="portalDataContractSection" data-requires-permission-card="admin.access" hidden>
         <div class="card-head">
           <div>
-            <p class="eyebrow">Data Foundation</p>
+            <p class="eyebrow">联动</p>
             <h2>底层数据联动规则</h2>
           </div>
           <span class="badge">先定口径</span>
         </div>
-        <p>正式导入新表格前，先按下面口径打通系统。旧排课、旧财务和早期演示数据会自动清理，只保留员工账号、登录权限和统一字段规则。</p>
+        <p>管理员维护各系统共用字段、结算口径和跨模块数据流。</p>
         <div class="module-grid">
           <article class="module-card"><strong>人事培训 → 全系统</strong><p>老师姓名、用户名、岗位、入职时间、提成比例作为基础主数据，后续供排课、财务、教学质量和招生引用。</p></article>
           <article class="module-card"><strong>排课 → 财务 / 教学质量</strong><p>课次日期、老师、学生、班级、教室和课时数统一进入课时费、绩效评分、课后问卷和学生服务；程志豪、海滢滢、姚老师名下学生按单独核算规则排除财务自动预核算。</p></article>
@@ -510,7 +510,7 @@
             </div>
             <span class="badge">已上线</span>
           </div>
-          <p>负责 6 月平时课与 7、8 月暑假课排课。系统直接沿用已经调顺的 Excel 上传、平时模式和暑假模式界面，底层数据逐步接云数据库。</p>
+          <p>负责平时课、暑假课、调课、教室和课时核对。</p>
           <ul class="list">
             <li>老师总表批量上传</li>
             <li>平时模式和暑假模式分开处理</li>
@@ -529,7 +529,7 @@
             </div>
             <span class="badge">已上线</span>
           </div>
-          <p>负责老师和员工日常问答查询；学管课堂学习内容和阶段测试作为系统内部模块保留。保留现有线上版本，作为统一门户下的第二个系统继续使用。</p>
+          <p>负责学管日常查询、课程学习和阶段测试。</p>
           <ul class="list">
             <li>学管知识库快速检索</li>
             <li>学管课堂学习内容</li>
@@ -548,7 +548,7 @@
             </div>
             <span class="badge">已接入</span>
           </div>
-          <p>负责员工建议、匿名反馈、投票和管理改进意见汇总。后续可以继续加权限、分类、审核和统计能力。</p>
+          <p>负责员工建议、匿名反馈、投票和管理改进事项。</p>
           <ul class="list">
             <li>提交管理建议</li>
             <li>查看投票与反馈</li>
@@ -586,11 +586,11 @@
             </div>
             <span class="badge">新接入</span>
           </div>
-          <p>负责从线索进入、试听邀约、试听反馈、二次追踪、报名缴费、转介绍裂变到提成归因的完整招生闭环。先做主干版，再按老师真实使用习惯逐步加自动化和结算能力。</p>
+          <p>负责线索、试听、反馈、二次追踪、报名缴费、渠道和转介绍。</p>
           <ul class="list">
             <li>线索、试听、报名、渠道四条主链先打通</li>
-            <li>转介绍、提成、沉睡召回作为第二阶段增强</li>
-            <li>后续再加短信、二维码、批量运营和看板深化</li>
+            <li>转介绍、提成、沉睡召回</li>
+            <li>招生看板和批量跟进</li>
           </ul>
           <div class="actions">
             <a class="button" data-requires-permission="admissions.access" data-open-admissions-direct href="/jrcedu/advice-system/index.html">进入招生管理系统</a>
@@ -605,11 +605,11 @@
             </div>
             <span class="badge">新独立</span>
           </div>
-          <p>负责授课老师教学质量管理，包含教务抽样巡课、学生和家长匿名问卷、月度评分、整改闭环、教学质量绩效预核算。</p>
+          <p>负责巡课、问卷、整改、教师档案和教学质量跟踪。</p>
           <ul class="list">
             <li>抽样巡课和匿名问卷采集</li>
             <li>S/A/B/C 教师评级与整改工单</li>
-            <li>联动排课、招生试听、财务绩效</li>
+            <li>按权限联动排课、招生试听和财务</li>
           </ul>
           <div class="actions">
             <a class="button" data-requires-permission="teachingQuality.access" href="./teaching-quality.html">进入教学质量系统</a>
@@ -624,11 +624,11 @@
             </div>
             <span class="badge">服务闭环</span>
           </div>
-          <p>负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险，把学生入学后的服务过程集中沉淀。</p>
+          <p>负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险。</p>
           <ul class="list">
             <li>一人一档，记录学习和沟通全过程</li>
             <li>课后反馈、家长沟通、续费预警集中处理</li>
-            <li>后续联动招生、排课和财务课时数据</li>
+            <li>联动招生、排课和点名课销</li>
           </ul>
           <div class="actions">
             <a class="button" data-requires-permission="studentService.access" href="./student-service.html">进入学生服务系统</a>
@@ -643,11 +643,11 @@
             </div>
             <span class="badge">课程资产</span>
           </div>
-          <p>负责课程大纲、讲义题库、班型产品、老师备课资料和版本管理，把老师经验沉淀成可复用课程资产。</p>
+          <p>负责课程大纲、讲义题库、班型产品、备课资料和版本管理。</p>
           <ul class="list">
             <li>按学科、年级、专题管理课程资料</li>
             <li>讲义题库和备课资料保留版本记录</li>
-            <li>后续联动教学质量反馈优化课程产品</li>
+            <li>结合教学反馈优化课程产品</li>
           </ul>
           <div class="actions">
             <a class="button" data-requires-permission="curriculum.access" href="./curriculum-products.html">进入教研课程系统</a>
@@ -662,7 +662,7 @@
             </div>
             <span class="badge">管理权限</span>
           </div>
-          <p>负责员工档案、入职转正、系统权限、提成档位、培训记录和考核结果，后续接统一登录与财务规则。</p>
+          <p>负责员工档案、入职转正、系统权限、提成档位、培训记录和考核结果。</p>
           <ul class="list">
             <li>员工基础档案和岗位信息统一管理</li>
             <li>入职、转正、提成档位和权限调整留痕</li>
@@ -681,11 +681,11 @@
             </div>
             <span class="badge">日常运营</span>
           </div>
-          <p>负责教室、卫生、安全检查、值班、暑假排班、门店日常事务和异常记录，让校区运营事项不再散落在群聊里。</p>
+          <p>负责教室、卫生、安全检查、值班、暑假排班和异常记录。</p>
           <ul class="list">
             <li>教室可用状态、值班和暑假排班集中管理</li>
             <li>卫生、安全检查和异常事项有记录</li>
-            <li>后续联动排课教室占用和校区提醒</li>
+            <li>联动排课教室占用和校区提醒</li>
           </ul>
           <div class="actions">
             <a class="button" data-requires-permission="campus.access" href="./campus-operations.html">进入校区运营系统</a>

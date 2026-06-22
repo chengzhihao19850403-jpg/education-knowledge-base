@@ -375,27 +375,27 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">Finance Desk</p>
+          <p class="eyebrow">财务</p>
           <h1>财务系统</h1>
-          <p class="hero-text">管理课时收入、老师结算、日常支出、毛利润和分红测算。</p>
+          <p class="hero-text">课时收入、老师结算、日常支出、毛利润和分红测算。</p>
           <div class="tag-row">
             <span class="tag">日常支出/报销</span>
             <span class="tag">成本与毛利润</span>
             <span class="tag">分红测算</span>
-            <span class="tag warn">云端试运行</span>
+            <span class="tag warn">待审核数据不入账</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
         </article>
 
         <aside class="card period-panel">
-          <p class="eyebrow">Current Month</p>
+          <p class="eyebrow">月份</p>
           <h2>当前核算月份</h2>
           <label>
             选择月份
             <input id="periodInput" type="month" value="2026-06">
           </label>
-          <p>分红比例默认沿用已整理口径：2026-05 从 15.5% 起算，之后每月 +0.5%，30% 封顶；页面里也允许财务临时修正。</p>
+          <p>选择月份后录入收入、成本、支出和分红比例。</p>
         </aside>
       </section>
 
@@ -423,9 +423,8 @@
       </section>
 
       <section class="card">
-        <p class="eyebrow">Linked Data Preview</p>
-        <h2>系统联动预核算</h2>
-        <p style="margin-top: 8px;">按老师和月份核对课时、评级系数和招生实收。</p>
+        <p class="eyebrow">联动</p>
+        <h2>老师月度预核算</h2>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -433,8 +432,8 @@
                 <th>月份</th>
                 <th>老师</th>
                 <th>排课课时</th>
-                <th>教学评级</th>
-                <th>绩效系数</th>
+                <th>教学系数</th>
+                <th>课时系数</th>
                 <th>当前提成</th>
                 <th>招生实收</th>
                 <th>财务影响</th>
@@ -446,9 +445,9 @@
       </section>
 
       <section class="card">
-        <p class="eyebrow">Excel Preimport</p>
+        <p class="eyebrow">对账</p>
         <h2>6月排课与工资表对账预导入</h2>
-        <p style="margin-top: 8px;">这里显示从老师 Excel 和 6 月工资表解析出的待审核数据。对账通过前不进入正式工资、课销和分红。</p>
+        <p style="margin-top: 8px;">对账通过前不进入正式工资、课销和分红。</p>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -469,9 +468,9 @@
       </section>
 
       <section class="card">
-        <p class="eyebrow">Attendance Settlement</p>
+        <p class="eyebrow">点名</p>
         <h2>点名课时费与课销联动</h2>
-        <p style="margin-top: 8px;">从学生服务系统读取老师点名、出门测和缺席追踪，形成月度课时费和家长课销核对依据。</p>
+        <p style="margin-top: 8px;">读取点名、出门测和缺席追踪，形成课时费和课销依据。</p>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -494,9 +493,8 @@
 
       <section class="grid">
         <article class="card">
-          <p class="eyebrow">Monthly Inputs</p>
+          <p class="eyebrow">月结</p>
           <h2>月度收入与老师结算成本</h2>
-          <p style="margin-top: 8px;">录入月度收入、成本、支出和分红口径。</p>
           <form id="monthlyForm" class="form-grid">
             <label class="field">
               课时总收入
@@ -554,8 +552,8 @@
         </article>
 
         <aside class="card">
-          <p class="eyebrow">Excel Mapping</p>
-          <h2>先按现有表格习惯收口</h2>
+          <p class="eyebrow">口径</p>
+          <h2>月结口径</h2>
           <div class="mini-list">
             <div class="mini-item">
               <strong>小课产值</strong>
@@ -563,20 +561,20 @@
             </div>
             <div class="mini-item">
               <strong>日常消费表</strong>
-              <p>日常报销、校区开销、办公成本、投放成本先统一进入“日常支出/报销”。</p>
+              <p>日常报销、校区开销、办公成本、投放成本统一进入“日常支出/报销”。</p>
             </div>
             <div class="mini-item">
               <strong>利润和分红</strong>
-              <p>先用系统统一公式算经营毛利润、分红池、留存利润；遇到特殊口径再加人工调整。</p>
+              <p>系统计算经营毛利润、分红池、留存利润；特殊口径由财务调整。</p>
             </div>
           </div>
         </aside>
       </section>
 
       <section class="card">
-        <p class="eyebrow">Expense Records</p>
+        <p class="eyebrow">支出</p>
         <h2>日常支出 / 报销 / 工作成本</h2>
-        <p style="margin-top: 8px;">这里以后替代 Excel 的“日常消费表”。待审核支出会显示在表格里，但暂不计入毛利润；已确认、已支付才进入成本合计。</p>
+        <p style="margin-top: 8px;">待审核支出不计入毛利润；已确认、已支付才进入成本合计。</p>
         <form id="expenseForm" class="form-grid">
           <label class="field">
             日期

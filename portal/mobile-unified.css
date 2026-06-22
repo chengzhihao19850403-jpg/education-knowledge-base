@@ -26,6 +26,19 @@ button {
   touch-action: manipulation;
 }
 
+.actions .button,
+.nav-link,
+.button {
+  white-space: nowrap;
+}
+
+.card,
+.note,
+.hero,
+.panel {
+  scroll-margin-top: 12px;
+}
+
 .jrc-floating-home {
   position: fixed;
   right: 16px;
@@ -61,6 +74,15 @@ button {
   position: relative;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
+}
+
+.table-wrap table {
+  table-layout: auto;
+}
+
+.table-wrap th,
+.table-wrap td {
+  word-break: keep-all;
 }
 
 .table-wrap::before {
@@ -184,6 +206,16 @@ textarea {
     justify-content: center;
   }
 
+  .actions {
+    gap: 8px !important;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
   .filters .status-chip,
   .filters button {
     width: auto;
@@ -250,6 +282,34 @@ textarea {
   th,
   td {
     padding: 11px 12px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .shell {
+    width: min(100% - 28px, 1280px) !important;
+  }
+
+  .nav {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+  }
+
+  .actions .button,
+  .section-actions .button {
+    min-height: 48px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .attendance-touch-actions .button {
+    min-height: 48px;
+    min-width: 76px;
   }
 }
 

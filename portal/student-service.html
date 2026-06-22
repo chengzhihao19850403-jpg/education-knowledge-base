@@ -116,9 +116,9 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">Student & Parent Service</p>
+          <p class="eyebrow">学生服务</p>
           <h1>学生与家长服务系统</h1>
-          <p class="hero-text">管理学生档案、课后反馈、家长沟通、点名和续费风险。</p>
+          <p class="hero-text">学生档案、课后反馈、家长沟通、点名、出门测和续费风险。</p>
           <div class="tag-row">
             <span class="tag">学生档案</span>
             <span class="tag">学习跟踪</span>
@@ -129,11 +129,11 @@
           <div class="auth-note" data-role-greeting></div>
         </article>
         <article class="card">
-          <h2>第一阶段先落地</h2>
+          <h2>常用工作</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>一人一档</strong><p>把学生基础信息、班级、任课老师、家长联系方式、报名来源放在一个档案里。</p></div>
-            <div class="mini-item"><strong>课后反馈</strong><p>老师或学管按课次记录掌握情况、作业情况、家长需要知道的问题。</p></div>
-            <div class="mini-item"><strong>续费预警</strong><p>根据剩余课时、到课情况、家长反馈和学习状态，提前提醒学管跟进。</p></div>
+            <div class="mini-item"><strong>上课点名</strong><p>按课程带出名单，触摸选择到课、请假、缺席或待核对。</p></div>
+            <div class="mini-item"><strong>出门测</strong><p>下课前录入成绩，自动进入学生档案和学管沟通。</p></div>
+            <div class="mini-item"><strong>缺席追踪</strong><p>缺席学生必须落实不销课、补课、视频课或录播核销。</p></div>
           </div>
         </article>
       </section>
@@ -142,7 +142,7 @@
         <div class="section-head">
           <div>
             <h2>招生转入候选</h2>
-            <p>从招生系统读取已报名学生，后续会一键生成学生档案、家长沟通记录和入学交接待办。</p>
+            <p>从招生系统读取已报名学生，生成学生档案和入学交接。</p>
           </div>
           <span class="status-chip">联动预览</span>
         </div>
@@ -160,7 +160,7 @@
         <div class="section-head">
           <div>
             <h2>上课点名与课销确认</h2>
-            <p>老师可在 iPad、手机或电脑上按课程生成学生名单，直接触摸勾选到课状态。缺席、请假、迟到待核对的学生必须留下后续处理，系统会同步形成老师课时费、家长课销和学生补课追踪依据。</p>
+            <p>选择课程，带出名单，直接点选到课状态。</p>
           </div>
           <span class="status-chip">全体老师</span>
         </div>
@@ -170,7 +170,7 @@
           <label class="field"><span>课程类型</span><select id="attendanceLessonType"><option>正常课</option><option>试听课</option><option>补课</option><option>视频课</option><option>录播核销</option></select></label>
           <label class="field span-3"><span>从预导入排课选择</span><select id="attendancePreimportSelect"></select></label>
           <label class="field span-3"><span>班级 / 课程</span><input id="attendanceClass" placeholder="例如：暑假数学提升班 / 初一数学小班"></label>
-          <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。后续接云排课后会自动带出本节课学生名单。"></textarea></label>
+          <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。"></textarea></label>
         </div>
         <div class="actions">
           <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出排课名单</button>
@@ -181,7 +181,7 @@
           <button class="button secondary" id="attendanceExportButton" type="button">导出点名 CSV</button>
           <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
-        <div class="notice" id="attendanceMessage">到课学生默认“计老师课时费 + 计家长课销”。缺席或待核对学生必须选择后续处理；有出门测成绩的学生会自动作为已到课二次确认。</div>
+        <div class="notice" id="attendanceMessage">到课默认计课时费和课销；缺席、请假、待核对必须选择后续处理；有出门测成绩会自动修正为有效到课。</div>
         <div class="attendance-summary-grid">
           <div class="attendance-summary-card"><span>本节名单</span><strong id="attendanceMetricTotal">0</strong></div>
           <div class="attendance-summary-card"><span>有效到课</span><strong id="attendanceMetricPresent">0</strong></div>
@@ -253,10 +253,10 @@
             <h2>学生服务总览</h2>
             <p>学生服务记录集中查看。</p>
           </div>
-          <span class="status-chip">样例数据</span>
+          <span class="status-chip">服务台账</span>
         </div>
         <div class="metrics">
-          <div class="metric"><span>在读学生档案</span><strong id="studentMetricTotal">0</strong><p>后续从招生和排课同步</p></div>
+          <div class="metric"><span>在读学生档案</span><strong id="studentMetricTotal">0</strong><p>招生和排课同步</p></div>
           <div class="metric"><span>本周课后反馈</span><strong id="studentMetricFeedback">0</strong><p>按课次生成待办</p></div>
           <div class="metric"><span>续费风险</span><strong id="studentMetricRisk">0</strong><p>剩余课时 + 满意度</p></div>
           <div class="metric"><span>家长沟通记录</span><strong id="studentMetricCommunication">0</strong><p>按学生永久留痕</p></div>
@@ -268,7 +268,7 @@
           <div class="section-head">
             <div>
               <h2>学生服务台账</h2>
-              <p>后面 Excel 或云端数据接入后，这张表会变成真实在读学生服务列表。</p>
+              <p>学生服务记录集中管理。</p>
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
@@ -302,9 +302,9 @@
           <div class="actions">
             <button class="button" id="studentSaveButton" type="button">保存服务记录</button>
             <button class="button secondary" id="studentExportButton" type="button">导出服务数据</button>
-            <button class="button secondary" id="studentResetButton" type="button">恢复样例数据</button>
+            <button class="button secondary" id="studentResetButton" type="button">恢复初始数据</button>
           </div>
-          <div class="notice" id="studentServiceMessage">当前数据已接入云端试运行；本机缓存只作为断网兜底。学生档案会逐步和招生、排课、点名数据联动。</div>
+          <div class="notice" id="studentServiceMessage">学生档案会和招生、排课、点名数据联动。</div>
         </article>
       </section>
 
@@ -312,7 +312,7 @@
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
-            <p>记录新增、修改、删除、导入和恢复样例操作；云端会保留共享操作痕迹，便于后续追溯。</p>
+            <p>记录新增、修改、删除和导入操作。</p>
           </div>
         </div>
         <div class="table-wrap">
