@@ -361,6 +361,85 @@
         padding: 0 14px;
         font-size: 13px;
       }
+      .inline-message {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .inline-message.success { color: var(--green); font-weight: 700; }
+      .inline-message.error { color: var(--red); font-weight: 700; }
+      .toast-message {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        z-index: 90;
+        max-width: min(520px, calc(100vw - 28px));
+        padding: 12px 16px;
+        border-radius: 999px;
+        background: rgba(23, 33, 50, 0.94);
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.45;
+        box-shadow: 0 18px 42px rgba(23, 33, 50, 0.24);
+        transform: translate(-50%, 120%);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .18s ease, transform .18s ease;
+      }
+      .toast-message.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      .toast-message.error { background: rgba(185, 28, 28, 0.96); }
+      .lead-card-list {
+        display: none;
+        gap: 10px;
+        margin: 12px 0;
+      }
+      .lead-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        padding: 14px;
+      }
+      .lead-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .lead-card-title strong {
+        display: block;
+        font-size: 17px;
+        color: var(--ink);
+      }
+      .lead-card-title span,
+      .lead-kv,
+      .lead-card-note {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .lead-card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 12px;
+        margin-top: 12px;
+      }
+      .lead-card-note {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+      }
+      .lead-card-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
       .hidden-section {
         display: none;
       }
@@ -562,6 +641,18 @@
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .lead-card-list {
+          display: grid;
+        }
+        .lead-table-wrap {
+          display: none;
+        }
+        .lead-card-actions {
+          grid-template-columns: 1fr;
+        }
+        .toast-message {
+          border-radius: 16px;
+        }
       }
       .layout > aside.panel .stack-list .list-card:nth-child(n + 6) {
         display: none;
@@ -571,12 +662,13 @@
   </head>
   <body data-page-permission="admissions.access">
     <main class="shell">
+      <div class="toast-message" id="toastMessage" role="status" aria-live="polite"></div>
       <nav class="system-nav" aria-label="系统导航">
         <a href="/jrcedu/portal/index.html">返回工作台</a>
       </nav>
       <div class="topbar">
         <div class="title-wrap">
-          <p>Admissions CRM</p>
+          <p>招生</p>
           <h1>招生管理系统</h1>
           <div class="hint">新增线索、跟进、试听、反馈、报名建档。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
@@ -589,6 +681,9 @@
       <div class="trial-toolbar">
         <a href="#quickLeadStudentName">新增线索</a>
         <a href="#quickFollowupLeadSelect">快捷跟进</a>
+        <a href="#trialLeadSelect" data-jump-view="trials">预约试听</a>
+        <a href="#enrollStudentName" data-jump-view="enrollment">报名登记</a>
+        <a href="#importBatchInput" data-jump-view="settings">批量导入</a>
         <a href="#leadTableBody" data-jump-view="leads">线索主表</a>
       </div>
 
@@ -748,7 +843,7 @@
             <div class="section-actions">
               <button class="button small" id="quickCreateLeadButton" type="button">保存新线索</button>
               <button class="button small secondary" type="button" data-jump-view="leads">去线索中心看完整表</button>
-              <span class="hint" id="quickCreateLeadMessage">学生姓名和家长电话必填。</span>
+              <span class="inline-message" id="quickCreateLeadMessage">学生姓名和家长电话必填。</span>
             </div>
             <div class="section-head" style="margin-top: 18px;">
               <div>
@@ -785,6 +880,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="quickFollowupButton" type="button">保存快捷跟进</button>
+              <span class="inline-message" id="quickFollowupMessage"></span>
             </div>
             <div class="worklist-grid">
               <div>
@@ -918,7 +1014,8 @@
                 <option>D 无意向</option>
               </select>
             </div>
-            <div class="table-wrap">
+            <div class="lead-card-list" id="leadCardList"></div>
+            <div class="table-wrap lead-table-wrap">
               <table>
                 <thead>
                   <tr>
@@ -1003,6 +1100,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="addFollowupButton" type="button">新增跟进记录</button>
+              <span class="inline-message" id="addFollowupMessage"></span>
             </div>
           </section>
 
@@ -1010,7 +1108,7 @@
             <div class="section-head">
               <div>
                 <h2>线索详情区</h2>
-                <div class="hint">这一块后面会替代“只能在大表里看信息”的方式。现在先做成当前选中线索的详情视图。</div>
+                <div class="hint">当前选中线索的完整信息。</div>
               </div>
             </div>
             <div class="metrics" id="leadDetailPanel">
@@ -1131,6 +1229,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="saveDetailButton" type="button">保存当前线索修改</button>
+              <span class="inline-message" id="saveDetailMessage"></span>
             </div>
             <div class="section-head" style="margin-top: 20px;">
               <div>
@@ -1226,6 +1325,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="createLeadButton" type="button">新增线索</button>
+              <span class="inline-message" id="createLeadMessage"></span>
             </div>
           </section>
 
@@ -1283,6 +1383,7 @@
               <button class="button small secondary" id="copyImportTemplateButton" type="button">复制导入模板字段</button>
               <button class="button small" id="importBatchButton" type="button">导入这批线索</button>
               <button class="button small secondary" id="resetAdmissionsButton" type="button">刷新本地副本</button>
+              <span class="inline-message" id="importBatchMessage"></span>
             </div>
             <div class="metrics">
               <div class="metric">
@@ -1449,7 +1550,7 @@
               </div>
               <div class="field">
                 <label>试听时间</label>
-                <input id="trialTimeInput" type="datetime-local" value="2026-06-25T19:00">
+                <input id="trialTimeInput" type="datetime-local" value="">
               </div>
               <div class="field span-2">
                 <label>预约备注</label>
@@ -1458,6 +1559,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="saveTrialButton" type="button">保存试听预约</button>
+              <span class="inline-message" id="saveTrialMessage"></span>
             </div>
           </section>
 
@@ -1526,7 +1628,7 @@
               </div>
               <div class="field">
                 <label>下次跟进日期</label>
-                <input id="feedbackNextDate" value="2026-06-22">
+                <input id="feedbackNextDate" type="date">
               </div>
               <div class="field span-3">
                 <label>反馈总结</label>
@@ -1535,6 +1637,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="saveFeedbackButton" type="button">保存试听反馈</button>
+              <span class="inline-message" id="saveFeedbackMessage"></span>
             </div>
           </section>
 
@@ -1641,6 +1744,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="createEnrollmentButton" type="button">登记报名</button>
+              <span class="inline-message" id="createEnrollmentMessage"></span>
             </div>
           </section>
 
@@ -1685,6 +1789,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="createRenewalButton" type="button">登记续费 / 扩科</button>
+              <span class="inline-message" id="createRenewalMessage"></span>
             </div>
           </section>
 
@@ -1952,23 +2057,23 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">30 天沉睡</div>
-                <strong>12</strong>
-                <div class="metric-meta">适合先做人工召回</div>
+                <strong id="dormant30Count">0</strong>
+                <div class="metric-meta">导入跟进日期后统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">60 天沉睡</div>
-                <strong>8</strong>
-                <div class="metric-meta">适合活动课和案例触达</div>
+                <strong id="dormant60Count">0</strong>
+                <div class="metric-meta">导入跟进日期后统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">90 天沉睡</div>
-                <strong>5</strong>
-                <div class="metric-meta">转长期资料培育池</div>
+                <strong id="dormant90Count">0</strong>
+                <div class="metric-meta">导入跟进日期后统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">高意向未报</div>
-                <strong>6</strong>
-                <div class="metric-meta">优先由顾问一对一重新唤醒</div>
+                <strong id="dormantHighIntentCount">0</strong>
+                <div class="metric-meta">优先人工追踪</div>
               </div>
             </div>
           </section>
@@ -2114,23 +2219,23 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">本月新增线索</div>
-                <strong>0</strong>
-                <div class="metric-meta">导入真实线索后自动统计</div>
+                <strong id="consultantLeadCount">0</strong>
+                <div class="metric-meta" id="consultantLeadMeta">按当前账号统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">试听邀约率</div>
-                <strong>0%</strong>
-                <div class="metric-meta">已接通线索中的预约占比</div>
+                <strong id="consultantTrialRate">0%</strong>
+                <div class="metric-meta">按负责线索统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">报名成交</div>
-                <strong>0</strong>
-                <div class="metric-meta">本月已成交人数</div>
+                <strong id="consultantEnrollCount">0</strong>
+                <div class="metric-meta" id="consultantEnrollMeta">实收 0</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">预计提成</div>
-                <strong>待计算</strong>
-                <div class="metric-meta">按已配置规则计算</div>
+                <strong id="consultantCommissionLabel">待财务确认</strong>
+                <div class="metric-meta">只做候选，不直接发放</div>
               </div>
             </div>
           </section>
@@ -2157,30 +2262,9 @@
                     <th>当前判断</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="channelRoiBody">
                   <tr>
-                    <td>抖音投流</td>
-                    <td>21</td>
-                    <td>4</td>
-                    <td>26,800</td>
-                    <td>预计渠道提成 2,100</td>
-                    <td>量大，需要继续看投产比</td>
-                  </tr>
-                  <tr>
-                    <td>老家长转介绍</td>
-                    <td>13</td>
-                    <td>3</td>
-                    <td>18,400</td>
-                    <td>预计家长奖励 1,200</td>
-                    <td>质量高，值得持续做裂变</td>
-                  </tr>
-                  <tr>
-                    <td>自然到访</td>
-                    <td>14</td>
-                    <td>2</td>
-                    <td>11,600</td>
-                    <td>无渠道提成</td>
-                    <td>成交稳定，但要继续追前台转化率</td>
+                    <td colspan="6">导入真实线索和报名金额后自动统计。</td>
                   </tr>
                 </tbody>
               </table>
@@ -2200,22 +2284,22 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">试听提醒</div>
-                <strong>11</strong>
+                <strong id="reminderTrialCount">0</strong>
                 <div class="metric-meta">试听前 1 天和当天二次提醒</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">活动通知</div>
-                <strong>26</strong>
+                <strong id="reminderActivityCount">0</strong>
                 <div class="metric-meta">公开课、活动课、优惠活动</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">沉睡召回</div>
-                <strong>8</strong>
+                <strong id="reminderDormantCount">0</strong>
                 <div class="metric-meta">优先给高意向沉睡客户</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">当前策略</div>
-                <strong>先留入口</strong>
+                <strong id="reminderStrategyLabel">人工确认</strong>
                 <div class="metric-meta">先看该发什么，再做自动发送</div>
               </div>
             </div>
@@ -2358,23 +2442,23 @@
             <div class="metrics">
               <div class="metric">
                 <div class="metric-meta">本月总线索</div>
-                <strong>186</strong>
-                <div class="metric-meta">比上月 +18%</div>
+                <strong id="adminTotalLeads">0</strong>
+                <div class="metric-meta">导入后自动统计</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">顾问跟进及时率</div>
-                <strong>82%</strong>
-                <div class="metric-meta">低于 90% 的顾问需要重点看</div>
+                <strong id="adminFollowupRate">0%</strong>
+                <div class="metric-meta">有跟进记录的线索占比</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">裂变报名占比</div>
-                <strong>27%</strong>
-                <div class="metric-meta">老带新正在成为重要来源</div>
+                <strong id="adminReferralRate">0%</strong>
+                <div class="metric-meta">转介绍报名占比</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">沉睡风险线索</div>
-                <strong>25</strong>
-                <div class="metric-meta">高意向沉睡 6 人优先处理</div>
+                <strong id="adminDormantRiskCount">0</strong>
+                <div class="metric-meta">高意向优先处理</div>
               </div>
             </div>
           </section>

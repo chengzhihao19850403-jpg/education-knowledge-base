@@ -24,6 +24,8 @@ const defaultState = {
 const state = loadState();
 let cloudStoreReady = false;
 let cloudSaveTimer = null;
+let activeViewApplier = null;
+let toastTimer = null;
 
 const statusClassMap = {
   "已沟通待邀约": "amber",
@@ -54,6 +56,76 @@ const importTemplateFields = [
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function setInlineMessage(id, text, type = "") {
+  const node = byId(id);
+  if (!node) return;
+  node.textContent = text || "";
+  node.classList.remove("success", "error");
+  if (type) node.classList.add(type);
+}
+
+function showToast(text, type = "") {
+  const node = byId("toastMessage");
+  if (!node || !text) return;
+  clearTimeout(toastTimer);
+  node.textContent = text;
+  node.classList.toggle("error", type === "error");
+  node.classList.add("show");
+  toastTimer = setTimeout(() => {
+    node.classList.remove("show");
+  }, 2200);
+}
+
+function switchAdmissionView(target, selector = "") {
+  if (typeof activeViewApplier === "function") {
+    activeViewApplier(target);
+  } else {
+    state.activeView = target;
+  }
+  window.setTimeout(() => {
+    const targetNode = selector ? document.querySelector(selector) : null;
+    if (targetNode) {
+      targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, 30);
+}
+
+function defaultTrialDateTime() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(19, 0, 0, 0);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T19:00`;
+}
+
+function parseMaybeDate(value) {
+  if (!value) return null;
+  const date = new Date(String(value).replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysSince(value) {
+  const date = parseMaybeDate(value);
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return Math.floor((today.getTime() - date.getTime()) / 86400000);
 }
 
 function loadState() {
@@ -585,6 +657,7 @@ function renderLeadTable() {
   if (!body) return;
   const editable = canEditAdmissions();
   const filteredLeads = getFilteredLeads();
+  renderLeadCards(filteredLeads, editable);
   body.innerHTML = filteredLeads
     .map(
       (lead) => `
@@ -624,6 +697,50 @@ function renderLeadTable() {
       </tr>
     `;
   bindLeadActions();
+}
+
+function renderLeadCards(filteredLeads, editable) {
+  const box = byId("leadCardList");
+  if (!box) return;
+  box.innerHTML = filteredLeads.length
+    ? filteredLeads
+        .map(
+          (lead) => `
+            <article class="lead-card">
+              <div class="lead-card-head">
+                <div class="lead-card-title">
+                  <strong>${escapeHtml(lead.studentName)}</strong>
+                  <span>${escapeHtml(lead.grade)} / ${escapeHtml(lead.subject)} / ${escapeHtml(lead.parentPhone)}</span>
+                </div>
+                <span class="tag ${statusClassMap[lead.status] || ""}">${escapeHtml(lead.status)}</span>
+              </div>
+              <div class="lead-card-grid">
+                <div class="lead-kv">负责人：${escapeHtml(lead.owner)}</div>
+                <div class="lead-kv">意向：${escapeHtml(lead.intent)}</div>
+                <div class="lead-kv">来源：${escapeHtml(lead.channel)}</div>
+                <div class="lead-kv">进群：${escapeHtml(lead.inGroup)}</div>
+                <div class="lead-kv">试听：${escapeHtml(lead.trialTime ? formatTrialDisplay(lead.trialTime) : lead.trial)}</div>
+                <div class="lead-kv">老师：${escapeHtml(lead.trialTeacher || "待安排")}</div>
+              </div>
+              <div class="lead-card-note">${escapeHtml(lead.nextAction || lead.note || "待补下一步")}</div>
+              <div class="lead-card-actions">
+                <button class="button small secondary" type="button" data-action="view-detail" data-student="${escapeHtml(lead.studentName)}">详情</button>
+                <button class="button small" type="button" data-action="advance-status" data-student="${escapeHtml(lead.studentName)}" ${editable ? "" : "disabled"}>推进</button>
+                <button class="button small secondary" type="button" data-action="assign-trial" data-student="${escapeHtml(lead.studentName)}" ${editable ? "" : "disabled"}>约试听</button>
+                <button class="button small secondary" type="button" data-action="complete-trial" data-student="${escapeHtml(lead.studentName)}" ${editable ? "" : "disabled"}>已试听</button>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `
+      <article class="lead-card">
+        <div class="lead-card-title">
+          <strong>没有匹配线索</strong>
+          <span>清空搜索条件，或先新增一条线索。</span>
+        </div>
+      </article>
+    `;
 }
 
 function renderLeadFilterControls() {
@@ -1341,7 +1458,7 @@ function renderTrialLeadOptions() {
   if (!currentLead) return;
   byId("trialTeacherSelect").value = currentLead.trialTeacher || trialTeacherOptions[0];
   byId("trialTimeInput").value =
-    normalizeDateTimeLocal(currentLead.trialTime) || "2026-06-25T19:00";
+    normalizeDateTimeLocal(currentLead.trialTime) || defaultTrialDateTime();
   byId("trialRemarkInput").value =
     currentLead.nextAction || "试听后当天必须回填反馈";
 }
@@ -1423,7 +1540,7 @@ function renderMetrics() {
   byId("scheduledTrialCount").textContent = String(scheduled + feedbackPending);
   byId("scheduledTrialMeta").textContent = `待上课 ${scheduled} / 已试听待反馈 ${feedbackPending}`;
   byId("enrolledCount").textContent = String(enrolled);
-  byId("enrolledMeta").textContent = `实收 ${enrolledAmount.toLocaleString()} / 定金 8,000`;
+  byId("enrolledMeta").textContent = `实收 ${enrolledAmount.toLocaleString()} / 已报名 ${enrolled}`;
   byId("highIntentCount").textContent = String(highIntent);
   if (byId("funnelTotalCount")) byId("funnelTotalCount").textContent = String(total);
   if (byId("funnelContactedCount")) byId("funnelContactedCount").textContent = String(contacted);
@@ -1434,14 +1551,126 @@ function renderMetrics() {
   if (byId("funnelEnrollRate")) byId("funnelEnrollRate").textContent = `成交率 ${percent(enrolled, total)}`;
 }
 
+function getDormantLeads() {
+  return state.leads
+    .filter((lead) => lead.status !== "定金 / 已报名" && Number(lead.enrolledAmount || 0) <= 0)
+    .map((lead) => {
+      const gap = daysSince(lead.nextFollowupDate || lead.createdAt || "");
+      const isDormantStatus = lead.status === "无效沉睡线索";
+      return {
+        lead,
+        days: gap === null && isDormantStatus ? 30 : gap,
+        isDormant: isDormantStatus || (gap !== null && gap > 0),
+      };
+    })
+    .filter((item) => item.isDormant);
+}
+
+function renderDormantStats() {
+  const dormant = getDormantLeads();
+  const countByMinDays = (minDays) => dormant.filter((item) => Number(item.days || 0) >= minDays).length;
+  const highIntentDormant = dormant.filter((item) => String(item.lead.intent || "").startsWith("A")).length;
+  if (byId("dormant30Count")) byId("dormant30Count").textContent = String(countByMinDays(30));
+  if (byId("dormant60Count")) byId("dormant60Count").textContent = String(countByMinDays(60));
+  if (byId("dormant90Count")) byId("dormant90Count").textContent = String(countByMinDays(90));
+  if (byId("dormantHighIntentCount")) byId("dormantHighIntentCount").textContent = String(highIntentDormant);
+  if (byId("adminDormantRiskCount")) byId("adminDormantRiskCount").textContent = String(dormant.length);
+  if (byId("reminderDormantCount")) byId("reminderDormantCount").textContent = String(highIntentDormant || dormant.length);
+}
+
+function renderChannelRoi() {
+  const body = byId("channelRoiBody");
+  if (!body) return;
+  if (!state.leads.length) {
+    body.innerHTML = `<tr><td colspan="6">导入真实线索和报名金额后自动统计。</td></tr>`;
+    return;
+  }
+  const groups = new Map();
+  state.leads.forEach((lead) => {
+    const key = lead.channel || "待补来源";
+    if (!groups.has(key)) {
+      groups.set(key, { channel: key, leads: 0, enrolled: 0, amount: 0 });
+    }
+    const item = groups.get(key);
+    item.leads += 1;
+    if (Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名") {
+      item.enrolled += 1;
+      item.amount += Number(lead.enrolledAmount || 0);
+    }
+  });
+  body.innerHTML = Array.from(groups.values())
+    .sort((a, b) => b.amount - a.amount || b.leads - a.leads)
+    .map((row) => {
+      const conversion = percent(row.enrolled, row.leads);
+      const rewardText = row.channel.includes("转介绍")
+        ? "转介绍奖励待财务确认"
+        : row.channel.includes("抖音") || row.channel.includes("官网")
+          ? "渠道提成待财务确认"
+          : "暂不计渠道提成";
+      return `
+        <tr>
+          <td>${escapeHtml(row.channel)}</td>
+          <td>${row.leads}</td>
+          <td>${row.enrolled}</td>
+          <td>${row.amount.toLocaleString()}</td>
+          <td>${rewardText}</td>
+          <td>转化率 ${conversion}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderConsultantStats() {
+  const employee = getCurrentEmployee();
+  const isManager = hasPermission("admin.access") || hasPermission("admissions.finance");
+  const targetName = employee && !isManager ? employee.name : "";
+  const leads = targetName ? state.leads.filter((lead) => lead.owner === targetName) : state.leads;
+  const trialCount = leads.filter((lead) =>
+    ["已预约试听", "试听完成待转化", "定金 / 已报名"].includes(lead.status)
+  ).length;
+  const enrolled = leads.filter((lead) => Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名");
+  const amount = enrolled.reduce((sum, lead) => sum + Number(lead.enrolledAmount || 0), 0);
+  if (byId("consultantLeadCount")) byId("consultantLeadCount").textContent = String(leads.length);
+  if (byId("consultantLeadMeta")) byId("consultantLeadMeta").textContent = targetName ? `${targetName}负责线索` : "全部招生线索";
+  if (byId("consultantTrialRate")) byId("consultantTrialRate").textContent = percent(trialCount, leads.length);
+  if (byId("consultantEnrollCount")) byId("consultantEnrollCount").textContent = String(enrolled.length);
+  if (byId("consultantEnrollMeta")) byId("consultantEnrollMeta").textContent = `实收 ${amount.toLocaleString()}`;
+  if (byId("consultantCommissionLabel")) byId("consultantCommissionLabel").textContent = amount > 0 ? "待财务复核" : "待成交";
+}
+
+function renderReminderStats() {
+  const scheduled = state.leads.filter((lead) => lead.status === "已预约试听").length;
+  const activityCandidates = state.leads.filter((lead) =>
+    Number(lead.enrolledAmount || 0) <= 0 && ["B 中意向", "C 低意向"].includes(lead.intent)
+  ).length;
+  if (byId("reminderTrialCount")) byId("reminderTrialCount").textContent = String(scheduled);
+  if (byId("reminderActivityCount")) byId("reminderActivityCount").textContent = String(activityCandidates);
+  if (byId("reminderStrategyLabel")) byId("reminderStrategyLabel").textContent = scheduled || activityCandidates ? "人工确认" : "暂无待发";
+}
+
+function renderManagementStats() {
+  const total = state.leads.length;
+  const hasFollowup = state.leads.filter((lead) => lead.note && lead.note !== "待补首条记录").length;
+  const enrolled = state.leads.filter((lead) => Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名");
+  const referralEnrolled = enrolled.filter((lead) => lead.channel?.includes("转介绍")).length;
+  if (byId("adminTotalLeads")) byId("adminTotalLeads").textContent = String(total);
+  if (byId("adminFollowupRate")) byId("adminFollowupRate").textContent = percent(hasFollowup, total);
+  if (byId("adminReferralRate")) byId("adminReferralRate").textContent = percent(referralEnrolled, enrolled.length);
+}
+
 function bindLeadCreate() {
   const button = byId("createLeadButton");
   if (!button) return;
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("createLeadMessage", "当前账号没有招生录入权限。", "error");
+      return;
+    }
     const studentName = byId("leadStudentName").value.trim();
     const parentPhone = byId("leadPhone").value.trim();
     if (!studentName || !parentPhone) {
+      setInlineMessage("createLeadMessage", "请填写学生姓名和家长电话。", "error");
       return;
     }
     state.leads.unshift({
@@ -1468,6 +1697,7 @@ function bindLeadCreate() {
       trialTeacher: "",
       trialTime: "",
       enrolledAmount: 0,
+      createdAt: formatNowStamp(),
     });
     byId("leadStudentName").value = "";
     byId("leadPhone").value = "";
@@ -1476,6 +1706,8 @@ function bindLeadCreate() {
     state.selectedLeadName = studentName;
     logAudit("新增线索", studentName, `来源 ${byId("leadChannel").value}，负责人 ${byId("leadOwner").value || "待分配"}。`);
     renderAll();
+    setInlineMessage("createLeadMessage", `已新增线索：${studentName}`, "success");
+    showToast(`已新增线索：${studentName}`);
   });
 }
 
@@ -1485,19 +1717,20 @@ function bindQuickLeadCreate() {
   button.addEventListener("click", () => {
     const message = byId("quickCreateLeadMessage");
     if (!canEditAdmissions()) {
-      if (message) message.textContent = "当前账号没有招生录入权限。";
+      setInlineMessage("quickCreateLeadMessage", "当前账号没有招生录入权限。", "error");
       return;
     }
     const studentName = byId("quickLeadStudentName")?.value.trim();
     const parentPhone = byId("quickLeadPhone")?.value.trim();
     if (!studentName || !parentPhone) {
-      if (message) message.textContent = "请先填写学生姓名和家长电话。";
+      setInlineMessage("quickCreateLeadMessage", "请先填写学生姓名和家长电话。", "error");
       return;
     }
     const duplicate = state.leads.find((lead) => normalizePhone(lead.parentPhone) && normalizePhone(lead.parentPhone) === normalizePhone(parentPhone));
     if (duplicate) {
       state.selectedLeadName = duplicate.studentName;
-      if (message) message.textContent = `这个手机号已存在：${duplicate.studentName}。已自动选中原线索，可在详情里继续跟进。`;
+      setInlineMessage("quickCreateLeadMessage", `手机号已存在：${duplicate.studentName}`, "error");
+      showToast(`手机号已存在，已选中 ${duplicate.studentName}`, "error");
       renderAll();
       return;
     }
@@ -1526,6 +1759,7 @@ function bindQuickLeadCreate() {
       trialTeacher: "",
       trialTime: "",
       enrolledAmount: 0,
+      createdAt: formatNowStamp(),
     });
     state.selectedLeadName = studentName;
     byId("quickLeadStudentName").value = "";
@@ -1533,6 +1767,8 @@ function bindQuickLeadCreate() {
     byId("quickLeadNote").value = "";
     logAudit("首页新增线索", studentName, `来源 ${channel}，负责人 ${owner}。`);
     if (message) message.textContent = `已保存 ${studentName}，现在可以在线索中心继续补试听和跟进。`;
+    setInlineMessage("quickCreateLeadMessage", `已保存 ${studentName}`, "success");
+    showToast(`已保存新线索：${studentName}`);
     renderAll();
   });
 }
@@ -1541,17 +1777,26 @@ function bindFeedbackSave() {
   const button = byId("saveFeedbackButton");
   if (!button) return;
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("saveFeedbackMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const targetName = byId("followupLeadSelect")?.value;
     const feedbackLeadName = byId("feedbackLeadSelect")?.value || targetName;
-    if (!feedbackLeadName) return;
+    if (!feedbackLeadName) {
+      setInlineMessage("saveFeedbackMessage", "请选择要反馈的学生。", "error");
+      return;
+    }
     const target = state.leads.find(
       (lead) =>
         lead.studentName === feedbackLeadName ||
         lead.studentName === targetName ||
         lead.status === "试听完成待转化"
     );
-    if (!target) return;
+    if (!target) {
+      setInlineMessage("saveFeedbackMessage", "没有找到对应线索。", "error");
+      return;
+    }
     target.intent = byId("feedbackIntent").value;
     target.lastFollowup = "刚刚回填";
     target.note = byId("feedbackSummary").value.trim() || target.note;
@@ -1561,6 +1806,8 @@ function bindFeedbackSave() {
     state.selectedLeadName = target.studentName;
     logAudit("保存试听反馈", target.studentName, `意向改为 ${target.intent}，下次跟进 ${byId("feedbackNextDate").value || "待定"}。`);
     renderAll();
+    setInlineMessage("saveFeedbackMessage", `已保存 ${target.studentName} 的试听反馈`, "success");
+    showToast("试听反馈已保存");
   });
 }
 
@@ -1574,43 +1821,57 @@ function bindEnrollmentCreate() {
   });
 
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("createEnrollmentMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const name = byId("enrollStudentName").value.trim();
     const amount = Number(byId("enrollReceived").value || 0);
     if (!name || !amount) {
+      setInlineMessage("createEnrollmentMessage", "请填写报名学生和实收金额。", "error");
       return;
     }
     const target = state.leads.find((lead) => lead.studentName === name);
-    if (target) {
-      target.status = "定金 / 已报名";
-      target.enrolledAmount = amount;
-      target.attributionLocked = true;
-      target.attributionSnapshot = buildAttributionSnapshot(target);
-      target.financeProfile = {
-        settledAmount: amount,
-        pendingCommission: "待结算",
-        referralReward: target.referrerName ? "待判断" : "无",
-      };
-      target.nextAction = byId("enrollRemark").value.trim() || "已报名";
-      target.lastFollowup = "刚刚报名";
-      target.note = `报名登记完成 / 渠道：${byId("enrollChannel").value} / 顾问：${byId("enrollOwner").value}`;
-      pushFollowup(
-        target.studentName,
-        `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`
-      );
-      logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
+    if (!target) {
+      setInlineMessage("createEnrollmentMessage", "没有找到这名学生，请先在线索中心新增。", "error");
+      return;
     }
+    target.status = "定金 / 已报名";
+    target.enrolledAmount = amount;
+    target.attributionLocked = true;
+    target.attributionSnapshot = buildAttributionSnapshot(target);
+    target.financeProfile = {
+      settledAmount: amount,
+      pendingCommission: "待结算",
+      referralReward: target.referrerName ? "待判断" : "无",
+    };
+    target.nextAction = byId("enrollRemark").value.trim() || "已报名";
+    target.lastFollowup = "刚刚报名";
+    target.note = `报名登记完成 / 渠道：${byId("enrollChannel").value} / 顾问：${byId("enrollOwner").value}`;
+    pushFollowup(
+      target.studentName,
+      `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`
+    );
+    logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
     renderAll();
+    setInlineMessage("createEnrollmentMessage", `已登记报名：${name} / 实收 ${amount}`, "success");
+    showToast("报名登记已保存，归属链已锁定");
   });
 }
 
 function bindFollowupCreate() {
   const button = byId("addFollowupButton");
   if (button) button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("addFollowupMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const leadName = byId("followupLeadSelect").value;
     const text = byId("followupInput").value.trim();
-    if (!text) return;
+    if (!text) {
+      setInlineMessage("addFollowupMessage", "请填写本次沟通记录。", "error");
+      return;
+    }
     const saved = saveFollowupRecord({
       leadName,
       text,
@@ -1626,6 +1887,8 @@ function bindFollowupCreate() {
     byId("followupPainInput").value = "";
     byId("followupNextDateInput").value = "";
     renderAll();
+    setInlineMessage("addFollowupMessage", `已保存 ${leadName} 的跟进记录`, "success");
+    showToast("跟进记录已保存");
   });
 
   byId("followupLeadSelect")?.addEventListener("change", () => {
@@ -1639,16 +1902,24 @@ function bindFollowupCreate() {
   });
 
   byId("quickFollowupButton")?.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("quickFollowupMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const saved = saveFollowupRecord({
       leadName: byId("quickFollowupLeadSelect")?.value,
       text: byId("quickFollowupInput")?.value || "",
       method: byId("quickFollowupMethodSelect")?.value || "沟通",
       nextDate: byId("quickFollowupNextDateInput")?.value || "",
     });
-    if (!saved) return;
+    if (!saved) {
+      setInlineMessage("quickFollowupMessage", "请选择线索并填写沟通记录。", "error");
+      return;
+    }
     byId("quickFollowupInput").value = "";
     renderAll();
+    setInlineMessage("quickFollowupMessage", "已保存快捷跟进", "success");
+    showToast("快捷跟进已保存");
   });
 }
 
@@ -1656,12 +1927,21 @@ function bindRenewalCreate() {
   const button = byId("createRenewalButton");
   if (!button) return;
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("createRenewalMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const studentName = byId("renewStudentName").value.trim();
     const amount = Number(byId("renewAmount").value || 0);
-    if (!studentName || !amount) return;
+    if (!studentName || !amount) {
+      setInlineMessage("createRenewalMessage", "请填写学员和实收金额。", "error");
+      return;
+    }
     const target = state.leads.find((lead) => lead.studentName === studentName);
-    if (!target) return;
+    if (!target) {
+      setInlineMessage("createRenewalMessage", "没有找到这名学员，请先完成报名登记。", "error");
+      return;
+    }
 
     const inheritedSnapshot =
       target.attributionLocked && target.attributionSnapshot
@@ -1694,6 +1974,8 @@ function bindRenewalCreate() {
     target.nextAction = `${renewalRecord.type}已登记，继续按既有归属链结算`;
     logAudit(`登记${renewalRecord.type}`, target.studentName, `${renewalRecord.courseName} / 实收 ${amount} / 继承 ${formatAttributionSnapshot(inheritedSnapshot)}。`);
     renderAll();
+    setInlineMessage("createRenewalMessage", `已登记${renewalRecord.type}：${target.studentName}`, "success");
+    showToast("续费 / 扩科已保存");
   });
 }
 
@@ -1737,7 +2019,10 @@ function bindBatchImport() {
     renderAll();
   });
   button.addEventListener("click", () => {
-    if (!canImportAdmissions()) return;
+    if (!canImportAdmissions()) {
+      setInlineMessage("importBatchMessage", "当前账号没有招生导入权限。", "error");
+      return;
+    }
     const raw = byId("importBatchInput").value.trim();
     const defaultStatus = byId("importDefaultStatus").value;
     const summary = {
@@ -1754,6 +2039,7 @@ function bindBatchImport() {
       );
       state.importSummary = summary;
       renderAll();
+      setInlineMessage("importBatchMessage", "没有可导入内容。", "error");
       return;
     }
 
@@ -1931,6 +2217,7 @@ function bindBatchImport() {
         trialTeacher: trialTeacher || "",
         trialTime: normalizeDateTimeLocal(trialTime),
         enrolledAmount: 0,
+        createdAt: formatNowStamp(),
       };
       if (newLead.trialTime) {
         newLead.trial = formatTrialDisplay(newLead.trialTime);
@@ -1951,6 +2238,8 @@ function bindBatchImport() {
     state.importSummary = summary;
     logAudit("批量导入线索", state.selectedLeadName || "本批线索", `新增 ${summary.added}，重复 ${summary.duplicates}，缺负责人 ${summary.missingOwner}，缺字段 ${summary.missingFields}。`);
     renderAll();
+    setInlineMessage("importBatchMessage", `导入完成：新增 ${summary.added}，重复 ${summary.duplicates}，待补 ${summary.missingFields}`, summary.missingFields ? "error" : "success");
+    showToast(`导入完成：新增 ${summary.added} 条`);
   });
 }
 
@@ -1958,9 +2247,15 @@ function bindTrialCreate() {
   const button = byId("saveTrialButton");
   if (!button) return;
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("saveTrialMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const studentName = byId("trialLeadSelect").value;
-    if (!studentName) return;
+    if (!studentName) {
+      setInlineMessage("saveTrialMessage", "请选择试听学生。", "error");
+      return;
+    }
     const target = state.leads.find((lead) => lead.studentName === studentName);
     if (!target) return;
     target.status = "已预约试听";
@@ -1974,6 +2269,8 @@ function bindTrialCreate() {
     state.selectedLeadName = target.studentName;
     logAudit("预约试听", target.studentName, `${target.trialTeacher} / ${target.trial}`);
     renderAll();
+    setInlineMessage("saveTrialMessage", `已预约：${target.studentName} / ${target.trialTeacher}`, "success");
+    showToast("试听预约已保存");
   });
 
   byId("trialLeadSelect")?.addEventListener("change", () => {
@@ -1990,7 +2287,10 @@ function bindDetailSave() {
   const button = byId("saveDetailButton");
   if (!button) return;
   button.addEventListener("click", () => {
-    if (!canEditAdmissions()) return;
+    if (!canEditAdmissions()) {
+      setInlineMessage("saveDetailMessage", "当前账号没有招生编辑权限。", "error");
+      return;
+    }
     const target = getSelectedLead();
     if (!target) return;
     const beforeSnapshot = formatAttributionSnapshot(target.attributionLocked && target.attributionSnapshot ? target.attributionSnapshot : buildAttributionSnapshot(target));
@@ -2020,6 +2320,8 @@ function bindDetailSave() {
     }
     logAudit("修改线索详情", target.studentName, `状态 ${target.status}，负责人 ${target.owner}，当前归属链 ${beforeSnapshot}。`);
     renderAll();
+    setInlineMessage("saveDetailMessage", `已保存 ${target.studentName} 的修改`, "success");
+    showToast("线索详情已保存");
   });
 }
 
@@ -2041,6 +2343,7 @@ function bindNavigation() {
     });
     persistState();
   };
+  activeViewApplier = applyView;
 
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
@@ -2109,6 +2412,7 @@ function bindLeadActions() {
       if (!target) return;
       syncSelectedLead(target.studentName);
       renderAll();
+      switchAdmissionView("trials", "#trialLeadSelect");
       const activeTrialLead = byId("trialLeadSelect");
       if (activeTrialLead) {
         activeTrialLead.value = target.studentName;
@@ -2134,6 +2438,7 @@ function bindLeadActions() {
       logAudit("完成试听", target.studentName, "已转入试听完成待转化。");
       syncSelectedLead(target.studentName);
       renderAll();
+      switchAdmissionView("trials", "#feedbackLeadSelect");
     };
   });
 
@@ -2144,6 +2449,7 @@ function bindLeadActions() {
       if (!target) return;
       syncSelectedLead(target.studentName);
       renderAll();
+      switchAdmissionView("leads", "#leadDetailPanel");
     };
   });
 
@@ -2152,6 +2458,7 @@ function bindLeadActions() {
       const studentName = button.getAttribute("data-student");
       syncSelectedLead(studentName);
       renderAll();
+      switchAdmissionView("leads", "#leadDetailPanel");
     };
   });
 
@@ -2355,6 +2662,11 @@ function renderAll() {
   renderPendingLeadFixes();
   renderStudentArchive();
   renderMetrics();
+  renderDormantStats();
+  renderChannelRoi();
+  renderConsultantStats();
+  renderReminderStats();
+  renderManagementStats();
   renderAuditLogs();
   applyPermissionState();
 }
