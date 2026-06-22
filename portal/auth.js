@@ -3,12 +3,6 @@ const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
 const JRC_TEMP_AUTO_LOGIN_USERNAME = "chengzhihao";
 const JRC_LEGACY_BUSINESS_DATA_KEYS = [
-  "paike-june-system-v1",
-  "paike-june-system-meta-v1",
-  "paike-system-prototype-v1",
-  "paike-system-prototype-meta-v1",
-  "paike-summer-import-review-v1",
-  "jrc-paike-legacy-cloud-transition-v1",
   "advice-system-stage-prototype",
   "jrc-finance-ledger-v1",
   "jrc-teaching-quality-system-v2-demo",

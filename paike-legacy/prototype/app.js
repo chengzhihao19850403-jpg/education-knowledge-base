@@ -1829,6 +1829,7 @@ let localDbAutosaveNote = "";
 let summerImportReviewItems = loadSummerImportReviewItems();
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await hydrateCloudScheduleStores();
   bindEvents();
   await initializePersistence();
   regenerateSchedule();
@@ -9935,8 +9936,9 @@ async function initializePersistence() {
 
   if (!localDbStatus.available) {
     localDbHistoryEntries = [];
-    uiState.importLog =
-      "当前没有连通寒暑假后台。只有连接到主控电脑后台后，才允许查看和编辑正式排课内容。";
+    uiState.importLog = isCloudDataEnabled()
+      ? "已进入云端暑假排课模式。当前页面保持旧版操作习惯，新增、修改、上传表格后会同步到云端。"
+      : "当前没有连通寒暑假后台。只有连接到主控电脑后台后，才允许查看和编辑正式排课内容。";
     persistUiState();
     renderSaveStatus();
     return;
@@ -10041,7 +10043,7 @@ function updatePersistenceControls() {
   const refreshHistoryButton = document.getElementById("refreshDbHistoryButton");
   const restoreHistoryButton = document.getElementById("restoreDbHistoryButton");
   if (saveButton) {
-    saveButton.textContent = "保存到寒暑假后台";
+    saveButton.textContent = isCloudDataEnabled() ? "保存到云端暑假排课" : "保存到寒暑假后台";
   }
   if (loadDbButton) {
     loadDbButton.textContent = "从寒暑假后台读取";
@@ -10276,12 +10278,31 @@ function persistUiState() {
   window.localStorage.setItem(STORAGE_META_KEY, JSON.stringify(uiState));
 }
 
+function isCloudDataEnabled() {
+  return Boolean(window.JRC_CLOUD?.isEnabled?.() && window.JRC_PAIKE_LEGACY_CLOUD_TRANSITION?.hydrateStores);
+}
+
+async function hydrateCloudScheduleStores() {
+  if (!isCloudDataEnabled()) return;
+  await window.JRC_PAIKE_LEGACY_CLOUD_TRANSITION.hydrateStores([
+    STORAGE_KEY,
+    STORAGE_META_KEY,
+    SUMMER_IMPORT_REVIEW_STORAGE_KEY,
+  ]);
+  state = loadState();
+  uiState = loadUiState();
+  summerImportReviewItems = loadSummerImportReviewItems();
+}
+
 function getBackendConnectionText() {
   const configuredBaseUrl = getConfiguredBackendBaseUrl();
   if (localDbStatus.available) {
     return localDbStatus.connectionMode === "same_origin"
       ? `已连接系统后台（暑假模式）：${formatLocalDbTarget()}`
       : `已连接寒暑假后台：${formatLocalDbTarget()}`;
+  }
+  if (isCloudDataEnabled()) {
+    return "已启用云端共享数据（暑假模式）。老师在不同电脑、手机打开后，会读取同一份云端排课数据。";
   }
   if (isCloudTransitionMode()) {
     return "云端过渡模式：当前先使用老师熟悉的暑假排课界面，数据保存在当前浏览器；正式多人同步会逐步接入云数据库。";
@@ -10393,7 +10414,11 @@ function renderSaveStatus() {
   }
   const browserSavedAt = uiState.lastSavedAt ? formatDateTime(uiState.lastSavedAt) : "尚未保存";
   if (topBackendNode) {
-    topBackendNode.textContent = localDbStatus.available ? "后台已连接 | 暑假模式" : "后台未连接";
+    topBackendNode.textContent = localDbStatus.available
+      ? "后台已连接 | 暑假模式"
+      : isCloudDataEnabled()
+        ? "云端已连接 | 暑假模式"
+        : "后台未连接";
   }
   if (topSaveNode) {
     topSaveNode.textContent = `最近保存：${browserSavedAt}`;
@@ -10408,6 +10433,8 @@ function renderSaveStatus() {
     const historySuffix = localDbHistoryEntries.length ? `；最近保留历史 ${localDbHistoryEntries.length} 条` : "";
     const errorSuffix = localDbStatus.lastError ? `；最近一次后台同步失败：${localDbStatus.lastError}` : "";
     statusNode.textContent = `当前数据会先保存在当前浏览器，并同步写入寒暑假后台（${formatLocalDbTarget()}）。浏览器最近保存：${browserSavedAt}；后台最近写入：${databaseSavedAt}${historySuffix}${errorSuffix}`;
+  } else if (isCloudDataEnabled()) {
+    statusNode.textContent = `当前使用云端共享排课数据。修改会先保存在当前浏览器，并自动同步到云端；最近保存：${browserSavedAt}。`;
   } else if (isCloudTransitionMode()) {
     statusNode.textContent = `云端过渡模式：当前未连接局域网后台，数据会先保存在当前浏览器。浏览器最近保存：${browserSavedAt}。`;
   } else if (getConfiguredBackendBaseUrl()) {

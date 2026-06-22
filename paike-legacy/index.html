@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>匠人程排课系统</title>
-    <script src="../portal/cloud-api.js?v=20260621a"></script>
-    <script src="./cloud-transition.js?v=20260621a"></script>
+    <script src="../portal/cloud-api.js?v=20260622d"></script>
+    <script src="../portal/auth.js?v=20260622g"></script>
+    <script src="./cloud-transition.js?v=20260622a"></script>
     <script>
       document.documentElement.classList.add("access-check-pending");
     </script>
@@ -767,6 +768,11 @@
 
         try {
           if (isCloudTransitionMode()) {
+            await window.JRC_PAIKE_LEGACY_CLOUD_TRANSITION?.hydrateStores?.([
+              STORAGE_KEY,
+              STORAGE_META_KEY,
+              SUMMER_REVIEW_STORAGE_KEY,
+            ]);
             gateNode.hidden = true;
             shellNode.hidden = false;
             uploadButton?.addEventListener("click", handleWorkbookUpload);
