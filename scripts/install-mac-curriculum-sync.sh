@@ -30,8 +30,15 @@ cat > "${PLIST_PATH}" <<EOF
   </dict>
   <key>RunAtLoad</key>
   <true/>
-  <key>StartInterval</key>
-  <integer>1800</integer>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>1</integer>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
   <key>StandardOutPath</key>
   <string>${LOG_DIR}/curriculum-sync.out.log</string>
   <key>StandardErrorPath</key>
@@ -45,4 +52,5 @@ launchctl load "${PLIST_PATH}"
 
 echo "installed Mac curriculum sync: ${PLIST_PATH}"
 echo "local folder: ${HOME}/Desktop/标准化课件标准化系统"
+echo "automatic sync schedule: weekly, Monday 03:30."
 echo "automatic sync needs SSH key login. Manual sync can run ${INSTALLED_SCRIPT} and enter the server password."
