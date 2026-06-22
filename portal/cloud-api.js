@@ -50,11 +50,13 @@
   }
 
   function readSession() {
-    return safeJsonParse(safeStorageGet(sessionKey) || decodeURIComponent(readCookie(sessionKey) || ""), {});
+    const parsed = safeJsonParse(safeStorageGet(sessionKey) || decodeURIComponent(readCookie(sessionKey) || ""), {});
+    return parsed && typeof parsed === "object" ? parsed : {};
   }
 
   function readConfig() {
-    const config = safeJsonParse(safeStorageGet(configKey), {});
+    const parsedConfig = safeJsonParse(safeStorageGet(configKey), {});
+    const config = parsedConfig && typeof parsedConfig === "object" ? parsedConfig : {};
     const session = readSession();
     const isGithubPages = location.hostname.endsWith("github.io");
     const sameOriginApiBase = `${location.origin}/api`;
