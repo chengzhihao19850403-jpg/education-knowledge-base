@@ -147,9 +147,9 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 
 echo "==> Smoke tests"
-curl -fsS http://127.0.0.1:3000/health
+curl -fsS -H "Authorization: Bearer ${JRC_API_TOKEN}" http://127.0.0.1:3000/health
 echo
-curl -fsS http://127.0.0.1/api/health
+curl -fsS -H "Authorization: Bearer ${JRC_API_TOKEN}" http://127.0.0.1/api/health
 echo
 
 echo "Deployment complete."
