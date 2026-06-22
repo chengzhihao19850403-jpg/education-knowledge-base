@@ -319,12 +319,35 @@
         ]
       };
       let state = loadState();
+      let cloudQualityReady = false;
       function byId(id) { return document.getElementById(id); }
       function loadState() {
         try { return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")) }; }
         catch { return structuredClone(defaultState); }
       }
-      function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function persist() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (!cloudQualityReady) return;
+        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "teachingQuality", state).catch((error) => {
+          console.warn("教学质量数据云端保存失败", error);
+        });
+      }
+      function hydrateCloudQuality() {
+        window.JRC_CLOUD?.readModuleData?.(STORAGE_KEY).then((result) => {
+          if (!result.ok || !result.data?.found || !result.data.payload) {
+            cloudQualityReady = true;
+            persist();
+            return;
+          }
+          state = { ...structuredClone(defaultState), ...result.data.payload };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          cloudQualityReady = true;
+          renderAll();
+        }).catch((error) => {
+          console.warn("教学质量数据云端读取失败", error);
+          cloudQualityReady = true;
+        });
+      }
       function currentEmployee() { return window.JRC_CURRENT_EMPLOYEE || null; }
       function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
       function canEdit() { return hasPermission("teachingQuality.edit") || hasPermission("admin.access"); }
@@ -517,6 +540,7 @@
       });
       byId("profileTeacher").addEventListener("change", () => { state.selectedTeacher = byId("profileTeacher").value; renderAll(); });
       renderAll();
+      hydrateCloudQuality();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>

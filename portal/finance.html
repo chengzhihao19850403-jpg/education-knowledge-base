@@ -677,12 +677,36 @@
         return { periods: {} };
       }
 
+      let cloudFinanceReady = false;
+
       function writeState(nextState) {
         localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(nextState));
+        if (!cloudFinanceReady) return;
+        window.JRC_CLOUD?.writeModuleData?.(FINANCE_STORAGE_KEY, "finance", nextState).catch((error) => {
+          console.warn("财务数据云端保存失败", error);
+        });
       }
 
       let state = readState();
       let currentPeriod = byId("periodInput")?.value || "2026-06";
+
+      function hydrateCloudFinance() {
+        window.JRC_CLOUD?.readModuleData?.(FINANCE_STORAGE_KEY).then((result) => {
+          if (!result.ok || !result.data?.found || !result.data.payload?.periods) {
+            cloudFinanceReady = true;
+            writeState(state);
+            return;
+          }
+          state = result.data.payload;
+          localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(state));
+          cloudFinanceReady = true;
+          getPeriod(currentPeriod);
+          syncFormFromPeriod();
+        }).catch((error) => {
+          console.warn("财务数据云端读取失败", error);
+          cloudFinanceReady = true;
+        });
+      }
 
       function getPeriod(periodName = currentPeriod) {
         if (!state.periods[periodName]) {
@@ -935,6 +959,7 @@
 
       getPeriod(currentPeriod);
       syncFormFromPeriod();
+      hydrateCloudFinance();
       applyEditPermission();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
