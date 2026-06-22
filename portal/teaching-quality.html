@@ -111,9 +111,9 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">Teaching Quality Desk</p>
+          <p class="eyebrow">教学质量</p>
           <h1>教学质量系统</h1>
-          <p class="hero-text">这个系统和招生、财务、排课并列，负责管理授课老师的课堂质量、家长反馈、学生反馈、整改闭环和教学质量绩效。第一阶段采用轻量化方式：教务抽样巡课 + 学生匿名问卷 + 家长匿名问卷 + 系统客观数据。</p>
+          <p class="hero-text">管理课堂质量、家长反馈、学生反馈、整改闭环和教学质量绩效。</p>
           <div class="tag-row">
             <span class="tag">抽样巡课 35%</span>
             <span class="tag">学生问卷 20%</span>
@@ -124,7 +124,7 @@
           <div class="warning" id="qualityEditWarning" hidden>当前账号可以查看教学质量数据，但没有教学质量管理权限。需要学管、教务组长或总管理员账号才能录入巡课和处理整改。</div>
         </article>
         <article class="card">
-          <h2>本阶段边界</h2>
+          <h2>工作范围</h2>
           <div class="mini-list">
             <div class="mini-item"><strong>做什么</strong><p>抽样听课、匿名问卷、月度评分、整改工单、教师档案、财务绩效预估。</p></div>
             <div class="mini-item"><strong>不做什么</strong><p>不做实时视频监控、全课录制、每节课强制巡课、教案多级审批。</p></div>
@@ -212,7 +212,7 @@
           <div class="section-head">
             <div>
               <h2>巡课记录</h2>
-              <p>单次巡课永久留档，当前已接入云端试运行；后续继续同步到教师个人教学档案。</p>
+              <p>单次巡课永久留档，已归入教师个人教学档案。</p>
             </div>
           </div>
           <div class="table-wrap">
@@ -275,9 +275,9 @@
           { teacher: "刘大君", className: "初三数学冲刺班", lessonType: "在读班", date: "2026-06-18", scores: [92, 88, 90, 94, 91], note: "课堂节奏稳定，压轴题讲解清晰，薄弱学生答疑还可以再多留 5 分钟。", tags: ["分层关注"], attachment: "板书照片 1 张" },
           { teacher: "叶源泽", className: "初一数学暑假预备班", lessonType: "试听课", date: "2026-06-19", scores: [84, 80, 82, 86, 88], note: "互动不错，但例题梯度可以再清晰，试听后家长希望看到更明确的提分路径。", tags: ["试听转化观察"], attachment: "课堂记录截图" },
           { teacher: "海滢滢", className: "科学三升四小班", lessonType: "在读班", date: "2026-06-17", scores: [87, 89, 86, 90, 92], note: "课堂趣味性和耐心较好，家长沟通反馈要继续保持及时。", tags: [], attachment: "无" },
-          { teacher: "赵萱", className: "六年级数学复习班", lessonType: "在读班", date: "2026-06-16", scores: [78, 77, 76, 80, 79], note: "演示样例：课堂结构基本完整，后续继续观察练习反馈节奏。", tags: ["常规观察"], attachment: "课堂记录截图" },
-          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "演示样例：用于展示 B 级待提升教师的管理建议，不代表真实评价。", tags: ["演示样例"], attachment: "课堂记录截图" },
-          { teacher: "程志豪", className: "校长示范课", lessonType: "演示样例", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "演示样例：为了避免影响老师情绪，负面整改示例统一放在程志豪名下。", tags: ["重点整改"], attachment: "课堂记录截图" }
+          { teacher: "赵萱", className: "六年级数学复习班", lessonType: "在读班", date: "2026-06-16", scores: [78, 77, 76, 80, 79], note: "课堂结构基本完整，后续继续观察练习反馈节奏。", tags: ["常规观察"], attachment: "课堂记录截图" },
+          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "用于展示 B 级待提升教师的管理建议，不代表真实评价。", tags: ["练习记录"], attachment: "课堂记录截图" },
+          { teacher: "程志豪", className: "校长示范课", lessonType: "练习记录", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "为了避免影响老师情绪，负面整改示例统一放在程志豪名下。", tags: ["重点整改"], attachment: "课堂记录截图" }
         ],
         studentSurveys: [
           { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "赵萱", score: 78 }, { teacher: "李舒", score: 73 }, { teacher: "程志豪", score: 60 }
@@ -287,7 +287,7 @@
           { teacher: "叶源泽", score: 82, tags: ["价格匹配度顾虑"] },
           { teacher: "海滢滢", score: 91, tags: ["转介绍意愿高"] },
           { teacher: "赵萱", score: 78, tags: ["课堂节奏观察"] },
-          { teacher: "李舒", score: 72, tags: ["演示样例"] },
+          { teacher: "李舒", score: 72, tags: ["练习记录"] },
           { teacher: "程志豪", score: 58, tags: ["课堂秩序管理", "课后反馈及时性不足"] }
         ],
         objectiveMetrics: [
@@ -299,8 +299,8 @@
           { teacher: "程志豪", renewalRate: 60, trialConversionRate: 25, referrals: 0, feedbackRecords: 2, complaints: 2, lateRecords: 2, missedHomework: 3, missedMakeup: 2 }
         ],
         tickets: [
-          { id: "TQ-202606-001", teacher: "程志豪", problem: "演示样例：课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
-          { id: "TQ-202606-002", teacher: "程志豪", problem: "演示样例：试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
+          { id: "TQ-202606-001", teacher: "程志豪", problem: "课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
+          { id: "TQ-202606-002", teacher: "程志豪", problem: "试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
         ],
         templates: [
           { type: "学生匿名问卷", enabled: true, sendAfter: "课程结束后 30 分钟", questions: "易懂程度、趣味性、答疑耐心、作业难度、课堂收获" },
@@ -395,7 +395,7 @@
       function commonQualityTags() {
         const count = new Map();
         state.parentSurveys.forEach((record) => {
-          (record.tags || []).filter((tag) => tag !== "演示样例").forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1));
+          (record.tags || []).filter((tag) => tag !== "练习记录").forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1));
         });
         return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
       }
@@ -473,7 +473,7 @@
 
         byId("qualityRankingBody").innerHTML = visibleItems.length
           ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${canViewFullQuality() ? item.coefficient : "本人可见"}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("")
-          : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，后续由管理员在人事系统补齐姓名和任课信息后自动显示。</td></tr>`;
+          : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，请联系人事管理员补齐姓名和任课信息。</td></tr>`;
         byId("inspectionBody").innerHTML = visibleInspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("") || `<tr><td colspan="6">当前账号暂无巡课记录。</td></tr>`;
         byId("templateList").innerHTML = state.templates.map((t) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p></div>`).join("");
         byId("ticketBody").innerHTML = visibleTickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("") || `<tr><td colspan="4">当前账号暂无整改工单。</td></tr>`;

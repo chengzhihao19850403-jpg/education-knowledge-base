@@ -1,5 +1,12 @@
 (function () {
   const auditKey = "jrc-business-audit-log-v1";
+  const cloudStoreModules = {
+    "jrc-student-service-v2": "studentService",
+    "jrc-curriculum-products-v2": "curriculum",
+    "jrc-hr-training-tasks-v2": "hr",
+    "jrc-campus-operations-v2": "campus",
+    "jrc-suggestion-management-v2": "suggestions"
+  };
   const nowText = () => new Date().toLocaleString("zh-CN", { hour12: false });
 
   function $(id) {
@@ -17,6 +24,25 @@
 
   function writeStore(key, rows) {
     localStorage.setItem(key, JSON.stringify(rows));
+    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], rows);
+  }
+
+  function readCloudStore(key, onRows) {
+    if (!window.JRC_CLOUD?.readModuleData) return;
+    window.JRC_CLOUD.readModuleData(key).then((result) => {
+      if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
+      localStorage.setItem(key, JSON.stringify(result.data.payload));
+      onRows(result.data.payload);
+    }).catch((error) => {
+      console.warn("云端数据读取失败", key, error);
+    });
+  }
+
+  function writeCloudStore(key, moduleKey, rows) {
+    if (!window.JRC_CLOUD?.writeModuleData) return;
+    window.JRC_CLOUD.writeModuleData(key, moduleKey, rows).catch((error) => {
+      console.warn("云端数据保存失败", key, error);
+    });
   }
 
   function hasPermission(permission) {
@@ -88,7 +114,7 @@
       </tr>
     `).join("") : `
       <tr>
-        <td colspan="5">暂无操作记录。后续新增、修改、删除、导入或恢复样例都会记录在这里。</td>
+        <td colspan="5">暂无操作记录。后续新增、修改、删除、导入或恢复默认都会记录在这里。</td>
       </tr>
     `;
   }
@@ -537,15 +563,15 @@
     $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadJson("学生与家长服务数据.json", rows)));
     $("studentResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("studentServiceMessage", "恢复样例");
+        denyAction("studentServiceMessage", "恢复默认");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复样例", "学生服务台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "恢复默认", "学生服务台账", `${rows.length} 条`);
       resetForm();
       render();
-      setText("studentServiceMessage", "已恢复样例数据。");
+      setText("studentServiceMessage", "已恢复默认数据。");
     });
     bindRowActions("studentServiceTableBody", {
       onEdit(index) {
@@ -602,10 +628,16 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("studentServiceMessage", "已同步云端学生服务台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "studentServiceMessage",
-      buttonRules: [["studentSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["studentImportButton", capabilities.import, "导入"], ["studentExportButton", capabilities.export, "导出"], ["studentResetButton", capabilities.reset, "恢复样例"]],
+      buttonRules: [["studentSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["studentImportButton", capabilities.import, "导入"], ["studentExportButton", capabilities.export, "导出"], ["studentResetButton", capabilities.reset, "恢复默认"]],
       fieldIds: ["studentNameInput", "studentClassInput", "studentTeacherInput", "studentServiceTypeInput", "studentRiskInput", "studentNextActionInput", "studentContentInput"]
     });
   }
@@ -712,15 +744,15 @@
     $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadJson("教研与课程产品数据.json", rows)));
     $("curriculumResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("curriculumMessage", "恢复样例");
+        denyAction("curriculumMessage", "恢复默认");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复样例", "教研课程台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "恢复默认", "教研课程台账", `${rows.length} 条`);
       resetForm();
       render();
-      setText("curriculumMessage", "已恢复样例数据。");
+      setText("curriculumMessage", "已恢复默认数据。");
     });
     bindRowActions("curriculumTableBody", {
       onEdit(index) {
@@ -778,10 +810,16 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("curriculumMessage", "已同步云端教研课程台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "curriculumMessage",
-      buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "恢复样例"]],
+      buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "恢复默认"]],
       fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumNoteInput"]
     });
   }
@@ -803,7 +841,7 @@
     const samples = [
       { type: "员工基础档案核对", employee: "全体员工", system: "统一登录、财务", status: "处理中", owner: "管理员", next: "补齐手机号、微信、入职日期、提成比例", note: "统一整理员工档案", createdAt: nowText() },
       { type: "系统权限分组", employee: "学管、财务、授课老师", system: "所有系统", status: "处理中", owner: "管理员", next: "按真实岗位继续细分查看和修改权限", note: "权限逐步细化", createdAt: nowText() },
-      { type: "培训记录归档", employee: "学管、授课老师", system: "学管知识库系统", status: "待处理", owner: "学管负责人", next: "同步学习内容和阶段测试结果", note: "后续接学管知识库测试", createdAt: nowText() }
+      { type: "培训记录归档", employee: "学管、授课老师", system: "学管知识库系统", status: "待处理", owner: "学管负责人", next: "同步学习内容和阶段测试结果", note: "同步学管知识库测试", createdAt: nowText() }
     ];
     let rows = readStore(key, samples);
     let editingIndex = -1;
@@ -887,15 +925,15 @@
     $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadJson("人事与培训事项数据.json", rows)));
     $("hrResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("hrMessage", "恢复样例");
+        denyAction("hrMessage", "恢复默认");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复样例", "人事培训台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "恢复默认", "人事培训台账", `${rows.length} 条`);
       resetForm();
       render();
-      setText("hrMessage", "已恢复样例数据。");
+      setText("hrMessage", "已恢复默认数据。");
     });
     bindRowActions("hrTaskTableBody", {
       onEdit(index) {
@@ -952,10 +990,16 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("hrMessage", "已同步云端人事培训台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
-      buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "恢复样例"]],
+      buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "恢复默认"]],
       fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrSystemInput", "hrStatusInput", "hrOwnerInput", "hrNextInput", "hrNoteInput"]
     });
   }
@@ -1061,15 +1105,15 @@
     $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadJson("校区运营事项数据.json", rows)));
     $("campusResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("campusMessage", "恢复样例");
+        denyAction("campusMessage", "恢复默认");
         return;
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复样例", "校区运营台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "恢复默认", "校区运营台账", `${rows.length} 条`);
       resetForm();
       render();
-      setText("campusMessage", "已恢复样例数据。");
+      setText("campusMessage", "已恢复默认数据。");
     });
     bindRowActions("campusTableBody", {
       onEdit(index) {
@@ -1126,10 +1170,16 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("campusMessage", "已同步云端校区运营台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "campusMessage",
-      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "恢复样例"]],
+      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "恢复默认"]],
       fieldIds: ["campusTitleInput", "campusTypeInput", "campusAreaInput", "campusOwnerInput", "campusStatusInput", "campusDueInput", "campusNoteInput"]
     });
   }
