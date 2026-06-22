@@ -143,12 +143,15 @@
   async function login(username, password) {
     const config = readConfig();
     if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
     try {
       const response = await fetch(`${config.apiBaseUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
-        credentials: "include"
+        credentials: "include",
+        signal: controller.signal
       });
       const text = await response.text();
       return {
@@ -158,6 +161,8 @@
       };
     } catch (error) {
       return { ok: false, error: String(error?.message || error) };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
