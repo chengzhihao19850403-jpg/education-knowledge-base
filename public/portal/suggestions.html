@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜建议管理系统</title>
+    <title>匠人程工作台｜建议与任务协同系统</title>
     <style>
       :root {
         --bg: #f6f3ee;
@@ -132,7 +132,7 @@
       }
       .stat-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 14px;
         margin-top: 18px;
       }
@@ -271,9 +271,12 @@
       .status-pill.new { background: rgba(188, 88, 46, 0.12); color: var(--orange); }
       .status-pill.triage { background: rgba(37, 99, 235, 0.12); color: var(--blue); }
       .status-pill.approved { background: rgba(13, 148, 136, 0.12); color: var(--brand-dark); }
+      .status-pill.assigned { background: rgba(99, 102, 241, 0.12); color: #4f46e5; }
       .status-pill.doing { background: rgba(124, 58, 237, 0.12); color: #6d28d9; }
+      .status-pill.review { background: rgba(2, 132, 199, 0.12); color: #0369a1; }
       .status-pill.launched { background: rgba(22, 163, 74, 0.14); color: #15803d; }
       .status-pill.paused { background: rgba(100, 116, 139, 0.14); color: #475569; }
+      .status-pill.reward { background: rgba(202, 138, 4, 0.16); color: #a16207; }
       .priority-pill.high { background: rgba(185, 28, 28, 0.10); color: var(--red); }
       .priority-pill.medium { background: rgba(188, 88, 46, 0.12); color: var(--orange); }
       .priority-pill.low { background: rgba(100, 116, 139, 0.12); color: #475569; }
@@ -391,7 +394,7 @@
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 03 · 建议管理系统</div>
+          <div class="brand-subtitle">System 03 · 建议与任务协同系统</div>
         </div>
         <nav class="nav">
           <a class="nav-link" href="./index.html">返回工作台</a>
@@ -400,37 +403,38 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">建议改进</p>
-          <h1>建议管理系统</h1>
-          <p class="hero-text">提交建议、评估立项、分配负责人、跟进落地。</p>
+          <p class="eyebrow">建议与任务</p>
+          <h1>建议与任务协同系统</h1>
+          <p class="hero-text">提交建议、评估采纳、转成任务、跟进验收，并记录贡献奖励。</p>
           <div class="tag-row">
             <span class="tag">全员可提交</span>
-            <span class="tag">管理层可分派</span>
+            <span class="tag">建议可转任务</span>
             <span class="tag">状态闭环</span>
-            <span class="tag orange">沉淀改进记录</span>
+            <span class="tag orange">贡献可奖励</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
 
         <aside class="card">
           <p class="eyebrow">处理规则</p>
-          <h2>建议处理规则</h2>
-          <p style="margin-top: 10px;">先评估，再立项，最后跟进落地。</p>
+          <h2>处理规则</h2>
+          <p style="margin-top: 10px;">先评估采纳，再转任务执行；真正落地并产生价值的建议，可以进入月度优秀建议或重大贡献奖候选。</p>
         </aside>
       </section>
 
       <section class="stat-grid" aria-label="建议统计">
-        <article class="stat-card"><span>全部建议</span><strong id="statTotal">0</strong></article>
+        <article class="stat-card"><span>全部事项</span><strong id="statTotal">0</strong></article>
         <article class="stat-card"><span>待评估</span><strong id="statNew">0</strong></article>
-        <article class="stat-card"><span>推进中</span><strong id="statDoing">0</strong></article>
+        <article class="stat-card"><span>任务中</span><strong id="statTask">0</strong></article>
+        <article class="stat-card"><span>待验收</span><strong id="statReview">0</strong></article>
         <article class="stat-card"><span>已落地</span><strong id="statLaunched">0</strong></article>
-        <article class="stat-card"><span>临近/逾期</span><strong id="statDue">0</strong></article>
+        <article class="stat-card"><span>奖励候选</span><strong id="statReward">0</strong></article>
       </section>
 
       <section class="grid">
         <article class="card">
           <p class="eyebrow">提交</p>
-          <h2>提交建议或管理改进事项</h2>
+          <h2>提交建议或改进事项</h2>
           <form id="suggestionForm" class="form-grid">
             <label class="field">
               分类
@@ -489,8 +493,10 @@
               <option value="">全部状态</option>
               <option value="new">待评估</option>
               <option value="triage">已评估</option>
-              <option value="approved">已立项</option>
+              <option value="approved">已采纳</option>
+              <option value="assigned">已转任务</option>
               <option value="doing">推进中</option>
+              <option value="review">待验收</option>
               <option value="launched">已落地</option>
               <option value="paused">暂缓</option>
             </select>
@@ -512,7 +518,7 @@
 
       <section class="card">
         <p class="eyebrow">看板</p>
-        <h2>建议处理看板</h2>
+        <h2>建议与任务看板</h2>
         <div class="pipeline" id="pipelineBoard"></div>
       </section>
 
@@ -526,16 +532,31 @@
       const statusMap = {
         new: "待评估",
         triage: "已评估",
-        approved: "已立项",
-        doing: "推进中",
+        approved: "已采纳",
+        assigned: "已转任务",
+        doing: "执行中",
+        review: "待验收",
         launched: "已落地",
         paused: "暂缓"
       };
-      const statusOrder = ["new", "triage", "approved", "doing", "launched"];
+      const statusOrder = ["new", "approved", "assigned", "doing", "review", "launched"];
       const impactMap = {
         high: "高影响",
         medium: "中影响",
         low: "低影响"
+      };
+      const rewardMap = {
+        none: "暂不奖励",
+        monthly: "月度优秀建议",
+        major: "重大贡献奖候选",
+        bonus: "奖金建议",
+        performance: "计入绩效"
+      };
+      const rewardStatusMap = {
+        none: "未评定",
+        candidate: "奖励候选",
+        approved: "已确认奖励",
+        paid: "已发放/已兑现"
       };
       const byId = (id) => document.getElementById(id);
       const today = () => new Date().toISOString().slice(0, 10);
@@ -565,7 +586,14 @@
             createdAt: "2026-06-18",
             status: "doing",
             owner: "周珊",
+            verifier: "程志豪",
             dueDate: "2026-06-24",
+            taskStandard: "下周排课变更在固定时间前完成收口，并记录遗漏问题。",
+            completionReport: "",
+            rewardLevel: "monthly",
+            rewardAmount: "",
+            rewardReason: "减少微信群反复确认，提高排课收口效率。",
+            rewardStatus: "candidate",
             votes: 12,
             liked: false,
             decision: "先执行一周，收集老师反馈。",
@@ -584,7 +612,14 @@
             createdAt: "2026-06-17",
             status: "approved",
             owner: "陈雨晴",
+            verifier: "程志豪",
             dueDate: "2026-06-28",
+            taskStandard: "完成设备台账登记，明确维修或采购处理结果。",
+            completionReport: "",
+            rewardLevel: "none",
+            rewardAmount: "",
+            rewardReason: "",
+            rewardStatus: "none",
             votes: 8,
             liked: false,
             decision: "转入校区运营系统的设备记录处理。",
@@ -601,7 +636,14 @@
             createdAt: "2026-06-16",
             status: "triage",
             owner: "颜雨涵",
+            verifier: "程志豪",
             dueDate: "",
+            taskStandard: "",
+            completionReport: "",
+            rewardLevel: "none",
+            rewardAmount: "",
+            rewardReason: "",
+            rewardStatus: "none",
             votes: 6,
             liked: false,
             decision: "和学管知识库合并设计。",
@@ -616,6 +658,16 @@
         if (normalized.decision === oldDecision) {
           normalized.decision = "转入校区运营系统的设备记录处理。";
         }
+        if (!normalized.taskId && ["assigned", "doing", "review", "launched"].includes(normalized.status)) {
+          normalized.taskId = `task-${normalized.id || Date.now()}`;
+        }
+        normalized.verifier = normalized.verifier || "";
+        normalized.taskStandard = normalized.taskStandard || "";
+        normalized.completionReport = normalized.completionReport || "";
+        normalized.rewardLevel = normalized.rewardLevel || "none";
+        normalized.rewardAmount = normalized.rewardAmount || "";
+        normalized.rewardReason = normalized.rewardReason || "";
+        normalized.rewardStatus = normalized.rewardStatus || "none";
         return normalized;
       }
 
@@ -686,9 +738,10 @@
       function renderStats() {
         byId("statTotal").textContent = suggestions.length;
         byId("statNew").textContent = suggestions.filter((item) => item.status === "new").length;
-        byId("statDoing").textContent = suggestions.filter((item) => item.status === "doing").length;
+        byId("statTask").textContent = suggestions.filter((item) => ["assigned", "doing"].includes(item.status)).length;
+        byId("statReview").textContent = suggestions.filter((item) => item.status === "review").length;
         byId("statLaunched").textContent = suggestions.filter((item) => item.status === "launched").length;
-        byId("statDue").textContent = suggestions.filter(isDueSoon).length;
+        byId("statReward").textContent = suggestions.filter((item) => item.rewardStatus === "candidate").length;
       }
 
       function renderPipeline() {
@@ -718,6 +771,7 @@
                 <div class="suggestion-meta">
                   ${escapeHtml(item.category)}｜${escapeHtml(item.anonymous ? "匿名" : item.author)}｜${escapeHtml(item.createdAt)}
                   ${item.owner ? `｜负责人 ${escapeHtml(item.owner)}` : "｜未分配负责人"}
+                  ${item.verifier ? `｜验收人 ${escapeHtml(item.verifier)}` : ""}
                   ${item.dueDate ? `｜截止 ${escapeHtml(item.dueDate)}` : ""}
                 </div>
               </div>
@@ -730,9 +784,22 @@
             <div class="card-tools">
               <button class="button secondary" type="button" data-action="vote">支持 ${Number(item.votes || 0)}</button>
               <button class="button secondary" type="button" data-action="comment">添加跟进</button>
+              ${["assigned", "doing"].includes(item.status) ? `<button class="button secondary" type="button" data-action="complete-report">提交完成反馈</button>` : ""}
+              ${canManage && ["triage", "approved"].includes(item.status) ? `<button class="button" type="button" data-action="convert-task">转为任务</button>` : ""}
+              ${canManage && item.status === "review" ? `<button class="button" type="button" data-action="accept-task">验收落地</button>` : ""}
               ${canManage ? `<button class="button danger" type="button" data-action="delete">删除</button>` : ""}
             </div>
+            ${item.taskId ? `<div class="comment-item"><strong>任务编号：</strong>${escapeHtml(item.taskId)}${item.taskStandard ? `｜<strong>完成标准：</strong>${escapeHtml(item.taskStandard)}` : ""}</div>` : ""}
+            ${item.completionReport ? `<div class="comment-item"><strong>完成反馈：</strong>${escapeHtml(item.completionReport)}</div>` : ""}
             ${item.decision ? `<div class="comment-item"><strong>处理结论：</strong>${escapeHtml(item.decision)}</div>` : ""}
+            ${item.rewardStatus !== "none" || item.rewardLevel !== "none" ? `
+              <div class="comment-item">
+                <strong>贡献奖励：</strong>${escapeHtml(rewardMap[item.rewardLevel] || item.rewardLevel)}
+                ｜${escapeHtml(rewardStatusMap[item.rewardStatus] || item.rewardStatus)}
+                ${item.rewardAmount ? `｜建议金额 ${escapeHtml(item.rewardAmount)}` : ""}
+                ${item.rewardReason ? `<br>${escapeHtml(item.rewardReason)}` : ""}
+              </div>
+            ` : ""}
             <div class="comment-list">
               ${(item.comments || []).map((comment) => `
                 <div class="comment-item"><strong>${escapeHtml(comment.author)}：</strong>${escapeHtml(comment.text)} <span class="muted">${escapeHtml(comment.time || "")}</span></div>
@@ -751,8 +818,40 @@
                   <input data-manager-field="owner" value="${escapeHtml(item.owner || "")}">
                 </label>
                 <label class="field">
+                  验收人
+                  <input data-manager-field="verifier" value="${escapeHtml(item.verifier || "")}">
+                </label>
+                <label class="field">
                   截止日期
                   <input data-manager-field="dueDate" type="date" value="${escapeHtml(item.dueDate || "")}">
+                </label>
+                <label class="field span-2">
+                  任务完成标准
+                  <textarea data-manager-field="taskStandard">${escapeHtml(item.taskStandard || "")}</textarea>
+                </label>
+                <label class="field">
+                  贡献奖励
+                  <select data-manager-field="rewardLevel">
+                    ${Object.entries(rewardMap).map(([value, label]) => `<option value="${value}" ${item.rewardLevel === value ? "selected" : ""}>${label}</option>`).join("")}
+                  </select>
+                </label>
+                <label class="field">
+                  奖励状态
+                  <select data-manager-field="rewardStatus">
+                    ${Object.entries(rewardStatusMap).map(([value, label]) => `<option value="${value}" ${item.rewardStatus === value ? "selected" : ""}>${label}</option>`).join("")}
+                  </select>
+                </label>
+                <label class="field">
+                  奖励金额建议
+                  <input data-manager-field="rewardAmount" value="${escapeHtml(item.rewardAmount || "")}" placeholder="例如：100 元 / 计入绩效">
+                </label>
+                <label class="field">
+                  任务编号
+                  <input data-manager-field="taskId" value="${escapeHtml(item.taskId || "")}" placeholder="转任务后自动生成">
+                </label>
+                <label class="field span-2">
+                  奖励理由
+                  <textarea data-manager-field="rewardReason">${escapeHtml(item.rewardReason || "")}</textarea>
                 </label>
                 <label class="field span-2">
                   处理结论 / 下一步
@@ -792,6 +891,13 @@
           status: "new",
           owner: String(data.get("owner") || "").trim(),
           dueDate: String(data.get("dueDate") || "").trim(),
+          verifier: "",
+          taskStandard: "",
+          completionReport: "",
+          rewardLevel: "none",
+          rewardAmount: "",
+          rewardReason: "",
+          rewardStatus: "none",
           votes: 0,
           liked: false,
           decision: "",
@@ -816,6 +922,46 @@
           item[field.getAttribute("data-manager-field")] = field.value;
         });
         if (!item.owner && item.status !== "new") item.owner = currentName;
+        if (!item.verifier && ["review", "launched"].includes(item.status)) item.verifier = currentName;
+        if (["assigned", "doing", "review", "launched"].includes(item.status) && !item.taskId) {
+          item.taskId = `task-${Date.now()}`;
+        }
+        writeSuggestions();
+        renderAll();
+      }
+
+      function convertToTask(item) {
+        item.status = "assigned";
+        item.taskId = item.taskId || `task-${Date.now()}`;
+        item.owner = item.owner || currentName;
+        item.verifier = item.verifier || currentName;
+        item.taskStandard = item.taskStandard || "请负责人填写执行结果，提交后由验收人确认是否落地。";
+        item.decision = item.decision || "已采纳，转为执行任务。";
+        item.comments = item.comments || [];
+        item.comments.push({ author: currentName, text: `已转为任务，负责人：${item.owner}，验收人：${item.verifier}。`, time: today() });
+        writeSuggestions();
+        renderAll();
+      }
+
+      function submitCompletion(item) {
+        const text = prompt("填写完成反馈：做了什么、结果如何、还缺什么");
+        if (!text || !text.trim()) return;
+        item.completionReport = text.trim();
+        item.status = "review";
+        item.comments = item.comments || [];
+        item.comments.push({ author: currentName, text: `提交完成反馈：${text.trim()}`, time: today() });
+        writeSuggestions();
+        renderAll();
+      }
+
+      function acceptTask(item) {
+        item.status = "launched";
+        item.verifier = item.verifier || currentName;
+        item.comments = item.comments || [];
+        item.comments.push({ author: currentName, text: "已验收落地。", time: today() });
+        if (item.rewardLevel !== "none" && item.rewardStatus === "none") {
+          item.rewardStatus = "candidate";
+        }
         writeSuggestions();
         renderAll();
       }
@@ -831,7 +977,7 @@
 
       function exportCsv() {
         const rows = [
-          ["标题", "分类", "影响程度", "状态", "提交人", "负责人", "截止日期", "支持数", "内容", "处理结论"],
+          ["标题", "分类", "影响程度", "状态", "提交人", "负责人", "验收人", "任务编号", "截止日期", "支持数", "完成标准", "完成反馈", "奖励类型", "奖励状态", "奖励金额建议", "奖励理由", "内容", "处理结论"],
           ...suggestions.map((item) => [
             item.title,
             item.category,
@@ -839,8 +985,16 @@
             statusMap[item.status] || item.status,
             item.author,
             item.owner,
+            item.verifier,
+            item.taskId,
             item.dueDate,
             item.votes,
+            item.taskStandard,
+            item.completionReport,
+            rewardMap[item.rewardLevel] || item.rewardLevel,
+            rewardStatusMap[item.rewardStatus] || item.rewardStatus,
+            item.rewardAmount,
+            item.rewardReason,
             item.content,
             item.decision
           ])
@@ -874,6 +1028,18 @@
         const action = actionButton.getAttribute("data-action");
         if (action === "vote") item.votes = Number(item.votes || 0) + 1;
         if (action === "comment") addComment(item);
+        if (action === "convert-task" && canManage) {
+          convertToTask(item);
+          return;
+        }
+        if (action === "complete-report") {
+          submitCompletion(item);
+          return;
+        }
+        if (action === "accept-task" && canManage) {
+          acceptTask(item);
+          return;
+        }
         if (action === "delete" && canManage) suggestions = suggestions.filter((candidate) => candidate.id !== item.id);
         if (action === "save-management" && canManage) {
           saveManagement(actionButton);
