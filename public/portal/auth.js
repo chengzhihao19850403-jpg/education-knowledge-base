@@ -56,7 +56,7 @@ const JRC_DATA_LINK_RULES = [
     id: "quality-to-finance",
     from: "教学质量系统",
     to: "财务系统",
-    rule: "S/A/B/C 评级转成 1.1/1.0/0.9/0.8 绩效系数，参与课时奖金和教学质量奖励预核算。",
+    rule: "S/A/B/C 评级转成 1.1/1.0/0.9/0.8 绩效系数，参与课时奖金和教学质量奖励核算。",
     status: "foundation"
   },
   {
@@ -77,7 +77,7 @@ const JRC_DATA_LINK_RULES = [
     id: "admissions-to-finance",
     from: "招生管理系统",
     to: "财务系统",
-    rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成预核算；程志豪、海滢滢、姚老师名下学生单独核算，不进入财务系统自动预核算。",
+    rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成结算草表；程志豪、海滢滢、姚老师名下学生单独核算，不进入财务系统自动结算。",
     status: "foundation"
   }
 ];
@@ -403,7 +403,7 @@ const JRC_GRANULAR_ACTIONS = [
   ["delete", "删除"],
   ["import", "导入"],
   ["export", "导出"],
-  ["reset", "恢复样例"]
+  ["reset", "恢复默认"]
 ];
 const JRC_PERMISSION_OPTIONS = [
   ["paike.access", "排课查看"],
@@ -560,7 +560,7 @@ function jrcResetLegacyBusinessDataOnce() {
     });
     jrcSafeStorageSet(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
       resetAt: new Date().toISOString(),
-      reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
+      reason: "统一门户进入云端数据底座前，清理早期业务数据；保留员工账号、登录状态和权限。",
       removedKeys
     }));
   } catch {
@@ -638,7 +638,7 @@ function jrcCollectScheduleRows() {
     const students = Array.isArray(session.studentNames) && session.studentNames.length ? session.studentNames : [session.className || ""];
     students.forEach((studentName) => {
       rows.push({
-        source: "Excel预导入排课",
+        source: "Excel已上传排课",
         teacherName: String(session.teacherName || "").trim(),
         studentName: String(studentName || "").trim(),
         className: String(session.lessonTypeRaw || "").trim(),
@@ -647,7 +647,7 @@ function jrcCollectScheduleRows() {
         roomName: "",
         hours: jrcToNumber(session.hours),
         status: session.status || "待对账",
-        importConfidence: session.importConfidence || "预导入",
+        importConfidence: session.importConfidence || "已上传",
         sourceId: session.sourceId || ""
       });
     });
@@ -752,7 +752,7 @@ function jrcDeriveSystemLinks() {
         teacherName: teacherName || "未匹配老师",
         period: period || "待定月份",
         financeExcluded,
-        financeScope: financeExcluded ? "单独核算，不进入财务系统" : "进入财务系统预核算",
+        financeScope: financeExcluded ? "单独核算，不进入财务系统" : "进入财务系统结算草表",
         scheduledHours: 0,
         preimportStudentSessions: 0,
         preimportIssueCount: 0,
@@ -772,7 +772,7 @@ function jrcDeriveSystemLinks() {
   schedules.forEach((row) => {
     const month = ensureTeacherMonth(row.teacherName, row.period);
     month.scheduledHours += row.hours;
-    if (row.source === "Excel预导入排课") month.preimportStudentSessions += 1;
+    if (row.source === "Excel已上传排课") month.preimportStudentSessions += 1;
   });
   preimportFinance.teacherMonthPrecheck.forEach((precheck) => {
     const month = ensureTeacherMonth(precheck.teacherName, precheck.period);
@@ -809,14 +809,14 @@ function jrcDeriveSystemLinks() {
       ...row,
       scheduledHours: Math.round(row.scheduledHours * 100) / 100,
       financeBasis: row.financeExcluded
-        ? "程志豪、海滢滢、姚老师名下学生单独核算：可进入招生和学生服务，不进入财务系统自动预核算。"
-        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；${row.preimportStudentSessions ? `Excel预导入 ${row.preimportStudentSessions} 人次，待核 ${row.preimportIssueCount} 条` : "暂无Excel预导入"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
+        ? "程志豪、海滢滢、姚老师名下学生单独核算：可进入招生和学生服务，不进入财务系统自动结算。"
+        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；${row.preimportStudentSessions ? `Excel已上传 ${row.preimportStudentSessions} 人次，待核 ${row.preimportIssueCount} 条` : "暂无Excel上传"}；教学系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
     })),
     pendingLinks: {
       trialScheduleCandidates: admissions.filter((lead) => lead.status === "已预约试听"),
       enrolledStudentCandidates: admissions.filter((lead) => lead.status === "定金 / 已报名" || lead.enrolledAmount > 0),
       financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0),
-      preimportScheduleSessions: schedules.filter((row) => row.source === "Excel预导入排课"),
+      preimportScheduleSessions: schedules.filter((row) => row.source === "Excel已上传排课"),
       preimportFinanceExpenses: preimportFinance.expenses,
       preimportReconciliationIssues: preimportFinance.issues
     },
@@ -964,7 +964,7 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
     "admin.access": "这个管理区只给总管理员使用。"
   };
-  return hints[permissionKey] || `${role}账号暂时不需要日常使用这个入口。需要开通时，可以让管理员在人事与培训系统里调整权限。`;
+  return hints[permissionKey] || `${role}账号当前不需要日常使用这个入口。需要开通时，可以让管理员在人事与培训系统里调整权限。`;
 }
 
 function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
@@ -1822,7 +1822,7 @@ function jrcShowLoginOverlay() {
       if (!employee || employee.password !== password) {
         if (errorBox) errorBox.textContent = cloudResult?.status === 401
           ? "用户名或密码不正确，请用员工姓名拼音登录。"
-          : "用户名或密码不正确，或云端登录暂时不可用。";
+          : "用户名或密码不正确，或云端登录当前不可用。";
         return false;
       }
 

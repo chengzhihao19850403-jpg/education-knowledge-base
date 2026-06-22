@@ -21,6 +21,13 @@ button {
   min-height: var(--jrc-touch-size);
 }
 
+.button.small,
+button.small,
+.trial-toolbar a,
+.system-nav a {
+  min-height: var(--jrc-touch-size) !important;
+}
+
 .button,
 button {
   touch-action: manipulation;
@@ -113,7 +120,7 @@ textarea {
   line-height: 1.6;
 }
 
-/* Public trial pages should read like tools, not product documents. */
+/* Public pages should read like tools, not product documents. */
 .hint,
 .mini-item p,
 .section-head p,

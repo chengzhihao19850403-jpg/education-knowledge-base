@@ -184,12 +184,12 @@
     const hasData = localStorage.getItem(config.key) !== null;
     const count = countStoreRows(config);
     if (!hasData) {
-      return { label: "待录入", className: "status-warn", detail: "当前浏览器暂无本系统数据。" };
+      return { label: "待录入", className: "status-warn", detail: "云端暂未检测到本系统数据。" };
     }
     if (config.type === "teachingQuality") {
-      return { label: "演示样例", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需换成真实数据。` };
+      return { label: "待核对", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需确认真实来源。` };
     }
-    return { label: "本机数据", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录。` };
+    return { label: "云端数据", className: "status-ok", detail: `当前检测到 ${count} 条/类记录，本地副本仅作兜底。` };
   }
 
   function getEmployeeState() {
@@ -279,7 +279,7 @@
       todos.push(todoItem(
         "提醒",
         `教学质量有 ${qualityOpenTickets.length} 条未闭环整改`,
-        "当前多为演示样例，但正式试用前要确认哪些是真实整改，哪些只是示例。",
+        "正式启用前要确认哪些是真实整改，哪些只是练习记录。",
         "./teaching-quality.html",
         "看教学质量"
       ));
@@ -309,7 +309,7 @@
       todos.push(todoItem(
         "提醒",
         "财务系统可继续补录收入、支出和结算数据",
-        "今天如果有课时费、报销、成本或分红口径调整，建议先录进财务系统，后面接云库时更容易迁移。",
+        "今天如果有课时费、报销、成本或分红口径调整，建议先录进财务系统，接云库时更容易迁移。",
         "./finance.html",
         "进入财务"
       ));
@@ -388,15 +388,15 @@
     const financePreview = (derived.teacherMonthRows || []).slice(0, 4).map((row) => `
       <div class="data-state-card">
         <strong>${escapeHtml(row.teacherName)}｜${escapeHtml(row.period)}</strong>
-        <span class="badge status-ok">财务预核算</span>
+        <span class="badge status-ok">财务结算草表</span>
         <p>${escapeHtml(row.financeBasis)}${row.commissionRate ? `；提成 ${escapeHtml(row.commissionRate)}` : ""}</p>
       </div>
     `).join("");
     holder.innerHTML = countCards + flowCards + (financePreview || `
       <div class="data-state-card">
-        <strong>财务预核算草表</strong>
+        <strong>财务结算草表</strong>
         <span class="badge status-warn">待导入</span>
-        <p>重新导入真实排课、教学质量和招生数据后，这里会按老师和月份形成课时、评级系数、招生实收的联动草表。</p>
+        <p>重新导入真实排课、教学质量和招生数据后，这里会按老师和月份形成课时、教学系数、招生实收的联动草表。</p>
       </div>
     `);
   }
