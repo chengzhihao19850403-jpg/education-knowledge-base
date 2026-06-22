@@ -935,7 +935,6 @@ function jrcEnsureTopbar(currentEmployee) {
         <span>${currentEmployee.role} · 用户名 ${currentEmployee.username} · 当前开放：${jrcGetRoleSummary(currentEmployee)}</span>
       </div>
       <div class="jrc-auth-bar__actions">
-        <span>统一初始密码：10281028</span>
         <button type="button" id="jrcLogoutButton">退出登录</button>
       </div>
     </div>
@@ -1732,7 +1731,7 @@ function jrcShowLoginOverlay() {
       errorBox.classList.remove("jrc-login-error--success");
     }
     if (!username || !password) {
-      if (errorBox) errorBox.textContent = "请填写用户名和密码。用户名用姓名拼音，初始密码为 10281028。";
+      if (errorBox) errorBox.textContent = "请填写用户名和密码。用户名一般使用姓名拼音。";
       return false;
     }
     if (loginSubmitting) return false;
@@ -1792,7 +1791,7 @@ function jrcShowLoginOverlay() {
     <div class="jrc-login-card">
       <p style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#0d9488; font-weight:700;">JRC Employee Login</p>
       <h2 style="margin-top:8px;">先登录，再进入系统</h2>
-      <p style="margin-top:12px;">用户名用姓名拼音，初始密码统一为 10281028。例：周珊 zhoushan，陈雨晴 chenyuqing，程志豪 chengzhihao。</p>
+      <p style="margin-top:12px;">请输入管理员分配的员工账号和密码。用户名一般使用姓名拼音。</p>
       <form id="jrcLoginForm" class="jrc-login-fields">
         <label>
           用户名
@@ -1800,7 +1799,7 @@ function jrcShowLoginOverlay() {
         </label>
         <label>
           密码
-          <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="统一初始密码">
+          <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="请输入密码">
         </label>
         <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit" onclick="return window.jrcHandleLoginSubmit(event)">登录进入工作台</button>
       </form>
