@@ -64,7 +64,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622b">
   </head>
   <body data-page-permission="hr.access">
     <main class="shell">
@@ -92,7 +92,7 @@
         <article class="card">
           <p class="eyebrow">HR & Training Desk</p>
           <h1>人事与培训系统</h1>
-          <p class="hero-text">这个系统负责人事档案、入职转正、权限、提成档位、培训记录和考核结果。它和当前全员名单、登录权限、财务提成规则、学管知识库培训内容要逐步打通。</p>
+          <p class="hero-text">管理员工档案、岗位权限、入职转正、提成档位和培训记录。</p>
           <div class="tag-row">
             <span class="tag">员工档案</span>
             <span class="tag">入职转正</span>
@@ -132,7 +132,7 @@
         <div class="section-head">
           <div>
             <h2>员工账号与全员名单</h2>
-            <p>员工基础信息、登录账号、岗位、入职转正、提成比例和后续权限调整统一放在人事与培训系统维护。</p>
+            <p>维护员工基础信息、账号、岗位和权限。</p>
           </div>
           <span class="status-chip">员工档案</span>
         </div>
@@ -166,7 +166,7 @@
 
         <article class="card">
           <h2>新增人事事项</h2>
-          <p>后续可用于记录转正、权限调整、提成档位调整和培训安排。</p>
+          <p>记录人事调整、权限调整和培训安排。</p>
           <div class="form-grid">
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
             <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" value="待选择"></label>
@@ -206,6 +206,6 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260622g"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622b"></script>
   </body>
 </html>

@@ -78,7 +78,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622b">
   </head>
   <body data-page-permission="studentService.access">
     <main class="shell">
@@ -106,7 +106,7 @@
         <article class="card">
           <p class="eyebrow">Student & Parent Service</p>
           <h1>学生与家长服务系统</h1>
-          <p class="hero-text">这个系统负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险。它后面会连接排课系统、招生系统和财务系统，形成从报名入学到续费维护的完整服务记录。</p>
+          <p class="hero-text">管理学生档案、课后反馈、家长沟通、点名和续费风险。</p>
           <div class="tag-row">
             <span class="tag">学生档案</span>
             <span class="tag">学习跟踪</span>
@@ -214,7 +214,7 @@
         <div class="section-head">
           <div>
             <h2>学生服务总览</h2>
-            <p>以下是第一版工作台结构，当前为演示数据，不代表真实学生情况。</p>
+            <p>学生服务记录集中查看。</p>
           </div>
           <span class="status-chip">样例数据</span>
         </div>
@@ -252,7 +252,7 @@
 
         <article class="card">
           <h2>服务记录录入</h2>
-          <p>第一版先定义老师和学管都看得懂的字段，后面再接真实保存。</p>
+          <p>录入学习跟踪、课后反馈和家长沟通。</p>
           <div class="form-grid">
             <label class="field"><span>学生姓名</span><input id="studentNameInput" value="学生 A"></label>
             <label class="field"><span>班级 / 课程</span><input id="studentClassInput" value="暑假数学提升班"></label>
@@ -894,6 +894,6 @@
         hydrateCloudRows();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622b"></script>
   </body>
 </html>

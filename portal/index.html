@@ -115,6 +115,16 @@
         line-height: 1.7;
       }
 
+      .grid > .card > p,
+      .grid > .card > .list {
+        display: none;
+      }
+
+      .grid > .card {
+        display: grid;
+        gap: 14px;
+      }
+
       .list {
         margin: 14px 0 0;
         padding-left: 18px;
@@ -126,7 +136,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-        margin-top: 18px;
+        margin-top: 4px;
       }
 
       .button,
@@ -402,7 +412,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622b">
   </head>
   <body>
     <main class="shell">
@@ -469,7 +479,7 @@
           </div>
           <span class="badge">试用提醒</span>
         </div>
-        <p>下周试用时，先看清每个系统当前是“本机真实数据”“样例数据”还是“待录入”。这样老师不会把演示排名、演示金额、演示学生误认为真实业务结果。</p>
+        <p>只看三类状态：云端试运行、样例数据、待录入。</p>
         <div class="data-state-list" id="portalDataStateList"></div>
       </section>
 
@@ -688,6 +698,6 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260622g"></script>
     <script src="/jrcedu/portal/dashboard.js?v=20260622c"></script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622b"></script>
   </body>
 </html>

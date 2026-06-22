@@ -349,7 +349,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622b">
   </head>
   <body data-page-permission="finance.access">
     <main class="shell">
@@ -377,7 +377,7 @@
         <article class="card">
           <p class="eyebrow">Finance Desk</p>
           <h1>财务系统</h1>
-          <p class="hero-text">这里先承接你们 Excel 里的核心财务口径：课时收入、老师结算成本、日常消费/报销、经营毛利润、分红池和留存利润。当前已接入云端试运行，后面继续和排课、招生、教学质量联动。</p>
+          <p class="hero-text">管理课时收入、老师结算、日常支出、毛利润和分红测算。</p>
           <div class="tag-row">
             <span class="tag">日常支出/报销</span>
             <span class="tag">成本与毛利润</span>
@@ -425,7 +425,7 @@
       <section class="card">
         <p class="eyebrow">Linked Data Preview</p>
         <h2>系统联动预核算</h2>
-        <p style="margin-top: 8px;">这里从底层数据联动层读取排课课时、教学质量评级系数、招生实收金额。后面真实表格导入后，财务老师先在这里核对，再写入正式月结。</p>
+        <p style="margin-top: 8px;">按老师和月份核对课时、评级系数和招生实收。</p>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -449,7 +449,7 @@
         <article class="card">
           <p class="eyebrow">Monthly Inputs</p>
           <h2>月度收入与老师结算成本</h2>
-          <p style="margin-top: 8px;">这块对应你们 Excel 的“小课产值”汇总页。先录月度总数，后面再从排课和课时费明细自动汇总。</p>
+          <p style="margin-top: 8px;">录入月度收入、成本、支出和分红口径。</p>
           <form id="monthlyForm" class="form-grid">
             <label class="field">
               课时总收入
@@ -962,6 +962,6 @@
       hydrateCloudFinance();
       applyEditPermission();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622b"></script>
   </body>
 </html>

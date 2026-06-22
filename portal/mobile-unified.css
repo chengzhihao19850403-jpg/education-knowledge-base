@@ -69,6 +69,41 @@ textarea {
   line-height: 1.6;
 }
 
+/* Public trial pages should read like tools, not product documents. */
+.hint,
+.mini-item p,
+.section-head p,
+.nav-item p,
+.inline-note,
+.hero-text + .hint,
+.card > p.helper-copy,
+.flow-card p,
+.module-card p {
+  display: none !important;
+}
+
+.hero-text,
+.card > p,
+.notice,
+.auth-note,
+.role-welcome {
+  line-height: 1.5 !important;
+}
+
+.compact-copy,
+.tool-inline-note,
+.metric-meta {
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.module-card,
+.workbench-item,
+.list-card,
+.suggestion-card {
+  gap: 8px;
+}
+
 @media (max-width: 760px) {
   body {
     overflow-x: hidden;
