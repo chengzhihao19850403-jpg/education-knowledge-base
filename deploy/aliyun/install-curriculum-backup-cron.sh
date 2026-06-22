@@ -13,8 +13,8 @@ if [[ ! -f "${SCRIPT_SOURCE}" ]]; then
 fi
 
 install -m 0755 "${SCRIPT_SOURCE}" "${SCRIPT_TARGET}"
-mkdir -p /opt/jrcedu-backups/curriculum
-chmod 750 /opt/jrcedu-backups /opt/jrcedu-backups/curriculum
+mkdir -p /opt/jrcedu-uploads/curriculum /opt/jrcedu-backups/curriculum
+chmod 750 /opt/jrcedu-uploads /opt/jrcedu-uploads/curriculum /opt/jrcedu-backups /opt/jrcedu-backups/curriculum
 touch "${LOG_FILE}"
 chmod 640 "${LOG_FILE}"
 
