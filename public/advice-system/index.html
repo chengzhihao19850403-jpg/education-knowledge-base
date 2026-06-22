@@ -883,7 +883,7 @@
               </div>
               <div class="flow-step">
                 <strong>7. 无效 / 沉睡</strong>
-                <p>暂时不成交，但不能丢数据。</p>
+                <p>暂未成交，保留后续跟进记录。</p>
               </div>
             </div>
           </section>
@@ -951,7 +951,7 @@
               </div>
               <div class="filters">
                 <span class="status-chip">每次沟通都要留痕</span>
-                <span class="status-chip">后面接自动提醒</span>
+                <span class="status-chip">自动提醒</span>
               </div>
             </div>
             <div class="timeline" id="followupTimeline"></div>
@@ -1147,8 +1147,8 @@
           <section class="panel content-section" data-section-group="leads">
             <div class="section-head">
               <div>
-                <h2>新增线索面板</h2>
-                <div class="hint">第一阶段先把真实常用字段固定下来，避免老师各写各的。后面再接 Excel 批量导入和自动去重。</div>
+                <h2>新增线索</h2>
+                <div class="hint">按统一字段录入，避免老师各写各的。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">必填：学生姓名</span>
@@ -1232,8 +1232,8 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>Excel 批量导入入口</h2>
-                <div class="hint">先做第一版可操作导入。老师可以把 Excel 里的一批线索复制成表格文本贴进来，系统先帮忙导入、去重、提示缺失字段。</div>
+                <h2>Excel 批量导入</h2>
+                <div class="hint">从 Excel 复制一批线索粘贴进来，系统会导入、去重并提示缺失字段。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">先支持复制粘贴导入</span>
@@ -1282,7 +1282,7 @@
             <div class="section-actions">
               <button class="button small secondary" id="copyImportTemplateButton" type="button">复制导入模板字段</button>
               <button class="button small" id="importBatchButton" type="button">导入这批线索</button>
-              <button class="button small secondary" id="resetAdmissionsButton" type="button">清空本机缓存</button>
+              <button class="button small secondary" id="resetAdmissionsButton" type="button">刷新本地副本</button>
             </div>
             <div class="metrics">
               <div class="metric">
@@ -1298,7 +1298,7 @@
               <div class="metric">
                 <div class="metric-meta">缺负责人</div>
                 <strong id="importMissingOwnerCount">0</strong>
-                <div class="metric-meta">后续需要补分配</div>
+                <div class="metric-meta">需要补分配</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">缺来源 / 备注</div>
@@ -1312,7 +1312,7 @@
                   <tr>
                     <th>导入校验结果</th>
                     <th>状态</th>
-                    <th>说明</th>
+                    <th>处理说明</th>
                   </tr>
                 </thead>
                 <tbody id="importResultBody">
@@ -1359,11 +1359,11 @@
             <div class="section-head">
               <div>
                 <h2>渠道来源配置</h2>
-                <div class="hint">第一阶段先把渠道标准化，后面提成、ROI、转介绍、投放复盘都会直接用这里的归类。</div>
+                <div class="hint">统一渠道归类，提成、ROI、转介绍和投放复盘都按这里统计。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">管理员维护</span>
-                <span class="status-chip">后续接渠道提成</span>
+                <span class="status-chip">渠道提成</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -1374,7 +1374,7 @@
                     <th>二级渠道</th>
                     <th>归属对象</th>
                     <th>是否计渠道提成</th>
-                    <th>当前说明</th>
+                    <th>规则说明</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1397,7 +1397,7 @@
                     <td>家长推荐</td>
                     <td>推荐家长本人</td>
                     <td>否</td>
-                    <td>后面接家长返现或抵课奖励。</td>
+                    <td>可接家长返现或抵课奖励。</td>
                   </tr>
                   <tr>
                     <td>校区自然到访</td>
@@ -1414,11 +1414,11 @@
           <section class="panel content-section" data-section-group="trials">
             <div class="section-head">
               <div>
-                <h2>试听预约面板</h2>
-                <div class="hint">先把试听对象、试听老师、试听时间做成可编辑，不再用固定默认值顶替真实预约。</div>
+                <h2>试听预约</h2>
+                <div class="hint">选择试听对象、试听老师和试听时间。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">老师实际会用</span>
+                <span class="status-chip">预约后入待反馈</span>
                 <span class="status-chip">预约完直接入待反馈清单</span>
               </div>
             </div>
@@ -1464,8 +1464,8 @@
           <section class="panel content-section" data-section-group="trials">
             <div class="section-head">
               <div>
-                <h2>试听反馈标准单</h2>
-                <div class="hint">这是行业里最值得标准化的一张表。以后所有“为什么没转化”都要从这里往回查。</div>
+                <h2>试听反馈单</h2>
+                <div class="hint">记录课堂吸收、家长异议、意向等级和下一步动作。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">试听后强制填写</span>
@@ -1567,12 +1567,12 @@
           <section class="panel content-section" data-section-group="enrollment">
             <div class="section-head">
               <div>
-                <h2>报名登记面板</h2>
+                <h2>报名登记</h2>
                 <div class="hint">报名后这条线索就要正式转成学员档案，渠道、顾问、推荐人三层归属同时锁定。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">按实收金额走</span>
-                <span class="status-chip">后续接提成</span>
+                <span class="status-chip">提成联动</span>
               </div>
             </div>
             <div class="form-grid">
@@ -1647,8 +1647,8 @@
           <section class="panel content-section" data-section-group="enrollment">
             <div class="section-head">
               <div>
-                <h2>续费 / 扩科继承骨架</h2>
-                <div class="hint">正式版里，续费和扩科默认继承首报时锁定的归属链，避免后续提成、推荐奖励、网销归属口径反复变化。</div>
+                <h2>续费 / 扩科登记</h2>
+                <div class="hint">续费和扩科默认继承首报时锁定的归属链。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">默认继承锁定归属链</span>
@@ -1680,7 +1680,7 @@
               </div>
               <div class="field span-3">
                 <label>处理备注</label>
-                <textarea id="renewRemark">默认继承首报归属链，后续财务和提成按该链继续结算。</textarea>
+                <textarea id="renewRemark">默认继承首报归属链，财务和提成按该链继续结算。</textarea>
               </div>
             </div>
             <div class="section-actions">
@@ -1691,8 +1691,8 @@
           <section class="panel content-section" data-section-group="enrollment">
             <div class="section-head">
               <div>
-                <h2>学员档案骨架</h2>
-                <div class="hint">只要一报名，这个学生就不再只是线索，要变成完整学员档案。现在先把归属链、续费扩科、财务预留字段接成动态视图。</div>
+                <h2>学员档案</h2>
+                <div class="hint">报名后生成学员档案，归属链、续费扩科和财务候选项同步保留。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">已接动态档案</span>
@@ -1712,7 +1712,7 @@
               <div class="metric">
                 <div class="metric-meta">最近续费 / 扩科</div>
                 <strong id="archiveRenewalTitle">暂无记录</strong>
-                <div class="metric-meta" id="archiveRenewalMeta">后续每次续费扩科都从这里追踪继承链</div>
+                <div class="metric-meta" id="archiveRenewalMeta">每次续费扩科都从这里追踪继承链</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">财务预留字段</div>
@@ -1757,8 +1757,8 @@
           <section class="panel content-section" data-section-group="enrollment">
             <div class="section-head">
               <div>
-                <h2>试听与报名主干</h2>
-                <div class="hint">第一阶段只做最需要落地的标准动作，保证业务闭环真实可追溯。</div>
+                <h2>试听与报名闭环</h2>
+                <div class="hint">把试听反馈、报名登记和归属链锁定接成一条线。</div>
               </div>
             </div>
             <div class="metrics">
@@ -1778,7 +1778,7 @@
                 <div class="metric-meta">渠道归属 / 招生顾问 / 推荐人</div>
               </div>
               <div class="metric">
-                <div class="metric-meta">后续接口</div>
+                <div class="metric-meta">联动接口</div>
                 <strong>已预留</strong>
                 <div class="metric-meta">续费扩科 / 转介绍 / 提成 / 沉睡召回</div>
               </div>
@@ -1789,7 +1789,7 @@
             <div class="section-head">
               <div>
                 <h2>基础漏斗看板</h2>
-                <div class="hint">第一阶段先把最关键的管理视角立起来，让校长和招生负责人知道问题卡在哪一层。</div>
+                <div class="hint">看清线索、试听、报名各环节卡点。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">后面再细分顾问和渠道</span>
@@ -1822,12 +1822,12 @@
           <section class="panel content-section" data-section-group="trials">
             <div class="section-head">
               <div>
-                <h2>试听后 SOP 任务板</h2>
-                <div class="hint">第二阶段先把试听后的标准追踪动作排清楚，避免高意向客户只靠老师个人记忆推进。</div>
+                <h2>试听后追踪任务</h2>
+                <div class="hint">把试听后的标准追踪动作排清楚，避免高意向客户只靠老师个人记忆推进。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">第二阶段主干</span>
-                <span class="status-chip">后面接自动提醒</span>
+                <span class="status-chip">标准追踪</span>
+                <span class="status-chip">自动提醒</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -1855,8 +1855,8 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>转介绍关系面板</h2>
-                <div class="hint">第二阶段不只是记录“谁介绍的”，而是要把推荐链、奖励方式和后续裂变能力一起沉淀下来。</div>
+                <h2>转介绍关系</h2>
+                <div class="hint">记录推荐链、奖励方式和推荐结果。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">家长转介绍</span>
@@ -1872,7 +1872,7 @@
               <div class="metric">
                 <div class="metric-meta">推荐方式</div>
                 <strong>老带新</strong>
-                <div class="metric-meta">后续接返现 / 抵课奖励</div>
+                <div class="metric-meta">返现 / 抵课奖励</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">员工推荐</div>
@@ -1880,9 +1880,9 @@
                 <div class="metric-meta">推荐奖与顾问提成可并行</div>
               </div>
               <div class="metric">
-                <div class="metric-meta">后续能力</div>
+                <div class="metric-meta">推荐绑定</div>
                 <strong>二维码</strong>
-                <div class="metric-meta">后面接专属推荐码自动绑定</div>
+                <div class="metric-meta">专属推荐码自动绑定</div>
               </div>
             </div>
           </section>
@@ -1890,12 +1890,12 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>提成链结构页</h2>
-                <div class="hint">第二阶段先把提成对象和冲突关系定义清楚，再决定具体比例和公式，不在第一阶段把规则写死。</div>
+                <h2>提成链结构</h2>
+                <div class="hint">定义提成对象、适用场景和冲突关系。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">按实收金额</span>
-                <span class="status-chip">后面接财务</span>
+                <span class="status-chip">财务联动</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -1905,7 +1905,7 @@
                     <th>提成对象</th>
                     <th>适用场景</th>
                     <th>当前口径</th>
-                    <th>后续要补的规则</th>
+                    <th>规则参数</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1930,7 +1930,7 @@
                   <tr>
                     <td>家长转介绍奖励</td>
                     <td>老家长推荐新生</td>
-                    <td>后面可选返现或抵课</td>
+                    <td>可选返现或抵课</td>
                     <td>奖励形式、二级裂变是否继续奖励</td>
                   </tr>
                 </tbody>
@@ -1941,8 +1941,8 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>沉睡客户分层面板</h2>
-                <div class="hint">第二阶段先把沉睡客户分层，不急着一上来全自动群发。先让系统知道谁值得重点救、谁适合长期培育。</div>
+                <h2>沉睡客户分层</h2>
+                <div class="hint">区分重点召回客户和长期培育客户。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">30 / 60 / 90 天</span>
@@ -1976,8 +1976,8 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>转介绍奖励规则页</h2>
-                <div class="hint">这块先把“奖励形式”和“何时发放”说清楚，后面你们只需要决定具体金额或比例，不用再重做结构。</div>
+                <h2>转介绍奖励规则</h2>
+                <div class="hint">明确奖励形式、触发条件和发放节点。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">返现 / 抵课双模式</span>
@@ -2020,8 +2020,8 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>提成规则配置页</h2>
-                <div class="hint">这里开始从结构走向规则化，先把以后要配置的参数位留出来，方便你们逐步拍板。</div>
+                <h2>提成规则配置</h2>
+                <div class="hint">集中维护每一类提成的比例、区间、触发口径和退费回冲方式。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">规则配置入口</span>
@@ -2066,7 +2066,7 @@
               </div>
               <div class="field span-3">
                 <label>规则备注</label>
-                <textarea>后面这里要继续细化每一类提成的比例、区间、触发口径和退费回冲方式，但结构已经先留好。</textarea>
+                <textarea>维护每一类提成的比例、区间、触发口径和退费回冲方式。</textarea>
               </div>
             </div>
           </section>
@@ -2074,11 +2074,11 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>沉睡客户召回任务列表</h2>
-                <div class="hint">第二阶段不直接做群发，而是先把“谁该被召回、为什么召回、用什么方式召回”列清楚。</div>
+                <h2>沉睡客户召回</h2>
+                <div class="hint">列清谁该召回、为什么召回、用什么方式召回。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">人工先行，后面自动化</span>
+                <span class="status-chip">人工跟进</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -2104,7 +2104,7 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>顾问个人业绩页</h2>
+                <h2>顾问个人业绩</h2>
                 <div class="hint">这块是老师会反复看的，所以要清楚直接，不要做成只能校长看懂的复杂看板。</div>
               </div>
               <div class="filters">
@@ -2130,7 +2130,7 @@
               <div class="metric">
                 <div class="metric-meta">预计提成</div>
                 <strong>待计算</strong>
-                <div class="metric-meta">后面接真实规则计算</div>
+                <div class="metric-meta">按已配置规则计算</div>
               </div>
             </div>
           </section>
@@ -2138,11 +2138,11 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>渠道 ROI 细分页</h2>
+                <h2>渠道 ROI</h2>
                 <div class="hint">这块是给校长和负责人看“钱花在哪，回来了多少”，不是只看线索多不多。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">后面接投放成本</span>
+                <span class="status-chip">投放成本</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -2164,7 +2164,7 @@
                     <td>4</td>
                     <td>26,800</td>
                     <td>预计渠道提成 2,100</td>
-                    <td>量大，后续需要继续看投产比</td>
+                    <td>量大，需要继续看投产比</td>
                   </tr>
                   <tr>
                     <td>老家长转介绍</td>
@@ -2190,12 +2190,11 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>通知与触达入口</h2>
-                <div class="hint">第三阶段先把需要触达的动作分类清楚：哪些是试听提醒，哪些是活动通知，哪些是沉睡召回。先留入口，后面再接短信或企业微信能力。</div>
+                <h2>通知与触达</h2>
+                <div class="hint">区分试听提醒、活动通知和沉睡召回。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">第三阶段入口</span>
-                <span class="status-chip">后面接短信</span>
+                <span class="status-chip">短信 / 企微</span>
               </div>
             </div>
             <div class="metrics">
@@ -2217,7 +2216,7 @@
               <div class="metric">
                 <div class="metric-meta">当前策略</div>
                 <strong>先留入口</strong>
-                <div class="metric-meta">老师先能看到该发什么，再接自动发送</div>
+                <div class="metric-meta">先看该发什么，再做自动发送</div>
               </div>
             </div>
           </section>
@@ -2225,11 +2224,11 @@
           <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>推荐二维码入口</h2>
-                <div class="hint">这个能力不是现在马上就要上线，但要先把业务位置占住。后面只要接上二维码或推荐码，就能自动绑定家长或员工推荐关系。</div>
+                <h2>推荐二维码</h2>
+                <div class="hint">用二维码或推荐码自动绑定家长、员工推荐关系。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">家长裂变预留</span>
+                <span class="status-chip">家长裂变</span>
               </div>
             </div>
             <div class="form-grid">
@@ -2252,17 +2251,17 @@
                 </select>
               </div>
               <div class="field span-3">
-                <label>后续说明</label>
-                <textarea>后面生成专属二维码或推荐码。新家长扫码进入后，系统自动绑定推荐人，避免老师手工登记遗漏。</textarea>
+                <label>规则说明</label>
+                <textarea>生成专属二维码或推荐码。新家长扫码进入后，系统自动绑定推荐人，避免老师手工登记遗漏。</textarea>
               </div>
             </div>
           </section>
 
-          <section class="panel content-section">
+          <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
                 <h2>批量运营工具</h2>
-                <div class="hint">第三阶段要把“批量做事”的能力补进来，不然系统永远停留在单条客户处理，效率上不去。</div>
+                <div class="hint">按标签筛选客户，批量生成跟进任务或触达动作。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">标签筛选驱动</span>
@@ -2275,7 +2274,7 @@
                     <th>运营动作</th>
                     <th>适用人群</th>
                     <th>当前目标</th>
-                    <th>后续接入</th>
+                    <th>执行方式</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2302,14 +2301,14 @@
             </div>
           </section>
 
-          <section class="panel content-section">
+          <section class="panel content-section" data-section-group="settings">
             <div class="section-head">
               <div>
-                <h2>权限与操作日志页</h2>
-                <div class="hint">正式版一定要有这块，不然来源修改、提成调整、客户删除这些动作以后说不清楚。</div>
+                <h2>权限与操作日志</h2>
+                <div class="hint">来源修改、提成调整、客户删除等关键动作必须留痕。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">正式版必备</span>
+                <span class="status-chip">关键留痕</span>
               </div>
             </div>
             <div class="table-wrap">
@@ -2346,14 +2345,14 @@
             </div>
           </section>
 
-          <section class="panel content-section">
+          <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
                 <h2>校长总控看板</h2>
                 <div class="hint">这块不是给一线老师看的，而是给你和管理层总览全局的：线索质量、顾问执行、渠道效果、裂变贡献、沉睡风险。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">第三阶段总控</span>
+                <span class="status-chip">管理总览</span>
               </div>
             </div>
             <div class="metrics">
@@ -2382,7 +2381,7 @@
         </section>
 
         <aside class="panel">
-          <h2>待办与后续增强</h2>
+          <h2>今日提醒</h2>
           <div class="stack-list">
             <div class="list-card">
               <h3>当前登录员工</h3>
@@ -2395,7 +2394,7 @@
               <div class="audit-list" id="auditLogList">
                 <div class="audit-item">
                   <strong>暂无操作记录</strong>
-                  <p>后续这里会显示谁修改了线索、试听、报名、续费、导入和归属链。</p>
+                  <p>这里记录谁修改了线索、试听、报名、续费、导入和归属链。</p>
                 </div>
               </div>
             </div>
@@ -2414,32 +2413,12 @@
               <div id="publicPoolList"></div>
             </div>
             <div class="list-card">
-              <h3>第二阶段准备加</h3>
-              <p>试听后 SOP：当天学情反馈、第 3 天案例、第 7 天公开课、第 14 天分层运营。</p>
-            </div>
-            <div class="list-card">
-              <h3>第二阶段当前已开题</h3>
-              <p>试听后任务板、转介绍关系、提成链结构、沉睡客户分层已经进原型，下一步可以开始细化真实规则。</p>
-            </div>
-            <div class="list-card">
-              <h3>第二阶段已细化</h3>
-              <p>转介绍奖励规则、提成规则配置、沉睡召回任务、顾问业绩、渠道 ROI 已经补成操作型面板。</p>
-            </div>
-            <div class="list-card">
-              <h3>第三阶段已开入口</h3>
-              <p>通知触达、推荐二维码、批量运营、权限日志、校长总控看板已经接入结构，后面可以继续接真实通知和权限规则。</p>
-            </div>
-            <div class="list-card">
-              <h3>提成链预留</h3>
-              <p>后面接入：网销渠道提成、招生顾问提成、员工推荐奖、老家长转介绍奖励。</p>
+              <h3>提成链</h3>
+              <p>网销渠道提成、招生顾问提成、员工推荐奖、老家长转介绍奖励。</p>
             </div>
             <div class="list-card">
               <h3>沉睡客户机制</h3>
-              <p>先记录沉睡标签和最后跟进时间，后面再加 30 / 60 / 90 天自动提醒和批量运营工具。</p>
-            </div>
-            <div class="list-card">
-              <h3>这版最重要的设计取向</h3>
-              <p>先让老师会用、敢用、能持续录入，再逐步加自动化。系统先贴近业务，再反过来规范业务。</p>
+              <p>记录沉睡标签和最后跟进时间，按 30 / 60 / 90 天提醒召回。</p>
             </div>
           </div>
         </aside>

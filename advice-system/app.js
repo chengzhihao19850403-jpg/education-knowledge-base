@@ -351,7 +351,7 @@ function buildAdmissionTasks() {
         label: "紧急",
         lead,
         action: `补齐字段：${missing.join("、")}`,
-        target: "先补字段，否则后续跟进和归属链会乱。",
+        target: "先补字段，否则跟进和归属链会乱。",
       });
     }
     if (lead.status === "新建未联系") {
@@ -1189,8 +1189,8 @@ function renderEnrollmentLeadOptions() {
   byId("enrollAttributionPreview").value = formatAttributionSnapshot(buildAttributionSnapshot(activeLead));
   byId("enrollRemark").value =
     activeLead.enrolledAmount > 0
-      ? `已报名，实收 ${activeLead.enrolledAmount}。后续如续费扩科，沿用当前归属链。`
-      : `${activeLead.nextAction}。后续如果扩科或续费，需要继承当前顾问和来源归属。当前链路：${activeLead.channel} / ${deriveChannelOwner(activeLead)} / ${activeLead.owner}${(activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)) !== "无" ? ` / 推荐人 ${activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)}` : ""}`;
+      ? `已报名，实收 ${activeLead.enrolledAmount}。续费扩科沿用当前归属链。`
+      : `${activeLead.nextAction}。如果扩科或续费，需要继承当前顾问和来源归属。当前链路：${activeLead.channel} / ${deriveChannelOwner(activeLead)} / ${activeLead.owner}${(activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)) !== "无" ? ` / 推荐人 ${activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)}` : ""}`;
 
   byId("renewStudentName").value = activeLead.studentName;
   byId("renewAttributionPreview").value = formatAttributionSnapshot(
@@ -1211,7 +1211,7 @@ function renderStudentArchive() {
     byId("archiveAttributionTitle").textContent = "未锁定";
     byId("archiveAttributionMeta").textContent = "报名后自动锁定来源、渠道归属、招生顾问、推荐人";
     byId("archiveRenewalTitle").textContent = "暂无记录";
-    byId("archiveRenewalMeta").textContent = "后续每次续费扩科都从这里追踪继承链";
+    byId("archiveRenewalMeta").textContent = "每次续费扩科都从这里追踪继承链";
     byId("archiveFinanceTitle").textContent = "待结算";
     byId("archiveFinanceMeta").textContent = "预留给财务系统做实收、提成、转介绍奖励联动";
     byId("archiveDetailBody").innerHTML = `
@@ -1248,7 +1248,7 @@ function renderStudentArchive() {
     : "暂无记录";
   byId("archiveRenewalMeta").textContent = lastRenewal
     ? `${lastRenewal.courseName} / ${formatAttributionSnapshot(lastRenewal.attributionSnapshot)}`
-    : "后续每次续费扩科都从这里追踪继承链";
+    : "每次续费扩科都从这里追踪继承链";
   byId("archiveFinanceTitle").textContent = `实收 ${financeProfile.settledAmount}`;
   byId("archiveFinanceMeta").textContent = `提成 ${financeProfile.pendingCommission} / 转介绍奖励 ${financeProfile.referralReward}`;
 
@@ -1720,7 +1720,7 @@ function bindBatchImport() {
   }
   byId("resetAdmissionsButton")?.addEventListener("click", () => {
     if (!canEditAdmissions()) return;
-    const confirmed = window.confirm("只清空当前浏览器缓存，不删除云端招生数据。确认继续吗？刷新页面后会重新读取云端数据。");
+    const confirmed = window.confirm("刷新当前浏览器的本地副本，不删除云端招生数据。确认继续吗？刷新页面后会重新读取云端数据。");
     if (!confirmed) return;
     state.leads = [];
     state.followups = [];
@@ -2229,7 +2229,7 @@ function renderAuditLogs() {
     : `
       <div class="audit-item">
         <strong>暂无操作记录</strong>
-        <p>后续这里会显示谁修改了线索、试听、报名、续费、导入和归属链。</p>
+        <p>这里记录谁修改了线索、试听、报名、续费、导入和归属链。</p>
       </div>
     `;
 }

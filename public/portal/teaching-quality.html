@@ -139,14 +139,14 @@
             <h2>教学质量月度总览</h2>
             <p>按当前权重自动计算教师月度综合评分，并输出 S/A/B/C 等级和管理建议。</p>
           </div>
-          <div class="filters">
+          <div class="filters" id="qualityGradeFilters">
             <span class="status-chip">S 90+</span>
             <span class="status-chip">A 80-89</span>
             <span class="status-chip">B 70-79</span>
             <span class="status-chip">C 70 以下</span>
           </div>
         </div>
-        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开倒数排名。完整排名仅总管理员可见；财务绩效预核算仅总管理员和财务可见；其他老师默认只看自己的档案、趋势和整改建议。</div>
+        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开排名。完整排名仅总管理员可见；老师端只看自己的档案、趋势和整改建议。</div>
         <div class="metrics">
           <div class="metric"><span id="qualityMetricOneLabel">本月教师均分</span><strong id="qualityAverageScore">0</strong><p id="qualityMetricOneHint">按权重自动计算</p></div>
           <div class="metric"><span id="qualityMetricTwoLabel">S / A 级教师</span><strong id="qualityStrongCount">0</strong><p id="qualityMetricTwoHint">优先分配优质试听班</p></div>
@@ -154,7 +154,7 @@
           <div class="metric"><span id="qualityMetricFourLabel">未闭环整改</span><strong id="qualityTicketCount">0</strong><p id="qualityMetricFourHint">到期前提醒教务复查</p></div>
         </div>
         <div class="mini-list" id="qualityPublicBoard"></div>
-        <div class="table-wrap" style="margin-top:16px;">
+        <div class="table-wrap" id="qualityRankingWrap" style="margin-top:16px;">
           <table>
             <thead>
               <tr>
@@ -244,7 +244,7 @@
             <select id="profileTeacher"></select>
           </div>
           <div class="metrics">
-            <div class="metric"><span>综合评分</span><strong id="profileScore">0</strong><p id="profileGrade">等级待计算</p></div>
+            <div class="metric"><span>综合评分</span><strong id="profileScore">0</strong><p id="profileGrade">仅本人和管理端可见</p></div>
             <div class="metric"><span>巡课均分</span><strong id="profileInspection">0</strong><p>抽样记录均值</p></div>
             <div class="metric"><span>家长异议</span><strong id="profileWeakTag">暂无</strong><p>匿名问卷高频标签</p></div>
             <div class="metric"><span>未闭环整改</span><strong id="profileTicket">0</strong><p>当前待处理工单</p></div>
@@ -252,7 +252,7 @@
         </article>
 
         <article class="card" id="financePreviewCard">
-          <h2>财务绩效预核算</h2>
+          <h2>财务绩效核算</h2>
           <div class="table-wrap" style="margin-top:16px;">
             <table>
               <thead><tr><th>教师</th><th>评级</th><th>系数</th><th>财务建议</th></tr></thead>
@@ -460,9 +460,9 @@
           byId("qualityMetricOneLabel").textContent = "我的综合评分";
           byId("qualityAverageScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
           byId("qualityMetricOneHint").textContent = "只显示本人数据";
-          byId("qualityMetricTwoLabel").textContent = "我的等级";
-          byId("qualityStrongCount").textContent = selectedStats ? selectedStats.grade : "-";
-          byId("qualityMetricTwoHint").textContent = selectedStats ? `绩效系数 ${selectedStats.coefficient}` : "暂无本人档案";
+          byId("qualityMetricTwoLabel").textContent = "我的档案";
+          byId("qualityStrongCount").textContent = selectedStats ? "已建档" : "-";
+          byId("qualityMetricTwoHint").textContent = "不公开个人评级";
           byId("qualityMetricThreeLabel").textContent = "我的改进方向";
           byId("qualityAlertCount").textContent = selectedStats ? "查看" : "暂无";
           byId("qualityMetricThreeHint").textContent = selectedStats ? getWeakTag(selected) : "来自问卷和巡课汇总";
@@ -471,6 +471,10 @@
           byId("qualityMetricFourHint").textContent = "仅显示本人相关工单";
         }
 
+        const rankingWrap = byId("qualityRankingWrap");
+        const gradeFilters = byId("qualityGradeFilters");
+        if (rankingWrap) rankingWrap.hidden = !canViewFullQuality();
+        if (gradeFilters) gradeFilters.hidden = !canViewFullQuality();
         byId("qualityRankingBody").innerHTML = visibleItems.length
           ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${canViewFullQuality() ? item.coefficient : "本人可见"}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("")
           : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，请联系人事管理员补齐姓名和任课信息。</td></tr>`;
@@ -480,7 +484,9 @@
         state.selectedTeacher = selected;
         const weakTag = getWeakTag(selected);
         byId("profileScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
-        byId("profileGrade").textContent = selectedStats ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : "暂未匹配本人档案";
+        byId("profileGrade").textContent = selectedStats
+          ? (canViewFullQuality() ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : "个人改进数据，仅本人和管理端可见")
+          : "暂未匹配本人档案";
         byId("profileInspection").textContent = selectedStats ? String(selectedStats.inspection) : "0";
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
@@ -490,7 +496,7 @@
         if (financeCard) financeCard.hidden = !showFinancePreview;
         if (financeBody) {
           financeBody.innerHTML = showFinancePreview
-            ? items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 预核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("")
+            ? items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("")
             : "";
         }
         byId("inspectionEntryCard").hidden = !canEdit();

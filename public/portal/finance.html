@@ -436,7 +436,7 @@
 
       <section class="card" id="preimportSection">
         <p class="eyebrow">联动</p>
-        <h2>老师月度预核算</h2>
+        <h2>老师月度结算预览</h2>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -458,7 +458,7 @@
 
       <section class="card" id="attendanceFinanceSection">
         <p class="eyebrow">对账</p>
-        <h2>6月排课与工资表对账预导入</h2>
+        <h2>排课与工资表对账</h2>
         <p style="margin-top: 8px;">对账通过前不进入正式工资、课销和分红。</p>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
@@ -471,7 +471,7 @@
                 <th>已匹配</th>
                 <th>待核差异</th>
                 <th>高优先级</th>
-                <th>状态</th>
+                <th>对账状态</th>
               </tr>
             </thead>
             <tbody id="excelPreimportBody"></tbody>
@@ -481,7 +481,7 @@
 
       <section class="card">
         <p class="eyebrow">点名</p>
-        <h2>点名课时费与课销联动</h2>
+        <h2>点名课时费与课销</h2>
         <p style="margin-top: 8px;">读取点名、出门测和缺席追踪，形成课时费和课销依据。</p>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
@@ -568,16 +568,16 @@
           <h2>月结口径</h2>
           <div class="mini-list">
             <div class="mini-item">
-              <strong>小课产值</strong>
-              <p>课时总收入、基础工资、社保、公积金、课时提成、补课提成、答疑提成、补贴、课时剩余。</p>
+              <strong>收入</strong>
+              <p>课时总收入、其他收入、课时剩余。</p>
             </div>
             <div class="mini-item">
-              <strong>日常消费表</strong>
-              <p>日常报销、校区开销、办公成本、投放成本统一进入“日常支出/报销”。</p>
+              <strong>成本</strong>
+              <p>工资、社保、公积金、提成、补贴、日常支出。</p>
             </div>
             <div class="mini-item">
-              <strong>利润和分红</strong>
-              <p>系统计算经营毛利润、分红池、留存利润；特殊口径由财务调整。</p>
+              <strong>分红</strong>
+              <p>按经营毛利润计算分红池和留存利润。</p>
             </div>
           </div>
         </aside>
@@ -891,7 +891,7 @@
         const rows = (derived?.teacherMonthRows || []).filter((row) => !row.financeExcluded && (!row.period || row.period === currentPeriod || row.period === "待定月份"));
         if (!rows.length) {
           const excludedText = excludedRows.length ? `已按规则排除 ${excludedRows.map((row) => row.teacherName).join("、")} 的单独核算数据。` : "";
-          body.innerHTML = `<tr><td colspan="8" class="muted">当前还没有可联动的真实排课、教学质量或招生数据。重新导入最新表格后，这里会自动生成老师月度财务预核算草表。${excludedText}</td></tr>`;
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前还没有可联动的真实排课、教学质量或招生数据。重新导入最新表格后，这里会自动生成老师月度财务结算草表。${excludedText}</td></tr>`;
           return;
         }
         body.innerHTML = rows.map((row) => `
@@ -914,7 +914,7 @@
         const rows = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.().preimport?.teacherMonthPrecheck || [];
         const periodRows = rows.filter((row) => row.period === currentPeriod);
         if (!periodRows.length) {
-          body.innerHTML = `<tr><td colspan="8" class="muted">当前月份还没有 Excel 预导入对账数据。</td></tr>`;
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前月份还没有 Excel 对账数据。</td></tr>`;
           return;
         }
         body.innerHTML = periodRows.map((row) => {
@@ -953,7 +953,7 @@
       function settlementBasis(row) {
         if (row.teacher === "程志豪") return "只做教学记录，不进入财务自动结算";
         if (SPECIAL_SETTLEMENT_TEACHERS.includes(row.teacher)) return "按有效到课/实到人数单独结算课时费";
-        return "普通老师：有效到课进入课时费预核算，缺席进入补课/课销追踪";
+        return "普通老师：有效到课进入课时费结算草表，缺席进入补课/课销追踪";
       }
 
       function deriveAttendanceSettlementRows() {

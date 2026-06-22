@@ -22,6 +22,8 @@ const defaultState = {
 };
 
 const state = loadState();
+let cloudStoreReady = false;
+let cloudSaveTimer = null;
 
 const statusClassMap = {
   "已沟通待邀约": "amber",
@@ -99,7 +101,45 @@ function persistState() {
       }));
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    scheduleCloudPersist();
   } catch {}
+}
+
+function scheduleCloudPersist() {
+  if (!cloudStoreReady || !window.JRC_CLOUD?.writeModuleData) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "admissions", state).catch((error) => {
+      console.warn("招生系统云端保存失败", error);
+    });
+  }, 450);
+}
+
+async function hydrateCloudState() {
+  if (!window.JRC_CLOUD?.readModuleData) {
+    cloudStoreReady = true;
+    return;
+  }
+  try {
+    const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+    if (result.ok && result.data?.found && result.data.payload) {
+      const nextState = normalizeState({
+        ...structuredClone(defaultState),
+        ...result.data.payload,
+      });
+      Object.keys(state).forEach((key) => delete state[key]);
+      Object.assign(state, nextState);
+      cloudStoreReady = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      return;
+    }
+    cloudStoreReady = true;
+    scheduleCloudPersist();
+  } catch (error) {
+    console.warn("招生系统云端读取失败，暂用本机数据", error);
+    cloudStoreReady = true;
+  }
 }
 
 function getCurrentEmployee() {
@@ -311,7 +351,7 @@ function buildAdmissionTasks() {
         label: "紧急",
         lead,
         action: `补齐字段：${missing.join("、")}`,
-        target: "先补字段，否则后续跟进和归属链会乱。",
+        target: "先补字段，否则跟进和归属链会乱。",
       });
     }
     if (lead.status === "新建未联系") {
@@ -1149,8 +1189,8 @@ function renderEnrollmentLeadOptions() {
   byId("enrollAttributionPreview").value = formatAttributionSnapshot(buildAttributionSnapshot(activeLead));
   byId("enrollRemark").value =
     activeLead.enrolledAmount > 0
-      ? `已报名，实收 ${activeLead.enrolledAmount}。后续如续费扩科，沿用当前归属链。`
-      : `${activeLead.nextAction}。后续如果扩科或续费，需要继承当前顾问和来源归属。当前链路：${activeLead.channel} / ${deriveChannelOwner(activeLead)} / ${activeLead.owner}${(activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)) !== "无" ? ` / 推荐人 ${activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)}` : ""}`;
+      ? `已报名，实收 ${activeLead.enrolledAmount}。续费扩科沿用当前归属链。`
+      : `${activeLead.nextAction}。如果扩科或续费，需要继承当前顾问和来源归属。当前链路：${activeLead.channel} / ${deriveChannelOwner(activeLead)} / ${activeLead.owner}${(activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)) !== "无" ? ` / 推荐人 ${activeLead.referrerName || deriveReferrerText(activeLead.channelMeta)}` : ""}`;
 
   byId("renewStudentName").value = activeLead.studentName;
   byId("renewAttributionPreview").value = formatAttributionSnapshot(
@@ -1171,7 +1211,7 @@ function renderStudentArchive() {
     byId("archiveAttributionTitle").textContent = "未锁定";
     byId("archiveAttributionMeta").textContent = "报名后自动锁定来源、渠道归属、招生顾问、推荐人";
     byId("archiveRenewalTitle").textContent = "暂无记录";
-    byId("archiveRenewalMeta").textContent = "后续每次续费扩科都从这里追踪继承链";
+    byId("archiveRenewalMeta").textContent = "每次续费扩科都从这里追踪继承链";
     byId("archiveFinanceTitle").textContent = "待结算";
     byId("archiveFinanceMeta").textContent = "预留给财务系统做实收、提成、转介绍奖励联动";
     byId("archiveDetailBody").innerHTML = `
@@ -1208,7 +1248,7 @@ function renderStudentArchive() {
     : "暂无记录";
   byId("archiveRenewalMeta").textContent = lastRenewal
     ? `${lastRenewal.courseName} / ${formatAttributionSnapshot(lastRenewal.attributionSnapshot)}`
-    : "后续每次续费扩科都从这里追踪继承链";
+    : "每次续费扩科都从这里追踪继承链";
   byId("archiveFinanceTitle").textContent = `实收 ${financeProfile.settledAmount}`;
   byId("archiveFinanceMeta").textContent = `提成 ${financeProfile.pendingCommission} / 转介绍奖励 ${financeProfile.referralReward}`;
 
@@ -1439,6 +1479,64 @@ function bindLeadCreate() {
   });
 }
 
+function bindQuickLeadCreate() {
+  const button = byId("quickCreateLeadButton");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const message = byId("quickCreateLeadMessage");
+    if (!canEditAdmissions()) {
+      if (message) message.textContent = "当前账号没有招生录入权限。";
+      return;
+    }
+    const studentName = byId("quickLeadStudentName")?.value.trim();
+    const parentPhone = byId("quickLeadPhone")?.value.trim();
+    if (!studentName || !parentPhone) {
+      if (message) message.textContent = "请先填写学生姓名和家长电话。";
+      return;
+    }
+    const duplicate = state.leads.find((lead) => normalizePhone(lead.parentPhone) && normalizePhone(lead.parentPhone) === normalizePhone(parentPhone));
+    if (duplicate) {
+      state.selectedLeadName = duplicate.studentName;
+      if (message) message.textContent = `这个手机号已存在：${duplicate.studentName}。已自动选中原线索，可在详情里继续跟进。`;
+      renderAll();
+      return;
+    }
+    const channel = byId("quickLeadChannel")?.value || "待补来源";
+    const owner = byId("quickLeadOwner")?.value || "待分配";
+    const note = byId("quickLeadNote")?.value.trim() || "首页快速新增，待补首联记录。";
+    state.leads.unshift({
+      studentName,
+      parentPhone,
+      grade: byId("quickLeadGrade")?.value || "待补年级",
+      subject: "数学",
+      channel,
+      channelMeta: "首页快速新增",
+      owner,
+      status: "新建未联系",
+      trial: "未预约",
+      intent: byId("quickLeadIntent")?.value || "B 中意向",
+      inGroup: "未进群",
+      lastFollowup: "刚刚录入",
+      note,
+      nextAction: "尽快首联并确认试听时间",
+      parentNeed: "",
+      studentPainPoint: "",
+      objection: "暂无明确异议",
+      nextFollowupDate: "",
+      trialTeacher: "",
+      trialTime: "",
+      enrolledAmount: 0,
+    });
+    state.selectedLeadName = studentName;
+    byId("quickLeadStudentName").value = "";
+    byId("quickLeadPhone").value = "";
+    byId("quickLeadNote").value = "";
+    logAudit("首页新增线索", studentName, `来源 ${channel}，负责人 ${owner}。`);
+    if (message) message.textContent = `已保存 ${studentName}，现在可以在线索中心继续补试听和跟进。`;
+    renderAll();
+  });
+}
+
 function bindFeedbackSave() {
   const button = byId("saveFeedbackButton");
   if (!button) return;
@@ -1622,7 +1720,7 @@ function bindBatchImport() {
   }
   byId("resetAdmissionsButton")?.addEventListener("click", () => {
     if (!canEditAdmissions()) return;
-    const confirmed = window.confirm("确认清空当前浏览器里的招生线索、跟进记录、导入结果和操作日志吗？员工账号不会被清空。");
+    const confirmed = window.confirm("刷新当前浏览器的本地副本，不删除云端招生数据。确认继续吗？刷新页面后会重新读取云端数据。");
     if (!confirmed) return;
     state.leads = [];
     state.followups = [];
@@ -1951,9 +2049,16 @@ function bindNavigation() {
   });
 
   document.querySelectorAll("[data-jump-view]").forEach((node) => {
-    node.addEventListener("click", () => {
+    node.addEventListener("click", (event) => {
+      event.preventDefault();
       applyView(node.getAttribute("data-jump-view"));
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const href = node.getAttribute("href") || "";
+      const targetNode = href.startsWith("#") ? document.querySelector(href) : null;
+      if (targetNode) {
+        targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     });
   });
 
@@ -2124,7 +2229,7 @@ function renderAuditLogs() {
     : `
       <div class="audit-item">
         <strong>暂无操作记录</strong>
-        <p>后续这里会显示谁修改了线索、试听、报名、续费、导入和归属链。</p>
+        <p>这里记录谁修改了线索、试听、报名、续费、导入和归属链。</p>
       </div>
     `;
 }
@@ -2156,7 +2261,16 @@ function applyPermissionState() {
     '#quickFollowupMethodSelect',
     '#quickFollowupNextDateInput',
     '#quickFollowupInput',
-    '#quickFollowupButton'  ];
+    '#quickFollowupButton',
+    '#quickLeadStudentName',
+    '#quickLeadGrade',
+    '#quickLeadPhone',
+    '#quickLeadChannel',
+    '#quickLeadOwner',
+    '#quickLeadIntent',
+    '#quickLeadNote',
+    '#quickCreateLeadButton'
+  ];
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
     if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
@@ -2246,6 +2360,7 @@ function renderAll() {
 }
 
 bindLeadCreate();
+bindQuickLeadCreate();
 bindFeedbackSave();
 bindEnrollmentCreate();
 bindFollowupCreate();
@@ -2256,3 +2371,4 @@ bindDetailSave();
 bindNavigation();
 bindLeadFilters();
 renderAll();
+hydrateCloudState();
