@@ -82,7 +82,7 @@
         <article class="card">
           <p class="eyebrow">教研课程</p>
           <h1>教研与课程产品系统</h1>
-          <p class="hero-text">管理课程大纲、讲义题库、班型产品、备课资料和版本。</p>
+          <p class="hero-text">课程大纲、讲义题库、班型产品、备课资料和版本。</p>
           <div class="tag-row">
             <span class="tag">课程大纲</span>
             <span class="tag">讲义题库</span>
@@ -106,7 +106,7 @@
         <div class="section-head">
           <div>
             <h2>课程产品总览</h2>
-            <p>管理课程大纲、讲义、题库和备课资料。</p>
+          <p>课程大纲、讲义、题库和备课资料。</p>
           </div>
           <span class="status-chip">待导入真实资料</span>
         </div>
@@ -146,18 +146,18 @@
           <h2>新增课程资料</h2>
           <p>保存课程资料版本和负责人。</p>
           <div class="form-grid">
-            <label class="field"><span>资料名称</span><input id="curriculumNameInput" value="五年级暑假第 1 讲"></label>
-            <label class="field"><span>学科 / 年级</span><input id="curriculumSubjectInput" value="数学 / 五年级"></label>
+            <label class="field"><span>资料名称</span><input id="curriculumNameInput" placeholder="例如：五年级暑假第 1 讲"></label>
+            <label class="field"><span>学科 / 年级</span><input id="curriculumSubjectInput" placeholder="例如：数学 / 五年级"></label>
             <label class="field"><span>资料类型</span><select id="curriculumTypeInput"><option>课程大纲</option><option>讲义</option><option>题库</option><option>备课资料</option></select></label>
             <label class="field"><span>适用班型</span><select id="curriculumClassTypeInput"><option>暑假班</option><option>平时班</option><option>试听课</option></select></label>
-            <label class="field"><span>当前版本</span><input id="curriculumVersionInput" value="V0.1"></label>
-            <label class="field"><span>负责人</span><input id="curriculumOwnerInput" value="待指定"></label>
-            <label class="field span-3"><span>版本说明</span><textarea id="curriculumNoteInput">说明本次资料适用对象、重点难点和老师使用注意事项。</textarea></label>
+            <label class="field"><span>当前版本</span><input id="curriculumVersionInput" placeholder="V1.0"></label>
+            <label class="field"><span>负责人</span><input id="curriculumOwnerInput" placeholder="填写负责人"></label>
+            <label class="field span-3"><span>版本说明</span><textarea id="curriculumNoteInput" placeholder="说明适用对象、重点难点和老师使用注意事项。"></textarea></label>
           </div>
           <div class="actions">
             <button class="button" id="curriculumSaveButton" type="button">保存资料版本</button>
             <button class="button secondary" id="curriculumExportButton" type="button">导出课程资料</button>
-            <button class="button secondary" id="curriculumResetButton" type="button">恢复默认数据</button>
+            <button class="button secondary" id="curriculumResetButton" type="button">清空台账</button>
           </div>
           <div class="notice" id="curriculumMessage">课程资料、版本、负责人和适用班型在这里维护。</div>
         </article>
@@ -167,7 +167,7 @@
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
-            <p>记录新增、修改、删除、导入和恢复默认操作；云端会保留共享操作痕迹，便于后续追溯。</p>
+            <p>记录新增、修改、删除、导入和清空操作。</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -183,7 +183,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260623d"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
   </body>
 </html>

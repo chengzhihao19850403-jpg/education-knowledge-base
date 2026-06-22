@@ -114,7 +114,7 @@
       </tr>
     `).join("") : `
       <tr>
-        <td colspan="5">暂无操作记录。后续新增、修改、删除、导入或恢复默认都会记录在这里。</td>
+        <td colspan="5">暂无操作记录。后续新增、修改、删除、导入或清空都会记录在这里。</td>
       </tr>
     `;
   }
@@ -376,6 +376,29 @@
     URL.revokeObjectURL(url);
   }
 
+  function csvCell(value) {
+    const text = String(value ?? "");
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function downloadCsv(filename, rows, columns) {
+    const header = columns.map((column) => column.label);
+    const body = rows.map((row) => columns.map((column) => {
+      if (typeof column.value === "function") return column.value(row);
+      return row[column.value] ?? "";
+    }));
+    const csv = [header, ...body].map((line) => line.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function parseDateValue(value) {
     const time = Date.parse(String(value || "").replace(/\//g, "-"));
     return Number.isFinite(time) ? time : 0;
@@ -468,20 +491,15 @@
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-student-service-v2";
     const defaults = {
-      student: "学生 A",
-      className: "暑假数学提升班",
-      teacher: "待同步",
+      student: "",
+      className: "",
+      teacher: currentOperator().name || "",
       type: "课后反馈",
       risk: "正常",
-      next: "建立真实档案字段",
-      content: "记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。"
+      next: "",
+      content: ""
     };
-    const samples = [
-      { student: "学生 A", className: "暑假数学提升班", teacher: "待同步", type: "课后反馈", risk: "正常", content: "待从课后反馈同步", next: "建立真实档案字段", createdAt: nowText() },
-      { student: "学生 B", className: "六月份平时课", teacher: "待同步", type: "学习跟踪", risk: "关注", content: "待从排课课次同步", next: "同步剩余课时", createdAt: nowText() },
-      { student: "学生 C", className: "试听转正式", teacher: "待同步", type: "家长沟通", risk: "正常", content: "待从招生试听同步", next: "生成入学交接单", createdAt: nowText() }
-    ];
-    let rows = readStore(key, samples);
+    let rows = readStore(key, []);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -503,7 +521,8 @@
     function render() {
       const keyword = $("studentFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("studentSortSelect")?.value || "newest";
-      $("studentServiceTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.risk, ["高风险", "关注", "正常"])
+      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.risk, ["高风险", "关注", "正常"]);
+      $("studentServiceTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.student)}</td>
@@ -515,7 +534,7 @@
             <td>${escapeHtml(row.next)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("");
+        `).join("") : `<tr><td colspan="8">暂无学生服务记录。可以先新增一条真实记录，或把 Excel 另存为 CSV 后导入。</td></tr>`;
       setText("studentMetricTotal", rows.length);
       setText("studentMetricFeedback", rows.filter((row) => row.type === "课后反馈").length);
       setText("studentMetricRisk", rows.filter((row) => row.risk !== "正常").length);
@@ -560,18 +579,28 @@
     });
     $("studentFilterInput")?.addEventListener("input", render);
     $("studentSortSelect")?.addEventListener("change", render);
-    $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadJson("学生与家长服务数据.json", rows)));
+    $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadCsv("学生与家长服务数据.csv", rows, [
+      { label: "学生", value: "student" },
+      { label: "班级/课程", value: "className" },
+      { label: "任课老师", value: "teacher" },
+      { label: "服务类型", value: "type" },
+      { label: "风险等级", value: "risk" },
+      { label: "记录内容", value: "content" },
+      { label: "下一步", value: "next" },
+      { label: "创建时间", value: "createdAt" },
+      { label: "更新时间", value: "updatedAt" }
+    ])));
     $("studentResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("studentServiceMessage", "恢复默认");
+        denyAction("studentServiceMessage", "清空");
         return;
       }
-      rows = samples.map((row) => ({ ...row }));
+      rows = [];
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复默认", "学生服务台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "清空", "学生服务台账", "0 条");
       resetForm();
       render();
-      setText("studentServiceMessage", "已恢复默认数据。");
+      setText("studentServiceMessage", "已清空本页台账。后续可新增或导入真实记录。");
     });
     bindRowActions("studentServiceTableBody", {
       onEdit(index) {
@@ -621,7 +650,7 @@
         setText("studentServiceMessage", `已导入 ${count} 条学生服务记录。`);
       },
       onError() {
-        setText("studentServiceMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
+        setText("studentServiceMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。");
       },
       canUse: () => capabilities.import,
       onDenied: () => denyAction("studentServiceMessage", "导入")
@@ -637,7 +666,7 @@
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "studentServiceMessage",
-      buttonRules: [["studentSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["studentImportButton", capabilities.import, "导入"], ["studentExportButton", capabilities.export, "导出"], ["studentResetButton", capabilities.reset, "恢复默认"]],
+      buttonRules: [["studentSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["studentImportButton", capabilities.import, "导入"], ["studentExportButton", capabilities.export, "导出"], ["studentResetButton", capabilities.reset, "清空"]],
       fieldIds: ["studentNameInput", "studentClassInput", "studentTeacherInput", "studentServiceTypeInput", "studentRiskInput", "studentNextActionInput", "studentContentInput"]
     });
   }
@@ -648,20 +677,15 @@
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-curriculum-products-v2";
     const defaults = {
-      name: "五年级暑假第 1 讲",
-      subject: "数学 / 五年级",
+      name: "",
+      subject: "",
       type: "课程大纲",
       classType: "暑假班",
-      version: "V0.1",
-      owner: "待指定",
-      note: "说明本次资料适用对象、重点难点和老师使用注意事项。"
+      version: "V1.0",
+      owner: "",
+      note: ""
     };
-    const samples = [
-      { name: "暑假数学提升课", subject: "数学 / 小学高段", type: "讲义", classType: "暑假班", status: "待导入讲义", version: "V0.1", owner: "待指定", note: "补课程大纲和课次安排", createdAt: nowText() },
-      { name: "初一数学衔接课", subject: "数学 / 初一", type: "题库", classType: "暑假班、平时班", status: "待整理题库", version: "V0.1", owner: "待指定", note: "标注重点难点", createdAt: nowText() },
-      { name: "科学专题课", subject: "科学 / 3-8 年级", type: "备课资料", classType: "平时班", status: "待上传资料", version: "V0.1", owner: "待指定", note: "建立资料目录", createdAt: nowText() }
-    ];
-    let rows = readStore(key, samples);
+    let rows = readStore(key, []);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -669,7 +693,7 @@
       $("curriculumSubjectInput").value = row.subject || "";
       $("curriculumTypeInput").value = row.type || "备课资料";
       $("curriculumClassTypeInput").value = row.classType || "";
-      $("curriculumVersionInput").value = row.version || "V0.1";
+      $("curriculumVersionInput").value = row.version || "V1.0";
       $("curriculumOwnerInput").value = row.owner || "";
       $("curriculumNoteInput").value = row.note || "";
     }
@@ -683,7 +707,8 @@
     function render() {
       const keyword = $("curriculumFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("curriculumSortSelect")?.value || "newest";
-      $("curriculumTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待导入", "待整理", "待上传", "已录入"])
+      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待导入", "待整理", "待上传", "已录入"]);
+      $("curriculumTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.name)}</td>
@@ -695,7 +720,7 @@
             <td>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("");
+        `).join("") : `<tr><td colspan="8">暂无课程资料。可以先新增课程大纲、讲义、题库或备课资料。</td></tr>`;
       setText("curriculumMetricOutline", rows.filter((row) => row.type === "课程大纲").length);
       setText("curriculumMetricMaterials", rows.filter((row) => ["讲义", "题库"].includes(row.type)).length);
       setText("curriculumMetricProducts", new Set(rows.map((row) => row.classType)).size);
@@ -720,7 +745,7 @@
         type: $("curriculumTypeInput")?.value || "备课资料",
         classType: $("curriculumClassTypeInput")?.value || "-",
         status: editingIndex >= 0 ? rows[editingIndex].status : "已录入",
-        version: normalizeText($("curriculumVersionInput")?.value) || "V0.1",
+        version: normalizeText($("curriculumVersionInput")?.value) || "V1.0",
         owner: normalizeName($("curriculumOwnerInput")?.value) || "-",
         note: normalizeText($("curriculumNoteInput")?.value) || "-",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
@@ -741,18 +766,28 @@
     });
     $("curriculumFilterInput")?.addEventListener("input", render);
     $("curriculumSortSelect")?.addEventListener("change", render);
-    $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadJson("教研与课程产品数据.json", rows)));
+    $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadCsv("教研与课程产品数据.csv", rows, [
+      { label: "资料名称", value: "name" },
+      { label: "学科/年级", value: "subject" },
+      { label: "资料类型", value: "type" },
+      { label: "适用班型", value: "classType" },
+      { label: "状态", value: "status" },
+      { label: "版本", value: "version" },
+      { label: "负责人", value: "owner" },
+      { label: "说明", value: "note" },
+      { label: "创建时间", value: "createdAt" }
+    ])));
     $("curriculumResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("curriculumMessage", "恢复默认");
+        denyAction("curriculumMessage", "清空");
         return;
       }
-      rows = samples.map((row) => ({ ...row }));
+      rows = [];
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复默认", "教研课程台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "清空", "教研课程台账", "0 条");
       resetForm();
       render();
-      setText("curriculumMessage", "已恢复默认数据。");
+      setText("curriculumMessage", "已清空本页台账。后续可新增或导入真实课程资料。");
     });
     bindRowActions("curriculumTableBody", {
       onEdit(index) {
@@ -790,7 +825,7 @@
           type: normalizeStatus(readField(row, ["type", "资料类型", "类型"], "备课资料"), ["课程大纲", "讲义", "题库", "备课资料"], "备课资料"),
           classType: normalizeText(readField(row, ["classType", "适用班型", "班型"], "-")) || "-",
           status: normalizeStatus(readField(row, ["status", "状态"], "已录入"), ["待导入讲义", "待整理题库", "待上传资料", "已录入"], "已录入"),
-          version: normalizeText(readField(row, ["version", "当前版本", "版本"], "V0.1")) || "V0.1",
+          version: normalizeText(readField(row, ["version", "当前版本", "版本"], "V1.0")) || "V1.0",
           owner: normalizeName(readField(row, ["owner", "负责人"], "-")) || "-",
           note: normalizeText(readField(row, ["note", "版本说明", "说明", "备注"], "-")) || "-",
           createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
@@ -803,7 +838,7 @@
         setText("curriculumMessage", `已导入 ${count} 条课程资料。`);
       },
       onError() {
-        setText("curriculumMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
+        setText("curriculumMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。");
       },
       canUse: () => capabilities.import,
       onDenied: () => denyAction("curriculumMessage", "导入")
@@ -819,7 +854,7 @@
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "curriculumMessage",
-      buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "恢复默认"]],
+      buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "清空"]],
       fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumNoteInput"]
     });
   }
@@ -831,19 +866,14 @@
     const key = "jrc-hr-training-tasks-v2";
     const defaults = {
       type: "入职",
-      employee: "待选择",
-      system: "统一登录、财务",
+      employee: "",
+      system: "",
       status: "待处理",
-      owner: "管理员",
-      next: "补齐信息并归档",
-      note: "记录调整原因、对应系统、执行时间和是否需要财务同步。"
+      owner: currentOperator().name || "",
+      next: "",
+      note: ""
     };
-    const samples = [
-      { type: "员工基础档案核对", employee: "全体员工", system: "统一登录、财务", status: "处理中", owner: "管理员", next: "补齐手机号、微信、入职日期、提成比例", note: "统一整理员工档案", createdAt: nowText() },
-      { type: "系统权限分组", employee: "学管、财务、授课老师", system: "所有系统", status: "处理中", owner: "管理员", next: "按真实岗位继续细分查看和修改权限", note: "权限逐步细化", createdAt: nowText() },
-      { type: "培训记录归档", employee: "学管、授课老师", system: "学管知识库系统", status: "待处理", owner: "学管负责人", next: "同步学习内容和阶段测试结果", note: "同步学管知识库测试", createdAt: nowText() }
-    ];
-    let rows = readStore(key, samples);
+    let rows = readStore(key, []);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -865,7 +895,8 @@
     function render() {
       const keyword = $("hrFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("hrSortSelect")?.value || "newest";
-      $("hrTaskTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "已完成"])
+      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "已完成"]);
+      $("hrTaskTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.type)}</td>
@@ -876,7 +907,7 @@
             <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("");
+        `).join("") : `<tr><td colspan="7">暂无人事事项。员工基础名单已在上方，全员名单可展开查看；新增培训、转正、权限调整后会显示在这里。</td></tr>`;
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
       setText("hrMetricEmployees", employees.length || 0);
       setText("hrMetricRegular", employees.filter((employee) => !employee.regularDate).length);
@@ -922,18 +953,27 @@
     });
     $("hrFilterInput")?.addEventListener("input", render);
     $("hrSortSelect")?.addEventListener("change", render);
-    $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadJson("人事与培训事项数据.json", rows)));
+    $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事与培训事项数据.csv", rows, [
+      { label: "事项类型", value: "type" },
+      { label: "员工/对象", value: "employee" },
+      { label: "关联系统", value: "system" },
+      { label: "状态", value: "status" },
+      { label: "负责人", value: "owner" },
+      { label: "下一步", value: "next" },
+      { label: "说明", value: "note" },
+      { label: "创建时间", value: "createdAt" }
+    ])));
     $("hrResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("hrMessage", "恢复默认");
+        denyAction("hrMessage", "清空");
         return;
       }
-      rows = samples.map((row) => ({ ...row }));
+      rows = [];
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复默认", "人事培训台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "清空", "人事培训台账", "0 条");
       resetForm();
       render();
-      setText("hrMessage", "已恢复默认数据。");
+      setText("hrMessage", "已清空本页台账。员工账号名单不受影响。");
     });
     bindRowActions("hrTaskTableBody", {
       onEdit(index) {
@@ -983,7 +1023,7 @@
         setText("hrMessage", `已导入 ${count} 条人事事项。`);
       },
       onError() {
-        setText("hrMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
+        setText("hrMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。");
       },
       canUse: () => capabilities.import,
       onDenied: () => denyAction("hrMessage", "导入")
@@ -999,7 +1039,7 @@
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
-      buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "恢复默认"]],
+      buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "清空"]],
       fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrSystemInput", "hrStatusInput", "hrOwnerInput", "hrNextInput", "hrNoteInput"]
     });
   }
@@ -1010,20 +1050,15 @@
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-campus-operations-v2";
     const defaults = {
-      title: "教室可用状态核对",
+      title: "",
       type: "教室",
-      area: "全校区",
-      owner: "待指定",
+      area: "",
+      owner: currentOperator().name || "",
       status: "待处理",
-      due: "暑假班前",
-      note: "记录发生时间、地点、影响范围、处理要求和是否需要通知家长或老师。"
+      due: "",
+      note: ""
     };
-    const samples = [
-      { title: "教室可用状态核对", type: "教室", area: "全校区", owner: "待指定", status: "待处理", due: "暑假班前", note: "同步到排课教室占用", createdAt: nowText() },
-      { title: "暑假值班表", type: "值班", area: "前台 / 教室", owner: "待指定", status: "待处理", due: "每周更新", note: "和暑假课程高峰匹配", createdAt: nowText() },
-      { title: "门店异常记录", type: "异常记录", area: "校区日常", owner: "待指定", status: "需复盘", due: "即时处理", note: "记录原因、处理人、复盘结果", createdAt: nowText() }
-    ];
-    let rows = readStore(key, samples);
+    let rows = readStore(key, []);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -1045,7 +1080,8 @@
     function render() {
       const keyword = $("campusFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("campusSortSelect")?.value || "newest";
-      $("campusTableBody").innerHTML = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "需复盘", "已完成"])
+      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "需复盘", "已完成"]);
+      $("campusTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
             <td>${escapeHtml(row.title)}</td>
@@ -1057,7 +1093,7 @@
             <td>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("");
+        `).join("") : `<tr><td colspan="8">暂无校区运营事项。可以新增教室、值班、卫生、安全检查或异常记录。</td></tr>`;
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
       setText("campusMetricDuty", rows.filter((row) => row.type === "值班" || row.type === "暑假排班").length);
       setText("campusMetricSafety", rows.filter((row) => row.type === "安全检查").length);
@@ -1102,18 +1138,27 @@
     });
     $("campusFilterInput")?.addEventListener("input", render);
     $("campusSortSelect")?.addEventListener("change", render);
-    $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadJson("校区运营事项数据.json", rows)));
+    $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadCsv("校区运营事项数据.csv", rows, [
+      { label: "事项名称", value: "title" },
+      { label: "类型", value: "type" },
+      { label: "位置/范围", value: "area" },
+      { label: "责任人", value: "owner" },
+      { label: "状态", value: "status" },
+      { label: "截止时间", value: "due" },
+      { label: "说明", value: "note" },
+      { label: "创建时间", value: "createdAt" }
+    ])));
     $("campusResetButton")?.addEventListener("click", () => {
       if (!capabilities.reset) {
-        denyAction("campusMessage", "恢复默认");
+        denyAction("campusMessage", "清空");
         return;
       }
-      rows = samples.map((row) => ({ ...row }));
+      rows = [];
       writeStore(key, rows);
-      recordAudit(moduleKey, "恢复默认", "校区运营台账", `${rows.length} 条`);
+      recordAudit(moduleKey, "清空", "校区运营台账", "0 条");
       resetForm();
       render();
-      setText("campusMessage", "已恢复默认数据。");
+      setText("campusMessage", "已清空本页台账。后续可新增或导入真实校区事项。");
     });
     bindRowActions("campusTableBody", {
       onEdit(index) {
@@ -1163,7 +1208,7 @@
         setText("campusMessage", `已导入 ${count} 条校区运营事项。`);
       },
       onError() {
-        setText("campusMessage", "导入失败，请选择本系统 JSON，或包含表头的 CSV/从 Excel 复制出的表格文本。");
+        setText("campusMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。");
       },
       canUse: () => capabilities.import,
       onDenied: () => denyAction("campusMessage", "导入")
@@ -1179,7 +1224,7 @@
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "campusMessage",
-      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "恢复默认"]],
+      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "清空"]],
       fieldIds: ["campusTitleInput", "campusTypeInput", "campusAreaInput", "campusOwnerInput", "campusStatusInput", "campusDueInput", "campusNoteInput"]
     });
   }

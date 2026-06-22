@@ -82,7 +82,7 @@
         <article class="card">
           <p class="eyebrow">人事培训</p>
           <h1>人事与培训系统</h1>
-          <p class="hero-text">管理员工档案、岗位权限、入职转正、提成档位和培训记录。</p>
+          <p class="hero-text">员工档案、岗位权限、入职转正、提成档位和培训记录。</p>
           <div class="tag-row">
             <span class="tag">员工档案</span>
             <span class="tag">入职转正</span>
@@ -106,7 +106,7 @@
         <div class="section-head">
           <div>
             <h2>人事培训总览</h2>
-            <p>这个页面只给管理口径使用，普通授课老师暂不默认开放。</p>
+          <p>员工账号、待转正、提成档位和培训记录。</p>
           </div>
           <span class="status-chip">管理板块</span>
         </div>
@@ -135,7 +135,7 @@
           <div class="section-head">
             <div>
               <h2>人事事项台账</h2>
-              <p>这里先列管理事项，避免员工信息、权限、提成散落在聊天记录里。</p>
+          <p>记录员工、权限、提成和培训事项。</p>
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
@@ -159,17 +159,17 @@
           <p>记录人事调整、权限调整和培训安排。</p>
           <div class="form-grid">
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
-            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" value="待选择"></label>
-            <label class="field"><span>关联系统</span><input id="hrSystemInput" value="统一登录、财务"></label>
+            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" placeholder="填写员工姓名"></label>
+            <label class="field"><span>关联系统</span><input id="hrSystemInput" placeholder="例如：财务 / 排课 / 学管知识库"></label>
             <label class="field"><span>处理状态</span><select id="hrStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option></select></label>
-            <label class="field"><span>负责人</span><input id="hrOwnerInput" value="管理员"></label>
-            <label class="field"><span>下一步</span><input id="hrNextInput" value="补齐信息并归档"></label>
-            <label class="field span-3"><span>事项说明</span><textarea id="hrNoteInput">记录调整原因、对应系统、执行时间和是否需要财务同步。</textarea></label>
+            <label class="field"><span>负责人</span><input id="hrOwnerInput" placeholder="填写负责人"></label>
+            <label class="field"><span>下一步</span><input id="hrNextInput" placeholder="例如：补齐信息并归档"></label>
+            <label class="field span-3"><span>事项说明</span><textarea id="hrNoteInput" placeholder="记录调整原因、执行时间和是否需要财务同步。"></textarea></label>
           </div>
           <div class="actions">
             <button class="button" id="hrSaveButton" type="button">保存人事事项</button>
             <button class="button secondary" id="hrExportButton" type="button">导出人事事项</button>
-            <button class="button secondary" id="hrResetButton" type="button">恢复默认数据</button>
+            <button class="button secondary" id="hrResetButton" type="button">清空台账</button>
           </div>
           <div class="notice" id="hrMessage">员工档案、岗位、权限和提成口径在这里维护。</div>
         </article>
@@ -179,7 +179,7 @@
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
-            <p>记录新增、修改、删除、导入和恢复默认操作；云端会保留共享操作痕迹，便于后续追溯。</p>
+            <p>记录新增、修改、删除、导入和清空操作。</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -195,7 +195,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260623d"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
   </body>
 </html>

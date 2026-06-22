@@ -403,7 +403,7 @@ const JRC_GRANULAR_ACTIONS = [
   ["delete", "删除"],
   ["import", "导入"],
   ["export", "导出"],
-  ["reset", "恢复默认"]
+  ["reset", "清空"]
 ];
 const JRC_PERMISSION_OPTIONS = [
   ["paike.access", "排课查看"],

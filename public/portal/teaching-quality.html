@@ -113,7 +113,7 @@
         <article class="card">
           <p class="eyebrow">教学质量</p>
           <h1>教学质量系统</h1>
-          <p class="hero-text">管理课堂质量、家长反馈、学生反馈、整改闭环和教学质量绩效。</p>
+          <p class="hero-text">课堂巡课、学生反馈、家长反馈、整改闭环和教师个人档案。</p>
           <div class="tag-row">
             <span class="tag">抽样巡课 35%</span>
             <span class="tag">学生问卷 20%</span>
@@ -126,9 +126,9 @@
         <article class="card">
           <h2>工作范围</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>做什么</strong><p>抽样听课、匿名问卷、月度评分、整改工单、教师档案、财务绩效预估。</p></div>
+            <div class="mini-item"><strong>做什么</strong><p>抽样听课、匿名问卷、月度评分、整改工单和教师档案。</p></div>
             <div class="mini-item"><strong>不做什么</strong><p>不做实时视频监控、全课录制、每节课强制巡课、教案多级审批。</p></div>
-            <div class="mini-item"><strong>数据联动</strong><p>从排课系统同步课时，从招生系统同步试听，从财务系统同步绩效核算。</p></div>
+            <div class="mini-item"><strong>数据联动</strong><p>从排课系统同步课时，从招生系统同步试听；绩效只在财务系统内部核算。</p></div>
           </div>
         </article>
       </section>
@@ -137,7 +137,7 @@
         <div class="section-head">
           <div>
             <h2>教学质量月度总览</h2>
-            <p>按当前权重自动计算教师月度综合评分，并输出 S/A/B/C 等级和管理建议。</p>
+            <p>老师端只看本人档案；全员分级只给总管理员内部查看。</p>
           </div>
           <div class="filters" id="qualityGradeFilters">
             <span class="status-chip">S 90+</span>
@@ -234,8 +234,7 @@
         </article>
       </section>
 
-      <section class="grid">
-        <article class="card" id="teacherProfileCard">
+      <section class="card" id="teacherProfileCard">
           <div class="section-head">
             <div>
               <h2>教师个人教学质量档案</h2>
@@ -249,17 +248,6 @@
             <div class="metric"><span>家长异议</span><strong id="profileWeakTag">暂无</strong><p>匿名问卷高频标签</p></div>
             <div class="metric"><span>未闭环整改</span><strong id="profileTicket">0</strong><p>当前待处理工单</p></div>
           </div>
-        </article>
-
-        <article class="card" id="financePreviewCard">
-          <h2>财务绩效核算</h2>
-          <div class="table-wrap" style="margin-top:16px;">
-            <table>
-              <thead><tr><th>教师</th><th>评级</th><th>系数</th><th>财务建议</th></tr></thead>
-              <tbody id="financePreviewBody"></tbody>
-            </table>
-          </div>
-        </article>
       </section>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
@@ -276,8 +264,8 @@
           { teacher: "叶源泽", className: "初一数学暑假预备班", lessonType: "试听课", date: "2026-06-19", scores: [84, 80, 82, 86, 88], note: "互动不错，但例题梯度可以再清晰，试听后家长希望看到更明确的提分路径。", tags: ["试听转化观察"], attachment: "课堂记录截图" },
           { teacher: "海滢滢", className: "科学三升四小班", lessonType: "在读班", date: "2026-06-17", scores: [87, 89, 86, 90, 92], note: "课堂趣味性和耐心较好，家长沟通反馈要继续保持及时。", tags: [], attachment: "无" },
           { teacher: "赵萱", className: "六年级数学复习班", lessonType: "在读班", date: "2026-06-16", scores: [78, 77, 76, 80, 79], note: "课堂结构基本完整，后续继续观察练习反馈节奏。", tags: ["常规观察"], attachment: "课堂记录截图" },
-          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "用于展示 B 级待提升教师的管理建议，不代表真实评价。", tags: ["练习记录"], attachment: "课堂记录截图" },
-          { teacher: "程志豪", className: "校长示范课", lessonType: "练习记录", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "为了避免影响老师情绪，负面整改示例统一放在程志豪名下。", tags: ["重点整改"], attachment: "课堂记录截图" }
+          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "课堂练习反馈节奏需要继续观察，不代表最终评价。", tags: ["练习记录"], attachment: "课堂记录截图" },
+          { teacher: "程志豪", className: "校长示范课", lessonType: "练习记录", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "内部整改演练记录，统一放在程志豪名下，避免影响老师情绪。", tags: ["重点整改"], attachment: "课堂记录截图" }
         ],
         studentSurveys: [
           { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "赵萱", score: 78 }, { teacher: "李舒", score: 73 }, { teacher: "程志豪", score: 60 }
@@ -308,9 +296,23 @@
           { type: "试听家长问卷", enabled: true, sendAfter: "试听结束后 2 小时", questions: "试听满意度、未报名异议、意向等级、是否进培育群" }
         ]
       };
-      let state = loadState();
+      let state = normalizeQualityState(loadState());
       let cloudQualityReady = false;
       function byId(id) { return document.getElementById(id); }
+      function normalizeQualityState(input) {
+        const next = { ...input };
+        next.inspections = (Array.isArray(next.inspections) ? next.inspections : []).map((record) => {
+          let note = String(record.note || "");
+          if (note.includes("用于展示 B 级待提升教师的管理建议")) {
+            note = "课堂练习反馈节奏需要继续观察，不代表最终评价。";
+          }
+          if (note.includes("负面整改示例")) {
+            note = "内部整改演练记录，统一放在程志豪名下，避免影响老师情绪。";
+          }
+          return { ...record, note };
+        });
+        return next;
+      }
       function loadState() {
         try { return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")) }; }
         catch { return structuredClone(defaultState); }
@@ -329,7 +331,7 @@
             persist();
             return;
           }
-          state = { ...structuredClone(defaultState), ...result.data.payload };
+          state = normalizeQualityState({ ...structuredClone(defaultState), ...result.data.payload });
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           cloudQualityReady = true;
           renderAll();
@@ -342,7 +344,6 @@
       function hasPermission(key) { return typeof window.jrcHasPermission === "function" ? window.jrcHasPermission(key, currentEmployee()) : true; }
       function canEdit() { return hasPermission("teachingQuality.edit") || hasPermission("admin.access"); }
       function canViewFullQuality() { return hasPermission("admin.access"); }
-      function canViewQualityFinance() { return hasPermission("admin.access") || hasPermission("finance.access"); }
       function currentTeacherName() { return currentEmployee()?.name || state.selectedTeacher || ""; }
       function visibleTeacherNames() {
         if (canViewFullQuality()) return teachers();
@@ -490,15 +491,6 @@
         byId("profileInspection").textContent = selectedStats ? String(selectedStats.inspection) : "0";
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
-        const financeCard = byId("financePreviewCard");
-        const financeBody = byId("financePreviewBody");
-        const showFinancePreview = canViewQualityFinance();
-        if (financeCard) financeCard.hidden = !showFinancePreview;
-        if (financeBody) {
-          financeBody.innerHTML = showFinancePreview
-            ? items.map((item) => `<tr><td>${item.teacher}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${item.coefficient}</td><td>${item.grade === "S" ? "教学质量奖励按 1.1 核算。" : item.grade === "A" ? "按 1.0 正常核算。" : item.grade === "B" ? "按 0.9 预警核算，需教研帮扶。" : "按 0.8 预警核算，并触发整改/人事关注。"}</td></tr>`).join("")
-            : "";
-        }
         byId("inspectionEntryCard").hidden = !canEdit();
         byId("qualityEditWarning").hidden = canEdit();
         document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());

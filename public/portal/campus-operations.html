@@ -84,7 +84,7 @@
         <article class="card">
           <p class="eyebrow">校区运营</p>
           <h1>校区运营系统</h1>
-          <p class="hero-text">管理教室、卫生、安全检查、值班、暑假排班和校区异常记录。</p>
+          <p class="hero-text">教室、卫生、安全检查、值班、暑假排班和校区异常记录。</p>
           <div class="tag-row">
             <span class="tag">教室</span>
             <span class="tag">卫生</span>
@@ -109,7 +109,7 @@
         <div class="section-head">
           <div>
             <h2>校区运营总览</h2>
-            <p>管理教室、值班、卫生、安全检查和异常事项。</p>
+          <p>教室、值班、卫生、安全检查和异常事项。</p>
           </div>
           <span class="status-chip">运营台账</span>
         </div>
@@ -149,18 +149,18 @@
           <h2>新增运营事项</h2>
           <p>适合记录卫生、安全、教室、值班和校区异常。</p>
           <div class="form-grid">
-            <label class="field"><span>事项名称</span><input id="campusTitleInput" value="教室可用状态核对"></label>
+            <label class="field"><span>事项名称</span><input id="campusTitleInput" placeholder="例如：三楼 5 号教室投影仪维修"></label>
             <label class="field"><span>事项类型</span><select id="campusTypeInput"><option>教室</option><option>卫生</option><option>安全检查</option><option>值班</option><option>暑假排班</option><option>异常记录</option></select></label>
-            <label class="field"><span>位置 / 范围</span><input id="campusAreaInput" value="全校区"></label>
-            <label class="field"><span>责任人</span><input id="campusOwnerInput" value="待指定"></label>
+            <label class="field"><span>位置 / 范围</span><input id="campusAreaInput" placeholder="例如：三楼 5 号教室"></label>
+            <label class="field"><span>责任人</span><input id="campusOwnerInput" placeholder="填写责任人"></label>
             <label class="field"><span>处理状态</span><select id="campusStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option><option>需复盘</option></select></label>
-            <label class="field"><span>截止时间</span><input id="campusDueInput" value="暑假班前"></label>
-            <label class="field span-3"><span>事项说明</span><textarea id="campusNoteInput">记录发生时间、地点、影响范围、处理要求和是否需要通知家长或老师。</textarea></label>
+            <label class="field"><span>截止时间</span><input id="campusDueInput" placeholder="例如：本周五前"></label>
+            <label class="field span-3"><span>事项说明</span><textarea id="campusNoteInput" placeholder="记录发生时间、地点、影响范围、处理要求和是否需要通知家长或老师。"></textarea></label>
           </div>
           <div class="actions">
             <button class="button" id="campusSaveButton" type="button">保存运营事项</button>
             <button class="button secondary" id="campusExportButton" type="button">导出运营数据</button>
-            <button class="button secondary" id="campusResetButton" type="button">恢复默认数据</button>
+            <button class="button secondary" id="campusResetButton" type="button">清空台账</button>
           </div>
           <div class="notice" id="campusMessage">值班、卫生、安全、教室事项在这里形成待办和运营日志。</div>
         </article>
@@ -170,7 +170,7 @@
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
-            <p>记录新增、修改、删除、导入和恢复默认操作；云端会保留共享操作痕迹，便于后续追溯。</p>
+            <p>记录新增、修改、删除、导入和清空操作。</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -186,7 +186,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260623d"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
   </body>
 </html>

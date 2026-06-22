@@ -281,18 +281,18 @@
           <h2>服务记录录入</h2>
           <p>录入学习跟踪、课后反馈和家长沟通。</p>
           <div class="form-grid">
-            <label class="field"><span>学生姓名</span><input id="studentNameInput" value="学生 A"></label>
-            <label class="field"><span>班级 / 课程</span><input id="studentClassInput" value="暑假数学提升班"></label>
-            <label class="field"><span>任课老师</span><input id="studentTeacherInput" value="待同步"></label>
+            <label class="field"><span>学生姓名</span><input id="studentNameInput" placeholder="填写学生姓名"></label>
+            <label class="field"><span>班级 / 课程</span><input id="studentClassInput" placeholder="填写班级或课程"></label>
+            <label class="field"><span>任课老师</span><input id="studentTeacherInput" placeholder="填写任课老师"></label>
             <label class="field"><span>服务类型</span><select id="studentServiceTypeInput"><option>课后反馈</option><option>家长沟通</option><option>续费风险</option><option>学习跟踪</option></select></label>
             <label class="field"><span>风险等级</span><select id="studentRiskInput"><option>正常</option><option>关注</option><option>高风险</option></select></label>
-            <label class="field"><span>下一步</span><input id="studentNextActionInput" value="建立真实档案字段"></label>
-            <label class="field span-3"><span>记录内容</span><textarea id="studentContentInput">记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。</textarea></label>
+            <label class="field"><span>下一步</span><input id="studentNextActionInput" placeholder="例如：今晚回访家长 / 安排补课"></label>
+            <label class="field span-3"><span>记录内容</span><textarea id="studentContentInput" placeholder="记录课堂掌握情况、作业完成情况、家长反馈和下一步跟进事项。"></textarea></label>
           </div>
           <div class="actions">
             <button class="button" id="studentSaveButton" type="button">保存服务记录</button>
             <button class="button secondary" id="studentExportButton" type="button">导出服务数据</button>
-            <button class="button secondary" id="studentResetButton" type="button">恢复初始数据</button>
+            <button class="button secondary" id="studentResetButton" type="button">清空台账</button>
           </div>
           <div class="notice" id="studentServiceMessage">学生档案会和招生、排课、点名数据联动。</div>
         </article>
@@ -319,7 +319,7 @@
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260623d"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
