@@ -29,16 +29,24 @@
   }
 
   function readCookie(name) {
-    const prefix = `${encodeURIComponent(name)}=`;
-    return document.cookie
-      .split(";")
-      .map((item) => item.trim())
-      .find((item) => item.startsWith(prefix))
-      ?.slice(prefix.length) || "";
+    try {
+      const prefix = `${encodeURIComponent(name)}=`;
+      return document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(prefix))
+        ?.slice(prefix.length) || "";
+    } catch {
+      return "";
+    }
   }
 
   function writeCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
-    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    try {
+      document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    } catch {
+      // Cookie fallback is best-effort only.
+    }
   }
 
   function readSession() {

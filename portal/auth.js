@@ -469,20 +469,33 @@ function jrcSafeStorageRemove(key) {
 }
 
 function jrcReadCookie(name) {
-  const prefix = `${encodeURIComponent(name)}=`;
-  return document.cookie
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(prefix))
-    ?.slice(prefix.length) || "";
+  try {
+    const prefix = `${encodeURIComponent(name)}=`;
+    return document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(prefix))
+      ?.slice(prefix.length) || "";
+  } catch {
+    return "";
+  }
 }
 
 function jrcWriteCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
-  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+  try {
+    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function jrcClearCookie(name) {
-  document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0; SameSite=Lax`;
+  try {
+    document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0; SameSite=Lax`;
+  } catch {
+    // Ignore cookie failures.
+  }
 }
 
 function jrcReadCustomEmployees() {
@@ -505,9 +518,9 @@ function jrcGetAllEmployees() {
 function jrcReadSession() {
   try {
     const raw = jrcSafeStorageGet(JRC_AUTH_STORAGE_KEY) || decodeURIComponent(jrcReadCookie(JRC_AUTH_STORAGE_KEY) || "");
-    return JSON.parse(raw || "null");
+    return JSON.parse(raw || "null") || window.JRC_IN_MEMORY_SESSION || null;
   } catch {
-    return null;
+    return window.JRC_IN_MEMORY_SESSION || null;
   }
 }
 
@@ -522,8 +535,12 @@ function jrcWriteSession(employee, extras = {}) {
     cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : ""
   };
   const serialized = JSON.stringify(session);
-  jrcSafeStorageSet(JRC_AUTH_STORAGE_KEY, serialized);
-  jrcWriteCookie(JRC_AUTH_STORAGE_KEY, serialized);
+  const stored = jrcSafeStorageSet(JRC_AUTH_STORAGE_KEY, serialized);
+  const cookieStored = jrcWriteCookie(JRC_AUTH_STORAGE_KEY, serialized);
+  window.JRC_IN_MEMORY_SESSION = session;
+  if (!stored && !cookieStored) {
+    throw new Error("浏览器禁止保存登录状态，请换 Safari/Chrome 或关闭无痕模式。");
+  }
   return session;
 }
 
@@ -1673,7 +1690,7 @@ function jrcShowLoginOverlay() {
           cloudTokenExpiresAt: cloudResult.data.expiresAt || null
         });
         document.body.classList.remove("jrc-auth-required");
-        window.location.reload();
+        window.location.href = "/jrcedu/portal/index.html?login=ok";
         return false;
       }
 
@@ -1691,11 +1708,12 @@ function jrcShowLoginOverlay() {
       }
       jrcWriteSession(employee);
       document.body.classList.remove("jrc-auth-required");
-      window.location.reload();
+      window.location.href = "/jrcedu/portal/index.html?login=ok";
       return false;
     } catch (error) {
       console.error(error);
-      if (errorBox) errorBox.textContent = "登录过程出错，请刷新页面后重试。";
+      const message = String(error?.message || error || "未知错误");
+      if (errorBox) errorBox.textContent = `登录过程出错：${message}`;
       return false;
     } finally {
       loginSubmitting = false;
