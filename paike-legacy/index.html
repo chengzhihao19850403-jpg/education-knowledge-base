@@ -78,6 +78,11 @@
         border-color: transparent;
       }
 
+      .system-nav a.secondary-nav {
+        background: rgba(255, 255, 255, 0.52);
+        color: var(--muted);
+      }
+
       .access-gate {
         width: min(780px, calc(100vw - 32px));
         margin: 48px auto;
@@ -387,17 +392,14 @@
     <section id="accessGate" class="access-gate" hidden></section>
     <main class="shell">
       <nav class="system-nav" aria-label="系统导航">
-        <a href="/jrcedu/portal/index.html">总站首页</a>
+        <a href="/jrcedu/portal/index.html">工作台</a>
         <a class="active" href="/jrcedu/paike-legacy/index.html">排课系统</a>
-        <a href="/jrcedu/">学管知识库系统</a>
-        <a href="/jrcedu/portal/suggestions.html">建议系统</a>
+        <a href="./prototype/june.html?simple=1">平时模式</a>
+        <a href="./prototype/index.html?simple=1">暑假模式</a>
+        <a href="/jrcedu/portal/student-service.html">点名课销</a>
         <a href="/jrcedu/portal/finance.html">财务系统</a>
-        <a href="/jrcedu/advice-system/index.html">招生系统</a>
-        <a href="/jrcedu/portal/teaching-quality.html">教学质量系统</a>
-        <a href="/jrcedu/portal/student-service.html">学生服务</a>
-        <a href="/jrcedu/portal/curriculum-products.html">教研课程</a>
-        <a href="/jrcedu/portal/hr-training.html">人事培训</a>
-        <a href="/jrcedu/portal/campus-operations.html">校区运营</a>
+        <a class="secondary-nav" href="/jrcedu/advice-system/index.html">招生</a>
+        <a class="secondary-nav" href="/jrcedu/portal/campus-operations.html">校区运营</a>
       </nav>
       <section class="hero">
         <h1>匠人程排课系统</h1>
@@ -414,7 +416,7 @@
             <h2>上传老师最新总表</h2>
             <label class="field-label" for="homeTeacherWorkbookInput">老师总表文件</label>
             <input id="homeTeacherWorkbookInput" class="cell-input" type="file" multiple accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="tool-inline-note">支持多文件。CSV 可直接入云；XLSX 自动拆分解析器正在迁移中。</div>
+            <div class="tool-inline-note">支持多个老师文件一起上传，系统会自动拆分到平时模式和暑假模式。</div>
             <div id="homeUploadResult" class="upload-result">还没有上传记录。</div>
           </div>
           <div class="quick-actions">
