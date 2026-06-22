@@ -1,7 +1,7 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
 const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
-const JRC_TEMP_AUTO_LOGIN_USERNAME = "chengzhihao";
+const JRC_TEMP_AUTO_LOGIN_USERNAME = "";
 const JRC_LEGACY_BUSINESS_DATA_KEYS = [
   "advice-system-stage-prototype",
   "jrc-finance-ledger-v1",

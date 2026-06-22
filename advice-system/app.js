@@ -1720,7 +1720,7 @@ function bindBatchImport() {
   }
   byId("resetAdmissionsButton")?.addEventListener("click", () => {
     if (!canEditAdmissions()) return;
-    const confirmed = window.confirm("确认清空当前浏览器里的招生线索、跟进记录、导入结果和操作日志吗？员工账号不会被清空。");
+    const confirmed = window.confirm("只清空当前浏览器缓存，不删除云端招生数据。确认继续吗？刷新页面后会重新读取云端数据。");
     if (!confirmed) return;
     state.leads = [];
     state.followups = [];

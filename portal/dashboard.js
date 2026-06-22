@@ -184,12 +184,12 @@
     const hasData = localStorage.getItem(config.key) !== null;
     const count = countStoreRows(config);
     if (!hasData) {
-      return { label: "待录入", className: "status-warn", detail: "当前浏览器暂无本系统数据。" };
+      return { label: "待录入", className: "status-warn", detail: "云端暂未检测到本系统数据。" };
     }
     if (config.type === "teachingQuality") {
       return { label: "演示样例", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需换成真实数据。` };
     }
-    return { label: "本机数据", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录。` };
+    return { label: "云端试运行", className: "status-ok", detail: `当前检测到 ${count} 条/类记录，本机缓存仅作兜底。` };
   }
 
   function getEmployeeState() {
