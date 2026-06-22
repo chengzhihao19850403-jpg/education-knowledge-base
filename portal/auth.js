@@ -124,6 +124,10 @@ const JRC_ROLE_PERMISSIONS = {
     "teachingQuality.access",
     "studentService.access",
     "curriculum.access",
+    "curriculum.create",
+    "curriculum.update",
+    "curriculum.import",
+    "curriculum.export",
     "campus.access"
   ]
 };
@@ -874,6 +878,10 @@ function jrcGetPermissions(subject) {
   if (subject.role === "授课老师") {
     permissions.add("studentService.access");
     permissions.add("curriculum.access");
+    permissions.add("curriculum.create");
+    permissions.add("curriculum.update");
+    permissions.add("curriculum.import");
+    permissions.add("curriculum.export");
     permissions.add("campus.access");
   }
 
@@ -887,6 +895,10 @@ function jrcGetPermissions(subject) {
     permissions.add("studentService.access");
     permissions.add("studentService.edit");
     permissions.add("curriculum.access");
+    permissions.add("curriculum.create");
+    permissions.add("curriculum.update");
+    permissions.add("curriculum.import");
+    permissions.add("curriculum.export");
     permissions.add("campus.access");
     permissions.add("campus.edit");
   }

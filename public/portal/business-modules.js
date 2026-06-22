@@ -399,6 +399,32 @@
     URL.revokeObjectURL(url);
   }
 
+  function formatFileSize(bytes) {
+    const value = Number(bytes) || 0;
+    if (value >= 1024 * 1024) return `${Math.round((value / 1024 / 1024) * 10) / 10} MB`;
+    if (value >= 1024) return `${Math.round(value / 102.4) / 10} KB`;
+    return `${value} B`;
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("file read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function downloadDataUrl(filename, dataUrl) {
+    if (!dataUrl) return;
+    const anchor = document.createElement("a");
+    anchor.href = dataUrl;
+    anchor.download = filename || "课程资料";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
   function parseDateValue(value) {
     const time = Date.parse(String(value || "").replace(/\//g, "-"));
     return Number.isFinite(time) ? time : 0;
@@ -449,7 +475,10 @@
 
   function rowMatches(row, keyword) {
     if (!keyword) return true;
-    return Object.values(row).some((value) => String(value || "").toLowerCase().includes(keyword));
+    return Object.entries(row).some(([key, value]) => {
+      if (key === "fileDataUrl") return false;
+      return String(value || "").toLowerCase().includes(keyword);
+    });
   }
 
   function actionButtons(index, capabilities = {}) {
@@ -680,14 +709,22 @@
     const moduleKey = "curriculum";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-curriculum-products-v2";
+    const maxFileBytes = 8 * 1024 * 1024;
     const defaults = {
       name: "",
       subject: "",
+      grade: "一年级",
+      track: "课内体系",
+      lesson: "",
       type: "课程大纲",
       classType: "暑假班",
       version: "V1.0",
       owner: "",
-      note: ""
+      note: "",
+      fileName: "",
+      fileType: "",
+      fileSize: 0,
+      fileDataUrl: ""
     };
     function sanitizeRows(input) {
       const oldSeedNames = ["暑假数学提升课", "初一数学衔接课", "科学专题课"];
@@ -699,17 +736,65 @@
     function fillForm(row) {
       $("curriculumNameInput").value = row.name || "";
       $("curriculumSubjectInput").value = row.subject || "";
+      if ($("curriculumGradeInput")) $("curriculumGradeInput").value = row.grade || "一年级";
+      if ($("curriculumTrackInput")) $("curriculumTrackInput").value = row.track || "课内体系";
       $("curriculumTypeInput").value = row.type || "备课资料";
       $("curriculumClassTypeInput").value = row.classType || "";
+      if ($("curriculumLessonInput")) $("curriculumLessonInput").value = row.lesson || "";
       $("curriculumVersionInput").value = row.version || "V1.0";
       $("curriculumOwnerInput").value = row.owner || "";
       $("curriculumNoteInput").value = row.note || "";
+      if ($("curriculumFileInput")) $("curriculumFileInput").value = "";
+      renderFilePreview(row);
     }
 
     function resetForm() {
       fillForm(defaults);
       editingIndex = -1;
-      setText("curriculumSaveButton", "保存资料版本");
+      setText("curriculumSaveButton", "保存课程资料");
+    }
+
+    function renderFilePreview(row = {}) {
+      const preview = $("curriculumFilePreview");
+      if (!preview) return;
+      if (row.fileName) {
+        preview.textContent = `当前文件：${row.fileName}（${formatFileSize(row.fileSize)}）。重新选择文件后会替换。`;
+        return;
+      }
+      preview.textContent = "尚未选择文件。";
+    }
+
+    async function selectedFilePayload(existing = {}) {
+      const file = $("curriculumFileInput")?.files?.[0];
+      if (!file) {
+        return {
+          fileName: existing.fileName || "",
+          fileType: existing.fileType || "",
+          fileSize: existing.fileSize || 0,
+          fileDataUrl: existing.fileDataUrl || ""
+        };
+      }
+      if (file.size > maxFileBytes) {
+        throw new Error(`文件超过 ${formatFileSize(maxFileBytes)}。第一阶段请先上传小文件；大批量资料后续接阿里云 OSS。`);
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      return {
+        fileName: file.name,
+        fileType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        fileDataUrl: dataUrl
+      };
+    }
+
+    function fileCell(row, index) {
+      if (!row.fileName || !row.fileDataUrl) return `${tag("未上传", "neutral")}`;
+      return `
+        <div style="display:grid; gap:6px;">
+          <button type="button" data-download-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">下载</button>
+          <span>${escapeHtml(row.fileName)}</span>
+          <small>${formatFileSize(row.fileSize)}</small>
+        </div>
+      `;
     }
 
     function render() {
@@ -719,24 +804,34 @@
       $("curriculumTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
-            <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(row.subject)}</td>
-            <td>${escapeHtml(row.classType)}</td>
-            <td>${tag(row.type, "info")} ${workStatusTag(row.status)}</td>
-            <td>${escapeHtml(row.version)}</td>
+            <td>${escapeHtml(row.grade || "-")}<br>${tag(row.track || "未分体系", "info")}</td>
+            <td><strong>${escapeHtml(row.name)}</strong><br>${escapeHtml(row.subject)}</td>
+            <td>${tag(row.type, "info")}<br>${escapeHtml(row.classType)}</td>
+            <td>${escapeHtml(row.lesson || "-")}<br>${escapeHtml(row.version)}</td>
+            <td>${fileCell(row, index)}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.note)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("") : `<tr><td colspan="8">暂无课程资料。可以先新增课程大纲、讲义、题库或备课资料。</td></tr>`;
       setText("curriculumMetricOutline", rows.filter((row) => row.type === "课程大纲").length);
-      setText("curriculumMetricMaterials", rows.filter((row) => ["讲义", "题库"].includes(row.type)).length);
-      setText("curriculumMetricProducts", new Set(rows.map((row) => row.classType)).size);
-      setText("curriculumMetricPreparation", rows.filter((row) => row.type === "备课资料").length);
+      setText("curriculumMetricMaterials", rows.filter((row) => ["课件PDF", "讲义Word", "题目图片", "老师版答案", "题库"].includes(row.type)).length);
+      setText("curriculumMetricProducts", new Set(rows.map((row) => `${row.grade || ""}|${row.track || ""}`).filter(Boolean)).size);
+      setText("curriculumMetricPreparation", rows.filter((row) => row.fileName).length);
       renderAuditLog(moduleKey, "curriculumAuditTableBody");
     }
 
-    $("curriculumSaveButton")?.addEventListener("click", () => {
+    $("curriculumFileInput")?.addEventListener("change", () => {
+      const file = $("curriculumFileInput")?.files?.[0];
+      if (!file) {
+        renderFilePreview(editingIndex >= 0 ? rows[editingIndex] : {});
+        return;
+      }
+      const preview = $("curriculumFilePreview");
+      if (preview) preview.textContent = `已选择：${file.name}（${formatFileSize(file.size)}）`;
+    });
+
+    $("curriculumSaveButton")?.addEventListener("click", async () => {
       const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
       if (!actionAllowed) {
         denyAction("curriculumMessage", editingIndex >= 0 ? "修改" : "新增");
@@ -747,26 +842,38 @@
         setText("curriculumMessage", "请先填写资料名称。");
         return;
       }
+      const existing = editingIndex >= 0 ? rows[editingIndex] : {};
+      let filePayload = {};
+      try {
+        filePayload = await selectedFilePayload(existing);
+      } catch (error) {
+        setText("curriculumMessage", error.message || "文件读取失败。");
+        return;
+      }
       const payload = {
         name,
         subject: normalizeText($("curriculumSubjectInput")?.value) || "-",
+        grade: $("curriculumGradeInput")?.value || "-",
+        track: $("curriculumTrackInput")?.value || "-",
         type: $("curriculumTypeInput")?.value || "备课资料",
         classType: $("curriculumClassTypeInput")?.value || "-",
+        lesson: normalizeText($("curriculumLessonInput")?.value) || "-",
         status: editingIndex >= 0 ? rows[editingIndex].status : "已录入",
         version: normalizeText($("curriculumVersionInput")?.value) || "V1.0",
         owner: normalizeName($("curriculumOwnerInput")?.value) || "-",
         note: normalizeText($("curriculumNoteInput")?.value) || "-",
+        ...filePayload,
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
         recordAudit(moduleKey, "更新", name, `${payload.type} / ${payload.version}`);
-        setText("curriculumMessage", `已更新 ${name}。`);
+        setText("curriculumMessage", `已更新 ${name}${payload.fileName ? `，文件 ${payload.fileName} 已保存。` : "。"}`);
       } else {
         rows.unshift(payload);
         recordAudit(moduleKey, "新增", name, `${payload.type} / ${payload.version}`);
-        setText("curriculumMessage", `已保存 ${name}。`);
+        setText("curriculumMessage", `已保存 ${name}${payload.fileName ? `，文件 ${payload.fileName} 已上传。` : "。"}`);
       }
       writeStore(key, rows);
       resetForm();
@@ -777,11 +884,16 @@
     $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadCsv("教研与课程产品数据.csv", rows, [
       { label: "资料名称", value: "name" },
       { label: "学科/年级", value: "subject" },
+      { label: "年级", value: "grade" },
+      { label: "课程体系", value: "track" },
       { label: "资料类型", value: "type" },
       { label: "适用班型", value: "classType" },
+      { label: "课次/专题", value: "lesson" },
       { label: "状态", value: "status" },
       { label: "版本", value: "version" },
       { label: "负责人", value: "owner" },
+      { label: "文件名", value: "fileName" },
+      { label: "文件大小", value: (row) => row.fileName ? formatFileSize(row.fileSize) : "" },
       { label: "说明", value: "note" },
       { label: "创建时间", value: "createdAt" }
     ])));
@@ -814,6 +926,18 @@
         setText("curriculumMessage", `已删除 ${removed.name}。`);
       }
     }, capabilities, "curriculumMessage");
+    $("curriculumTableBody")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-download-curriculum]");
+      if (!button) return;
+      const index = Number(button.getAttribute("data-download-curriculum"));
+      const row = rows[index];
+      if (!row?.fileDataUrl) {
+        setText("curriculumMessage", "这条资料还没有上传文件。");
+        return;
+      }
+      downloadDataUrl(row.fileName, row.fileDataUrl);
+      setText("curriculumMessage", `正在下载 ${row.fileName}。`);
+    });
     bindTableImport({
       buttonId: "curriculumImportButton",
       inputId: "curriculumImportInput",
@@ -830,12 +954,19 @@
         return {
           name,
           subject: normalizeText(readField(row, ["subject", "学科", "年级", "学科 / 年级"], "-")) || "-",
-          type: normalizeStatus(readField(row, ["type", "资料类型", "类型"], "备课资料"), ["课程大纲", "讲义", "题库", "备课资料"], "备课资料"),
+          grade: normalizeText(readField(row, ["grade", "年级", "适用年级"], "")) || "-",
+          track: normalizeStatus(readField(row, ["track", "课程体系", "体系"], "课内体系"), ["课内体系", "培优体系", "奥数体系", "强基重高选拔体系"], "课内体系"),
+          type: normalizeStatus(readField(row, ["type", "资料类型", "类型"], "备课资料"), ["课程大纲", "课件PDF", "讲义Word", "题目图片", "老师版答案", "板书照片", "题库", "备课资料", "其他"], "备课资料"),
           classType: normalizeText(readField(row, ["classType", "适用班型", "班型"], "-")) || "-",
+          lesson: normalizeText(readField(row, ["lesson", "课次", "专题", "课次 / 专题"], "-")) || "-",
           status: normalizeStatus(readField(row, ["status", "状态"], "已录入"), ["待导入讲义", "待整理题库", "待上传资料", "已录入"], "已录入"),
           version: normalizeText(readField(row, ["version", "当前版本", "版本"], "V1.0")) || "V1.0",
           owner: normalizeName(readField(row, ["owner", "负责人"], "-")) || "-",
           note: normalizeText(readField(row, ["note", "版本说明", "说明", "备注"], "-")) || "-",
+          fileName: normalizeText(readField(row, ["fileName", "文件名", "附件"], "")),
+          fileType: normalizeText(readField(row, ["fileType", "文件类型"], "")),
+          fileSize: Number(readField(row, ["fileSize", "文件大小"], 0)) || 0,
+          fileDataUrl: String(readField(row, ["fileDataUrl", "文件数据"], "")),
           createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
           updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };
@@ -864,7 +995,7 @@
       canWrite: capabilities.create || capabilities.update,
       messageId: "curriculumMessage",
       buttonRules: [["curriculumSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["curriculumImportButton", capabilities.import, "导入"], ["curriculumExportButton", capabilities.export, "导出"], ["curriculumResetButton", capabilities.reset, "清空"]],
-      fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumNoteInput"]
+      fieldIds: ["curriculumNameInput", "curriculumSubjectInput", "curriculumGradeInput", "curriculumTrackInput", "curriculumTypeInput", "curriculumClassTypeInput", "curriculumLessonInput", "curriculumVersionInput", "curriculumOwnerInput", "curriculumFileInput", "curriculumNoteInput"]
     });
   }
 
