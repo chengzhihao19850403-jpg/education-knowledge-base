@@ -684,7 +684,7 @@
           });
           const options = Array.from(grouped.values()).sort((a, b) => `${a.date}${a.teacherName}${a.className}`.localeCompare(`${b.date}${b.teacherName}${b.className}`, "zh-CN"));
           if (!options.length) {
-            const label = preimportBundle ? "当前日期和老师没有已上传排课" : "完整排课名单待管理员上传到云端";
+            const label = preimportBundle ? "当前日期和老师没有匹配排课" : "可手动粘贴名单点名";
             fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
             return;
           }
@@ -740,7 +740,7 @@
         };
         const renderRoster = () => {
           if (!draftRows.length) {
-            rosterBody.innerHTML = `<tr><td colspan="6">先填写班级和学生名单，再点“生成点名名单”。后续接云排课后，这里会自动带出本节课名单。</td></tr>`;
+            rosterBody.innerHTML = `<tr><td colspan="6">先填写班级和学生名单，再点“生成点名名单”；有匹配排课时也可以直接带出名单。</td></tr>`;
             renderDraftMetrics();
             return;
           }

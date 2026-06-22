@@ -13,11 +13,11 @@
     { key: "jrc-suggestion-management-v2", label: "建议系统", href: "./suggestions.html", type: "array" }
   ];
   const cloudBusinessStores = [
-    { key: "advice-system-stage-prototype", label: "招生管理", risk: "可先试用" },
+    { key: "advice-system-stage-prototype", label: "招生管理", risk: "可录入跟进" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", risk: "需财务复核" },
     { key: "jrc-student-service-v2", label: "学生服务", risk: "需和点名核对" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", risk: "需替换练习记录" },
-    { key: "jrc-suggestion-management-v2", label: "建议系统", risk: "可先试用" },
+    { key: "jrc-suggestion-management-v2", label: "建议系统", risk: "持续收集" },
     { key: "jrc-hr-training-tasks-v2", label: "人事培训", risk: "账号权限已接入" },
     { key: "jrc-campus-operations-v2", label: "校区运营", risk: "可先查看" },
     { key: "jrc-curriculum-products-v2", label: "教研课程", risk: "资料待补" }
@@ -71,7 +71,7 @@
       return {
         title: "总览工作台",
         badge: "全局管理",
-        intro: "这里放全校区今天最该先看的事项：数据状态、待办和试用风险。",
+        intro: "这里放全校区今天最该先看的事项：数据状态、待办和核对重点。",
         welcome: `${employee?.name || "管理员"}，今天先看全局有没有漏项；老师们具体工作不需要都看这些管理数据。`
       };
     }
@@ -311,7 +311,7 @@
       todos.push(todoItem(
         "提醒",
         "操作日志还没有形成记录",
-        "多人试用时，请尽量通过系统新增、修改、导入，不要只在群里口头改。",
+        "多人使用时，请尽量通过系统新增、修改、导入，不要只在群里口头改。",
         "./suggestions.html",
         "看日志"
       ));
@@ -331,7 +331,7 @@
       todos.push(todoItem(
         "正常",
         "有想法可以随时丢进建议系统",
-        "试用期里，哪里不好用、哪里看不懂、哪里和老师习惯不一致，都可以先记下来。",
+        "哪里不好用、哪里看不懂、哪里和老师习惯不一致，都可以先记下来。",
         "./suggestions.html",
         "提交建议"
       ));
