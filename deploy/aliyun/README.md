@@ -124,9 +124,22 @@ sudo bash /opt/jrcedu/deploy/aliyun/install-on-ecs.sh
 3. 执行 `deploy/aliyun/seed-employees.sql`。
 4. 部署后端 API。
 5. 在前端配置 API 地址。
-6. 测试登录、权限、操作日志、备份登记。
-7. 连续试用 3-5 天。
-8. 再迁移排课/招生/财务等业务数据。
+6. 安装教研课程资料每日备份：`sudo bash deploy/aliyun/install-curriculum-backup-cron.sh`。
+7. 测试登录、权限、操作日志、备份登记。
+8. 连续试用 3-5 天。
+9. 再迁移排课/招生/财务等业务数据。
+
+## 教研课程资料备份
+
+老师上传到教研与课程产品系统的文件，主文件保存在 `/opt/jrcedu-uploads/curriculum`。
+
+当前采用三层保护：
+
+- 上传文件按年级、课程体系、月份分目录保存。
+- 每次上传生成唯一版本文件和 `.metadata.json`，不覆盖旧文件。
+- 服务器每天 03:10 自动打包到 `/opt/jrcedu-backups/curriculum`，默认保留 90 天。
+
+校长电脑可运行 `scripts/install-mac-curriculum-sync.sh`，在桌面生成 `标准化课件标准化系统` 文件夹，并每 30 分钟从服务器同步一次新增资料。自动同步需要这台 Mac 可以 SSH 登录服务器；建议后续配置 SSH 密钥，避免定时任务等待输入密码。
 
 ## 买云前仍可继续做的准备
 

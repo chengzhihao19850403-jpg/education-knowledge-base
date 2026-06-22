@@ -146,8 +146,8 @@ JRC_UPLOAD_MAX_BYTES=31457280
 JRC_JSON_MAX_BYTES=75497472
 EOF
 chmod 600 "${ENV_FILE}"
-mkdir -p /opt/jrcedu-uploads/curriculum
-chmod 750 /opt/jrcedu-uploads /opt/jrcedu-uploads/curriculum
+mkdir -p /opt/jrcedu-uploads/curriculum /opt/jrcedu-backups/curriculum
+chmod 750 /opt/jrcedu-uploads /opt/jrcedu-uploads/curriculum /opt/jrcedu-backups /opt/jrcedu-backups/curriculum
 
 sudo -u postgres psql <<SQL
 do \$\$
@@ -183,6 +183,9 @@ grant usage, select, update on all sequences in schema public to jrcedu_app;
 alter default privileges in schema public grant select, insert, update, delete on tables to jrcedu_app;
 alter default privileges in schema public grant usage, select, update on sequences to jrcedu_app;
 SQL
+
+echo "==> Installing curriculum file backup"
+bash "${APP_DIR}/deploy/aliyun/install-curriculum-backup-cron.sh"
 
 echo "==> Installing API dependencies"
 if [[ -f "${API_DIR}/package-lock.json" ]]; then

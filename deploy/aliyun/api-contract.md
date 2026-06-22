@@ -11,8 +11,12 @@
 - `GET /permissions`
 - `POST /audit-logs`
 - `POST /backup-exports`
+- `POST /curriculum-files`
+- `GET /curriculum-files/{storageKey}`
 
 后端使用数据库账号连接 RDS，浏览器不保存数据库密码。
+
+教研课程资料上传后保存在服务器 `/opt/jrcedu-uploads/curriculum`，按年级、课程体系、月份分目录。每个上传文件旁边会生成 `.metadata.json`，用于恢复上传人、资料名、课次和版本信息。
 
 ## GET /health
 

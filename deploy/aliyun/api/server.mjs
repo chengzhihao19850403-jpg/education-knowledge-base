@@ -140,6 +140,30 @@ function sanitizeOriginalFileName(fileName) {
     .slice(0, 160) || "课程资料";
 }
 
+function sanitizeStorageSegment(value, fallback = "未分类") {
+  return String(value || fallback)
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\.\./g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || fallback;
+}
+
+function curriculumStorageFolder(metadata = {}) {
+  const grade = sanitizeStorageSegment(metadata.grade, "未分年级");
+  const track = sanitizeStorageSegment(metadata.track, "未分体系");
+  const month = new Date().toISOString().slice(0, 7);
+  return `curriculum/${grade}/${track}/${month}`;
+}
+
+function curriculumVersionFileName(originalFileName, extension) {
+  const basename = path.basename(originalFileName, extension);
+  const readableName = sanitizeStorageSegment(basename, "课程资料").slice(0, 96);
+  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+  const randomId = crypto.randomBytes(5).toString("hex");
+  return `${timestamp}-${randomId}-${readableName}${extension}`;
+}
+
 function resolveUploadPath(storageKey) {
   const normalizedKey = path.posix.normalize(String(storageKey || "").replace(/^\/+/g, ""));
   if (!normalizedKey || normalizedKey.startsWith("../") || normalizedKey.includes("/../")) return null;
@@ -640,10 +664,9 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
     return;
   }
 
-  const month = new Date().toISOString().slice(0, 7);
-  const randomId = crypto.randomBytes(10).toString("hex");
-  const storedFileName = `${Date.now()}-${randomId}${extension}`;
-  const storageKey = `curriculum/${month}/${storedFileName}`;
+  const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
+  const storedFileName = curriculumVersionFileName(originalFileName, extension);
+  const storageKey = `${curriculumStorageFolder(metadata)}/${storedFileName}`;
   const absolutePath = resolveUploadPath(storageKey);
   if (!absolutePath) {
     send(res, 500, { ok: false, error: "invalid_storage_key" }, headers);
@@ -655,18 +678,37 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
 
   const contentType = body.contentType || decoded.contentType || contentTypeByExtension.get(extension) || "application/octet-stream";
   const fileUrl = `/api/curriculum-files/${encodeStorageKey(storageKey)}`;
+  const uploadedAt = new Date().toISOString();
+  const uploadedByName = authorization?.payload?.name || body.operatorName || "-";
+  const uploadedByUsername = authorization?.payload?.sub || body.operatorUsername || "-";
+  const contentSha256 = crypto.createHash("sha256").update(decoded.buffer).digest("hex");
+  const versionId = crypto.createHash("sha256").update(`${storageKey}:${contentSha256}`).digest("hex").slice(0, 16);
+  await fs.writeFile(`${absolutePath}.metadata.json`, JSON.stringify({
+    versionId,
+    storageKey,
+    originalFileName,
+    fileType: contentType,
+    fileSize: decoded.buffer.length,
+    contentSha256,
+    uploadedAt,
+    uploadedByName,
+    uploadedByUsername,
+    metadata
+  }, null, 2), { flag: "wx" });
   send(res, 200, {
     ok: true,
     file: {
+      versionId,
       fileName: originalFileName,
       fileType: contentType,
       fileSize: decoded.buffer.length,
       fileUrl,
       fileStorageKey: storageKey,
       storageKind: "ecs-file",
-      uploadedAt: new Date().toISOString(),
-      uploadedByName: authorization?.payload?.name || body.operatorName || "-",
-      uploadedByUsername: authorization?.payload?.sub || body.operatorUsername || "-"
+      contentSha256,
+      uploadedAt,
+      uploadedByName,
+      uploadedByUsername
     }
   }, headers);
 }
