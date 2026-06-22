@@ -1,6 +1,7 @@
 (function () {
   const admissionsKey = "advice-system-stage-prototype";
   const auditKey = "jrc-business-audit-log-v1";
+  const suggestionsKey = "jrc-suggestion-management-v2";
   const systemStores = [
     { key: "paike-summer-import-review-v1", label: "排课待确认", href: "./paike.html", type: "array" },
     { key: "advice-system-stage-prototype", label: "招生线索", href: "/jrcedu/advice-system/index.html", type: "admissions" },
@@ -214,14 +215,93 @@
     const className = level === "紧急" ? "status-danger" : level === "提醒" ? "status-warn" : "status-ok";
     return `
       <div class="workbench-item">
-        <span class="badge ${className}">${level}</span>
+        <span class="badge ${className}">${escapeHtml(level)}</span>
         <div>
-          <strong>${title}</strong>
-          <p>${detail}</p>
+          <strong>${escapeHtml(title)}</strong>
+          <p>${escapeHtml(detail)}</p>
         </div>
-        <a class="text-link" href="${href}">${actionText}</a>
+        <a class="text-link" href="${escapeHtml(href)}">${escapeHtml(actionText)}</a>
       </div>
     `;
+  }
+
+  function isOpenTask(item) {
+    return ["assigned", "doing", "review"].includes(item?.status);
+  }
+
+  function taskDueLevel(item) {
+    if (!item?.dueDate || ["launched", "paused"].includes(item.status)) return "正常";
+    const due = new Date(`${item.dueDate}T00:00:00`);
+    const now = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+    const diffDays = Math.ceil((due - now) / 86400000);
+    if (diffDays < 0) return "紧急";
+    if (diffDays <= 1) return "提醒";
+    return "正常";
+  }
+
+  function taskStatusText(status) {
+    return {
+      assigned: "已转任务",
+      doing: "执行中",
+      review: "待验收",
+      launched: "已落地",
+      paused: "暂缓"
+    }[status] || "待处理";
+  }
+
+  function taskRelatedToCurrentUser(item) {
+    const employee = currentEmployee();
+    const name = employee?.name || "";
+    if (!name) return false;
+    return [item.owner, item.verifier, item.author].some((value) => String(value || "") === name);
+  }
+
+  async function readSuggestionTasks() {
+    let rows = readStore(suggestionsKey, []);
+    if (window.JRC_CLOUD?.readModuleData) {
+      try {
+        const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
+        if (result?.ok && result.data?.found && Array.isArray(result.data.payload)) {
+          rows = result.data.payload;
+          localStorage.setItem(suggestionsKey, JSON.stringify(rows));
+        }
+      } catch (error) {
+        console.warn("Failed to read cloud suggestion tasks", error);
+      }
+    }
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  async function renderMyTasks() {
+    const holder = $("portalMyTaskList");
+    if (!holder) return;
+    if (!hasPermission("suggestions.access")) {
+      holder.innerHTML = todoItem("正常", "当前账号暂无任务入口", "该账号没有开放建议任务系统。", "./index.html", "知道了");
+      return;
+    }
+    const rows = await readSuggestionTasks();
+    const tasks = rows
+      .filter((item) => isOpenTask(item) && taskRelatedToCurrentUser(item))
+      .sort((left, right) => {
+        const levelRank = { "紧急": 0, "提醒": 1, "正常": 2 };
+        const levelDiff = levelRank[taskDueLevel(left)] - levelRank[taskDueLevel(right)];
+        if (levelDiff !== 0) return levelDiff;
+        return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
+      });
+    if ($("portalMyTaskBadge")) $("portalMyTaskBadge").textContent = String(tasks.length);
+    holder.innerHTML = tasks.length ? tasks.slice(0, 6).map((task) => {
+      const level = taskDueLevel(task);
+      const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
+      const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
+      const detail = `${taskStatusText(task.status)}｜负责人 ${task.owner || "未分配"}｜验收人 ${task.verifier || "未设置"}｜${dueText}`;
+      return todoItem(level, title, detail, "./suggestions.html", task.status === "review" ? "去验收" : "处理任务");
+    }).join("") : todoItem(
+      "正常",
+      "当前没有分配给你的任务",
+      "后续建议被采纳并转成任务后，会显示在这里。",
+      "./suggestions.html",
+      "查看建议"
+    );
   }
 
   function setRoleCopy() {
@@ -349,6 +429,7 @@
 
     const holder = $("portalTodoList");
     if (holder) holder.innerHTML = todos.join("");
+    renderMyTasks();
 
     renderDataStates();
     renderCloudReadiness();

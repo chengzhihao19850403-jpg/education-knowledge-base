@@ -241,6 +241,10 @@
         padding: 18px;
         background: rgba(255,255,255,0.78);
       }
+      .suggestion-card.overdue {
+        border-color: rgba(185, 28, 28, 0.28);
+        background: rgba(185, 28, 28, 0.045);
+      }
       .suggestion-head {
         display: flex;
         align-items: flex-start;
@@ -437,6 +441,13 @@
           <h2>提交建议或改进事项</h2>
           <form id="suggestionForm" class="form-grid">
             <label class="field">
+              事项类型
+              <select name="entryType">
+                <option value="suggestion" selected>员工建议</option>
+                <option value="task">直接任务（管理员）</option>
+              </select>
+            </label>
+            <label class="field">
               分类
               <select name="category">
                 <option value="流程优化">流程优化</option>
@@ -463,7 +474,7 @@
             </label>
             <label class="field span-2">
               具体说明
-              <textarea name="content" required placeholder="写清楚现象、影响、建议怎么改。越具体，越容易被采纳。"></textarea>
+              <textarea name="content" required placeholder="建议请写清现象、影响和改法；任务请写清要做什么、交付标准和完成口径。"></textarea>
             </label>
             <label class="field">
               建议负责人
@@ -661,6 +672,7 @@
         if (!normalized.taskId && ["assigned", "doing", "review", "launched"].includes(normalized.status)) {
           normalized.taskId = `task-${normalized.id || Date.now()}`;
         }
+        normalized.entryType = normalized.entryType || (normalized.taskId ? "task" : "suggestion");
         normalized.verifier = normalized.verifier || "";
         normalized.taskStandard = normalized.taskStandard || "";
         normalized.completionReport = normalized.completionReport || "";
@@ -723,6 +735,13 @@
         return diffDays <= 3;
       }
 
+      function isOverdue(item) {
+        if (!item.dueDate || ["launched", "paused"].includes(item.status)) return false;
+        const due = new Date(item.dueDate + "T00:00:00");
+        const now = new Date(today() + "T00:00:00");
+        return due < now;
+      }
+
       function filteredSuggestions() {
         const keyword = byId("searchInput").value.trim().toLowerCase();
         const status = byId("statusFilter").value;
@@ -732,6 +751,9 @@
           return (!keyword || haystack.includes(keyword)) &&
             (!status || item.status === status) &&
             (!category || item.category === category);
+        }).sort((left, right) => {
+          if (isOverdue(left) !== isOverdue(right)) return isOverdue(left) ? -1 : 1;
+          return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
         });
       }
 
@@ -764,12 +786,13 @@
       function renderList() {
         const list = filteredSuggestions();
         byId("suggestionList").innerHTML = list.length ? list.map((item) => `
-          <article class="suggestion-card" data-id="${escapeHtml(item.id)}">
+          <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""}" data-id="${escapeHtml(item.id)}">
             <div class="suggestion-head">
               <div>
                 <div class="suggestion-title">${escapeHtml(item.title)}</div>
                 <div class="suggestion-meta">
                   ${escapeHtml(item.category)}｜${escapeHtml(item.anonymous ? "匿名" : item.author)}｜${escapeHtml(item.createdAt)}
+                  ${item.entryType === "task" ? "｜直接任务" : "｜建议"}
                   ${item.owner ? `｜负责人 ${escapeHtml(item.owner)}` : "｜未分配负责人"}
                   ${item.verifier ? `｜验收人 ${escapeHtml(item.verifier)}` : ""}
                   ${item.dueDate ? `｜截止 ${escapeHtml(item.dueDate)}` : ""}
@@ -777,6 +800,7 @@
               </div>
               <div class="card-tools">
                 <span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(statusMap[item.status] || item.status)}</span>
+                ${isOverdue(item) ? `<span class="status-pill reward">已逾期</span>` : ""}
                 <span class="priority-pill ${escapeHtml(item.impact)}">${escapeHtml(impactMap[item.impact] || "中影响")}</span>
               </div>
             </div>
@@ -878,9 +902,17 @@
         const title = String(data.get("title") || "").trim();
         const content = String(data.get("content") || "").trim();
         if (!title || !content) return;
+        const entryType = String(data.get("entryType") || "suggestion");
+        if (entryType === "task" && !canManage) {
+          alert("直接新增任务需要建议系统管理权限。普通员工可以先提交建议。");
+          return;
+        }
         const anonymous = data.get("anonymous") === "on";
+        const owner = String(data.get("owner") || "").trim();
+        const isDirectTask = entryType === "task";
         suggestions.unshift({
-          id: `s-${Date.now()}`,
+          id: `${isDirectTask ? "t" : "s"}-${Date.now()}`,
+          entryType,
           title,
           category: String(data.get("category") || "流程优化"),
           impact: String(data.get("impact") || "medium"),
@@ -888,11 +920,12 @@
           author: anonymous ? "匿名" : currentName,
           anonymous,
           createdAt: today(),
-          status: "new",
-          owner: String(data.get("owner") || "").trim(),
+          status: isDirectTask ? "assigned" : "new",
+          owner: isDirectTask ? (owner || currentName) : owner,
           dueDate: String(data.get("dueDate") || "").trim(),
-          verifier: "",
-          taskStandard: "",
+          verifier: isDirectTask ? currentName : "",
+          taskId: isDirectTask ? `task-${Date.now()}` : "",
+          taskStandard: isDirectTask ? content : "",
           completionReport: "",
           rewardLevel: "none",
           rewardAmount: "",
