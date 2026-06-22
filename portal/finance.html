@@ -210,6 +210,16 @@
         gap: 10px;
         margin-top: 18px;
       }
+      .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .quick-actions a {
+        min-height: 46px;
+        border-radius: 14px;
+      }
       .button {
         display: inline-flex;
         align-items: center;
@@ -333,6 +343,9 @@
         .summary-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .quick-actions {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
       @media (max-width: 720px) {
         .topbar {
@@ -347,6 +360,9 @@
         .span-3 {
           grid-column: auto;
         }
+        .quick-actions {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622d">
@@ -359,17 +375,7 @@
           <div class="brand-subtitle">System 04 · 财务系统</div>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="./index.html">总站首页</a>
-          <a class="nav-link" href="./paike.html">排课系统</a>
-          <a class="nav-link" href="/jrcedu/">学管知识库系统</a>
-          <a class="nav-link" href="./suggestions.html">建议系统</a>
-          <a class="nav-link active" href="./finance.html">财务系统</a>
-          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
-          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
-          <a class="nav-link" href="./student-service.html">学生服务</a>
-          <a class="nav-link" href="./curriculum-products.html">教研课程</a>
-          <a class="nav-link" href="./hr-training.html">人事培训</a>
-          <a class="nav-link" href="./campus-operations.html">校区运营</a>
+          <a class="nav-link" href="./index.html">返回工作台</a>
         </nav>
       </section>
 
@@ -383,6 +389,12 @@
             <span class="tag">成本与毛利润</span>
             <span class="tag">分红测算</span>
             <span class="tag warn">待审核数据不入账</span>
+          </div>
+          <div class="quick-actions">
+            <a class="button secondary" href="#monthlySection">月结录入</a>
+            <a class="button secondary" href="#expenseSection">支出报销</a>
+            <a class="button secondary" href="#attendanceFinanceSection">点名结算</a>
+            <a class="button secondary" href="#preimportSection">Excel 对账</a>
           </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
@@ -422,7 +434,7 @@
         </article>
       </section>
 
-      <section class="card">
+      <section class="card" id="preimportSection">
         <p class="eyebrow">联动</p>
         <h2>老师月度预核算</h2>
         <div class="table-wrap" style="margin-top: 16px;">
@@ -444,7 +456,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="attendanceFinanceSection">
         <p class="eyebrow">对账</p>
         <h2>6月排课与工资表对账预导入</h2>
         <p style="margin-top: 8px;">对账通过前不进入正式工资、课销和分红。</p>
@@ -491,7 +503,7 @@
         </div>
       </section>
 
-      <section class="grid">
+      <section class="grid" id="monthlySection">
         <article class="card">
           <p class="eyebrow">月结</p>
           <h2>月度收入与老师结算成本</h2>
@@ -571,7 +583,7 @@
         </aside>
       </section>
 
-      <section class="card">
+      <section class="card" id="expenseSection">
         <p class="eyebrow">支出</p>
         <h2>日常支出 / 报销 / 工作成本</h2>
         <p style="margin-top: 8px;">待审核支出不计入毛利润；已确认、已支付才进入成本合计。</p>

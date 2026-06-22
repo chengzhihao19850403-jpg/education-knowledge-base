@@ -64,6 +64,33 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      .trial-toolbar {
+        position: sticky;
+        top: 56px;
+        z-index: 35;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 0 0 18px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.94);
+        box-shadow: var(--shadow);
+      }
+      .trial-toolbar a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+      }
       .system-nav {
         display: flex;
         flex-wrap: wrap;
@@ -530,38 +557,41 @@
         .quick-actions {
           grid-template-columns: 1fr;
         }
+        .trial-toolbar {
+          top: 50px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .layout > aside.panel .stack-list .list-card:nth-child(n + 3) {
+        display: none;
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622d">
   </head>
   <body data-page-permission="admissions.access">
     <main class="shell">
-      <nav class="system-nav">
-        <a href="/jrcedu/portal/index.html">总站首页</a>
-        <a href="/jrcedu/portal/paike.html">排课系统</a>
-        <a href="/jrcedu/portal/knowledge.html">学管知识库系统</a>
-        <a href="/jrcedu/portal/suggestions.html">建议系统</a>
-        <a href="/jrcedu/portal/finance.html">财务系统</a>
-        <a class="active" href="/jrcedu/advice-system/index.html">招生系统</a>
-        <a href="/jrcedu/portal/teaching-quality.html">教学质量系统</a>
-        <a href="/jrcedu/portal/student-service.html">学生服务</a>
-        <a href="/jrcedu/portal/curriculum-products.html">教研课程</a>
-        <a href="/jrcedu/portal/hr-training.html">人事培训</a>
-        <a href="/jrcedu/portal/campus-operations.html">校区运营</a>
+      <nav class="system-nav" aria-label="系统导航">
+        <a href="/jrcedu/portal/index.html">返回工作台</a>
       </nav>
       <div class="topbar">
         <div class="title-wrap">
           <p>Admissions CRM</p>
           <h1>招生管理系统</h1>
-          <div class="hint">按老师日常工作顺序管理线索、跟进、试听、报名、渠道归属和转介绍数据，先处理今天该做的事，再进入各业务页签。</div>
+          <div class="hint">先新增线索，再记录跟进，试听和报名后续补齐。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
           <div class="readonly-note" id="permissionNotice" hidden></div>
         </div>
         <div class="top-actions">
           <a class="button secondary" href="/jrcedu/portal/knowledge.html">打开学管知识库系统</a>
-          <a class="button" href="/jrcedu/portal/admissions.html">查看阶段说明</a>
-          <a class="button secondary" href="/jrcedu/portal/index.html">返回总站首页</a>
+          <a class="button secondary" href="/jrcedu/portal/index.html">返回工作台</a>
         </div>
+      </div>
+      <div class="trial-toolbar">
+        <a href="#quickLeadStudentName">新增线索</a>
+        <a href="#quickFollowupLeadSelect">快捷跟进</a>
+        <a href="#leadTableBody" data-jump-view="leads">线索主表</a>
+        <a href="/jrcedu/portal/index.html">返回工作台</a>
       </div>
 
       <div class="layout">
@@ -655,6 +685,81 @@
                 <strong>追报名方案</strong>
                 <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
               </div>
+            </div>
+            <div class="section-head" style="margin-top: 18px;">
+              <div>
+                <h2>快速新增线索</h2>
+                <div class="hint">先把最常用字段录进去，后面再在线索详情里补试听、反馈、报名和归属链。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">首页直接录入</span>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>学生姓名</label>
+                <input id="quickLeadStudentName" placeholder="例如：张同学">
+              </div>
+              <div class="field">
+                <label>当前年级</label>
+                <select id="quickLeadGrade">
+                  <option>一年级</option>
+                  <option>二年级</option>
+                  <option>三年级</option>
+                  <option>四年级</option>
+                  <option>五年级</option>
+                  <option>六年级</option>
+                  <option>初一</option>
+                  <option>初二</option>
+                  <option>初三</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>家长电话</label>
+                <input id="quickLeadPhone" inputmode="tel" placeholder="手机号">
+              </div>
+              <div class="field">
+                <label>来源渠道</label>
+                <select id="quickLeadChannel">
+                  <option>抖音投流</option>
+                  <option>老家长转介绍</option>
+                  <option>自然到访</option>
+                  <option>官网表单</option>
+                  <option>内部员工推荐</option>
+                  <option>异业合作</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>负责人</label>
+                <select id="quickLeadOwner">
+                  <option>待分配</option>
+                  <option>陈雨晴</option>
+                  <option>高芳燕</option>
+                  <option>颜雨涵</option>
+                  <option>周珊</option>
+                  <option>徐嘉丽</option>
+                  <option>张艳</option>
+                  <option>程志豪</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>意向等级</label>
+                <select id="quickLeadIntent">
+                  <option>B 中意向</option>
+                  <option>A 高意向</option>
+                  <option>C 低意向</option>
+                  <option>D 无意向</option>
+                </select>
+              </div>
+              <div class="field span-3">
+                <label>首条备注</label>
+                <textarea id="quickLeadNote" placeholder="例如：家长咨询暑假班，孩子计算薄弱，明天晚上可试听。"></textarea>
+              </div>
+            </div>
+            <div class="section-actions">
+              <button class="button small" id="quickCreateLeadButton" type="button">保存新线索</button>
+              <button class="button small secondary" type="button" data-jump-view="leads">去线索中心看完整表</button>
+              <span class="hint" id="quickCreateLeadMessage">学生姓名和家长电话必填。</span>
             </div>
             <div class="section-head" style="margin-top: 18px;">
               <div>
@@ -1188,7 +1293,7 @@
             <div class="section-actions">
               <button class="button small secondary" id="copyImportTemplateButton" type="button">复制导入模板字段</button>
               <button class="button small" id="importBatchButton" type="button">导入这批线索</button>
-              <button class="button small secondary" id="resetAdmissionsButton" type="button">清空本机招生数据</button>
+              <button class="button small secondary" id="resetAdmissionsButton" type="button">清空本机缓存</button>
             </div>
             <div class="metrics">
               <div class="metric">
@@ -2351,8 +2456,9 @@
         </aside>
       </div>
     </main>
-    <script src="/jrcedu/portal/auth.js?v=20260622c"></script>
-    <script src="./app.js?v=20260622a"></script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
+    <script src="./app.js?v=20260622d"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622c"></script>
   </body>
 </html>

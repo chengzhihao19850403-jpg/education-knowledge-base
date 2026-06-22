@@ -384,7 +384,7 @@
         .span-2 { grid-column: auto; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622d">
   </head>
   <body data-page-permission="suggestions.access">
     <main class="shell">
@@ -394,17 +394,7 @@
           <div class="brand-subtitle">System 03 · 建议管理系统</div>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="./index.html">总站首页</a>
-          <a class="nav-link" href="./paike.html">排课系统</a>
-          <a class="nav-link" href="/jrcedu/">学管知识库系统</a>
-          <a class="nav-link active" href="./suggestions.html">建议系统</a>
-          <a class="nav-link" href="./finance.html">财务系统</a>
-          <a class="nav-link" href="/jrcedu/advice-system/index.html">招生系统</a>
-          <a class="nav-link" href="./teaching-quality.html">教学质量系统</a>
-          <a class="nav-link" href="./student-service.html">学生服务</a>
-          <a class="nav-link" href="./curriculum-products.html">教研课程</a>
-          <a class="nav-link" href="./hr-training.html">人事培训</a>
-          <a class="nav-link" href="./campus-operations.html">校区运营</a>
+          <a class="nav-link" href="./index.html">返回工作台</a>
         </nav>
       </section>
 
@@ -412,7 +402,7 @@
         <article class="card">
           <p class="eyebrow">Management Loop</p>
           <h1>建议管理系统</h1>
-          <p class="hero-text">这个系统不只是收集意见，而是把员工建议变成管理动作：分类、评估、立项、分配负责人、跟进截止日期、落地复盘。普通员工可以放心提交，管理层可以把事情真正推下去。</p>
+          <p class="hero-text">提交建议、评估立项、分配负责人、跟进落地。</p>
           <div class="tag-row">
             <span class="tag">全员可提交</span>
             <span class="tag">管理层可分派</span>
@@ -425,7 +415,7 @@
         <aside class="card">
           <p class="eyebrow">Operating Rule</p>
           <h2>建议处理规则</h2>
-          <p style="margin-top: 10px;">建议先进入“待评估”。管理层每周集中看一次：能做的立项，不能做的写明原因，重要事项分配负责人和截止日期。这样员工不会觉得建议石沉大海，管理层也能看到组织问题的趋势。</p>
+          <p style="margin-top: 10px;">先评估，再立项，最后跟进落地。</p>
         </aside>
       </section>
 
@@ -527,10 +517,10 @@
       </section>
 
     </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260622c"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const statusMap = {
@@ -647,6 +637,28 @@
 
       function writeSuggestions() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+          console.warn("Failed to sync suggestions to cloud", error);
+        });
+      }
+
+      async function hydrateCloudSuggestions() {
+        if (!window.JRC_CLOUD?.readModuleData) return;
+        try {
+          const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+          if (!result?.ok) return;
+          if (!result.data?.found) {
+            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+              console.warn("Failed to seed suggestions to cloud", error);
+            });
+            return;
+          }
+          if (!Array.isArray(result.data.payload)) return;
+          suggestions = result.data.payload.map(normalizeSuggestion);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+        } catch (error) {
+          console.warn("Failed to hydrate suggestions from cloud", error);
+        }
       }
 
       let suggestions = readSuggestions();
@@ -871,8 +883,11 @@
         renderAll();
       });
 
-      renderAll();
+      (async () => {
+        await hydrateCloudSuggestions();
+        renderAll();
+      })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622c"></script>
   </body>
 </html>
