@@ -78,7 +78,11 @@ sudo -u postgres psql -d jrcedu -f "${APP_DIR}/database/cloud-schema-v1.sql"
 sudo -u postgres psql -d jrcedu -f "${APP_DIR}/deploy/aliyun/seed-employees.sql"
 
 echo "==> Installing API dependencies"
-npm --prefix "${API_DIR}" ci --omit=dev
+if [[ -f "${API_DIR}/package-lock.json" ]]; then
+  npm --prefix "${API_DIR}" ci --omit=dev
+else
+  npm --prefix "${API_DIR}" install --omit=dev
+fi
 
 echo "==> Creating API systemd service"
 cat > "${SERVICE_FILE}" <<EOF
