@@ -2049,9 +2049,16 @@ function bindNavigation() {
   });
 
   document.querySelectorAll("[data-jump-view]").forEach((node) => {
-    node.addEventListener("click", () => {
+    node.addEventListener("click", (event) => {
+      event.preventDefault();
       applyView(node.getAttribute("data-jump-view"));
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const href = node.getAttribute("href") || "";
+      const targetNode = href.startsWith("#") ? document.querySelector(href) : null;
+      if (targetNode) {
+        targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     });
   });
 
@@ -2254,7 +2261,16 @@ function applyPermissionState() {
     '#quickFollowupMethodSelect',
     '#quickFollowupNextDateInput',
     '#quickFollowupInput',
-    '#quickFollowupButton'  ];
+    '#quickFollowupButton',
+    '#quickLeadStudentName',
+    '#quickLeadGrade',
+    '#quickLeadPhone',
+    '#quickLeadChannel',
+    '#quickLeadOwner',
+    '#quickLeadIntent',
+    '#quickLeadNote',
+    '#quickCreateLeadButton'
+  ];
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
     if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
