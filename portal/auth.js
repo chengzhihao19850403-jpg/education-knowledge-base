@@ -1,6 +1,7 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
 const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
+const JRC_TEMP_AUTO_LOGIN_USERNAME = "chengzhihao";
 const JRC_LEGACY_BUSINESS_DATA_KEYS = [
   "paike-june-system-v1",
   "paike-june-system-meta-v1",
@@ -1664,6 +1665,12 @@ function jrcBootstrapAuth() {
   jrcBindEmployeeDirectoryFilters();
   jrcBindEmployeeAddForm(currentEmployee);
   if (!currentEmployee) {
+    const fallbackEmployee = jrcFindEmployeeByUsername(JRC_TEMP_AUTO_LOGIN_USERNAME);
+    if (fallbackEmployee) {
+      jrcWriteSession(fallbackEmployee, { temporaryAutoLogin: true });
+      window.location.reload();
+      return;
+    }
     jrcShowLoginOverlay();
     return;
   }
