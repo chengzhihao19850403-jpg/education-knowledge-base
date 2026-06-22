@@ -7,6 +7,8 @@ API_DIR="${APP_DIR}/deploy/aliyun/api"
 ENV_FILE="${ENV_FILE:-/etc/jrcedu-api.env}"
 NGINX_SITE="/etc/nginx/sites-available/jrcedu"
 SERVICE_FILE="/etc/systemd/system/jrcedu-api.service"
+JRC_DOMAIN="${JRC_DOMAIN:-jrcwork.cn}"
+JRC_WWW_DOMAIN="${JRC_WWW_DOMAIN:-www.jrcwork.cn}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Please run as root, or use: sudo bash deploy/aliyun/install-on-ecs.sh"
@@ -37,7 +39,7 @@ JRC_API_TOKEN="${JRC_API_TOKEN:-$(openssl rand -hex 24)}"
 cat > "${ENV_FILE}" <<EOF
 PORT=3000
 JRC_SITE_ID=jrcedu-main
-JRC_ALLOWED_ORIGINS=http://8.218.84.228,https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000
+JRC_ALLOWED_ORIGINS=http://8.218.84.228,http://${JRC_DOMAIN},http://${JRC_WWW_DOMAIN},https://${JRC_DOMAIN},https://${JRC_WWW_DOMAIN},https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000
 JRC_API_TOKEN=${JRC_API_TOKEN}
 JRC_DB_HOST=127.0.0.1
 JRC_DB_PORT=5432
@@ -119,7 +121,7 @@ cat > "${NGINX_SITE}" <<'EOF'
 server {
   listen 80 default_server;
   listen [::]:80 default_server;
-  server_name _;
+  server_name _ jrcwork.cn www.jrcwork.cn;
 
   root /opt;
   index index.html;
@@ -152,6 +154,7 @@ systemctl reload nginx
 if command -v ufw >/dev/null 2>&1; then
   ufw allow 22/tcp || true
   ufw allow 80/tcp || true
+  ufw allow 443/tcp || true
 fi
 
 echo "==> Smoke tests"
@@ -161,5 +164,7 @@ curl -fsS -H "Authorization: Bearer ${JRC_API_TOKEN}" http://127.0.0.1/api/healt
 echo
 
 echo "Deployment complete."
-echo "Portal: http://8.218.84.228/jrcedu/portal/index.html"
+echo "Portal: http://jrcwork.cn/jrcedu/portal/index.html"
+echo "Portal www: http://www.jrcwork.cn/jrcedu/portal/index.html"
+echo "Portal IP: http://8.218.84.228/jrcedu/portal/index.html"
 echo "API health: http://8.218.84.228/api/health"
