@@ -49,7 +49,7 @@ button {
 .jrc-floating-home {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 80;
   display: none;
   align-items: center;
@@ -77,10 +77,20 @@ button {
   -webkit-overflow-scrolling: touch;
 }
 
+[data-action-group="true"] {
+  gap: 8px !important;
+}
+
 .table-wrap {
   position: relative;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
+  outline: none;
+}
+
+.table-wrap:focus-within,
+.table-wrap:focus {
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
 }
 
 .table-wrap table {
@@ -158,6 +168,7 @@ textarea {
 @media (max-width: 760px) {
   body {
     overflow-x: hidden;
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
   }
 
   .shell {
@@ -204,6 +215,11 @@ textarea {
     width: 100%;
   }
 
+  [data-action-group="true"] {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  }
+
   .button,
   .actions .button,
   .section-actions .button,
@@ -227,6 +243,35 @@ textarea {
   .filters button {
     width: auto;
     flex: 1 1 150px;
+  }
+
+  .workbench-item .text-link,
+  .data-state-card,
+  .module-card,
+  .quick-card {
+    min-height: 44px;
+  }
+
+  .workbench-item .text-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--ink, #172132) !important;
+    text-decoration: none;
+  }
+
+  .tag-row {
+    gap: 6px !important;
+  }
+
+  .tag,
+  .badge,
+  .status-pill {
+    min-height: 30px;
   }
 
   .form-grid,

@@ -2,6 +2,8 @@
   function enhanceTables() {
     document.querySelectorAll(".table-wrap").forEach((wrap) => {
       wrap.setAttribute("data-scroll-hint", "true");
+      if (!wrap.hasAttribute("tabindex")) wrap.setAttribute("tabindex", "0");
+      if (!wrap.getAttribute("aria-label")) wrap.setAttribute("aria-label", "可横向滑动的数据表格");
       const table = wrap.querySelector("table");
       if (table && !table.getAttribute("role")) {
         table.setAttribute("role", "table");
