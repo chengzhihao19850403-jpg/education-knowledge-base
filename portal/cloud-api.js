@@ -327,6 +327,13 @@
     };
   }
 
+  async function aiAssistant(payload = {}) {
+    return request("/ai-assistant", {
+      method: "POST",
+      body: payload
+    });
+  }
+
   async function flushPending() {
     const rows = readPendingQueue();
     if (!rows.length) return { ok: true, flushed: 0 };
@@ -360,6 +367,7 @@
     writeModuleData,
     uploadCurriculumFile,
     downloadCurriculumFile,
+    aiAssistant,
     flushPending
   };
 })();

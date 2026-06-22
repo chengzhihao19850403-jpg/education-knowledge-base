@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜我的 AI 助手</title>
+    <style>
+      :root {
+        --panel: rgba(255, 255, 255, 0.96);
+        --ink: #172132;
+        --muted: #637083;
+        --line: rgba(23, 33, 50, 0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --brand-soft: rgba(13, 148, 136, 0.10);
+        --amber: #b45309;
+        --shadow: 0 18px 46px rgba(23, 33, 50, 0.10);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, #fbfcff 0%, #edf7f4 100%);
+      }
+      button, input, select, textarea { font: inherit; }
+      .shell { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+      .topbar, .card, .result-panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.70); border-radius: 22px; box-shadow: var(--shadow); }
+      .topbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 18px; margin-bottom: 18px; }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav-link, .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; background: #fff; color: var(--ink); font-size: 13px; cursor: pointer; }
+      .button { border: 0; background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; font-weight: 800; }
+      .button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+      .button.warn { background: rgba(180,83,9,0.12); color: var(--amber); border: 1px solid rgba(180,83,9,0.18); }
+      .button:disabled { cursor: not-allowed; opacity: 0.58; }
+      .hero, .grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr); gap: 18px; }
+      .card { padding: 22px; }
+      .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row, .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800; }
+      .auth-note, .notice { margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted); line-height: 1.65; }
+      .notice.warn { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+      .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
+      .field textarea { min-height: 190px; padding: 10px 12px; resize: vertical; line-height: 1.65; }
+      .span-2 { grid-column: 1 / -1; }
+      .result-panel { padding: 18px; margin-top: 16px; }
+      .result-grid { display: grid; gap: 12px; margin-top: 12px; }
+      .result-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: rgba(255,255,255,0.78); }
+      .result-item strong { display: block; margin-bottom: 8px; color: var(--ink); }
+      .result-item p, .result-item li { color: var(--muted); line-height: 1.7; }
+      .draft-list { display: grid; gap: 10px; margin-top: 12px; }
+      .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
+      .draft-item strong { display: block; }
+      .draft-item span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+      @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { .topbar { flex-direction: column; align-items: flex-start; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .button, .nav-link { width: 100%; min-height: 46px; } }
+    </style>
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623c">
+  </head>
+  <body data-page-permission="ai.access">
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">AI · 我的 AI 助手</div>
+        </div>
+        <nav>
+          <a class="nav-link" href="./index.html">返回工作台</a>
+        </nav>
+      </section>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">AI Assistant</p>
+          <h1>我的 AI 助手</h1>
+          <p class="hero-text">把课后反馈、待办、建议和系统使用问题先说出来，再由 AI 整理成可保存的文字草稿。</p>
+          <div class="tag-row">
+            <span class="tag">课后反馈</span>
+            <span class="tag">待办整理</span>
+            <span class="tag">建议任务</span>
+            <span class="tag">工作台问答</span>
+          </div>
+          <div class="auth-note" data-role-greeting></div>
+        </article>
+        <aside class="card">
+          <p class="eyebrow">使用规则</p>
+          <h2>先整理，后确认</h2>
+          <p style="margin-top:10px;">AI 生成内容只作为草稿。涉及学生、家长、财务和考核的信息，必须由老师确认后再保存或发送。</p>
+          <div class="notice warn" id="aiConfigNotice">正在检测 AI 接口状态。</div>
+        </aside>
+      </section>
+
+      <section class="grid" style="margin-top:18px;">
+        <article class="card">
+          <p class="eyebrow">输入</p>
+          <h2>语音或文字记录</h2>
+          <div class="form-grid">
+            <label class="field">
+              整理类型
+              <select id="aiModeInput">
+                <option value="feedback">课后反馈</option>
+                <option value="todo">待办事项</option>
+                <option value="suggestion">员工建议</option>
+                <option value="task">任务说明</option>
+                <option value="help">工作台使用问答</option>
+              </select>
+            </label>
+            <label class="field">
+              关联对象
+              <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称，可不填">
+            </label>
+            <label class="field span-2">
+              语音转文字 / 原始内容
+              <textarea id="aiInputText" placeholder="可以直接打字，也可以点开始语音后说话。"></textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="button secondary" id="voiceStartButton" type="button">开始语音</button>
+            <button class="button secondary" id="voiceStopButton" type="button" disabled>停止语音</button>
+            <button class="button" id="aiRunButton" type="button">AI 整理</button>
+            <button class="button secondary" id="aiClearButton" type="button">清空</button>
+          </div>
+          <div class="notice" id="aiMessage">语音识别依赖当前浏览器支持；如果不可用，可以用手机键盘听写后再整理。</div>
+        </article>
+
+        <article class="card">
+          <p class="eyebrow">结果</p>
+          <h2>整理结果</h2>
+          <div class="result-panel">
+            <div class="result-grid" id="aiResultBox">
+              <div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>
+            </div>
+            <div class="actions">
+              <button class="button secondary" id="copyResultButton" type="button">复制结果</button>
+              <button class="button" id="saveDraftButton" type="button">保存草稿</button>
+              <button class="button warn" id="saveTaskButton" type="button">转成建议/任务</button>
+            </div>
+          </div>
+          <div class="result-panel">
+            <h3>最近草稿</h3>
+            <div class="draft-list" id="aiDraftList"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623e"></script>
+    <script>
+      const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
+      const SUGGESTION_KEY = "jrc-suggestion-management-v2";
+      const byId = (id) => document.getElementById(id);
+      const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
+      const currentName = currentEmployee.name || "员工";
+      let recognition = null;
+      let latestResult = null;
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function safeParse(raw, fallback) {
+        try { return JSON.parse(raw || "null") ?? fallback; } catch { return fallback; }
+      }
+
+      function today() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function readDrafts() {
+        const rows = safeParse(localStorage.getItem(DRAFT_KEY), []);
+        return Array.isArray(rows) ? rows : [];
+      }
+
+      function writeDrafts(rows) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(rows.slice(0, 80)));
+        window.JRC_CLOUD?.writeModuleData?.(DRAFT_KEY, "ai", rows.slice(0, 80)).catch(() => {});
+      }
+
+      function renderDrafts() {
+        const rows = readDrafts().slice(0, 5);
+        byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
+          <div class="draft-item">
+            <strong>${escapeHtml(row.title || row.modeLabel || "AI 草稿")}</strong>
+            <span>${escapeHtml(row.modeLabel || "-")}｜${escapeHtml(row.target || "-")}｜${escapeHtml(row.createdAt || "")}</span>
+          </div>
+        `).join("") : `<div class="draft-item"><strong>暂无草稿</strong><span>保存后会显示最近 5 条。</span></div>`;
+      }
+
+      function modeLabel(mode) {
+        return {
+          feedback: "课后反馈",
+          todo: "待办事项",
+          suggestion: "员工建议",
+          task: "任务说明",
+          help: "工作台问答"
+        }[mode] || "AI 整理";
+      }
+
+      function resultToText(result) {
+        if (!result) return "";
+        const sections = [
+          ["标题", result.title],
+          ["摘要", result.summary],
+          ["整理正文", result.polishedText],
+          ["建议动作", result.suggestedAction],
+          ["待办", Array.isArray(result.todoItems) ? result.todoItems.map((item) => `- ${item}`).join("\\n") : ""],
+          ["家长沟通建议", result.parentMessage],
+          ["内部备注", result.internalNote]
+        ].filter(([, value]) => value);
+        return sections.map(([label, value]) => `${label}：\\n${Array.isArray(value) ? value.join("\\n") : value}`).join("\\n\\n");
+      }
+
+      function renderResult(result) {
+        latestResult = result;
+        const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
+        byId("aiResultBox").innerHTML = `
+          <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
+          ${result.polishedText ? `<div class="result-item"><strong>整理正文</strong><p>${escapeHtml(result.polishedText).replace(/\\n/g, "<br>")}</p></div>` : ""}
+          ${todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
+          ${result.parentMessage ? `<div class="result-item"><strong>家长沟通建议</strong><p>${escapeHtml(result.parentMessage).replace(/\\n/g, "<br>")}</p></div>` : ""}
+          ${result.internalNote ? `<div class="result-item"><strong>内部备注</strong><p>${escapeHtml(result.internalNote).replace(/\\n/g, "<br>")}</p></div>` : ""}
+        `;
+      }
+
+      function localFallback(payload) {
+        const label = modeLabel(payload.mode);
+        return {
+          title: payload.target ? `${payload.target}｜${label}` : label,
+          summary: `已按${label}整理为草稿。`,
+          polishedText: payload.text,
+          todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
+          parentMessage: payload.mode === "feedback" ? "建议老师确认后再发送给家长。" : "",
+          internalNote: "当前 AI 接口未配置或调用失败，本结果为本地草稿整理。"
+        };
+      }
+
+      async function runAi() {
+        const text = byId("aiInputText").value.trim();
+        if (!text) {
+          byId("aiMessage").textContent = "请先输入文字或使用语音转文字。";
+          return;
+        }
+        const payload = {
+          mode: byId("aiModeInput").value,
+          modeLabel: modeLabel(byId("aiModeInput").value),
+          target: byId("aiTargetInput").value.trim(),
+          text,
+          operatorName: currentName,
+          operatorRole: currentEmployee.role || ""
+        };
+        byId("aiRunButton").disabled = true;
+        byId("aiMessage").textContent = "正在整理...";
+        try {
+          const result = await window.JRC_CLOUD?.aiAssistant?.(payload);
+          if (result?.ok && result.data?.result) {
+            renderResult(result.data.result);
+            byId("aiConfigNotice").textContent = result.data.provider === "minimax" ? "AI 接口已接入 MiniMax。" : "AI 接口未配置，当前为本地整理。";
+            byId("aiMessage").textContent = "整理完成，请检查后保存。";
+            return;
+          }
+          renderResult(localFallback(payload));
+          byId("aiMessage").textContent = result?.data?.message || "AI 接口暂不可用，已生成本地草稿。";
+        } catch (error) {
+          renderResult(localFallback(payload));
+          byId("aiMessage").textContent = "AI 接口调用失败，已生成本地草稿。";
+        } finally {
+          byId("aiRunButton").disabled = false;
+        }
+      }
+
+      function saveDraft() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        const row = {
+          id: `ai-${Date.now()}`,
+          title: latestResult.title || modeLabel(byId("aiModeInput").value),
+          mode: byId("aiModeInput").value,
+          modeLabel: modeLabel(byId("aiModeInput").value),
+          target: byId("aiTargetInput").value.trim(),
+          sourceText: byId("aiInputText").value.trim(),
+          result: latestResult,
+          createdBy: currentName,
+          createdAt: new Date().toISOString()
+        };
+        writeDrafts([row, ...readDrafts()]);
+        renderDrafts();
+        byId("aiMessage").textContent = "已保存 AI 草稿。";
+      }
+
+      function saveToSuggestionTask() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        const mode = byId("aiModeInput").value;
+        const rows = safeParse(localStorage.getItem(SUGGESTION_KEY), []);
+        const isTask = mode === "todo" || mode === "task";
+        const item = {
+          id: `${isTask ? "t" : "s"}-${Date.now()}`,
+          entryType: isTask ? "task" : "suggestion",
+          title: latestResult.title || modeLabel(mode),
+          category: mode === "feedback" ? "家长服务" : mode === "help" ? "技术工具" : "流程优化",
+          impact: "medium",
+          content: resultToText(latestResult),
+          author: currentName,
+          anonymous: false,
+          createdAt: today(),
+          status: isTask ? "assigned" : "new",
+          owner: isTask ? currentName : "",
+          verifier: "",
+          dueDate: "",
+          taskId: isTask ? `task-${Date.now()}` : "",
+          taskStandard: isTask ? latestResult.summary || latestResult.polishedText || "" : "",
+          subtasks: Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("\\n") : "",
+          completionReport: "",
+          rewardLevel: "none",
+          rewardAmount: "",
+          rewardReason: "",
+          rewardStatus: "none",
+          votes: 0,
+          liked: false,
+          decision: "",
+          comments: [{ author: currentName, text: "由 AI 助手生成草稿。", time: today() }]
+        };
+        const nextRows = [item, ...(Array.isArray(rows) ? rows : [])];
+        localStorage.setItem(SUGGESTION_KEY, JSON.stringify(nextRows));
+        window.JRC_CLOUD?.writeModuleData?.(SUGGESTION_KEY, "suggestions", nextRows).catch(() => {});
+        byId("aiMessage").textContent = isTask ? "已保存为任务草稿。" : "已保存为建议草稿。";
+      }
+
+      function setupVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          byId("voiceStartButton").disabled = true;
+          byId("voiceStopButton").disabled = true;
+          byId("aiMessage").textContent = "当前浏览器不支持实时语音识别，可以使用手机键盘听写后再 AI 整理。";
+          return;
+        }
+        recognition = new SpeechRecognition();
+        recognition.lang = "zh-CN";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        let finalText = "";
+        recognition.onresult = (event) => {
+          let interim = "";
+          for (let index = event.resultIndex; index < event.results.length; index += 1) {
+            const transcript = event.results[index][0]?.transcript || "";
+            if (event.results[index].isFinal) finalText += transcript;
+            else interim += transcript;
+          }
+          byId("aiInputText").value = `${finalText}${interim ? `\\n${interim}` : ""}`.trim();
+        };
+        recognition.onstart = () => {
+          byId("voiceStartButton").disabled = true;
+          byId("voiceStopButton").disabled = false;
+          byId("aiMessage").textContent = "正在听写，讲完后点停止语音。";
+        };
+        recognition.onend = () => {
+          byId("voiceStartButton").disabled = false;
+          byId("voiceStopButton").disabled = true;
+          byId("aiMessage").textContent = "语音已停止，可以继续修改文字或点击 AI 整理。";
+        };
+      }
+
+      byId("voiceStartButton").addEventListener("click", () => recognition?.start());
+      byId("voiceStopButton").addEventListener("click", () => recognition?.stop());
+      byId("aiRunButton").addEventListener("click", runAi);
+      byId("aiClearButton").addEventListener("click", () => {
+        byId("aiInputText").value = "";
+        latestResult = null;
+        byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
+      });
+      byId("copyResultButton").addEventListener("click", async () => {
+        await navigator.clipboard?.writeText(resultToText(latestResult));
+        byId("aiMessage").textContent = "已复制整理结果。";
+      });
+      byId("saveDraftButton").addEventListener("click", saveDraft);
+      byId("saveTaskButton").addEventListener("click", saveToSuggestionTask);
+
+      setupVoice();
+      renderDrafts();
+      window.JRC_CLOUD?.aiAssistant?.({ mode: "health", text: "ping" }).then((result) => {
+        byId("aiConfigNotice").textContent = result?.ok && result.data?.provider === "minimax"
+          ? "AI 接口已接入 MiniMax。"
+          : "AI 页面已就绪；MiniMax Key 配好后会自动调用模型。";
+      }).catch(() => {
+        byId("aiConfigNotice").textContent = "AI 页面已就绪；MiniMax Key 配好后会自动调用模型。";
+      });
+    </script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
+  </body>
+</html>

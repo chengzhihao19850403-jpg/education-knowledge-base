@@ -100,6 +100,7 @@ const JRC_DATA_LINK_RULES = [
 const JRC_ROLE_PERMISSIONS = {
   管理员: [
     "portal.access",
+    "ai.access",
     "paike.access",
     "suggestions.access",
     "teachingQuality.access",
@@ -116,6 +117,7 @@ const JRC_ROLE_PERMISSIONS = {
   ],
   学管: [
     "portal.access",
+    "ai.access",
     "paike.access",
     "knowledge.access",
     "suggestions.access",
@@ -129,12 +131,14 @@ const JRC_ROLE_PERMISSIONS = {
   ],
   财务: [
     "portal.access",
+    "ai.access",
     "suggestions.access",
     "finance.access",
     "finance.edit"
   ],
   授课老师: [
     "portal.access",
+    "ai.access",
     "paike.access",
     "suggestions.access",
     "teachingQuality.access",
@@ -426,6 +430,7 @@ const JRC_GRANULAR_ACTIONS = [
   ["reset", "清空"]
 ];
 const JRC_PERMISSION_OPTIONS = [
+  ["ai.access", "AI 助手进入"],
   ["paike.access", "排课查看"],
   ["paike.edit", "排课修改"],
   ["knowledge.access", "学管知识库进入"],

@@ -11,6 +11,10 @@ const publicApiToken = process.env.JRC_API_TOKEN || "";
 const uploadDir = process.env.JRC_UPLOAD_DIR || "/opt/jrcedu-uploads";
 const uploadMaxBytes = Number(process.env.JRC_UPLOAD_MAX_BYTES || 30 * 1024 * 1024);
 const jsonMaxBytes = Number(process.env.JRC_JSON_MAX_BYTES || 72 * 1024 * 1024);
+const minimaxApiKey = process.env.JRC_MINIMAX_API_KEY || process.env.MINIMAX_API_KEY || "";
+const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimax.io/v1/chat/completions";
+const minimaxModel = process.env.JRC_MINIMAX_MODEL || "MiniMax-M3";
+const minimaxGroupId = process.env.JRC_MINIMAX_GROUP_ID || "";
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",")
   .map((origin) => origin.trim())
@@ -790,6 +794,158 @@ async function handleBackupExport(req, res, headers) {
   send(res, 200, { ok: true, id: result.rows[0].id }, headers);
 }
 
+function aiModeLabel(mode) {
+  return {
+    feedback: "课后反馈",
+    todo: "待办事项",
+    suggestion: "员工建议",
+    task: "任务说明",
+    help: "工作台使用问答",
+    health: "接口检测"
+  }[mode] || "AI 整理";
+}
+
+function localAiDraft(body) {
+  const text = String(body.text || "").trim();
+  const mode = String(body.mode || "feedback");
+  const label = aiModeLabel(mode);
+  return {
+    title: body.target ? `${body.target}｜${label}` : label,
+    summary: text ? `已按${label}整理为草稿。` : "AI 接口可用性检测。",
+    polishedText: text,
+    todoItems: mode === "todo" ? text.split(/[；;。\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
+    parentMessage: mode === "feedback" ? "建议老师确认后再发送给家长。" : "",
+    internalNote: "MiniMax Key 尚未配置或接口暂不可用，本结果为本地草稿整理。"
+  };
+}
+
+function aiSystemPrompt() {
+  return [
+    "你是匠人程教育工作台的内部 AI 助手。",
+    "你服务中小学数学/科学教培机构员工，主要帮助整理课后反馈、待办、建议、任务说明和工作台使用问题。",
+    "所有输出必须谨慎，涉及学生、家长、财务、考核的信息只能作为草稿，提醒员工人工确认。",
+    "返回严格 JSON，不要 Markdown，不要解释。",
+    "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction。",
+    "todoItems 必须是字符串数组。没有内容时填空字符串或空数组。"
+  ].join("\n");
+}
+
+function buildAiUserPrompt(body) {
+  const mode = String(body.mode || "feedback");
+  return [
+    `整理类型：${aiModeLabel(mode)}`,
+    `关联对象：${body.target || "未填写"}`,
+    `提交人：${body.operatorName || "-"}｜${body.operatorRole || "-"}`,
+    "原始内容：",
+    String(body.text || "").trim(),
+    "",
+    "整理要求：",
+    mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
+    mode === "todo" ? "拆成明确待办，尽量包含负责人、截止时间线索和下一步动作。" : "",
+    mode === "suggestion" ? "整理成正式管理建议，包含现象、影响、建议方案和预期收益。" : "",
+    mode === "task" ? "整理成任务说明，包含目标、完成标准、子任务和验收口径。" : "",
+    mode === "help" ? "用工作台现有模块回答，必要时说明进入哪个系统处理。模块包括排课、学管知识库、建议任务、财务、招生、教学质量、学生服务、教研课程、人事培训、校区运营。" : ""
+  ].filter(Boolean).join("\n");
+}
+
+function parseAiJson(text, fallback) {
+  const raw = String(text || "").trim();
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed, todoItems: Array.isArray(parsed.todoItems) ? parsed.todoItems : fallback.todoItems };
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        return { ...fallback, ...parsed, todoItems: Array.isArray(parsed.todoItems) ? parsed.todoItems : fallback.todoItems };
+      } catch {
+        // fall through to raw text.
+      }
+    }
+    return { ...fallback, polishedText: raw, internalNote: fallback.internalNote || "模型返回非 JSON，已作为正文保留。" };
+  }
+}
+
+async function callMinimaxChat(body) {
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${minimaxApiKey}`
+  };
+  if (minimaxGroupId) requestHeaders["GroupId"] = minimaxGroupId;
+
+  const response = await fetch(minimaxApiUrl, {
+    method: "POST",
+    headers: requestHeaders,
+    body: JSON.stringify({
+      model: minimaxModel,
+      messages: [
+        { role: "system", content: aiSystemPrompt() },
+        { role: "user", content: buildAiUserPrompt(body) }
+      ],
+      temperature: 0.25
+    })
+  });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  if (!response.ok) {
+    const error = new Error(typeof data === "string" ? data : JSON.stringify(data || {}));
+    error.statusCode = response.status;
+    throw error;
+  }
+  const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.delta?.content || data?.reply || "";
+  return String(content || "");
+}
+
+async function handleAiAssistant(req, res, headers, authorization) {
+  const body = await readJson(req, 2 * 1024 * 1024);
+  const text = String(body.text || "").trim();
+  const fallback = localAiDraft(body);
+  if (body.mode === "health") {
+    send(res, 200, {
+      ok: true,
+      provider: minimaxApiKey ? "minimax" : "local",
+      configured: Boolean(minimaxApiKey),
+      model: minimaxApiKey ? minimaxModel : "",
+      result: fallback
+    }, headers);
+    return;
+  }
+  if (!text) {
+    send(res, 400, { ok: false, error: "empty_input", message: "请先输入文字或语音转文字内容。" }, headers);
+    return;
+  }
+  if (!minimaxApiKey) {
+    send(res, 200, { ok: true, provider: "local", configured: false, result: fallback }, headers);
+    return;
+  }
+  try {
+    const content = await callMinimaxChat({
+      ...body,
+      operatorName: authorization?.payload?.name || body.operatorName || "-",
+      operatorUsername: authorization?.payload?.sub || body.operatorUsername || "-"
+    });
+    const result = parseAiJson(content, fallback);
+    send(res, 200, { ok: true, provider: "minimax", configured: true, model: minimaxModel, result }, headers);
+  } catch (error) {
+    console.error("MiniMax assistant failed", error);
+    send(res, 200, {
+      ok: true,
+      provider: "local",
+      configured: true,
+      warning: "minimax_failed",
+      message: "MiniMax 暂时调用失败，已返回本地草稿。",
+      result: fallback
+    }, headers);
+  }
+}
+
 async function route(req, res) {
   const headers = corsHeaders(req);
   const url = new URL(req.url || "/", "http://localhost");
@@ -818,6 +974,7 @@ async function route(req, res) {
     if (req.method === "GET" && url.pathname === "/health") return await handleHealth(res, headers);
     if (req.method === "GET" && url.pathname === "/employees") return await handleEmployees(res, headers);
     if (req.method === "GET" && url.pathname === "/permissions") return await handlePermissions(res, headers);
+    if (req.method === "POST" && url.pathname === "/ai-assistant") return await handleAiAssistant(req, res, headers, authorization);
     if (req.method === "GET" && url.pathname === "/module-data") return await handleGetModuleData(url, res, headers);
     if (req.method === "PUT" && url.pathname === "/module-data") return await handlePutModuleData(req, res, headers);
     if (req.method === "POST" && url.pathname === "/import/june-regular-csv") {

@@ -144,6 +144,10 @@ JRC_DB_POOL_MAX=5
 JRC_UPLOAD_DIR=/opt/jrcedu-uploads
 JRC_UPLOAD_MAX_BYTES=31457280
 JRC_JSON_MAX_BYTES=75497472
+JRC_MINIMAX_API_KEY=${JRC_MINIMAX_API_KEY:-}
+JRC_MINIMAX_API_URL=${JRC_MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}
+JRC_MINIMAX_MODEL=${JRC_MINIMAX_MODEL:-MiniMax-M3}
+JRC_MINIMAX_GROUP_ID=${JRC_MINIMAX_GROUP_ID:-}
 EOF
 chmod 600 "${ENV_FILE}"
 mkdir -p /opt/jrcedu-uploads/curriculum /opt/jrcedu-backups/curriculum

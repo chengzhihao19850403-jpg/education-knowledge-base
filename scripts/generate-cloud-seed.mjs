@@ -64,7 +64,7 @@ function actionFromPermission(permissionKey) {
 function permissionsForEmployee(employee) {
   const permissions = new Set(seed.rolePermissions[employee.role] || []);
   const username = employee.username;
-  ["portal.access", "paike.access", "suggestions.access"].forEach((key) => permissions.add(key));
+  ["portal.access", "ai.access", "paike.access", "suggestions.access"].forEach((key) => permissions.add(key));
 
   if (employee.role !== "授课老师") permissions.add("knowledge.access");
   if (employee.role === "授课老师") {
