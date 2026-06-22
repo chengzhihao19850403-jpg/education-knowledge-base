@@ -105,6 +105,7 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now jrcedu-api
+systemctl restart jrcedu-api
 
 echo "==> Configuring Nginx"
 cat > "${NGINX_SITE}" <<'EOF'
