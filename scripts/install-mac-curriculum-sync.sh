@@ -23,6 +23,11 @@ cat > "${PLIST_PATH}" <<EOF
     <string>/bin/bash</string>
     <string>${INSTALLED_SCRIPT}</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>JRC_SYNC_BATCH_MODE</key>
+    <string>1</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
@@ -37,7 +42,7 @@ EOF
 
 launchctl unload "${PLIST_PATH}" >/dev/null 2>&1 || true
 launchctl load "${PLIST_PATH}"
-"${INSTALLED_SCRIPT}"
 
 echo "installed Mac curriculum sync: ${PLIST_PATH}"
 echo "local folder: ${HOME}/Desktop/标准化课件标准化系统"
+echo "automatic sync needs SSH key login. Manual sync can run ${INSTALLED_SCRIPT} and enter the server password."
