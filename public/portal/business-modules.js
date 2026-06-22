@@ -499,7 +499,10 @@
       next: "",
       content: ""
     };
-    let rows = readStore(key, []);
+    function sanitizeRows(input) {
+      return (Array.isArray(input) ? input : []).filter((row) => !["学生 A", "学生 B", "学生 C"].includes(row.student));
+    }
+    let rows = sanitizeRows(readStore(key, []));
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -658,7 +661,8 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = cloudRows;
+      rows = sanitizeRows(cloudRows);
+      if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
       setText("studentServiceMessage", "已同步云端学生服务台账。");
@@ -685,7 +689,11 @@
       owner: "",
       note: ""
     };
-    let rows = readStore(key, []);
+    function sanitizeRows(input) {
+      const oldSeedNames = ["暑假数学提升课", "初一数学衔接课", "科学专题课"];
+      return (Array.isArray(input) ? input : []).filter((row) => !oldSeedNames.includes(row.name));
+    }
+    let rows = sanitizeRows(readStore(key, []));
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -846,7 +854,8 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = cloudRows;
+      rows = sanitizeRows(cloudRows);
+      if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
       setText("curriculumMessage", "已同步云端教研课程台账。");
@@ -873,7 +882,11 @@
       next: "",
       note: ""
     };
-    let rows = readStore(key, []);
+    function sanitizeRows(input) {
+      const oldSeedTypes = ["员工基础档案核对", "系统权限分组", "培训记录归档"];
+      return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTypes.includes(row.type));
+    }
+    let rows = sanitizeRows(readStore(key, []));
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -1031,7 +1044,8 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = cloudRows;
+      rows = sanitizeRows(cloudRows);
+      if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
       setText("hrMessage", "已同步云端人事培训台账。");
@@ -1058,7 +1072,11 @@
       due: "",
       note: ""
     };
-    let rows = readStore(key, []);
+    function sanitizeRows(input) {
+      const oldSeedTitles = ["教室可用状态核对", "暑假值班表", "门店异常记录"];
+      return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTitles.includes(row.title));
+    }
+    let rows = sanitizeRows(readStore(key, []));
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -1216,7 +1234,8 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = cloudRows;
+      rows = sanitizeRows(cloudRows);
+      if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
       setText("campusMessage", "已同步云端校区运营台账。");
