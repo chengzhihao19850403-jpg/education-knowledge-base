@@ -49,12 +49,12 @@ const JRC_CURRICULUM_GRADE_EXPERTS = {
   wushuiqin: { grades: ["四年级"], subject: "数学" },
   panyungui: { grades: ["五年级"], subject: "数学" },
   hejianjun: { grades: ["五年级"], subject: "数学" },
-  zhaoxuan: { grades: ["六年级"], subject: "数学" },
+  zhaoxuan: { grades: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"] },
   yeyuanze: { grades: ["初一"], subject: "数学" },
   wujianyong: { grades: ["初一"], subject: "数学" },
   zhengjiayi: { grades: ["初二"], subject: "数学" },
   caodeshun: { grades: ["初二"], subject: "数学" },
-  liudajun: { grades: ["初三"], subject: "数学" },
+  liudajun: { grades: ["初一", "初二", "初三"] },
   zhuyongle: { grades: ["初一"], subject: "科学" }
 };
 if (typeof window !== "undefined") {
@@ -293,7 +293,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "15639466839",
     wechat: "15639466839",
-    scope: "初三（九年级）",
+    scope: "初中部教研主任（初一至初三）",
     hireDate: "2024-01-20",
     regularDate: "2024-01-20",
     subject: "数学",
@@ -345,7 +345,7 @@ const JRC_EMPLOYEES = [
     role: "授课老师",
     phone: "15938462313",
     wechat: "zx15938462313",
-    scope: "六年级",
+    scope: "小学部教研主任（一至六年级）",
     hireDate: "2025-09-08",
     regularDate: "2025-10-08",
     subject: "数学",
