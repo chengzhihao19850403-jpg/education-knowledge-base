@@ -581,7 +581,7 @@ async function route(req, res) {
     res.end();
     return;
   }
-  if (req.method === "POST" && url.pathname === "/login") {
+  if (req.method === "POST" && (url.pathname === "/login" || url.pathname === "/api/login")) {
     try {
       return await handleLogin(req, res, headers);
     } catch (error) {
