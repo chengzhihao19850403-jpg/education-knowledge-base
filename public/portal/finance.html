@@ -151,6 +151,28 @@
       .summary-card {
         padding: 18px;
       }
+      .settlement-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .settlement-summary-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.78);
+        padding: 14px;
+      }
+      .settlement-summary-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .settlement-summary-card strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--ink);
+        font-size: 22px;
+      }
       .summary-label {
         color: var(--muted);
         font-size: 13px;
@@ -343,6 +365,9 @@
         .summary-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .settlement-summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .quick-actions {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -353,7 +378,8 @@
           flex-direction: column;
         }
         .summary-grid,
-        .form-grid {
+        .form-grid,
+        .settlement-summary-grid {
           grid-template-columns: 1fr;
         }
         .span-2,
@@ -394,7 +420,7 @@
             <a class="button secondary" href="#monthlySection">月结录入</a>
             <a class="button secondary" href="#expenseSection">支出报销</a>
             <a class="button secondary" href="#attendanceFinanceSection">点名结算</a>
-            <a class="button secondary" href="#preimportSection">Excel 对账</a>
+            <a class="button secondary" href="#excelReconciliationSection">Excel 对账</a>
           </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
@@ -456,7 +482,7 @@
         </div>
       </section>
 
-      <section class="card" id="attendanceFinanceSection">
+      <section class="card" id="excelReconciliationSection">
         <p class="eyebrow">对账</p>
         <h2>排课与工资表对账</h2>
         <p style="margin-top: 8px;">对账通过前不进入正式工资、课销和分红。</p>
@@ -479,10 +505,17 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="attendanceFinanceSection">
         <p class="eyebrow">点名</p>
         <h2>点名课时费与课销</h2>
-        <p style="margin-top: 8px;">读取点名、出门测和缺席追踪，形成课时费和课销依据。</p>
+        <div class="auth-note">点名、出门测和缺席追踪会进入结算草表；正式工资和家长课销仍由财务复核后确认。</div>
+        <div class="settlement-summary-grid">
+          <div class="settlement-summary-card"><span>课程数</span><strong id="attendanceFinanceLessons">0</strong></div>
+          <div class="settlement-summary-card"><span>总人次</span><strong id="attendanceFinanceTotal">0</strong></div>
+          <div class="settlement-summary-card"><span>有效到课</span><strong id="attendanceFinancePresent">0</strong></div>
+          <div class="settlement-summary-card"><span>单独结算</span><strong id="attendanceFinanceSpecial">0</strong></div>
+          <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
+        </div>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -992,6 +1025,19 @@
         const body = byId("attendanceSettlementFinanceBody");
         if (!body) return;
         const rows = deriveAttendanceSettlementRows();
+        const totals = rows.reduce((acc, row) => {
+          acc.lessons += row.lessons;
+          acc.totalStudents += row.totalStudents;
+          acc.effectivePresent += row.effectivePresent;
+          acc.specialPresent += row.specialPresent;
+          acc.followupCount += row.followupCount;
+          return acc;
+        }, { lessons: 0, totalStudents: 0, effectivePresent: 0, specialPresent: 0, followupCount: 0 });
+        if (byId("attendanceFinanceLessons")) byId("attendanceFinanceLessons").textContent = String(totals.lessons);
+        if (byId("attendanceFinanceTotal")) byId("attendanceFinanceTotal").textContent = String(totals.totalStudents);
+        if (byId("attendanceFinancePresent")) byId("attendanceFinancePresent").textContent = String(totals.effectivePresent);
+        if (byId("attendanceFinanceSpecial")) byId("attendanceFinanceSpecial").textContent = String(totals.specialPresent);
+        if (byId("attendanceFinanceFollowup")) byId("attendanceFinanceFollowup").textContent = String(totals.followupCount);
         if (!rows.length) {
           body.innerHTML = `<tr><td colspan="9" class="muted">当前月份还没有点名结算数据。老师保存点名后，这里会自动出现课时费和课销核对依据。</td></tr>`;
           return;
