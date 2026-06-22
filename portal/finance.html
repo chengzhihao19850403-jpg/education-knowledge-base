@@ -446,6 +446,29 @@
       </section>
 
       <section class="card">
+        <p class="eyebrow">Excel Preimport</p>
+        <h2>6月排课与工资表对账预导入</h2>
+        <p style="margin-top: 8px;">这里显示从老师 Excel 和 6 月工资表解析出的待审核数据。对账通过前不进入正式工资、课销和分红。</p>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>老师</th>
+                <th>排课学生人次</th>
+                <th>排课学生小时</th>
+                <th>工资表课次</th>
+                <th>已匹配</th>
+                <th>待核差异</th>
+                <th>高优先级</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="excelPreimportBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
         <p class="eyebrow">Attendance Settlement</p>
         <h2>点名课时费与课销联动</h2>
         <p style="margin-top: 8px;">从学生服务系统读取老师点名、出门测和缺席追踪，形成月度课时费和家长课销核对依据。</p>
@@ -629,7 +652,7 @@
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
-
+    <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
     <script>
       const FINANCE_STORAGE_KEY = "jrc-finance-ledger-v1";
@@ -875,6 +898,32 @@
         `).join("");
       }
 
+      function renderExcelPreimportPreview() {
+        const body = byId("excelPreimportBody");
+        if (!body) return;
+        const rows = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.().preimport?.teacherMonthPrecheck || [];
+        const periodRows = rows.filter((row) => row.period === currentPeriod);
+        if (!periodRows.length) {
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前月份还没有 Excel 预导入对账数据。</td></tr>`;
+          return;
+        }
+        body.innerHTML = periodRows.map((row) => {
+          const issueCount = toNumber(row.scheduleOnly) + toNumber(row.salaryOnly);
+          return `
+            <tr>
+              <td>${escapeHtml(row.teacherName || "-")}</td>
+              <td>${escapeHtml(row.scheduleStudentSessions || 0)}</td>
+              <td>${escapeHtml(row.scheduleHours || 0)}</td>
+              <td>${escapeHtml(row.salaryMarkers || 0)}</td>
+              <td>${escapeHtml(row.matchedMarkers || 0)}</td>
+              <td>${issueCount ? `<span class="status-pill pending">${issueCount} 条</span>` : "无"}</td>
+              <td>${row.highPriorityDifferences ? `<span class="status-pill pending">${escapeHtml(row.highPriorityDifferences)} 条</span>` : "无"}</td>
+              <td>待财务/排课老师确认</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
       function attendancePeriod(date) {
         return String(date || "").slice(0, 7) || "待定月份";
       }
@@ -957,6 +1006,7 @@
         renderSummary(period);
         renderExpenses(period);
         renderLinkedFinancePreview();
+        renderExcelPreimportPreview();
         renderAttendanceSettlementPreview();
       }
 

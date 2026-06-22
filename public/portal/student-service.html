@@ -70,15 +70,27 @@
       th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
       th { background: rgba(13,148,136,0.05); color: var(--ink); font-weight: 800; }
       tr:last-child td { border-bottom: 0; }
+      .attendance-touch-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 260px; }
+      .attendance-touch-actions .button { min-width: 68px; padding: 0 12px; }
+      .attendance-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .attendance-summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fff; }
+      .attendance-summary-card span { color: var(--muted); font-size: 12px; }
+      .attendance-summary-card strong { display: block; margin-top: 6px; font-size: 22px; color: var(--ink); }
       .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
       .span-3 { grid-column: 1 / -1; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+      @media (max-width: 720px) {
+        .topbar { align-items: flex-start; flex-direction: column; }
+        .metrics, .form-grid, .attendance-summary-grid { grid-template-columns: 1fr; }
+        .span-3 { grid-column: auto; }
+        .attendance-touch-actions { min-width: 520px; }
+        .attendance-touch-actions .button { min-height: 46px; }
+      }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260621a">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622d">
   </head>
   <body data-page-permission="studentService.access">
     <main class="shell">
@@ -106,7 +118,7 @@
         <article class="card">
           <p class="eyebrow">Student & Parent Service</p>
           <h1>学生与家长服务系统</h1>
-          <p class="hero-text">这个系统负责学生档案、学习跟踪、课后反馈、家长沟通和续费风险。它后面会连接排课系统、招生系统和财务系统，形成从报名入学到续费维护的完整服务记录。</p>
+          <p class="hero-text">管理学生档案、课后反馈、家长沟通、点名和续费风险。</p>
           <div class="tag-row">
             <span class="tag">学生档案</span>
             <span class="tag">学习跟踪</span>
@@ -156,10 +168,12 @@
           <label class="field"><span>日期</span><input id="attendanceDate" type="date"></label>
           <label class="field"><span>任课老师</span><select id="attendanceTeacher"></select></label>
           <label class="field"><span>课程类型</span><select id="attendanceLessonType"><option>正常课</option><option>试听课</option><option>补课</option><option>视频课</option><option>录播核销</option></select></label>
+          <label class="field span-3"><span>从预导入排课选择</span><select id="attendancePreimportSelect"></select></label>
           <label class="field span-3"><span>班级 / 课程</span><input id="attendanceClass" placeholder="例如：暑假数学提升班 / 初一数学小班"></label>
           <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。后续接云排课后会自动带出本节课学生名单。"></textarea></label>
         </div>
         <div class="actions">
+          <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出排课名单</button>
           <button class="button" id="attendanceBuildButton" type="button">生成点名名单</button>
           <button class="button secondary" id="attendanceImportButton" type="button">上传名单 Excel / CSV</button>
           <button class="button secondary" id="attendanceTemplateButton" type="button">下载名单模板</button>
@@ -168,6 +182,13 @@
           <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
         <div class="notice" id="attendanceMessage">到课学生默认“计老师课时费 + 计家长课销”。缺席或待核对学生必须选择后续处理；有出门测成绩的学生会自动作为已到课二次确认。</div>
+        <div class="attendance-summary-grid">
+          <div class="attendance-summary-card"><span>本节名单</span><strong id="attendanceMetricTotal">0</strong></div>
+          <div class="attendance-summary-card"><span>有效到课</span><strong id="attendanceMetricPresent">0</strong></div>
+          <div class="attendance-summary-card"><span>待追踪</span><strong id="attendanceMetricFollowup">0</strong></div>
+          <div class="attendance-summary-card"><span>普通财务人数</span><strong id="attendanceMetricFinance">0</strong></div>
+          <div class="attendance-summary-card"><span>单独结算人数</span><strong id="attendanceMetricSpecial">0</strong></div>
+        </div>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
@@ -182,6 +203,22 @@
               <tr><th>日期</th><th>老师</th><th>班级 / 课程</th><th>人数</th><th>未落实</th><th>特殊结算提示</th><th>保存时间</th></tr>
             </thead>
             <tbody id="attendanceHistoryBody"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>结算口径</th></tr>
+            </thead>
+            <tbody id="attendanceSettlementBody"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>日期 / 课程</th><th>老师</th><th>当前状态</th><th>应处理方式</th><th>为什么要处理</th></tr>
+            </thead>
+            <tbody id="attendanceFollowupBody"></tbody>
           </table>
         </div>
       </section>
@@ -214,7 +251,7 @@
         <div class="section-head">
           <div>
             <h2>学生服务总览</h2>
-            <p>以下是第一版工作台结构，当前为演示数据，不代表真实学生情况。</p>
+            <p>学生服务记录集中查看。</p>
           </div>
           <span class="status-chip">样例数据</span>
         </div>
@@ -252,7 +289,7 @@
 
         <article class="card">
           <h2>服务记录录入</h2>
-          <p>第一版先定义老师和学管都看得懂的字段，后面再接真实保存。</p>
+          <p>录入学习跟踪、课后反馈和家长沟通。</p>
           <div class="form-grid">
             <label class="field"><span>学生姓名</span><input id="studentNameInput" value="学生 A"></label>
             <label class="field"><span>班级 / 课程</span><input id="studentClassInput" value="暑假数学提升班"></label>
@@ -267,7 +304,7 @@
             <button class="button secondary" id="studentExportButton" type="button">导出服务数据</button>
             <button class="button secondary" id="studentResetButton" type="button">恢复样例数据</button>
           </div>
-          <div class="notice" id="studentServiceMessage">当前数据先保存在本机浏览器；接云数据库后会同步到学生个人档案。</div>
+          <div class="notice" id="studentServiceMessage">当前数据已接入云端试运行；本机缓存只作为断网兜底。学生档案会逐步和招生、排课、点名数据联动。</div>
         </article>
       </section>
 
@@ -275,7 +312,7 @@
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
-            <p>记录当前浏览器里的新增、修改、删除、导入和恢复样例操作；后续接云数据库后会升级为全员共享日志。</p>
+            <p>记录新增、修改、删除、导入和恢复样例操作；云端会保留共享操作痕迹，便于后续追溯。</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -288,10 +325,11 @@
         </div>
       </section>
     </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260622i"></script>
 
-    <script src="/jrcedu/portal/auth.js?v=20260622c"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260621e"></script>
+    <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
@@ -329,6 +367,7 @@
     <script>
       (function () {
         const STORE_KEY = "jrc-class-attendance-v1";
+        const PREIMPORT_STORE_KEY = "jrc-paike-finance-preimport-2026-06-22";
         const SETTLEMENT_TEACHERS = ["海滢滢", "姚老师"];
         const FINANCE_EXCLUDED_TEACHERS = ["程志豪", "海滢滢", "姚老师"];
         const ATTENDANCE_STATUSES = ["到课", "迟到", "请假", "缺席", "待核对"];
@@ -345,9 +384,11 @@
           date: document.getElementById("attendanceDate"),
           teacher: document.getElementById("attendanceTeacher"),
           lessonType: document.getElementById("attendanceLessonType"),
+          preimportSelect: document.getElementById("attendancePreimportSelect"),
           className: document.getElementById("attendanceClass"),
           rosterInput: document.getElementById("attendanceRosterInput")
         };
+        const loadPreimportButton = document.getElementById("attendanceLoadPreimportButton");
         const buildButton = document.getElementById("attendanceBuildButton");
         const importButton = document.getElementById("attendanceImportButton");
         const templateButton = document.getElementById("attendanceTemplateButton");
@@ -357,6 +398,13 @@
         const message = document.getElementById("attendanceMessage");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
+        const settlementBody = document.getElementById("attendanceSettlementBody");
+        const followupBody = document.getElementById("attendanceFollowupBody");
+        const attendanceMetricTotal = document.getElementById("attendanceMetricTotal");
+        const attendanceMetricPresent = document.getElementById("attendanceMetricPresent");
+        const attendanceMetricFollowup = document.getElementById("attendanceMetricFollowup");
+        const attendanceMetricFinance = document.getElementById("attendanceMetricFinance");
+        const attendanceMetricSpecial = document.getElementById("attendanceMetricSpecial");
         const scoreBody = document.getElementById("scoreAnalyticsBody");
         const scoreMetricLessons = document.getElementById("scoreMetricLessons");
         const scoreMetricAverage = document.getElementById("scoreMetricAverage");
@@ -365,6 +413,7 @@
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
+        let preimportBundle = window.JRC_PREIMPORT_BUNDLE || null;
 
         const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
         const hasPermission = (key) => typeof window.jrcHasPermission === "function"
@@ -394,10 +443,49 @@
         };
         const saveRows = (rows) => {
           localStorage.setItem(STORE_KEY, JSON.stringify(rows));
+          window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", rows).catch((error) => {
+            console.warn("点名数据云端保存失败", error);
+          });
+        };
+        const hydrateCloudRows = () => {
+          window.JRC_CLOUD?.readModuleData?.(STORE_KEY).then((result) => {
+            if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
+            localStorage.setItem(STORE_KEY, JSON.stringify(result.data.payload));
+            renderHistory();
+            renderSettlement();
+            renderFollowups();
+            renderScoreAnalytics();
+            setMessage("已同步云端点名和出门测记录。");
+          }).catch((error) => {
+            console.warn("点名数据云端读取失败", error);
+          });
+        };
+        const hydratePreimportBundle = () => {
+          if (!window.JRC_CLOUD?.readModuleData) {
+            renderPreimportOptions();
+            return;
+          }
+          window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY).then((result) => {
+            if (!result.ok || !result.data?.found || !result.data.payload?.scheduleSessions) {
+              renderPreimportOptions();
+              return;
+            }
+            preimportBundle = result.data.payload;
+            window.JRC_PREIMPORT_BUNDLE = preimportBundle;
+            renderPreimportOptions();
+          }).catch((error) => {
+            console.warn("预导入排课数据云端读取失败", error);
+            renderPreimportOptions();
+          });
         };
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
         const needsFollowup = (row) => !isEffectivePresent(row) || row.followup === "待联系家长";
+        const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
+        const isSpecialSettlementTeacher = (teacher) => SETTLEMENT_TEACHERS.includes(teacher);
+        const isFinanceExcludedTeacher = (teacher) => FINANCE_EXCLUDED_TEACHERS.includes(teacher);
+        const countFinancePresent = (row, teacher) => isEffectivePresent(row) && !isFinanceExcludedTeacher(teacher) ? 1 : 0;
+        const countSpecialPresent = (row, teacher) => isEffectivePresent(row) && isSpecialSettlementTeacher(teacher) ? 1 : 0;
         const attendanceJudgement = (row) => {
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "出门测修正为已到";
           if (row.status === "到课") return "点名已到";
@@ -559,6 +647,82 @@
         const setMessage = (text) => {
           if (message) message.textContent = text;
         };
+        const getPreimportSessions = () => {
+          const rows = [];
+          (Array.isArray(preimportBundle?.scheduleSessions) ? preimportBundle.scheduleSessions : []).forEach((session) => {
+            (Array.isArray(session.studentNames) ? session.studentNames : []).forEach((studentName) => {
+              rows.push({
+                date: session.date,
+                teacherName: session.teacherName,
+                className: session.lessonTypeRaw || "未填课程",
+                sourceId: session.sourceId,
+                studentName
+              });
+            });
+          });
+          const date = fields.date?.value || "";
+          const teacher = getSelectedTeacher();
+          return rows.filter((row) => {
+            if (date && row.date !== date) return false;
+            if (teacher && row.teacherName !== teacher) return false;
+            return row.studentName;
+          });
+        };
+        const renderPreimportOptions = () => {
+          if (!fields.preimportSelect) return;
+          const grouped = new Map();
+          getPreimportSessions().forEach((row) => {
+            const key = `${row.date}|${row.teacherName}|${row.className || "未填课程"}|${row.sourceId || ""}`;
+            if (!grouped.has(key)) {
+              grouped.set(key, {
+                date: row.date,
+                teacherName: row.teacherName,
+                className: row.className || "未填课程",
+                students: []
+              });
+            }
+            grouped.get(key).students.push(row.studentName);
+          });
+          const options = Array.from(grouped.values()).sort((a, b) => `${a.date}${a.teacherName}${a.className}`.localeCompare(`${b.date}${b.teacherName}${b.className}`, "zh-CN"));
+          if (!options.length) {
+            const label = preimportBundle ? "当前日期和老师没有预导入排课" : "完整排课名单待管理员上传到云端";
+            fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
+            return;
+          }
+          fields.preimportSelect.innerHTML = options.map((item) => {
+            const payload = encodeURIComponent(JSON.stringify(item));
+            return `<option value="${payload}">${escapeHtml(item.date)} ${escapeHtml(item.teacherName)}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
+          }).join("");
+        };
+        const loadPreimportRoster = () => {
+          if (!fields.preimportSelect?.value) {
+            setMessage("当前日期和老师没有可带出的预导入排课。可以换日期/老师，或手动粘贴名单。");
+            return;
+          }
+          let item = null;
+          try {
+            item = JSON.parse(decodeURIComponent(fields.preimportSelect.value));
+          } catch {
+            item = null;
+          }
+          if (!item?.students?.length) {
+            setMessage("这条预导入排课没有识别到学生名单。");
+            return;
+          }
+          if (fields.date) fields.date.value = item.date || fields.date.value;
+          ensureTeacherOption(item.teacherName);
+          if (fields.className) fields.className.value = item.className || "";
+          fields.rosterInput.value = item.students.join("\n");
+          draftRows = item.students.map((studentName) => ({
+            studentName,
+            teacher: item.teacherName,
+            status: "到课",
+            exitScore: "",
+            followup: "正常销课并计课时"
+          }));
+          renderRoster();
+          setMessage(`已从预导入排课带出 ${item.students.length} 名学生。保存点名前请核对实际到课和出门测。`);
+        };
         const populateTeachers = () => {
           const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
           const teacherNames = employees
@@ -573,17 +737,19 @@
             fields.teacher.value = employee.name;
             fields.teacher.disabled = true;
           }
+          renderPreimportOptions();
         };
         const renderRoster = () => {
           if (!draftRows.length) {
             rosterBody.innerHTML = `<tr><td colspan="6">先填写班级和学生名单，再点“生成点名名单”。后续接云排课后，这里会自动带出本节课名单。</td></tr>`;
+            renderDraftMetrics();
             return;
           }
           rosterBody.innerHTML = draftRows.map((row, index) => `
             <tr>
               <td><strong>${escapeHtml(row.studentName)}</strong></td>
               <td>
-                <div class="actions">
+                <div class="attendance-touch-actions">
                   ${ATTENDANCE_STATUSES.map((status) => `
                     <button class="button ${row.status === status ? "" : "secondary"}" data-attendance-status="${index}" data-status="${escapeHtml(status)}" type="button">${escapeHtml(status)}</button>
                   `).join("")}
@@ -597,6 +763,114 @@
                 </select>
               </td>
               <td>${escapeHtml(attendanceJudgement(row))}${needsFollowup(row) ? "<br><span class=\"tag warn\">待落实</span>" : ""}</td>
+            </tr>
+          `).join("");
+          renderDraftMetrics();
+        };
+        const renderDraftMetrics = () => {
+          const teacher = getSelectedTeacher();
+          const total = draftRows.length;
+          const present = draftRows.filter(isEffectivePresent).length;
+          const followup = draftRows.filter(needsFollowup).length;
+          const finance = draftRows.reduce((sum, row) => sum + countFinancePresent(row, teacher), 0);
+          const special = draftRows.reduce((sum, row) => sum + countSpecialPresent(row, teacher), 0);
+          if (attendanceMetricTotal) attendanceMetricTotal.textContent = String(total);
+          if (attendanceMetricPresent) attendanceMetricPresent.textContent = String(present);
+          if (attendanceMetricFollowup) attendanceMetricFollowup.textContent = String(followup);
+          if (attendanceMetricFinance) attendanceMetricFinance.textContent = String(finance);
+          if (attendanceMetricSpecial) attendanceMetricSpecial.textContent = String(special);
+        };
+        const deriveSettlementRows = () => {
+          const groups = new Map();
+          readRows().forEach((session) => {
+            const teacher = session.teacher || "未填老师";
+            const period = periodFromDate(session.date);
+            const key = `${period}|${teacher}`;
+            if (!groups.has(key)) {
+              groups.set(key, {
+                period,
+                teacher,
+                lessons: 0,
+                totalStudents: 0,
+                effectivePresent: 0,
+                financePresent: 0,
+                specialPresent: 0,
+                followupCount: 0,
+                classNames: new Set()
+              });
+            }
+            const group = groups.get(key);
+            group.lessons += 1;
+            group.classNames.add(session.className || "未填课程");
+            (session.rows || []).forEach((row) => {
+              group.totalStudents += 1;
+              if (isEffectivePresent(row)) group.effectivePresent += 1;
+              group.financePresent += countFinancePresent(row, teacher);
+              group.specialPresent += countSpecialPresent(row, teacher);
+              if (needsFollowup(row)) group.followupCount += 1;
+            });
+          });
+          return Array.from(groups.values()).sort((a, b) => `${b.period}${b.teacher}`.localeCompare(`${a.period}${a.teacher}`));
+        };
+        const settlementBasis = (row) => {
+          if (row.teacher === "程志豪") return "只做教学与缺席追踪记录，不进入财务自动结算";
+          if (isSpecialSettlementTeacher(row.teacher)) return "按有效到课/实到人数单独结算课时费";
+          return "普通老师：有效到课进入课时费预核算，缺席进入补课/课销追踪";
+        };
+        const followupReason = (row, session) => {
+          if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) {
+            return "点名未到但有出门测成绩，说明学生可能后来到了，需要修正点名和课销。";
+          }
+          if (!isEffectivePresent(row)) {
+            return session.teacher === "程志豪"
+              ? "程老师学生缺课后，需要确认视频课、线下补课或一对一补齐。"
+              : "学生未形成有效到课，不能直接计课时费和家长课销。";
+          }
+          if (row.followup === "待联系家长") return "到课/缺课结果还没有和家长处理口径确认。";
+          return "需要人工复核。";
+        };
+        const deriveFollowupRows = () => {
+          return readRows().flatMap((session) => (session.rows || [])
+            .filter((row) => needsFollowup(row) || (hasExitScore(row) && !["到课", "迟到"].includes(row.status)))
+            .map((row) => ({ session, row })))
+            .sort((a, b) => String(b.session.date || "").localeCompare(String(a.session.date || "")));
+        };
+        const renderFollowups = () => {
+          if (!followupBody) return;
+          const rows = deriveFollowupRows();
+          if (!rows.length) {
+            followupBody.innerHTML = `<tr><td colspan="6">暂无待追踪学生。缺席、请假、待核对或缺测学生保存后会自动进入这里。</td></tr>`;
+            return;
+          }
+          followupBody.innerHTML = rows.slice(0, 30).map(({ session, row }) => `
+            <tr>
+              <td><strong>${escapeHtml(row.studentName)}</strong></td>
+              <td>${escapeHtml(session.date || "-")}<br>${escapeHtml(session.className || "-")}</td>
+              <td>${escapeHtml(session.teacher || "-")}</td>
+              <td>${escapeHtml(row.status || "-")}${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
+              <td>${escapeHtml(row.followup || "待联系家长")}</td>
+              <td>${escapeHtml(followupReason(row, session))}</td>
+            </tr>
+          `).join("");
+        };
+        const renderSettlement = () => {
+          if (!settlementBody) return;
+          const rows = deriveSettlementRows();
+          if (!rows.length) {
+            settlementBody.innerHTML = `<tr><td colspan="9">暂无点名结算数据。保存点名后，这里会按老师和月份自动汇总到课、课销和课时费依据。</td></tr>`;
+            return;
+          }
+          settlementBody.innerHTML = rows.slice(0, 20).map((row) => `
+            <tr>
+              <td>${escapeHtml(row.period)}</td>
+              <td>${escapeHtml(row.teacher)}</td>
+              <td>${row.lessons}</td>
+              <td>${row.totalStudents}</td>
+              <td>${row.effectivePresent}</td>
+              <td>${row.financePresent}</td>
+              <td>${row.specialPresent}</td>
+              <td>${row.followupCount ? `<span class="tag warn">${row.followupCount} 人</span>` : "已落实"}</td>
+              <td>${escapeHtml(settlementBasis(row))}</td>
             </tr>
           `).join("");
         };
@@ -733,7 +1007,10 @@
           }
           renderRoster();
           renderHistory();
+          renderSettlement();
+          renderFollowups();
           renderScoreAnalytics();
+          renderPreimportOptions();
         };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
         const exportCsv = () => {
@@ -742,9 +1019,10 @@
             setMessage("当前没有可导出的点名记录。");
             return;
           }
-          const header = ["日期", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "课时课销规则", "后续处理", "操作人", "保存时间"];
+          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "操作人", "保存时间"];
           const dataRows = sessions.flatMap((session) => session.rows.map((row) => [
             session.date,
+            periodFromDate(session.date),
             session.teacher,
             session.lessonType,
             session.className,
@@ -752,6 +1030,8 @@
             row.status,
             row.exitScore,
             attendanceJudgement({ ...row, teacher: session.teacher }),
+            countFinancePresent(row, session.teacher),
+            countSpecialPresent(row, session.teacher),
             settlementText({ ...row, teacher: session.teacher }),
             row.followup,
             session.operatorName,
@@ -772,6 +1052,9 @@
 
         if (fields.date && !fields.date.value) fields.date.value = today();
         populateTeachers();
+        fields.date?.addEventListener("change", renderPreimportOptions);
+        fields.teacher?.addEventListener("change", renderPreimportOptions);
+        loadPreimportButton?.addEventListener("click", loadPreimportRoster);
         importButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
           importInput.click();
@@ -834,6 +1117,8 @@
           sessions.unshift(session);
           saveRows(sessions);
           renderHistory();
+          renderSettlement();
+          renderFollowups();
           renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
           setMessage(unresolved
@@ -877,8 +1162,10 @@
           renderRoster();
         });
         renderAll();
+        hydrateCloudRows();
+        hydratePreimportBundle();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260622c"></script>
   </body>
 </html>

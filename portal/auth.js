@@ -606,6 +606,7 @@ function jrcEstimateHours(row) {
 function jrcCollectScheduleRows() {
   const regular = jrcReadJsonStore("paike-june-system-v1", {});
   const holiday = jrcReadJsonStore("paike-system-prototype-v1", {});
+  const preimport = window.JRC_PREIMPORT_BUNDLE || null;
   const rows = [];
   (Array.isArray(regular.scheduleEntries) ? regular.scheduleEntries : []).forEach((entry) => {
     rows.push({
@@ -633,7 +634,45 @@ function jrcCollectScheduleRows() {
       status: line.status || ""
     });
   });
+  (Array.isArray(preimport?.scheduleSessions) ? preimport.scheduleSessions : []).forEach((session) => {
+    const students = Array.isArray(session.studentNames) && session.studentNames.length ? session.studentNames : [session.className || ""];
+    students.forEach((studentName) => {
+      rows.push({
+        source: "Excel预导入排课",
+        teacherName: String(session.teacherName || "").trim(),
+        studentName: String(studentName || "").trim(),
+        className: String(session.lessonTypeRaw || "").trim(),
+        date: session.date || "",
+        period: session.period || jrcMonthFromDate(session.date),
+        roomName: "",
+        hours: jrcToNumber(session.hours),
+        status: session.status || "待对账",
+        importConfidence: session.importConfidence || "预导入",
+        sourceId: session.sourceId || ""
+      });
+    });
+  });
   return rows.filter((row) => row.teacherName);
+}
+
+function jrcCollectPreimportFinanceRows() {
+  const preimport = window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || null;
+  if (!preimport) {
+    return {
+      summary: null,
+      expenses: [],
+      salaryAttendance: [],
+      issues: [],
+      teacherMonthPrecheck: []
+    };
+  }
+  return {
+    summary: preimport.summary || null,
+    expenses: Array.isArray(preimport.expenseRows) ? preimport.expenseRows : [],
+    salaryAttendance: Array.isArray(preimport.salaryAttendance) ? preimport.salaryAttendance : [],
+    issues: Array.isArray(preimport.reconciliationIssues) ? preimport.reconciliationIssues : [],
+    teacherMonthPrecheck: Array.isArray(preimport.teacherMonthPrecheck) ? preimport.teacherMonthPrecheck : []
+  };
 }
 
 function jrcCollectAdmissionsRows() {
@@ -697,6 +736,7 @@ function jrcDeriveSystemLinks() {
   const schedules = jrcCollectScheduleRows();
   const admissions = jrcCollectAdmissionsRows();
   const quality = jrcCollectTeachingQualityRows();
+  const preimportFinance = jrcCollectPreimportFinanceRows();
   const employees = jrcGetAllEmployees();
   const qualityByTeacher = new Map(quality.map((row) => [row.teacherName, row]));
   const employeeByName = new Map(employees.map((employee) => [employee.name, employee]));
@@ -714,6 +754,11 @@ function jrcDeriveSystemLinks() {
         financeExcluded,
         financeScope: financeExcluded ? "单独核算，不进入财务系统" : "进入财务系统预核算",
         scheduledHours: 0,
+        preimportStudentSessions: 0,
+        preimportIssueCount: 0,
+        preimportHighIssueCount: 0,
+        salaryMarkerCount: 0,
+        matchedSalaryMarkerCount: 0,
         trialCount: 0,
         enrolledAmount: 0,
         commissionRate: employee.commissionRate || "",
@@ -725,7 +770,17 @@ function jrcDeriveSystemLinks() {
   }
 
   schedules.forEach((row) => {
-    ensureTeacherMonth(row.teacherName, row.period).scheduledHours += row.hours;
+    const month = ensureTeacherMonth(row.teacherName, row.period);
+    month.scheduledHours += row.hours;
+    if (row.source === "Excel预导入排课") month.preimportStudentSessions += 1;
+  });
+  preimportFinance.teacherMonthPrecheck.forEach((precheck) => {
+    const month = ensureTeacherMonth(precheck.teacherName, precheck.period);
+    month.preimportStudentSessions = Math.max(month.preimportStudentSessions, jrcToNumber(precheck.scheduleStudentSessions));
+    month.preimportIssueCount = Math.max(month.preimportIssueCount, jrcToNumber(precheck.scheduleOnly) + jrcToNumber(precheck.salaryOnly));
+    month.preimportHighIssueCount = Math.max(month.preimportHighIssueCount, jrcToNumber(precheck.highPriorityDifferences));
+    month.salaryMarkerCount = Math.max(month.salaryMarkerCount, jrcToNumber(precheck.salaryMarkers));
+    month.matchedSalaryMarkerCount = Math.max(month.matchedSalaryMarkerCount, jrcToNumber(precheck.matchedMarkers));
   });
   admissions.forEach((lead) => {
     if (lead.trialTeacher) {
@@ -744,19 +799,28 @@ function jrcDeriveSystemLinks() {
       admissionsRows: admissions.length,
       teachingQualityTeachers: quality.length,
       employees: employees.length
+      ,
+      preimportScheduleSessions: preimportFinance.summary?.scheduleSessionCount || 0,
+      preimportSalaryMarkers: preimportFinance.summary?.salaryAttendanceCount || 0,
+      preimportExpenseRows: preimportFinance.summary?.expenseRowCount || 0,
+      preimportHighIssues: preimportFinance.summary?.highPriorityIssueCount || 0
     },
     teacherMonthRows: Array.from(teacherMonth.values()).map((row) => ({
       ...row,
       scheduledHours: Math.round(row.scheduledHours * 100) / 100,
       financeBasis: row.financeExcluded
         ? "程志豪、海滢滢、姚老师名下学生单独核算：可进入招生和学生服务，不进入财务系统自动预核算。"
-        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
+        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；${row.preimportStudentSessions ? `Excel预导入 ${row.preimportStudentSessions} 人次，待核 ${row.preimportIssueCount} 条` : "暂无Excel预导入"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
     })),
     pendingLinks: {
       trialScheduleCandidates: admissions.filter((lead) => lead.status === "已预约试听"),
       enrolledStudentCandidates: admissions.filter((lead) => lead.status === "定金 / 已报名" || lead.enrolledAmount > 0),
-      financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0)
-    }
+      financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0),
+      preimportScheduleSessions: schedules.filter((row) => row.source === "Excel预导入排课"),
+      preimportFinanceExpenses: preimportFinance.expenses,
+      preimportReconciliationIssues: preimportFinance.issues
+    },
+    preimport: preimportFinance
   };
 }
 

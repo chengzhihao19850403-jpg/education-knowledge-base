@@ -1,13 +1,8 @@
 const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
 const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
+const JRC_TEMP_AUTO_LOGIN_USERNAME = "";
 const JRC_LEGACY_BUSINESS_DATA_KEYS = [
-  "paike-june-system-v1",
-  "paike-june-system-meta-v1",
-  "paike-system-prototype-v1",
-  "paike-system-prototype-meta-v1",
-  "paike-summer-import-review-v1",
-  "jrc-paike-legacy-cloud-transition-v1",
   "advice-system-stage-prototype",
   "jrc-finance-ledger-v1",
   "jrc-teaching-quality-system-v2-demo",
@@ -448,9 +443,64 @@ function jrcExpandGranularPermissions(permissions) {
   });
 }
 
+function jrcSafeStorageGet(key) {
+  try {
+    return window.localStorage?.getItem(key) || null;
+  } catch {
+    return null;
+  }
+}
+
+function jrcSafeStorageSet(key, value) {
+  try {
+    window.localStorage?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function jrcSafeStorageRemove(key) {
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {
+    // Ignore storage failures; cookie fallback still handles login state.
+  }
+}
+
+function jrcReadCookie(name) {
+  try {
+    const prefix = `${encodeURIComponent(name)}=`;
+    return document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(prefix))
+      ?.slice(prefix.length) || "";
+  } catch {
+    return "";
+  }
+}
+
+function jrcWriteCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
+  try {
+    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function jrcClearCookie(name) {
+  try {
+    document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0; SameSite=Lax`;
+  } catch {
+    // Ignore cookie failures.
+  }
+}
+
 function jrcReadCustomEmployees() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(jrcSafeStorageGet(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -458,7 +508,7 @@ function jrcReadCustomEmployees() {
 }
 
 function jrcWriteCustomEmployees(employees) {
-  localStorage.setItem(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, JSON.stringify(employees));
+  jrcSafeStorageSet(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, JSON.stringify(employees));
 }
 
 function jrcGetAllEmployees() {
@@ -467,45 +517,60 @@ function jrcGetAllEmployees() {
 
 function jrcReadSession() {
   try {
-    return JSON.parse(localStorage.getItem(JRC_AUTH_STORAGE_KEY) || "null");
+    const raw = jrcSafeStorageGet(JRC_AUTH_STORAGE_KEY) || decodeURIComponent(jrcReadCookie(JRC_AUTH_STORAGE_KEY) || "");
+    return JSON.parse(raw || "null") || window.JRC_IN_MEMORY_SESSION || null;
   } catch {
-    return null;
+    return window.JRC_IN_MEMORY_SESSION || null;
   }
 }
 
-function jrcWriteSession(employee) {
+function jrcWriteSession(employee, extras = {}) {
   const session = {
     username: employee.username,
     name: employee.name,
     role: employee.role,
-    loginAt: new Date().toISOString()
+    loginAt: new Date().toISOString(),
+    cloudApiToken: extras.cloudApiToken || "",
+    cloudTokenExpiresAt: extras.cloudTokenExpiresAt || null,
+    cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : ""
   };
-  localStorage.setItem(JRC_AUTH_STORAGE_KEY, JSON.stringify(session));
+  const serialized = JSON.stringify(session);
+  const stored = jrcSafeStorageSet(JRC_AUTH_STORAGE_KEY, serialized);
+  const cookieStored = jrcWriteCookie(JRC_AUTH_STORAGE_KEY, serialized);
+  window.JRC_IN_MEMORY_SESSION = session;
+  if (!stored && !cookieStored) {
+    throw new Error("浏览器禁止保存登录状态，请换 Safari/Chrome 或关闭无痕模式。");
+  }
   return session;
 }
 
 function jrcClearSession() {
-  localStorage.removeItem(JRC_AUTH_STORAGE_KEY);
+  jrcSafeStorageRemove(JRC_AUTH_STORAGE_KEY);
+  jrcClearCookie(JRC_AUTH_STORAGE_KEY);
 }
 
 function jrcResetLegacyBusinessDataOnce() {
-  if (localStorage.getItem(JRC_DATA_FOUNDATION_RESET_KEY)) return;
-  const removedKeys = [];
-  JRC_LEGACY_BUSINESS_DATA_KEYS.forEach((key) => {
-    if (localStorage.getItem(key) === null) return;
-    localStorage.removeItem(key);
-    removedKeys.push(key);
-  });
-  localStorage.setItem(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
-    resetAt: new Date().toISOString(),
-    reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
-    removedKeys
-  }));
+  try {
+    if (jrcSafeStorageGet(JRC_DATA_FOUNDATION_RESET_KEY)) return;
+    const removedKeys = [];
+    JRC_LEGACY_BUSINESS_DATA_KEYS.forEach((key) => {
+      if (jrcSafeStorageGet(key) === null) return;
+      jrcSafeStorageRemove(key);
+      removedKeys.push(key);
+    });
+    jrcSafeStorageSet(JRC_DATA_FOUNDATION_RESET_KEY, JSON.stringify({
+      resetAt: new Date().toISOString(),
+      reason: "统一门户进入云端数据底座前，清理早期试导入和演示业务数据；保留员工账号、登录状态和权限。",
+      removedKeys
+    }));
+  } catch {
+    // Storage cleanup must never block employee login.
+  }
 }
 
 function jrcReadJsonStore(key, fallback) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    const parsed = JSON.parse(jrcSafeStorageGet(key) || "null");
     return parsed ?? fallback;
   } catch {
     return fallback;
@@ -541,6 +606,7 @@ function jrcEstimateHours(row) {
 function jrcCollectScheduleRows() {
   const regular = jrcReadJsonStore("paike-june-system-v1", {});
   const holiday = jrcReadJsonStore("paike-system-prototype-v1", {});
+  const preimport = window.JRC_PREIMPORT_BUNDLE || null;
   const rows = [];
   (Array.isArray(regular.scheduleEntries) ? regular.scheduleEntries : []).forEach((entry) => {
     rows.push({
@@ -568,7 +634,45 @@ function jrcCollectScheduleRows() {
       status: line.status || ""
     });
   });
+  (Array.isArray(preimport?.scheduleSessions) ? preimport.scheduleSessions : []).forEach((session) => {
+    const students = Array.isArray(session.studentNames) && session.studentNames.length ? session.studentNames : [session.className || ""];
+    students.forEach((studentName) => {
+      rows.push({
+        source: "Excel预导入排课",
+        teacherName: String(session.teacherName || "").trim(),
+        studentName: String(studentName || "").trim(),
+        className: String(session.lessonTypeRaw || "").trim(),
+        date: session.date || "",
+        period: session.period || jrcMonthFromDate(session.date),
+        roomName: "",
+        hours: jrcToNumber(session.hours),
+        status: session.status || "待对账",
+        importConfidence: session.importConfidence || "预导入",
+        sourceId: session.sourceId || ""
+      });
+    });
+  });
   return rows.filter((row) => row.teacherName);
+}
+
+function jrcCollectPreimportFinanceRows() {
+  const preimport = window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || null;
+  if (!preimport) {
+    return {
+      summary: null,
+      expenses: [],
+      salaryAttendance: [],
+      issues: [],
+      teacherMonthPrecheck: []
+    };
+  }
+  return {
+    summary: preimport.summary || null,
+    expenses: Array.isArray(preimport.expenseRows) ? preimport.expenseRows : [],
+    salaryAttendance: Array.isArray(preimport.salaryAttendance) ? preimport.salaryAttendance : [],
+    issues: Array.isArray(preimport.reconciliationIssues) ? preimport.reconciliationIssues : [],
+    teacherMonthPrecheck: Array.isArray(preimport.teacherMonthPrecheck) ? preimport.teacherMonthPrecheck : []
+  };
 }
 
 function jrcCollectAdmissionsRows() {
@@ -632,6 +736,7 @@ function jrcDeriveSystemLinks() {
   const schedules = jrcCollectScheduleRows();
   const admissions = jrcCollectAdmissionsRows();
   const quality = jrcCollectTeachingQualityRows();
+  const preimportFinance = jrcCollectPreimportFinanceRows();
   const employees = jrcGetAllEmployees();
   const qualityByTeacher = new Map(quality.map((row) => [row.teacherName, row]));
   const employeeByName = new Map(employees.map((employee) => [employee.name, employee]));
@@ -649,6 +754,11 @@ function jrcDeriveSystemLinks() {
         financeExcluded,
         financeScope: financeExcluded ? "单独核算，不进入财务系统" : "进入财务系统预核算",
         scheduledHours: 0,
+        preimportStudentSessions: 0,
+        preimportIssueCount: 0,
+        preimportHighIssueCount: 0,
+        salaryMarkerCount: 0,
+        matchedSalaryMarkerCount: 0,
         trialCount: 0,
         enrolledAmount: 0,
         commissionRate: employee.commissionRate || "",
@@ -660,7 +770,17 @@ function jrcDeriveSystemLinks() {
   }
 
   schedules.forEach((row) => {
-    ensureTeacherMonth(row.teacherName, row.period).scheduledHours += row.hours;
+    const month = ensureTeacherMonth(row.teacherName, row.period);
+    month.scheduledHours += row.hours;
+    if (row.source === "Excel预导入排课") month.preimportStudentSessions += 1;
+  });
+  preimportFinance.teacherMonthPrecheck.forEach((precheck) => {
+    const month = ensureTeacherMonth(precheck.teacherName, precheck.period);
+    month.preimportStudentSessions = Math.max(month.preimportStudentSessions, jrcToNumber(precheck.scheduleStudentSessions));
+    month.preimportIssueCount = Math.max(month.preimportIssueCount, jrcToNumber(precheck.scheduleOnly) + jrcToNumber(precheck.salaryOnly));
+    month.preimportHighIssueCount = Math.max(month.preimportHighIssueCount, jrcToNumber(precheck.highPriorityDifferences));
+    month.salaryMarkerCount = Math.max(month.salaryMarkerCount, jrcToNumber(precheck.salaryMarkers));
+    month.matchedSalaryMarkerCount = Math.max(month.matchedSalaryMarkerCount, jrcToNumber(precheck.matchedMarkers));
   });
   admissions.forEach((lead) => {
     if (lead.trialTeacher) {
@@ -679,19 +799,28 @@ function jrcDeriveSystemLinks() {
       admissionsRows: admissions.length,
       teachingQualityTeachers: quality.length,
       employees: employees.length
+      ,
+      preimportScheduleSessions: preimportFinance.summary?.scheduleSessionCount || 0,
+      preimportSalaryMarkers: preimportFinance.summary?.salaryAttendanceCount || 0,
+      preimportExpenseRows: preimportFinance.summary?.expenseRowCount || 0,
+      preimportHighIssues: preimportFinance.summary?.highPriorityIssueCount || 0
     },
     teacherMonthRows: Array.from(teacherMonth.values()).map((row) => ({
       ...row,
       scheduledHours: Math.round(row.scheduledHours * 100) / 100,
       financeBasis: row.financeExcluded
         ? "程志豪、海滢滢、姚老师名下学生单独核算：可进入招生和学生服务，不进入财务系统自动预核算。"
-        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
+        : `${row.scheduledHours ? `课时 ${Math.round(row.scheduledHours * 100) / 100}` : "暂无课时"}；${row.preimportStudentSessions ? `Excel预导入 ${row.preimportStudentSessions} 人次，待核 ${row.preimportIssueCount} 条` : "暂无Excel预导入"}；评级系数 ${row.qualityCoefficient || 1}；招生实收 ${row.enrolledAmount || 0}`
     })),
     pendingLinks: {
       trialScheduleCandidates: admissions.filter((lead) => lead.status === "已预约试听"),
       enrolledStudentCandidates: admissions.filter((lead) => lead.status === "定金 / 已报名" || lead.enrolledAmount > 0),
-      financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0)
-    }
+      financeAttributionCandidates: admissions.filter((lead) => lead.enrolledAmount > 0),
+      preimportScheduleSessions: schedules.filter((row) => row.source === "Excel预导入排课"),
+      preimportFinanceExpenses: preimportFinance.expenses,
+      preimportReconciliationIssues: preimportFinance.issues
+    },
+    preimport: preimportFinance
   };
 }
 
@@ -713,7 +842,8 @@ function jrcExposeDataFoundation() {
 }
 
 function jrcFindEmployeeByUsername(username) {
-  return jrcGetAllEmployees().find((employee) => employee.username === username);
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  return jrcGetAllEmployees().find((employee) => employee.username === normalizedUsername);
 }
 
 function jrcResolveCurrentEmployee() {
@@ -869,7 +999,6 @@ function jrcEnsureTopbar(currentEmployee) {
         <span>${currentEmployee.role} · 用户名 ${currentEmployee.username} · 当前开放：${jrcGetRoleSummary(currentEmployee)}</span>
       </div>
       <div class="jrc-auth-bar__actions">
-        <span>统一初始密码：10281028</span>
         <button type="button" id="jrcLogoutButton">退出登录</button>
       </div>
     </div>
@@ -1227,6 +1356,11 @@ function jrcInjectStyles() {
       background: rgba(15, 23, 42, 0.58);
       backdrop-filter: blur(8px);
     }
+    body.jrc-auth-required > :not(.jrc-login-overlay) {
+      pointer-events: none;
+      user-select: none;
+      filter: blur(1.5px);
+    }
     .jrc-login-card {
       width: min(520px, 100%);
       background: rgba(255,255,255,0.98);
@@ -1278,6 +1412,39 @@ function jrcInjectStyles() {
       margin-top: 10px;
       color: #b91c1c;
       font-size: 13px;
+    }
+    .jrc-login-error--success {
+      color: #0f766e;
+    }
+    .jrc-login-submit:disabled {
+      cursor: progress;
+      opacity: 0.72;
+    }
+    .jrc-login-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .jrc-login-tools button {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(13, 148, 136, 0.22);
+      background: rgba(13, 148, 136, 0.08);
+      color: #0f766e;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+    }
+    .jrc-login-diagnostics {
+      width: 100%;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
     }
     [data-employee-summary] {
       display: flex;
@@ -1579,13 +1746,116 @@ function jrcInjectStyles() {
 }
 
 function jrcShowLoginOverlay() {
+  document.body.classList.add("jrc-auth-required");
+  let loginSubmitting = false;
+
+  async function jrcRunLoginDiagnostics(event) {
+    if (event?.preventDefault) event.preventDefault();
+    const box = document.getElementById("jrcLoginDiagnostics");
+    const button = document.getElementById("jrcLoginDiagnosticsButton");
+    if (!box) return false;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "正在检测...";
+    }
+    const lines = [];
+    const storageKey = "jrc-login-diagnostic";
+    const storageOk = jrcSafeStorageSet(storageKey, "ok") && jrcSafeStorageGet(storageKey) === "ok";
+    jrcSafeStorageRemove(storageKey);
+    const cookieOk = jrcWriteCookie(storageKey, "ok", 60) && decodeURIComponent(jrcReadCookie(storageKey) || "") === "ok";
+    jrcClearCookie(storageKey);
+    lines.push(`浏览器保存登录状态：${storageOk || cookieOk ? "正常" : "受限"}`);
+    lines.push(`云接口脚本：${window.JRC_CLOUD?.login ? "已加载" : "未加载"}`);
+    try {
+      const result = window.JRC_CLOUD?.login
+        ? await window.JRC_CLOUD.login("chengzhihao", "10281028")
+        : { ok: false, error: "云接口脚本未加载" };
+      lines.push(`云端登录接口：${result.ok ? "正常" : `异常 ${result.status || result.error || ""}`}`);
+    } catch (error) {
+      lines.push(`云端登录接口：异常 ${String(error?.message || error)}`);
+    }
+    lines.push(`当前页面：${location.href}`);
+    box.textContent = lines.join("\n");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "检测登录环境";
+    }
+    return false;
+  }
+  window.jrcRunLoginDiagnostics = jrcRunLoginDiagnostics;
+
+  async function jrcHandleLoginSubmit(event) {
+    if (event?.preventDefault) event.preventDefault();
+    const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase() || "";
+    const password = document.getElementById("jrcPasswordInput")?.value.trim() || "";
+    const errorBox = document.getElementById("jrcLoginError");
+    const submitButton = document.getElementById("jrcLoginSubmitButton");
+    if (errorBox) {
+      errorBox.textContent = "";
+      errorBox.classList.remove("jrc-login-error--success");
+    }
+    if (!username || !password) {
+      if (errorBox) errorBox.textContent = "请填写用户名和密码。用户名一般使用姓名拼音。";
+      return false;
+    }
+    if (loginSubmitting) return false;
+    loginSubmitting = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "正在登录...";
+    }
+
+    try {
+      const cloudResult = window.JRC_CLOUD?.login ? await window.JRC_CLOUD.login(username, password) : null;
+      if (cloudResult?.ok && cloudResult.data?.employee && cloudResult.data?.token) {
+        const localEmployee = jrcFindEmployeeByUsername(username);
+        jrcWriteSession(localEmployee || cloudResult.data.employee, {
+          cloudApiToken: cloudResult.data.token,
+          cloudTokenExpiresAt: cloudResult.data.expiresAt || null
+        });
+        document.body.classList.remove("jrc-auth-required");
+        window.location.href = "/jrcedu/portal/index.html?login=ok";
+        return false;
+      }
+
+      const employee = jrcFindEmployeeByUsername(username);
+      if (!employee || employee.password !== password) {
+        if (errorBox) errorBox.textContent = cloudResult?.status === 401
+          ? "用户名或密码不正确，请用员工姓名拼音登录。"
+          : "用户名或密码不正确，或云端登录暂时不可用。";
+        return false;
+      }
+
+      if (errorBox) {
+        errorBox.textContent = "登录成功，正在进入工作台...";
+        errorBox.classList.add("jrc-login-error--success");
+      }
+      jrcWriteSession(employee);
+      document.body.classList.remove("jrc-auth-required");
+      window.location.href = "/jrcedu/portal/index.html?login=ok";
+      return false;
+    } catch (error) {
+      console.error(error);
+      const message = String(error?.message || error || "未知错误");
+      if (errorBox) errorBox.textContent = `登录过程出错：${message}`;
+      return false;
+    } finally {
+      loginSubmitting = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "登录进入工作台";
+      }
+    }
+  }
+  window.jrcHandleLoginSubmit = jrcHandleLoginSubmit;
+
   const overlay = document.createElement("div");
   overlay.className = "jrc-login-overlay";
   overlay.innerHTML = `
     <div class="jrc-login-card">
       <p style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#0d9488; font-weight:700;">JRC Employee Login</p>
       <h2 style="margin-top:8px;">先登录，再进入系统</h2>
-      <p style="margin-top:12px;">现在网站已经接入员工登录。只有已录入的公司员工账号可以进入和使用各个系统。用户名统一用姓名拼音，初始密码统一为 10281028。</p>
+      <p style="margin-top:12px;">请输入管理员分配的员工账号和密码。用户名一般使用姓名拼音。</p>
       <form id="jrcLoginForm" class="jrc-login-fields">
         <label>
           用户名
@@ -1593,30 +1863,30 @@ function jrcShowLoginOverlay() {
         </label>
         <label>
           密码
-          <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="统一初始密码">
+          <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="请输入密码">
         </label>
-        <button class="jrc-login-submit" type="submit">登录进入工作台</button>
+        <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit" onclick="return window.jrcHandleLoginSubmit(event)">登录进入工作台</button>
       </form>
       <div id="jrcLoginError" class="jrc-login-error"></div>
+      <div class="jrc-login-tools">
+        <button id="jrcLoginDiagnosticsButton" type="button" onclick="return window.jrcRunLoginDiagnostics(event)">检测登录环境</button>
+        <div id="jrcLoginDiagnostics" class="jrc-login-diagnostics"></div>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
 
-  document.getElementById("jrcLoginForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase();
-    const password = document.getElementById("jrcPasswordInput")?.value.trim();
-    const employee = jrcFindEmployeeByUsername(username);
-    const errorBox = document.getElementById("jrcLoginError");
-
-    if (!employee || employee.password !== password) {
-      if (errorBox) errorBox.textContent = "用户名或密码不正确，请用员工姓名拼音登录。";
-      return;
-    }
-
-    jrcWriteSession(employee);
-    window.location.reload();
-  });
+  const form = document.getElementById("jrcLoginForm");
+  const button = document.getElementById("jrcLoginSubmitButton");
+  if (form) {
+    form.onsubmit = window.jrcHandleLoginSubmit;
+    form.addEventListener("submit", window.jrcHandleLoginSubmit);
+  }
+  if (button) {
+    button.onclick = window.jrcHandleLoginSubmit;
+    button.addEventListener("click", window.jrcHandleLoginSubmit);
+  }
+  document.getElementById("jrcLoginDiagnosticsButton")?.addEventListener("click", window.jrcRunLoginDiagnostics);
 }
 
 function jrcBootstrapAuth() {
@@ -1633,6 +1903,12 @@ function jrcBootstrapAuth() {
   jrcBindEmployeeDirectoryFilters();
   jrcBindEmployeeAddForm(currentEmployee);
   if (!currentEmployee) {
+    const fallbackEmployee = jrcFindEmployeeByUsername(JRC_TEMP_AUTO_LOGIN_USERNAME);
+    if (fallbackEmployee) {
+      jrcWriteSession(fallbackEmployee, { temporaryAutoLogin: true });
+      window.location.reload();
+      return;
+    }
     jrcShowLoginOverlay();
     return;
   }
