@@ -141,8 +141,13 @@ JRC_DB_USER=jrcedu_app
 JRC_DB_PASSWORD=${JRC_DB_PASSWORD}
 JRC_DB_SSL=false
 JRC_DB_POOL_MAX=5
+JRC_UPLOAD_DIR=/opt/jrcedu-uploads
+JRC_UPLOAD_MAX_BYTES=31457280
+JRC_JSON_MAX_BYTES=75497472
 EOF
 chmod 600 "${ENV_FILE}"
+mkdir -p /opt/jrcedu-uploads/curriculum
+chmod 750 /opt/jrcedu-uploads /opt/jrcedu-uploads/curriculum
 
 sudo -u postgres psql <<SQL
 do \$\$

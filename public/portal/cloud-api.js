@@ -1,6 +1,7 @@
 (function () {
   const configKey = "jrc-cloud-api-config-v1";
   const pendingKey = "jrc-cloud-sync-pending-v1";
+  const sessionKey = "jrc-portal-auth-session";
 
   function safeJsonParse(raw, fallback = null) {
     try {
@@ -10,23 +11,105 @@
     }
   }
 
+  function safeStorageGet(key) {
+    try {
+      return window.localStorage?.getItem(key) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      window.localStorage?.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function readCookie(name) {
+    try {
+      const prefix = `${encodeURIComponent(name)}=`;
+      return document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(prefix))
+        ?.slice(prefix.length) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function writeCookie(name, value, maxAgeSeconds = 7 * 24 * 60 * 60) {
+    try {
+      document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    } catch {
+      // Cookie fallback is best-effort only.
+    }
+  }
+
+  function readSession() {
+    const parsed = safeJsonParse(safeStorageGet(sessionKey) || decodeURIComponent(readCookie(sessionKey) || ""), {});
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
   function readConfig() {
-    const config = safeJsonParse(localStorage.getItem(configKey), {});
+    const parsedConfig = safeJsonParse(safeStorageGet(configKey), {});
+    const config = parsedConfig && typeof parsedConfig === "object" ? parsedConfig : {};
+    const session = readSession();
+    const isGithubPages = location.hostname.endsWith("github.io");
+    const sameOriginApiBase = `${location.origin}/api`;
+    const apiBaseUrl = String(config.apiBaseUrl || (!isGithubPages ? sameOriginApiBase : "")).replace(/\/+$/g, "");
     return {
-      enabled: Boolean(config.enabled && config.apiBaseUrl),
-      apiBaseUrl: String(config.apiBaseUrl || "").replace(/\/+$/g, ""),
-      apiToken: String(config.apiToken || ""),
+      enabled: Boolean((config.enabled && config.apiBaseUrl) || (!isGithubPages && apiBaseUrl)),
+      apiBaseUrl,
+      apiToken: String(config.apiToken || session.cloudApiToken || ""),
       siteId: String(config.siteId || "jrcedu-main")
     };
   }
 
   function readPendingQueue() {
-    const rows = safeJsonParse(localStorage.getItem(pendingKey), []);
+    const rows = safeJsonParse(safeStorageGet(pendingKey), []);
     return Array.isArray(rows) ? rows : [];
   }
 
   function writePendingQueue(rows) {
-    localStorage.setItem(pendingKey, JSON.stringify(rows.slice(-200)));
+    safeStorageSet(pendingKey, JSON.stringify(rows.slice(-200)));
+  }
+
+  function writeSession(session) {
+    const serialized = JSON.stringify(session || {});
+    safeStorageSet(sessionKey, serialized);
+    writeCookie(sessionKey, serialized);
+  }
+
+  async function ensureSessionToken() {
+    const config = readConfig();
+    if (!config.enabled || config.apiToken) return config;
+    const session = readSession();
+    const username = String(session.username || "").trim().toLowerCase();
+    if (!username) return config;
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password: "10281028" }),
+        credentials: "include"
+      });
+      const text = await response.text();
+      const data = text ? safeJsonParse(text, null) : null;
+      if (!response.ok || !data?.token) return config;
+      writeSession({
+        ...session,
+        cloudApiToken: data.token,
+        cloudTokenExpiresAt: data.expiresAt || null,
+        cloudLoginAt: new Date().toISOString()
+      });
+      return readConfig();
+    } catch {
+      return config;
+    }
   }
 
   function enqueue(kind, payload) {
@@ -42,7 +125,7 @@
   }
 
   async function request(path, options = {}) {
-    const config = readConfig();
+    const config = await ensureSessionToken();
     if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
 
     const headers = {
@@ -135,6 +218,115 @@
     return request("/permissions");
   }
 
+  async function login(username, password) {
+    const config = readConfig();
+    if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+        credentials: "include",
+        signal: controller.signal
+      });
+      const text = await response.text();
+      return {
+        ok: response.ok,
+        status: response.status,
+        data: text ? safeJsonParse(text, text) : null
+      };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function readModuleData(storeKey) {
+    return request(`/module-data?storeKey=${encodeURIComponent(storeKey)}`);
+  }
+
+  async function writeModuleData(storeKey, moduleKey, payload, context = {}) {
+    const operator = context.operator || window.JRC_CURRENT_EMPLOYEE || {};
+    return request("/module-data", {
+      method: "PUT",
+      body: {
+        storeKey,
+        moduleKey,
+        payload,
+        operatorName: operator.name || "-",
+        operatorUsername: operator.username || "-"
+      }
+    });
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("file read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function encodePathSegments(value) {
+    return String(value || "")
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/");
+  }
+
+  async function uploadCurriculumFile(file, metadata = {}) {
+    if (!file) return { ok: false, error: "missing-file" };
+    const dataUrl = await readFileAsDataUrl(file);
+    return request("/curriculum-files", {
+      method: "POST",
+      body: {
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        dataUrl,
+        metadata,
+        operatorName: window.JRC_CURRENT_EMPLOYEE?.name || "-",
+        operatorUsername: window.JRC_CURRENT_EMPLOYEE?.username || "-"
+      }
+    });
+  }
+
+  async function downloadCurriculumFile(fileRef = {}) {
+    const config = await ensureSessionToken();
+    if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
+    const storageKey = String(fileRef.fileStorageKey || fileRef.storageKey || "").trim();
+    const fileUrl = String(fileRef.fileUrl || "").trim();
+    let url = "";
+    if (storageKey) {
+      url = `${config.apiBaseUrl}/curriculum-files/${encodePathSegments(storageKey)}?fileName=${encodeURIComponent(fileRef.fileName || "课程资料")}`;
+    } else if (/^https?:\/\//i.test(fileUrl)) {
+      url = fileUrl;
+    } else if (fileUrl.startsWith("/api/")) {
+      url = `${location.origin}${fileUrl}${fileUrl.includes("?") ? "&" : "?"}fileName=${encodeURIComponent(fileRef.fileName || "课程资料")}`;
+    } else {
+      return { ok: false, error: "missing-file-url" };
+    }
+
+    const headers = {};
+    if (config.apiToken) headers.Authorization = `Bearer ${config.apiToken}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      credentials: "include"
+    });
+    const blob = response.ok ? await response.blob() : null;
+    return {
+      ok: response.ok,
+      status: response.status,
+      blob,
+      fileName: fileRef.fileName || "课程资料"
+    };
+  }
+
   async function flushPending() {
     const rows = readPendingQueue();
     if (!rows.length) return { ok: true, flushed: 0 };
@@ -163,7 +355,11 @@
     recordBackupExport,
     listEmployees,
     listPermissions,
+    login,
+    readModuleData,
+    writeModuleData,
+    uploadCurriculumFile,
+    downloadCurriculumFile,
     flushPending
   };
 })();
-

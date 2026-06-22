@@ -425,6 +425,18 @@
     anchor.remove();
   }
 
+  function downloadBlob(filename, blob) {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename || "课程资料";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function parseDateValue(value) {
     const time = Date.parse(String(value || "").replace(/\//g, "-"));
     return Number.isFinite(time) ? time : 0;
@@ -477,6 +489,7 @@
     if (!keyword) return true;
     return Object.entries(row).some(([key, value]) => {
       if (key === "fileDataUrl") return false;
+      if (key === "fileStorageKey") return false;
       return String(value || "").toLowerCase().includes(keyword);
     });
   }
@@ -709,7 +722,8 @@
     const moduleKey = "curriculum";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-curriculum-products-v2";
-    const maxFileBytes = 8 * 1024 * 1024;
+    const maxLocalFileBytes = 8 * 1024 * 1024;
+    const maxCloudFileBytes = 30 * 1024 * 1024;
     const defaults = {
       name: "",
       subject: "",
@@ -724,7 +738,10 @@
       fileName: "",
       fileType: "",
       fileSize: 0,
-      fileDataUrl: ""
+      fileDataUrl: "",
+      fileUrl: "",
+      fileStorageKey: "",
+      storageKind: ""
     };
     function sanitizeRows(input) {
       const oldSeedNames = ["暑假数学提升课", "初一数学衔接课", "科学专题课"];
@@ -764,30 +781,54 @@
       preview.textContent = "尚未选择文件。";
     }
 
-    async function selectedFilePayload(existing = {}) {
+    async function selectedFilePayload(existing = {}, metadata = {}) {
       const file = $("curriculumFileInput")?.files?.[0];
       if (!file) {
         return {
           fileName: existing.fileName || "",
           fileType: existing.fileType || "",
           fileSize: existing.fileSize || 0,
-          fileDataUrl: existing.fileDataUrl || ""
+          fileDataUrl: existing.fileDataUrl || "",
+          fileUrl: existing.fileUrl || "",
+          fileStorageKey: existing.fileStorageKey || "",
+          storageKind: existing.storageKind || ""
         };
       }
-      if (file.size > maxFileBytes) {
-        throw new Error(`文件超过 ${formatFileSize(maxFileBytes)}。第一阶段请先上传小文件；大批量资料后续接阿里云 OSS。`);
+      if (window.JRC_CLOUD?.isEnabled?.() && window.JRC_CLOUD?.uploadCurriculumFile) {
+        if (file.size > maxCloudFileBytes) {
+          throw new Error(`文件超过 ${formatFileSize(maxCloudFileBytes)}。请先压缩或拆分后上传。`);
+        }
+        setText("curriculumMessage", `正在上传 ${file.name}...`);
+        const result = await window.JRC_CLOUD.uploadCurriculumFile(file, metadata);
+        if (result.ok && result.data?.file) {
+          return {
+            ...result.data.file,
+            fileDataUrl: ""
+          };
+        }
+        if (file.size > maxLocalFileBytes) {
+          throw new Error("云端上传失败，较大文件不能临时保存在浏览器。请稍后重试。");
+        }
+      }
+      if (file.size > maxLocalFileBytes) {
+        throw new Error(`文件超过 ${formatFileSize(maxLocalFileBytes)}。当前网络未连接云端上传，不能临时保存大文件。`);
       }
       const dataUrl = await readFileAsDataUrl(file);
       return {
         fileName: file.name,
         fileType: file.type || "application/octet-stream",
         fileSize: file.size,
-        fileDataUrl: dataUrl
+        fileDataUrl: dataUrl,
+        fileUrl: "",
+        fileStorageKey: "",
+        storageKind: "browser-data-url"
       };
     }
 
     function fileCell(row, index) {
-      if (!row.fileName || !row.fileDataUrl) return `${tag("未上传", "neutral")}`;
+      if (!row.fileName) return `${tag("未上传", "neutral")}`;
+      const canDownload = row.fileDataUrl || row.fileStorageKey || row.fileUrl;
+      if (!canDownload) return `<div style="display:grid; gap:6px;">${tag("待上传", "warn")}<span>${escapeHtml(row.fileName)}</span></div>`;
       return `
         <div style="display:grid; gap:6px;">
           <button type="button" data-download-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">下载</button>
@@ -843,14 +884,7 @@
         return;
       }
       const existing = editingIndex >= 0 ? rows[editingIndex] : {};
-      let filePayload = {};
-      try {
-        filePayload = await selectedFilePayload(existing);
-      } catch (error) {
-        setText("curriculumMessage", error.message || "文件读取失败。");
-        return;
-      }
-      const payload = {
+      const basePayload = {
         name,
         subject: normalizeText($("curriculumSubjectInput")?.value) || "-",
         grade: $("curriculumGradeInput")?.value || "-",
@@ -862,9 +896,19 @@
         version: normalizeText($("curriculumVersionInput")?.value) || "V1.0",
         owner: normalizeName($("curriculumOwnerInput")?.value) || "-",
         note: normalizeText($("curriculumNoteInput")?.value) || "-",
-        ...filePayload,
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
+      };
+      let filePayload = {};
+      try {
+        filePayload = await selectedFilePayload(existing, basePayload);
+      } catch (error) {
+        setText("curriculumMessage", error.message || "文件读取失败。");
+        return;
+      }
+      const payload = {
+        ...basePayload,
+        ...filePayload,
       };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
@@ -894,6 +938,8 @@
       { label: "负责人", value: "owner" },
       { label: "文件名", value: "fileName" },
       { label: "文件大小", value: (row) => row.fileName ? formatFileSize(row.fileSize) : "" },
+      { label: "文件地址", value: "fileUrl" },
+      { label: "存储方式", value: "storageKind" },
       { label: "说明", value: "note" },
       { label: "创建时间", value: "createdAt" }
     ])));
@@ -926,17 +972,43 @@
         setText("curriculumMessage", `已删除 ${removed.name}。`);
       }
     }, capabilities, "curriculumMessage");
-    $("curriculumTableBody")?.addEventListener("click", (event) => {
+    $("curriculumTableBody")?.addEventListener("click", async (event) => {
       const button = event.target.closest("[data-download-curriculum]");
       if (!button) return;
       const index = Number(button.getAttribute("data-download-curriculum"));
       const row = rows[index];
-      if (!row?.fileDataUrl) {
+      if (!row?.fileName) {
         setText("curriculumMessage", "这条资料还没有上传文件。");
         return;
       }
-      downloadDataUrl(row.fileName, row.fileDataUrl);
-      setText("curriculumMessage", `正在下载 ${row.fileName}。`);
+      if (row.fileDataUrl) {
+        downloadDataUrl(row.fileName, row.fileDataUrl);
+        setText("curriculumMessage", `正在下载 ${row.fileName}。`);
+        return;
+      }
+      if (!row.fileStorageKey && !row.fileUrl) {
+        setText("curriculumMessage", "这条资料只有文件名，还没有上传文件内容。");
+        return;
+      }
+      if (!window.JRC_CLOUD?.downloadCurriculumFile) {
+        setText("curriculumMessage", "当前环境暂时不能下载云端文件。");
+        return;
+      }
+      try {
+        button.disabled = true;
+        setText("curriculumMessage", `正在下载 ${row.fileName}...`);
+        const result = await window.JRC_CLOUD.downloadCurriculumFile(row);
+        if (!result.ok || !result.blob) {
+          setText("curriculumMessage", "下载失败，请刷新后重试。");
+          return;
+        }
+        downloadBlob(row.fileName, result.blob);
+        setText("curriculumMessage", `正在下载 ${row.fileName}。`);
+      } catch (error) {
+        setText("curriculumMessage", error.message || "下载失败。");
+      } finally {
+        button.disabled = false;
+      }
     });
     bindTableImport({
       buttonId: "curriculumImportButton",
@@ -967,6 +1039,9 @@
           fileType: normalizeText(readField(row, ["fileType", "文件类型"], "")),
           fileSize: Number(readField(row, ["fileSize", "文件大小"], 0)) || 0,
           fileDataUrl: String(readField(row, ["fileDataUrl", "文件数据"], "")),
+          fileUrl: String(readField(row, ["fileUrl", "文件地址"], "")),
+          fileStorageKey: String(readField(row, ["fileStorageKey", "文件存储键"], "")),
+          storageKind: String(readField(row, ["storageKind", "存储方式"], "")),
           createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
           updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };

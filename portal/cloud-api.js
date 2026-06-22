@@ -262,6 +262,71 @@
     });
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("file read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function encodePathSegments(value) {
+    return String(value || "")
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/");
+  }
+
+  async function uploadCurriculumFile(file, metadata = {}) {
+    if (!file) return { ok: false, error: "missing-file" };
+    const dataUrl = await readFileAsDataUrl(file);
+    return request("/curriculum-files", {
+      method: "POST",
+      body: {
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        dataUrl,
+        metadata,
+        operatorName: window.JRC_CURRENT_EMPLOYEE?.name || "-",
+        operatorUsername: window.JRC_CURRENT_EMPLOYEE?.username || "-"
+      }
+    });
+  }
+
+  async function downloadCurriculumFile(fileRef = {}) {
+    const config = await ensureSessionToken();
+    if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
+    const storageKey = String(fileRef.fileStorageKey || fileRef.storageKey || "").trim();
+    const fileUrl = String(fileRef.fileUrl || "").trim();
+    let url = "";
+    if (storageKey) {
+      url = `${config.apiBaseUrl}/curriculum-files/${encodePathSegments(storageKey)}?fileName=${encodeURIComponent(fileRef.fileName || "课程资料")}`;
+    } else if (/^https?:\/\//i.test(fileUrl)) {
+      url = fileUrl;
+    } else if (fileUrl.startsWith("/api/")) {
+      url = `${location.origin}${fileUrl}${fileUrl.includes("?") ? "&" : "?"}fileName=${encodeURIComponent(fileRef.fileName || "课程资料")}`;
+    } else {
+      return { ok: false, error: "missing-file-url" };
+    }
+
+    const headers = {};
+    if (config.apiToken) headers.Authorization = `Bearer ${config.apiToken}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      credentials: "include"
+    });
+    const blob = response.ok ? await response.blob() : null;
+    return {
+      ok: response.ok,
+      status: response.status,
+      blob,
+      fileName: fileRef.fileName || "课程资料"
+    };
+  }
+
   async function flushPending() {
     const rows = readPendingQueue();
     if (!rows.length) return { ok: true, flushed: 0 };
@@ -293,6 +358,8 @@
     login,
     readModuleData,
     writeModuleData,
+    uploadCurriculumFile,
+    downloadCurriculumFile,
     flushPending
   };
 })();

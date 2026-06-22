@@ -1,14 +1,46 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import { createReadStream } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { Pool } from "pg";
 
 const port = Number(process.env.PORT || 3000);
 const siteId = process.env.JRC_SITE_ID || "jrcedu-main";
 const publicApiToken = process.env.JRC_API_TOKEN || "";
+const uploadDir = process.env.JRC_UPLOAD_DIR || "/opt/jrcedu-uploads";
+const uploadMaxBytes = Number(process.env.JRC_UPLOAD_MAX_BYTES || 30 * 1024 * 1024);
+const jsonMaxBytes = Number(process.env.JRC_JSON_MAX_BYTES || 72 * 1024 * 1024);
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const allowedCurriculumExtensions = new Set([
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".ppt",
+  ".pptx",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".heic"
+]);
+const contentTypeByExtension = new Map([
+  [".pdf", "application/pdf"],
+  [".doc", "application/msword"],
+  [".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  [".ppt", "application/vnd.ms-powerpoint"],
+  [".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".webp", "image/webp"],
+  [".gif", "image/gif"],
+  [".heic", "image/heic"]
+]);
 
 const pool = new Pool({
   host: process.env.JRC_DB_HOST,
@@ -76,12 +108,62 @@ function getAuthorization(req) {
   return null;
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = jsonMaxBytes) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > maxBytes) {
+      const error = new Error("request body too large");
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
   const text = Buffer.concat(chunks).toString("utf8");
   if (!text) return {};
   return JSON.parse(text);
+}
+
+function encodeStorageKey(storageKey) {
+  return String(storageKey || "")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function sanitizeOriginalFileName(fileName) {
+  return String(fileName || "课程资料")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160) || "课程资料";
+}
+
+function resolveUploadPath(storageKey) {
+  const normalizedKey = path.posix.normalize(String(storageKey || "").replace(/^\/+/g, ""));
+  if (!normalizedKey || normalizedKey.startsWith("../") || normalizedKey.includes("/../")) return null;
+  if (!normalizedKey.startsWith("curriculum/")) return null;
+  const absolutePath = path.resolve(uploadDir, normalizedKey);
+  const rootPath = path.resolve(uploadDir);
+  if (!absolutePath.startsWith(`${rootPath}${path.sep}`)) return null;
+  return absolutePath;
+}
+
+function decodeDataUrl(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+  if (!match) {
+    const error = new Error("invalid data url");
+    error.statusCode = 400;
+    throw error;
+  }
+  const contentType = match[1] || "application/octet-stream";
+  const isBase64 = Boolean(match[2]);
+  const data = match[3] || "";
+  return {
+    contentType,
+    buffer: isBase64 ? Buffer.from(data, "base64") : Buffer.from(decodeURIComponent(data), "utf8")
+  };
 }
 
 function toEmployee(row, permissions = []) {
@@ -530,6 +612,99 @@ async function handleImportJuneRegularXlsx(res, headers) {
   }, headers);
 }
 
+async function handleUploadCurriculumFile(req, res, headers, authorization) {
+  const bodyMaxBytes = Math.ceil(uploadMaxBytes * 1.45) + 1024 * 1024;
+  const body = await readJson(req, bodyMaxBytes);
+  const originalFileName = sanitizeOriginalFileName(body.fileName);
+  const extension = path.extname(originalFileName).toLowerCase();
+  if (!allowedCurriculumExtensions.has(extension)) {
+    send(res, 400, {
+      ok: false,
+      error: "unsupported_file_type",
+      message: "只支持 PDF、Word、PPT 和常见图片文件。"
+    }, headers);
+    return;
+  }
+
+  const decoded = decodeDataUrl(body.dataUrl);
+  if (!decoded.buffer.length) {
+    send(res, 400, { ok: false, error: "empty_file", message: "文件内容为空。" }, headers);
+    return;
+  }
+  if (decoded.buffer.length > uploadMaxBytes) {
+    send(res, 413, {
+      ok: false,
+      error: "file_too_large",
+      message: `单个文件不能超过 ${Math.round(uploadMaxBytes / 1024 / 1024)}MB。`
+    }, headers);
+    return;
+  }
+
+  const month = new Date().toISOString().slice(0, 7);
+  const randomId = crypto.randomBytes(10).toString("hex");
+  const storedFileName = `${Date.now()}-${randomId}${extension}`;
+  const storageKey = `curriculum/${month}/${storedFileName}`;
+  const absolutePath = resolveUploadPath(storageKey);
+  if (!absolutePath) {
+    send(res, 500, { ok: false, error: "invalid_storage_key" }, headers);
+    return;
+  }
+
+  await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+  await fs.writeFile(absolutePath, decoded.buffer, { flag: "wx" });
+
+  const contentType = body.contentType || decoded.contentType || contentTypeByExtension.get(extension) || "application/octet-stream";
+  const fileUrl = `/api/curriculum-files/${encodeStorageKey(storageKey)}`;
+  send(res, 200, {
+    ok: true,
+    file: {
+      fileName: originalFileName,
+      fileType: contentType,
+      fileSize: decoded.buffer.length,
+      fileUrl,
+      fileStorageKey: storageKey,
+      storageKind: "ecs-file",
+      uploadedAt: new Date().toISOString(),
+      uploadedByName: authorization?.payload?.name || body.operatorName || "-",
+      uploadedByUsername: authorization?.payload?.sub || body.operatorUsername || "-"
+    }
+  }, headers);
+}
+
+async function handleDownloadCurriculumFile(url, res, headers) {
+  const prefix = "/curriculum-files/";
+  const storageKey = decodeURIComponent(url.pathname.slice(prefix.length));
+  const absolutePath = resolveUploadPath(storageKey);
+  if (!absolutePath) {
+    send(res, 400, { ok: false, error: "invalid_storage_key" }, headers);
+    return;
+  }
+
+  try {
+    const stats = await fs.stat(absolutePath);
+    if (!stats.isFile()) {
+      send(res, 404, { ok: false, error: "not found" }, headers);
+      return;
+    }
+    const requestedName = sanitizeOriginalFileName(url.searchParams.get("fileName") || path.basename(absolutePath));
+    const extension = path.extname(absolutePath).toLowerCase();
+    const contentType = contentTypeByExtension.get(extension) || "application/octet-stream";
+    res.writeHead(200, {
+      ...headers,
+      "Content-Type": contentType,
+      "Content-Length": stats.size,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(requestedName)}`
+    });
+    createReadStream(absolutePath).pipe(res);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      send(res, 404, { ok: false, error: "not found" }, headers);
+      return;
+    }
+    throw error;
+  }
+}
+
 async function handleAuditLog(req, res, headers) {
   const body = await readJson(req);
   const result = await pool.query(`
@@ -609,12 +784,18 @@ async function route(req, res) {
     if (req.method === "POST" && url.pathname === "/import/june-regular-xlsx") {
       return await handleImportJuneRegularXlsx(res, headers);
     }
+    if (req.method === "POST" && url.pathname === "/curriculum-files") {
+      return await handleUploadCurriculumFile(req, res, headers, authorization);
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/curriculum-files/")) {
+      return await handleDownloadCurriculumFile(url, res, headers);
+    }
     if (req.method === "POST" && url.pathname === "/audit-logs") return await handleAuditLog(req, res, headers);
     if (req.method === "POST" && url.pathname === "/backup-exports") return await handleBackupExport(req, res, headers);
     send(res, 404, { ok: false, error: "not found" }, headers);
   } catch (error) {
     console.error(error);
-    send(res, 500, { ok: false, error: String(error?.message || error) }, headers);
+    send(res, error?.statusCode || 500, { ok: false, error: String(error?.message || error) }, headers);
   }
 }
 
