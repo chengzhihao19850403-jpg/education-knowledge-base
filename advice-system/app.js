@@ -1479,6 +1479,64 @@ function bindLeadCreate() {
   });
 }
 
+function bindQuickLeadCreate() {
+  const button = byId("quickCreateLeadButton");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const message = byId("quickCreateLeadMessage");
+    if (!canEditAdmissions()) {
+      if (message) message.textContent = "当前账号没有招生录入权限。";
+      return;
+    }
+    const studentName = byId("quickLeadStudentName")?.value.trim();
+    const parentPhone = byId("quickLeadPhone")?.value.trim();
+    if (!studentName || !parentPhone) {
+      if (message) message.textContent = "请先填写学生姓名和家长电话。";
+      return;
+    }
+    const duplicate = state.leads.find((lead) => normalizePhone(lead.parentPhone) && normalizePhone(lead.parentPhone) === normalizePhone(parentPhone));
+    if (duplicate) {
+      state.selectedLeadName = duplicate.studentName;
+      if (message) message.textContent = `这个手机号已存在：${duplicate.studentName}。已自动选中原线索，可在详情里继续跟进。`;
+      renderAll();
+      return;
+    }
+    const channel = byId("quickLeadChannel")?.value || "待补来源";
+    const owner = byId("quickLeadOwner")?.value || "待分配";
+    const note = byId("quickLeadNote")?.value.trim() || "首页快速新增，待补首联记录。";
+    state.leads.unshift({
+      studentName,
+      parentPhone,
+      grade: byId("quickLeadGrade")?.value || "待补年级",
+      subject: "数学",
+      channel,
+      channelMeta: "首页快速新增",
+      owner,
+      status: "新建未联系",
+      trial: "未预约",
+      intent: byId("quickLeadIntent")?.value || "B 中意向",
+      inGroup: "未进群",
+      lastFollowup: "刚刚录入",
+      note,
+      nextAction: "尽快首联并确认试听时间",
+      parentNeed: "",
+      studentPainPoint: "",
+      objection: "暂无明确异议",
+      nextFollowupDate: "",
+      trialTeacher: "",
+      trialTime: "",
+      enrolledAmount: 0,
+    });
+    state.selectedLeadName = studentName;
+    byId("quickLeadStudentName").value = "";
+    byId("quickLeadPhone").value = "";
+    byId("quickLeadNote").value = "";
+    logAudit("首页新增线索", studentName, `来源 ${channel}，负责人 ${owner}。`);
+    if (message) message.textContent = `已保存 ${studentName}，现在可以在线索中心继续补试听和跟进。`;
+    renderAll();
+  });
+}
+
 function bindFeedbackSave() {
   const button = byId("saveFeedbackButton");
   if (!button) return;
@@ -2286,6 +2344,7 @@ function renderAll() {
 }
 
 bindLeadCreate();
+bindQuickLeadCreate();
 bindFeedbackSave();
 bindEnrollmentCreate();
 bindFollowupCreate();

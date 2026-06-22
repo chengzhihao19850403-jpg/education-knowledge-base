@@ -658,6 +658,81 @@
             </div>
             <div class="section-head" style="margin-top: 18px;">
               <div>
+                <h2>快速新增线索</h2>
+                <div class="hint">先把最常用字段录进去，后面再在线索详情里补试听、反馈、报名和归属链。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">首页直接录入</span>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>学生姓名</label>
+                <input id="quickLeadStudentName" placeholder="例如：张同学">
+              </div>
+              <div class="field">
+                <label>当前年级</label>
+                <select id="quickLeadGrade">
+                  <option>一年级</option>
+                  <option>二年级</option>
+                  <option>三年级</option>
+                  <option>四年级</option>
+                  <option>五年级</option>
+                  <option>六年级</option>
+                  <option>初一</option>
+                  <option>初二</option>
+                  <option>初三</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>家长电话</label>
+                <input id="quickLeadPhone" inputmode="tel" placeholder="手机号">
+              </div>
+              <div class="field">
+                <label>来源渠道</label>
+                <select id="quickLeadChannel">
+                  <option>抖音投流</option>
+                  <option>老家长转介绍</option>
+                  <option>自然到访</option>
+                  <option>官网表单</option>
+                  <option>内部员工推荐</option>
+                  <option>异业合作</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>负责人</label>
+                <select id="quickLeadOwner">
+                  <option>待分配</option>
+                  <option>陈雨晴</option>
+                  <option>高芳燕</option>
+                  <option>颜雨涵</option>
+                  <option>周珊</option>
+                  <option>徐嘉丽</option>
+                  <option>张艳</option>
+                  <option>程志豪</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>意向等级</label>
+                <select id="quickLeadIntent">
+                  <option>B 中意向</option>
+                  <option>A 高意向</option>
+                  <option>C 低意向</option>
+                  <option>D 无意向</option>
+                </select>
+              </div>
+              <div class="field span-3">
+                <label>首条备注</label>
+                <textarea id="quickLeadNote" placeholder="例如：家长咨询暑假班，孩子计算薄弱，明天晚上可试听。"></textarea>
+              </div>
+            </div>
+            <div class="section-actions">
+              <button class="button small" id="quickCreateLeadButton" type="button">保存新线索</button>
+              <button class="button small secondary" type="button" data-jump-view="leads">去线索中心看完整表</button>
+              <span class="hint" id="quickCreateLeadMessage">学生姓名和家长电话必填。</span>
+            </div>
+            <div class="section-head" style="margin-top: 18px;">
+              <div>
                 <h2>手机快捷跟进</h2>
                 <div class="hint">手机上先用这个快速补一条沟通记录，完整字段仍然会同步到线索详情和跟进历史。</div>
               </div>
@@ -2353,7 +2428,7 @@
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260622c"></script>
     <script src="/jrcedu/portal/auth.js?v=20260622f"></script>
-    <script src="./app.js?v=20260622b"></script>
+    <script src="./app.js?v=20260622c"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>
   </body>
 </html>
