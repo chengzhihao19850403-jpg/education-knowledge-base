@@ -76,6 +76,13 @@ fi
 echo "==> Loading schema and seed data"
 sudo -u postgres psql -d jrcedu -f "${APP_DIR}/database/cloud-schema-v1.sql"
 sudo -u postgres psql -d jrcedu -f "${APP_DIR}/deploy/aliyun/seed-employees.sql"
+sudo -u postgres psql -d jrcedu <<SQL
+grant usage on schema public to jrcedu_app;
+grant select, insert, update, delete on all tables in schema public to jrcedu_app;
+grant usage, select, update on all sequences in schema public to jrcedu_app;
+alter default privileges in schema public grant select, insert, update, delete on tables to jrcedu_app;
+alter default privileges in schema public grant usage, select, update on sequences to jrcedu_app;
+SQL
 
 echo "==> Installing API dependencies"
 if [[ -f "${API_DIR}/package-lock.json" ]]; then
