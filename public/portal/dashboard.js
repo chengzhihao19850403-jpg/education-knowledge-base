@@ -12,6 +12,16 @@
     { key: "jrc-campus-operations-v2", label: "校区运营", href: "./campus-operations.html", type: "array" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", href: "./suggestions.html", type: "array" }
   ];
+  const cloudBusinessStores = [
+    { key: "advice-system-stage-prototype", label: "招生管理", risk: "可先试用" },
+    { key: "jrc-finance-ledger-v1", label: "财务系统", risk: "需财务复核" },
+    { key: "jrc-student-service-v2", label: "学生服务", risk: "需和点名核对" },
+    { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", risk: "需替换练习记录" },
+    { key: "jrc-suggestion-management-v2", label: "建议系统", risk: "可先试用" },
+    { key: "jrc-hr-training-tasks-v2", label: "人事培训", risk: "账号权限已接入" },
+    { key: "jrc-campus-operations-v2", label: "校区运营", risk: "可先查看" },
+    { key: "jrc-curriculum-products-v2", label: "教研课程", risk: "资料待补" }
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -184,12 +194,12 @@
     const hasData = localStorage.getItem(config.key) !== null;
     const count = countStoreRows(config);
     if (!hasData) {
-      return { label: "待录入", className: "status-warn", detail: "云端暂未检测到本系统数据。" };
+      return { label: "待录入", className: "status-warn", detail: "当前浏览器还没有检测到本系统数据。" };
     }
     if (config.type === "teachingQuality") {
       return { label: "待核对", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需确认真实来源。` };
     }
-    return { label: "云端数据", className: "status-ok", detail: `当前检测到 ${count} 条/类记录，本地副本仅作兜底。` };
+    return { label: "本地副本", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录，云端状态见下方落地状态。` };
   }
 
   function getEmployeeState() {
@@ -226,9 +236,11 @@
     const visible = isAdminLike();
     const localDataCard = $("portalLocalDataCard");
     const dataStateSection = $("portalDataStateSection");
+    const cloudReadinessSection = $("portalCloudReadinessSection");
     const dataContractSection = $("portalDataContractSection");
     if (localDataCard) localDataCard.hidden = !visible;
     if (dataStateSection) dataStateSection.hidden = !visible;
+    if (cloudReadinessSection) cloudReadinessSection.hidden = !visible;
     if (dataContractSection) dataContractSection.hidden = !visible;
   }
 
@@ -339,6 +351,7 @@
     if (holder) holder.innerHTML = todos.join("");
 
     renderDataStates();
+    renderCloudReadiness();
     renderDataFlows();
   }
 
@@ -355,6 +368,68 @@
         </a>
       `;
     }).join("");
+  }
+
+  function readinessCard(title, label, className, detail) {
+    return `
+      <div class="cloud-readiness-card">
+        <strong>${escapeHtml(title)}</strong>
+        <span class="badge ${className}">${escapeHtml(label)}</span>
+        <p>${escapeHtml(detail)}</p>
+      </div>
+    `;
+  }
+
+  function countCloudPayload(payload) {
+    if (Array.isArray(payload)) return payload.length;
+    if (!payload || typeof payload !== "object") return 0;
+    if (Array.isArray(payload.leads)) return payload.leads.length;
+    if (payload.periods || payload.expenses) return Object.keys(payload.periods || {}).length + (payload.expenses || []).length;
+    if (Array.isArray(payload.tickets) || Array.isArray(payload.inspections)) return (payload.tickets || []).length + (payload.inspections || []).length;
+    return Object.keys(payload).length;
+  }
+
+  async function renderCloudReadiness() {
+    const holder = $("portalCloudReadinessList");
+    if (!holder) return;
+    const cloudEnabled = Boolean(window.JRC_CLOUD?.isEnabled?.());
+    holder.innerHTML = [
+      readinessCard("网站前端", "已上云", "status-ok", "正式网址运行在阿里云香港服务器，通过 www.jrcwork.cn 访问。"),
+      readinessCard("后端 API", cloudEnabled ? "已接入" : "待登录", cloudEnabled ? "登录、权限、模块数据接口已接入 /api。" : "当前页面还没有检测到云接口登录状态，请重新登录后查看。"),
+      readinessCard("员工账号权限", "已接入", "status-ok", "员工登录、岗位权限和总管理员入口已经走统一体系。"),
+      readinessCard("业务模块数据", "检测中", "status-warn", "正在读取招生、财务、学生服务、教学质量等模块云端记录。"),
+      readinessCard("历史 Excel 原表", "待导入核对", "status-warn", "排课、课时费、财务和分红原表需要逐批导入并与人工表核对。")
+    ].join("");
+    if (!cloudEnabled || !window.JRC_CLOUD?.readModuleData) return;
+
+    const results = await Promise.all(cloudBusinessStores.map(async (store) => {
+      try {
+        const result = await window.JRC_CLOUD.readModuleData(store.key);
+        const found = Boolean(result.ok && result.data?.found);
+        const count = found ? countCloudPayload(result.data.payload) : 0;
+        return { ...store, found, count };
+      } catch {
+        return { ...store, found: false, count: 0, failed: true };
+      }
+    }));
+    const foundCount = results.filter((item) => item.found).length;
+    const totalCount = results.reduce((sum, item) => sum + item.count, 0);
+    const moduleSummary = foundCount
+      ? `已检测到 ${foundCount}/${results.length} 个模块有云端记录，共 ${totalCount} 条/类数据。`
+      : "当前还没有检测到业务模块云端记录，老师录入后会逐步出现。";
+    const moduleClass = foundCount ? "status-ok" : "status-warn";
+    const moduleLabel = foundCount ? "部分已入云" : "待录入";
+    const moduleDetails = results
+      .map((item) => `${item.label}${item.found ? ` ${item.count}` : " 0"}`)
+      .join("；");
+
+    holder.innerHTML = [
+      readinessCard("网站前端", "已上云", "status-ok", "正式网址运行在阿里云香港服务器，通过 www.jrcwork.cn 访问。"),
+      readinessCard("后端 API", "已接入", "status-ok", "登录、权限、模块数据接口已接入 /api，并由云端鉴权保护。"),
+      readinessCard("员工账号权限", "已接入", "status-ok", "员工登录、岗位权限和总管理员入口已经走统一体系。"),
+      readinessCard("业务模块数据", moduleLabel, moduleClass, `${moduleSummary} ${moduleDetails}`),
+      readinessCard("历史 Excel 原表", "待导入核对", "status-warn", "排课、课时费、财务和分红原表需要逐批导入；涉及钱和课销的数据不直接自动认定为正式结果。")
+    ].join("");
   }
 
   function renderDataFlows() {

@@ -267,6 +267,29 @@
         font-size: 12px;
         line-height: 1.55;
       }
+      .cloud-readiness-list {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .cloud-readiness-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        padding: 14px;
+      }
+      .cloud-readiness-card strong {
+        display: block;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .cloud-readiness-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
       .status-danger {
         background: rgba(188, 88, 46, 0.12);
         color: #9a3412;
@@ -381,6 +404,7 @@
         }
         .data-sync-grid,
         .data-state-list,
+        .cloud-readiness-list,
         .data-sync-tools {
           grid-template-columns: 1fr;
         }
@@ -475,12 +499,24 @@
         <div class="card-head">
           <div>
             <p class="eyebrow">数据</p>
-            <h2>各系统数据状态</h2>
+            <h2>各系统数据副本</h2>
           </div>
           <span class="badge">管理员</span>
         </div>
-        <p>管理员检查各系统是否有真实数据、待录入数据和异常状态。</p>
+        <p>这里检查当前浏览器是否已有系统数据副本；正式口径以云端数据和人工核对结果为准。</p>
         <div class="data-state-list" id="portalDataStateList"></div>
+      </section>
+
+      <section class="note" id="portalCloudReadinessSection" data-requires-permission-card="admin.access" hidden>
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">云端</p>
+            <h2>云端落地状态</h2>
+          </div>
+          <span class="badge">阿里云香港</span>
+        </div>
+        <p>管理员用这里区分“已经上云”和“还需导入核对”的数据范围。</p>
+        <div class="cloud-readiness-list" id="portalCloudReadinessList"></div>
       </section>
 
       <section class="note" id="portalDataContractSection" data-requires-permission-card="admin.access" hidden>
@@ -698,7 +734,7 @@
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260622m"></script>
-    <script src="/jrcedu/portal/dashboard.js?v=20260622c"></script>
+    <script src="/jrcedu/portal/dashboard.js?v=20260623a"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260622c"></script>
   </body>
 </html>
