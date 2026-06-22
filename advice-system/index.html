@@ -578,12 +578,11 @@
         <div class="title-wrap">
           <p>Admissions CRM</p>
           <h1>招生管理系统</h1>
-          <div class="hint">先新增线索，再记录跟进，试听和报名后续补齐。</div>
+          <div class="hint">新增线索、跟进、试听、反馈、报名建档。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
           <div class="readonly-note" id="permissionNotice" hidden></div>
         </div>
         <div class="top-actions">
-          <a class="button secondary" href="/jrcedu/portal/knowledge.html">打开学管知识库系统</a>
           <a class="button secondary" href="/jrcedu/portal/index.html">返回工作台</a>
         </div>
       </div>
@@ -591,7 +590,6 @@
         <a href="#quickLeadStudentName">新增线索</a>
         <a href="#quickFollowupLeadSelect">快捷跟进</a>
         <a href="#leadTableBody" data-jump-view="leads">线索主表</a>
-        <a href="/jrcedu/portal/index.html">返回工作台</a>
       </div>
 
       <div class="layout">
@@ -616,20 +614,12 @@
             </div>
             <div class="nav-item" data-nav-target="insights">
               <h3>渠道与看板</h3>
-              <p>先做基础渠道漏斗，后面再接 ROI、提成和裂变分析。</p>
+              <p>渠道来源、转化漏斗、报名金额和负责人表现。</p>
             </div>
             <div class="nav-item" data-nav-target="settings">
               <h3>导入与规则</h3>
               <p>Excel 导入、渠道配置、提成规则、通知触达和推荐二维码。</p>
             </div>
-          </div>
-          <div class="inline-note">
-            <p><strong>当前使用重点：</strong></p>
-            <ul>
-              <li>新线索先首联，不能过夜没人接</li>
-              <li>试听当天回填反馈，避免后面靠记忆补</li>
-              <li>报名后锁定归属链，方便财务和提成对账</li>
-            </ul>
           </div>
         </aside>
 
@@ -638,7 +628,6 @@
             <div class="section-head">
               <div>
                 <h2>今日工作台</h2>
-                <div class="hint">按教培老师真实使用顺序排列，不先堆复杂报表。</div>
               </div>
               <div class="filters">
                 <span class="status-chip" id="todayFollowupChip">今日待跟进 0</span>
@@ -665,7 +654,7 @@
               <div class="metric">
                 <div class="metric-meta">高意向未成交</div>
                 <strong id="highIntentCount">0</strong>
-                <div class="metric-meta">适合进入第二阶段 SOP 跟进</div>
+                <div class="metric-meta">需要继续推进</div>
               </div>
             </div>
             <div class="quick-actions">
@@ -689,7 +678,7 @@
             <div class="section-head" style="margin-top: 18px;">
               <div>
                 <h2>快速新增线索</h2>
-                <div class="hint">先把最常用字段录进去，后面再在线索详情里补试听、反馈、报名和归属链。</div>
+                <div class="hint">先录最常用字段。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">首页直接录入</span>
@@ -764,7 +753,7 @@
             <div class="section-head" style="margin-top: 18px;">
               <div>
                 <h2>手机快捷跟进</h2>
-                <div class="hint">手机上先用这个快速补一条沟通记录，完整字段仍然会同步到线索详情和跟进历史。</div>
+                <div class="hint">电话或微信后马上补记录。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">适合微信 / 电话后马上记录</span>
@@ -802,7 +791,7 @@
                 <div class="section-head" style="margin-top: 18px;">
                   <div>
                     <h2>招生待办清单</h2>
-                    <div class="hint">系统按线索状态自动整理，老师每天先清这里，再看完整表。</div>
+                    <div class="hint">按状态自动整理。</div>
                   </div>
                   <div class="filters">
                     <span class="status-chip" id="urgentTaskChip">紧急 0</span>
@@ -836,7 +825,7 @@
                 <div class="section-head" style="margin-top: 18px;">
                   <div>
                     <h2>跟进原则</h2>
-                    <div class="hint">先用人工动作跑顺，后面再接自动提醒。</div>
+                    <div class="hint">每天照这个顺序处理。</div>
                   </div>
                 </div>
                 <div class="stack-list" id="admissionsRuleList">
@@ -861,7 +850,7 @@
             <div class="section-head">
               <div>
                 <h2>线索状态流转</h2>
-                <div class="hint">第一阶段先把状态定死，避免每个老师写不同名字。后面所有提醒、提成和沉睡召回都靠这条状态链。</div>
+                <div class="hint">状态统一，方便跟进和统计。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">改状态必须写跟进记录</span>
@@ -903,7 +892,7 @@
             <div class="section-head">
               <div>
                 <h2>线索主表</h2>
-                <div class="hint">这里是第一阶段最核心的一张表：来源、负责人、状态、试听、进群、报名都从这里往下走。</div>
+                <div class="hint">来源、负责人、状态、试听、进群、报名集中管理。</div>
               </div>
               <div class="filters">
                 <button class="status-chip" id="filterAllButton" type="button">全部</button>
