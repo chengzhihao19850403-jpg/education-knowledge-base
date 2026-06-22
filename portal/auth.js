@@ -1226,6 +1226,11 @@ function jrcInjectStyles() {
       background: rgba(15, 23, 42, 0.58);
       backdrop-filter: blur(8px);
     }
+    body.jrc-auth-required > :not(.jrc-login-overlay) {
+      pointer-events: none;
+      user-select: none;
+      filter: blur(1.5px);
+    }
     .jrc-login-card {
       width: min(520px, 100%);
       background: rgba(255,255,255,0.98);
@@ -1585,7 +1590,10 @@ function jrcInjectStyles() {
 }
 
 function jrcShowLoginOverlay() {
-  window.jrcHandleLoginSubmit = async function jrcHandleLoginSubmit(event) {
+  document.body.classList.add("jrc-auth-required");
+  let loginSubmitting = false;
+
+  async function jrcHandleLoginSubmit(event) {
     if (event?.preventDefault) event.preventDefault();
     const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase() || "";
     const password = document.getElementById("jrcPasswordInput")?.value.trim() || "";
@@ -1599,6 +1607,8 @@ function jrcShowLoginOverlay() {
       if (errorBox) errorBox.textContent = "请填写用户名和密码。用户名用姓名拼音，初始密码为 10281028。";
       return false;
     }
+    if (loginSubmitting) return false;
+    loginSubmitting = true;
     if (submitButton) {
       submitButton.disabled = true;
       submitButton.textContent = "正在登录...";
@@ -1612,6 +1622,7 @@ function jrcShowLoginOverlay() {
           cloudApiToken: cloudResult.data.token,
           cloudTokenExpiresAt: cloudResult.data.expiresAt || null
         });
+        document.body.classList.remove("jrc-auth-required");
         window.location.reload();
         return false;
       }
@@ -1629,15 +1640,22 @@ function jrcShowLoginOverlay() {
         errorBox.classList.add("jrc-login-error--success");
       }
       jrcWriteSession(employee);
+      document.body.classList.remove("jrc-auth-required");
       window.location.reload();
       return false;
+    } catch (error) {
+      console.error(error);
+      if (errorBox) errorBox.textContent = "登录过程出错，请刷新页面后重试。";
+      return false;
     } finally {
+      loginSubmitting = false;
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = "登录进入工作台";
       }
     }
-  };
+  }
+  window.jrcHandleLoginSubmit = jrcHandleLoginSubmit;
 
   const overlay = document.createElement("div");
   overlay.className = "jrc-login-overlay";
@@ -1655,14 +1673,23 @@ function jrcShowLoginOverlay() {
           密码
           <input id="jrcPasswordInput" type="password" autocomplete="current-password" placeholder="统一初始密码">
         </label>
-        <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit">登录进入工作台</button>
+        <button class="jrc-login-submit" id="jrcLoginSubmitButton" type="submit" onclick="return window.jrcHandleLoginSubmit(event)">登录进入工作台</button>
       </form>
       <div id="jrcLoginError" class="jrc-login-error"></div>
     </div>
   `;
   document.body.appendChild(overlay);
 
-  document.getElementById("jrcLoginForm")?.addEventListener("submit", window.jrcHandleLoginSubmit);
+  const form = document.getElementById("jrcLoginForm");
+  const button = document.getElementById("jrcLoginSubmitButton");
+  if (form) {
+    form.onsubmit = window.jrcHandleLoginSubmit;
+    form.addEventListener("submit", window.jrcHandleLoginSubmit);
+  }
+  if (button) {
+    button.onclick = window.jrcHandleLoginSubmit;
+    button.addEventListener("click", window.jrcHandleLoginSubmit);
+  }
 }
 
 function jrcBootstrapAuth() {
