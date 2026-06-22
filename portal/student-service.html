@@ -70,15 +70,27 @@
       th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
       th { background: rgba(13,148,136,0.05); color: var(--ink); font-weight: 800; }
       tr:last-child td { border-bottom: 0; }
+      .attendance-touch-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 260px; }
+      .attendance-touch-actions .button { min-width: 68px; padding: 0 12px; }
+      .attendance-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .attendance-summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fff; }
+      .attendance-summary-card span { color: var(--muted); font-size: 12px; }
+      .attendance-summary-card strong { display: block; margin-top: 6px; font-size: 22px; color: var(--ink); }
       .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
       .span-3 { grid-column: 1 / -1; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+      @media (max-width: 720px) {
+        .topbar { align-items: flex-start; flex-direction: column; }
+        .metrics, .form-grid, .attendance-summary-grid { grid-template-columns: 1fr; }
+        .span-3 { grid-column: auto; }
+        .attendance-touch-actions { min-width: 520px; }
+        .attendance-touch-actions .button { min-height: 46px; }
+      }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622c">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622d">
   </head>
   <body data-page-permission="studentService.access">
     <main class="shell">
@@ -168,6 +180,13 @@
           <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
         <div class="notice" id="attendanceMessage">到课学生默认“计老师课时费 + 计家长课销”。缺席或待核对学生必须选择后续处理；有出门测成绩的学生会自动作为已到课二次确认。</div>
+        <div class="attendance-summary-grid">
+          <div class="attendance-summary-card"><span>本节名单</span><strong id="attendanceMetricTotal">0</strong></div>
+          <div class="attendance-summary-card"><span>有效到课</span><strong id="attendanceMetricPresent">0</strong></div>
+          <div class="attendance-summary-card"><span>待追踪</span><strong id="attendanceMetricFollowup">0</strong></div>
+          <div class="attendance-summary-card"><span>普通财务人数</span><strong id="attendanceMetricFinance">0</strong></div>
+          <div class="attendance-summary-card"><span>单独结算人数</span><strong id="attendanceMetricSpecial">0</strong></div>
+        </div>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
@@ -182,6 +201,14 @@
               <tr><th>日期</th><th>老师</th><th>班级 / 课程</th><th>人数</th><th>未落实</th><th>特殊结算提示</th><th>保存时间</th></tr>
             </thead>
             <tbody id="attendanceHistoryBody"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>结算口径</th></tr>
+            </thead>
+            <tbody id="attendanceSettlementBody"></tbody>
           </table>
         </div>
       </section>
@@ -357,6 +384,12 @@
         const message = document.getElementById("attendanceMessage");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
+        const settlementBody = document.getElementById("attendanceSettlementBody");
+        const attendanceMetricTotal = document.getElementById("attendanceMetricTotal");
+        const attendanceMetricPresent = document.getElementById("attendanceMetricPresent");
+        const attendanceMetricFollowup = document.getElementById("attendanceMetricFollowup");
+        const attendanceMetricFinance = document.getElementById("attendanceMetricFinance");
+        const attendanceMetricSpecial = document.getElementById("attendanceMetricSpecial");
         const scoreBody = document.getElementById("scoreAnalyticsBody");
         const scoreMetricLessons = document.getElementById("scoreMetricLessons");
         const scoreMetricAverage = document.getElementById("scoreMetricAverage");
@@ -412,6 +445,11 @@
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
         const needsFollowup = (row) => !isEffectivePresent(row) || row.followup === "待联系家长";
+        const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
+        const isSpecialSettlementTeacher = (teacher) => SETTLEMENT_TEACHERS.includes(teacher);
+        const isFinanceExcludedTeacher = (teacher) => FINANCE_EXCLUDED_TEACHERS.includes(teacher);
+        const countFinancePresent = (row, teacher) => isEffectivePresent(row) && !isFinanceExcludedTeacher(teacher) ? 1 : 0;
+        const countSpecialPresent = (row, teacher) => isEffectivePresent(row) && isSpecialSettlementTeacher(teacher) ? 1 : 0;
         const attendanceJudgement = (row) => {
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "出门测修正为已到";
           if (row.status === "到课") return "点名已到";
@@ -591,13 +629,14 @@
         const renderRoster = () => {
           if (!draftRows.length) {
             rosterBody.innerHTML = `<tr><td colspan="6">先填写班级和学生名单，再点“生成点名名单”。后续接云排课后，这里会自动带出本节课名单。</td></tr>`;
+            renderDraftMetrics();
             return;
           }
           rosterBody.innerHTML = draftRows.map((row, index) => `
             <tr>
               <td><strong>${escapeHtml(row.studentName)}</strong></td>
               <td>
-                <div class="actions">
+                <div class="attendance-touch-actions">
                   ${ATTENDANCE_STATUSES.map((status) => `
                     <button class="button ${row.status === status ? "" : "secondary"}" data-attendance-status="${index}" data-status="${escapeHtml(status)}" type="button">${escapeHtml(status)}</button>
                   `).join("")}
@@ -611,6 +650,78 @@
                 </select>
               </td>
               <td>${escapeHtml(attendanceJudgement(row))}${needsFollowup(row) ? "<br><span class=\"tag warn\">待落实</span>" : ""}</td>
+            </tr>
+          `).join("");
+          renderDraftMetrics();
+        };
+        const renderDraftMetrics = () => {
+          const teacher = getSelectedTeacher();
+          const total = draftRows.length;
+          const present = draftRows.filter(isEffectivePresent).length;
+          const followup = draftRows.filter(needsFollowup).length;
+          const finance = draftRows.reduce((sum, row) => sum + countFinancePresent(row, teacher), 0);
+          const special = draftRows.reduce((sum, row) => sum + countSpecialPresent(row, teacher), 0);
+          if (attendanceMetricTotal) attendanceMetricTotal.textContent = String(total);
+          if (attendanceMetricPresent) attendanceMetricPresent.textContent = String(present);
+          if (attendanceMetricFollowup) attendanceMetricFollowup.textContent = String(followup);
+          if (attendanceMetricFinance) attendanceMetricFinance.textContent = String(finance);
+          if (attendanceMetricSpecial) attendanceMetricSpecial.textContent = String(special);
+        };
+        const deriveSettlementRows = () => {
+          const groups = new Map();
+          readRows().forEach((session) => {
+            const teacher = session.teacher || "未填老师";
+            const period = periodFromDate(session.date);
+            const key = `${period}|${teacher}`;
+            if (!groups.has(key)) {
+              groups.set(key, {
+                period,
+                teacher,
+                lessons: 0,
+                totalStudents: 0,
+                effectivePresent: 0,
+                financePresent: 0,
+                specialPresent: 0,
+                followupCount: 0,
+                classNames: new Set()
+              });
+            }
+            const group = groups.get(key);
+            group.lessons += 1;
+            group.classNames.add(session.className || "未填课程");
+            (session.rows || []).forEach((row) => {
+              group.totalStudents += 1;
+              if (isEffectivePresent(row)) group.effectivePresent += 1;
+              group.financePresent += countFinancePresent(row, teacher);
+              group.specialPresent += countSpecialPresent(row, teacher);
+              if (needsFollowup(row)) group.followupCount += 1;
+            });
+          });
+          return Array.from(groups.values()).sort((a, b) => `${b.period}${b.teacher}`.localeCompare(`${a.period}${a.teacher}`));
+        };
+        const settlementBasis = (row) => {
+          if (row.teacher === "程志豪") return "只做教学与缺席追踪记录，不进入财务自动结算";
+          if (isSpecialSettlementTeacher(row.teacher)) return "按有效到课/实到人数单独结算课时费";
+          return "普通老师：有效到课进入课时费预核算，缺席进入补课/课销追踪";
+        };
+        const renderSettlement = () => {
+          if (!settlementBody) return;
+          const rows = deriveSettlementRows();
+          if (!rows.length) {
+            settlementBody.innerHTML = `<tr><td colspan="9">暂无点名结算数据。保存点名后，这里会按老师和月份自动汇总到课、课销和课时费依据。</td></tr>`;
+            return;
+          }
+          settlementBody.innerHTML = rows.slice(0, 20).map((row) => `
+            <tr>
+              <td>${escapeHtml(row.period)}</td>
+              <td>${escapeHtml(row.teacher)}</td>
+              <td>${row.lessons}</td>
+              <td>${row.totalStudents}</td>
+              <td>${row.effectivePresent}</td>
+              <td>${row.financePresent}</td>
+              <td>${row.specialPresent}</td>
+              <td>${row.followupCount ? `<span class="tag warn">${row.followupCount} 人</span>` : "已落实"}</td>
+              <td>${escapeHtml(settlementBasis(row))}</td>
             </tr>
           `).join("");
         };
@@ -747,6 +858,7 @@
           }
           renderRoster();
           renderHistory();
+          renderSettlement();
           renderScoreAnalytics();
         };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -756,9 +868,10 @@
             setMessage("当前没有可导出的点名记录。");
             return;
           }
-          const header = ["日期", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "课时课销规则", "后续处理", "操作人", "保存时间"];
+          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "操作人", "保存时间"];
           const dataRows = sessions.flatMap((session) => session.rows.map((row) => [
             session.date,
+            periodFromDate(session.date),
             session.teacher,
             session.lessonType,
             session.className,
@@ -766,6 +879,8 @@
             row.status,
             row.exitScore,
             attendanceJudgement({ ...row, teacher: session.teacher }),
+            countFinancePresent(row, session.teacher),
+            countSpecialPresent(row, session.teacher),
             settlementText({ ...row, teacher: session.teacher }),
             row.followup,
             session.operatorName,
@@ -848,6 +963,7 @@
           sessions.unshift(session);
           saveRows(sessions);
           renderHistory();
+          renderSettlement();
           renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
           setMessage(unresolved

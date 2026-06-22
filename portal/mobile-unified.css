@@ -213,6 +213,36 @@ textarea {
     min-width: 760px;
   }
 
+  .attendance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .attendance-summary-card {
+    padding: 12px !important;
+  }
+
+  .attendance-summary-card strong {
+    font-size: 22px !important;
+  }
+
+  .attendance-touch-actions {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(74px, 1fr));
+    gap: 8px !important;
+    min-width: 430px !important;
+  }
+
+  .attendance-touch-actions .button {
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 0 10px !important;
+    white-space: nowrap;
+  }
+
+  [data-exit-score] {
+    min-width: 92px;
+  }
+
   .jrc-floating-home {
     display: inline-flex;
   }
@@ -237,5 +267,13 @@ textarea {
   .note,
   .hero {
     padding: 16px !important;
+  }
+
+  .attendance-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .attendance-touch-actions {
+    min-width: 390px !important;
   }
 }
