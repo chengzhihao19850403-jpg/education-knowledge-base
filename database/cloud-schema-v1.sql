@@ -105,6 +105,20 @@ create table if not exists system_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists module_data_store (
+  store_key text primary key,
+  module_key text not null,
+  payload jsonb not null default '{}'::jsonb,
+  version integer not null default 1,
+  updated_by_name text,
+  updated_by_username text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists module_data_store_module_updated_idx
+  on module_data_store(module_key, updated_at desc);
+
 create table if not exists cloud_migration_runs (
   id uuid primary key default gen_random_uuid(),
   migration_key text not null unique,
@@ -115,4 +129,3 @@ create table if not exists cloud_migration_runs (
   summary text,
   created_at timestamptz not null default now()
 );
-

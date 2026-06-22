@@ -1,6 +1,7 @@
 (function () {
   const configKey = "jrc-cloud-api-config-v1";
   const pendingKey = "jrc-cloud-sync-pending-v1";
+  const sessionKey = "jrc-portal-auth-session";
 
   function safeJsonParse(raw, fallback = null) {
     try {
@@ -12,13 +13,14 @@
 
   function readConfig() {
     const config = safeJsonParse(localStorage.getItem(configKey), {});
+    const session = safeJsonParse(localStorage.getItem(sessionKey), {});
     const isGithubPages = location.hostname.endsWith("github.io");
     const sameOriginApiBase = `${location.origin}/api`;
     const apiBaseUrl = String(config.apiBaseUrl || (!isGithubPages ? sameOriginApiBase : "")).replace(/\/+$/g, "");
     return {
       enabled: Boolean((config.enabled && config.apiBaseUrl) || (!isGithubPages && apiBaseUrl)),
       apiBaseUrl,
-      apiToken: String(config.apiToken || ""),
+      apiToken: String(config.apiToken || session.cloudApiToken || ""),
       siteId: String(config.siteId || "jrcedu-main")
     };
   }
@@ -138,6 +140,45 @@
     return request("/permissions");
   }
 
+  async function login(username, password) {
+    const config = readConfig();
+    if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+        credentials: "include"
+      });
+      const text = await response.text();
+      return {
+        ok: response.ok,
+        status: response.status,
+        data: text ? safeJsonParse(text, text) : null
+      };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  }
+
+  async function readModuleData(storeKey) {
+    return request(`/module-data?storeKey=${encodeURIComponent(storeKey)}`);
+  }
+
+  async function writeModuleData(storeKey, moduleKey, payload, context = {}) {
+    const operator = context.operator || window.JRC_CURRENT_EMPLOYEE || {};
+    return request("/module-data", {
+      method: "PUT",
+      body: {
+        storeKey,
+        moduleKey,
+        payload,
+        operatorName: operator.name || "-",
+        operatorUsername: operator.username || "-"
+      }
+    });
+  }
+
   async function flushPending() {
     const rows = readPendingQueue();
     if (!rows.length) return { ok: true, flushed: 0 };
@@ -166,6 +207,9 @@
     recordBackupExport,
     listEmployees,
     listPermissions,
+    login,
+    readModuleData,
+    writeModuleData,
     flushPending
   };
 })();

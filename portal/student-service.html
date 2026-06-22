@@ -288,10 +288,10 @@
         </div>
       </section>
     </main>
-    <script src="/jrcedu/portal/cloud-api.js?v=20260621a"></script>
+    <script src="/jrcedu/portal/cloud-api.js?v=20260622b"></script>
 
-    <script src="/jrcedu/portal/auth.js?v=20260622c"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260621e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260622d"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260622a"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
@@ -394,6 +394,20 @@
         };
         const saveRows = (rows) => {
           localStorage.setItem(STORE_KEY, JSON.stringify(rows));
+          window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", rows).catch((error) => {
+            console.warn("点名数据云端保存失败", error);
+          });
+        };
+        const hydrateCloudRows = () => {
+          window.JRC_CLOUD?.readModuleData?.(STORE_KEY).then((result) => {
+            if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
+            localStorage.setItem(STORE_KEY, JSON.stringify(result.data.payload));
+            renderHistory();
+            renderScoreAnalytics();
+            setMessage("已同步云端点名和出门测记录。");
+          }).catch((error) => {
+            console.warn("点名数据云端读取失败", error);
+          });
         };
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
@@ -877,6 +891,7 @@
           renderRoster();
         });
         renderAll();
+        hydrateCloudRows();
       })();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260621a"></script>

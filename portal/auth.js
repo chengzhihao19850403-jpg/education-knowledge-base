@@ -473,12 +473,15 @@ function jrcReadSession() {
   }
 }
 
-function jrcWriteSession(employee) {
+function jrcWriteSession(employee, extras = {}) {
   const session = {
     username: employee.username,
     name: employee.name,
     role: employee.role,
-    loginAt: new Date().toISOString()
+    loginAt: new Date().toISOString(),
+    cloudApiToken: extras.cloudApiToken || "",
+    cloudTokenExpiresAt: extras.cloudTokenExpiresAt || null,
+    cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : ""
   };
   localStorage.setItem(JRC_AUTH_STORAGE_KEY, JSON.stringify(session));
   return session;
@@ -1602,20 +1605,45 @@ function jrcShowLoginOverlay() {
   `;
   document.body.appendChild(overlay);
 
-  document.getElementById("jrcLoginForm")?.addEventListener("submit", (event) => {
+  document.getElementById("jrcLoginForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const username = document.getElementById("jrcUsernameInput")?.value.trim().toLowerCase();
     const password = document.getElementById("jrcPasswordInput")?.value.trim();
-    const employee = jrcFindEmployeeByUsername(username);
     const errorBox = document.getElementById("jrcLoginError");
-
-    if (!employee || employee.password !== password) {
-      if (errorBox) errorBox.textContent = "用户名或密码不正确，请用员工姓名拼音登录。";
-      return;
+    const submitButton = event.target.querySelector("button[type='submit']");
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "正在登录...";
     }
 
-    jrcWriteSession(employee);
-    window.location.reload();
+    try {
+      const cloudResult = await window.JRC_CLOUD?.login?.(username, password);
+      if (cloudResult?.ok && cloudResult.data?.employee && cloudResult.data?.token) {
+        const localEmployee = jrcFindEmployeeByUsername(username);
+        jrcWriteSession(localEmployee || cloudResult.data.employee, {
+          cloudApiToken: cloudResult.data.token,
+          cloudTokenExpiresAt: cloudResult.data.expiresAt || null
+        });
+        window.location.reload();
+        return;
+      }
+
+      const employee = jrcFindEmployeeByUsername(username);
+      if (!employee || employee.password !== password) {
+        if (errorBox) errorBox.textContent = cloudResult?.status === 401
+          ? "用户名或密码不正确，请用员工姓名拼音登录。"
+          : "用户名或密码不正确，或云端登录暂时不可用。";
+        return;
+      }
+
+      jrcWriteSession(employee);
+      window.location.reload();
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "登录进入工作台";
+      }
+    }
   });
 }
 

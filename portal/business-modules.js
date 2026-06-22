@@ -19,6 +19,24 @@
     localStorage.setItem(key, JSON.stringify(rows));
   }
 
+  function readCloudStore(key, onRows) {
+    if (!window.JRC_CLOUD?.readModuleData) return;
+    window.JRC_CLOUD.readModuleData(key).then((result) => {
+      if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
+      localStorage.setItem(key, JSON.stringify(result.data.payload));
+      onRows(result.data.payload);
+    }).catch((error) => {
+      console.warn("云端数据读取失败", key, error);
+    });
+  }
+
+  function writeCloudStore(key, moduleKey, rows) {
+    if (!window.JRC_CLOUD?.writeModuleData) return;
+    window.JRC_CLOUD.writeModuleData(key, moduleKey, rows).catch((error) => {
+      console.warn("云端数据保存失败", key, error);
+    });
+  }
+
   function hasPermission(permission) {
     if (!permission) return true;
     if (typeof window.jrcHasPermission !== "function") return true;
@@ -529,6 +547,7 @@
         setText("studentServiceMessage", `已保存 ${student} 的服务记录。`);
       }
       writeStore(key, rows);
+      writeCloudStore(key, moduleKey, rows);
       resetForm();
       render();
     });
@@ -542,6 +561,7 @@
       }
       rows = samples.map((row) => ({ ...row }));
       writeStore(key, rows);
+      writeCloudStore(key, moduleKey, rows);
       recordAudit(moduleKey, "恢复样例", "学生服务台账", `${rows.length} 条`);
       resetForm();
       render();
@@ -558,6 +578,7 @@
         const removed = rows[index];
         rows.splice(index, 1);
         writeStore(key, rows);
+        writeCloudStore(key, moduleKey, rows);
         recordAudit(moduleKey, "删除", removed.student, removed.type);
         if (editingIndex === index) resetForm();
         render();
@@ -571,6 +592,7 @@
       setRows(nextRows) {
         rows = nextRows;
         writeStore(key, rows);
+        writeCloudStore(key, moduleKey, rows);
         resetForm();
         render();
       },
@@ -602,6 +624,12 @@
     });
     resetForm();
     render();
+    readCloudStore(key, (cloudRows) => {
+      rows = cloudRows;
+      resetForm();
+      render();
+      setText("studentServiceMessage", "已同步云端学生服务台账。");
+    });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "studentServiceMessage",

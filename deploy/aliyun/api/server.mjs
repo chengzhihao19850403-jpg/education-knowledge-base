@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import { Pool } from "pg";
 
 const port = Number(process.env.PORT || 3000);
@@ -32,16 +33,47 @@ function corsHeaders(req) {
   const allowOrigin = allowedOrigins.includes(origin) || origin.endsWith(".github.io") ? origin : allowedOrigins[0] || "*";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
     "Access-Control-Allow-Credentials": "true"
   };
 }
 
-function isAuthorized(req) {
+function base64UrlEncode(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function base64UrlJson(value) {
+  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+}
+
+function signToken(payload) {
+  if (!publicApiToken) return "";
+  const encoded = base64UrlEncode(payload);
+  const signature = crypto.createHmac("sha256", publicApiToken).update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function verifySessionToken(token) {
+  if (!publicApiToken || !token || !token.includes(".")) return null;
+  const [encoded, signature] = token.split(".");
+  const expected = crypto.createHmac("sha256", publicApiToken).update(encoded).digest("base64url");
+  if (Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  const payload = base64UrlJson(encoded);
+  if (!payload?.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  return payload;
+}
+
+function getAuthorization(req) {
   if (!publicApiToken) return true;
   const header = req.headers.authorization || "";
-  return header === `Bearer ${publicApiToken}`;
+  if (header === `Bearer ${publicApiToken}`) return { kind: "api-token" };
+  if (header.startsWith("Bearer ")) {
+    const payload = verifySessionToken(header.slice("Bearer ".length));
+    if (payload) return { kind: "session", payload };
+  }
+  return null;
 }
 
 async function readJson(req) {
@@ -68,6 +100,23 @@ function toEmployee(row, permissions = []) {
     status: row.status,
     permissions
   };
+}
+
+async function employeeWithPermissions(username) {
+  const employee = await pool.query(`
+    select id, name, username, role, phone, wechat, subject, scope, hire_date, regular_date, commission_rate, status
+    from employees
+    where username = $1 and status = 'active'
+    limit 1
+  `, [username]);
+  if (!employee.rows[0]) return null;
+  const permissions = await pool.query(`
+    select ep.permission_key
+    from employee_permissions ep
+    where ep.employee_id = $1
+    order by ep.permission_key
+  `, [employee.rows[0].id]);
+  return toEmployee(employee.rows[0], permissions.rows.map((row) => row.permission_key));
 }
 
 async function handleHealth(res, headers) {
@@ -125,6 +174,102 @@ async function handlePermissions(res, headers) {
   }, headers);
 }
 
+async function handleLogin(req, res, headers) {
+  const body = await readJson(req);
+  const username = String(body.username || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  if (!username || !password) {
+    send(res, 400, { ok: false, error: "missing username or password" }, headers);
+    return;
+  }
+  const result = await pool.query(`
+    select username
+    from employees
+    where username = $1
+      and status = 'active'
+      and password_hash is not null
+      and password_hash = crypt($2, password_hash)
+    limit 1
+  `, [username, password]);
+  if (!result.rows[0]) {
+    send(res, 401, { ok: false, error: "invalid credentials" }, headers);
+    return;
+  }
+  const employee = await employeeWithPermissions(username);
+  const expiresAt = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+  const token = signToken({
+    sub: employee.username,
+    name: employee.name,
+    role: employee.role,
+    exp: expiresAt
+  });
+  send(res, 200, { ok: true, siteId, employee, token, expiresAt }, headers);
+}
+
+async function handleGetModuleData(url, res, headers) {
+  const storeKey = String(url.searchParams.get("storeKey") || "").trim();
+  if (!storeKey) {
+    send(res, 400, { ok: false, error: "missing storeKey" }, headers);
+    return;
+  }
+  const result = await pool.query(`
+    select store_key, module_key, payload, version, updated_by_name, updated_by_username, updated_at
+    from module_data_store
+    where store_key = $1
+    limit 1
+  `, [storeKey]);
+  if (!result.rows[0]) {
+    send(res, 200, { ok: true, found: false, storeKey, payload: null }, headers);
+    return;
+  }
+  const row = result.rows[0];
+  send(res, 200, {
+    ok: true,
+    found: true,
+    storeKey: row.store_key,
+    moduleKey: row.module_key,
+    payload: row.payload,
+    version: row.version,
+    updatedByName: row.updated_by_name || "",
+    updatedByUsername: row.updated_by_username || "",
+    updatedAt: row.updated_at?.toISOString?.() || row.updated_at
+  }, headers);
+}
+
+async function handlePutModuleData(req, res, headers) {
+  const body = await readJson(req);
+  const storeKey = String(body.storeKey || "").trim();
+  const moduleKey = String(body.moduleKey || "unknown").trim() || "unknown";
+  if (!storeKey) {
+    send(res, 400, { ok: false, error: "missing storeKey" }, headers);
+    return;
+  }
+  const payload = body.payload === undefined ? null : body.payload;
+  const operatorName = body.operatorName || body.operator?.name || "-";
+  const operatorUsername = body.operatorUsername || body.operator?.username || "-";
+  const result = await pool.query(`
+    insert into module_data_store (
+      store_key, module_key, payload, version, updated_by_name, updated_by_username, updated_at
+    )
+    values ($1, $2, $3::jsonb, 1, $4, $5, now())
+    on conflict (store_key) do update set
+      module_key = excluded.module_key,
+      payload = excluded.payload,
+      version = module_data_store.version + 1,
+      updated_by_name = excluded.updated_by_name,
+      updated_by_username = excluded.updated_by_username,
+      updated_at = now()
+    returning store_key, module_key, version, updated_at
+  `, [storeKey, moduleKey, JSON.stringify(payload), operatorName, operatorUsername]);
+  send(res, 200, {
+    ok: true,
+    storeKey: result.rows[0].store_key,
+    moduleKey: result.rows[0].module_key,
+    version: result.rows[0].version,
+    updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+  }, headers);
+}
+
 async function handleAuditLog(req, res, headers) {
   const body = await readJson(req);
   const result = await pool.query(`
@@ -170,21 +315,34 @@ async function handleBackupExport(req, res, headers) {
 
 async function route(req, res) {
   const headers = corsHeaders(req);
+  const url = new URL(req.url || "/", "http://localhost");
   if (req.method === "OPTIONS") {
     res.writeHead(204, headers);
     res.end();
     return;
   }
-  if (!isAuthorized(req)) {
+  if (req.method === "POST" && url.pathname === "/login") {
+    try {
+      return await handleLogin(req, res, headers);
+    } catch (error) {
+      console.error(error);
+      send(res, 500, { ok: false, error: String(error?.message || error) }, headers);
+      return;
+    }
+  }
+
+  const authorization = getAuthorization(req);
+  if (!authorization) {
     send(res, 401, { ok: false, error: "unauthorized" }, headers);
     return;
   }
 
-  const url = new URL(req.url || "/", "http://localhost");
   try {
     if (req.method === "GET" && url.pathname === "/health") return await handleHealth(res, headers);
     if (req.method === "GET" && url.pathname === "/employees") return await handleEmployees(res, headers);
     if (req.method === "GET" && url.pathname === "/permissions") return await handlePermissions(res, headers);
+    if (req.method === "GET" && url.pathname === "/module-data") return await handleGetModuleData(url, res, headers);
+    if (req.method === "PUT" && url.pathname === "/module-data") return await handlePutModuleData(req, res, headers);
     if (req.method === "POST" && url.pathname === "/audit-logs") return await handleAuditLog(req, res, headers);
     if (req.method === "POST" && url.pathname === "/backup-exports") return await handleBackupExport(req, res, headers);
     send(res, 404, { ok: false, error: "not found" }, headers);

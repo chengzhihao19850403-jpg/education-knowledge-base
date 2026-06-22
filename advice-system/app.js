@@ -22,6 +22,8 @@ const defaultState = {
 };
 
 const state = loadState();
+let cloudStoreReady = false;
+let cloudSaveTimer = null;
 
 const statusClassMap = {
   "已沟通待邀约": "amber",
@@ -99,7 +101,45 @@ function persistState() {
       }));
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    scheduleCloudPersist();
   } catch {}
+}
+
+function scheduleCloudPersist() {
+  if (!cloudStoreReady || !window.JRC_CLOUD?.writeModuleData) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "admissions", state).catch((error) => {
+      console.warn("招生系统云端保存失败", error);
+    });
+  }, 450);
+}
+
+async function hydrateCloudState() {
+  if (!window.JRC_CLOUD?.readModuleData) {
+    cloudStoreReady = true;
+    return;
+  }
+  try {
+    const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+    if (result.ok && result.data?.found && result.data.payload) {
+      const nextState = normalizeState({
+        ...structuredClone(defaultState),
+        ...result.data.payload,
+      });
+      Object.keys(state).forEach((key) => delete state[key]);
+      Object.assign(state, nextState);
+      cloudStoreReady = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      return;
+    }
+    cloudStoreReady = true;
+    scheduleCloudPersist();
+  } catch (error) {
+    console.warn("招生系统云端读取失败，暂用本机数据", error);
+    cloudStoreReady = true;
+  }
 }
 
 function getCurrentEmployee() {
@@ -2256,3 +2296,4 @@ bindDetailSave();
 bindNavigation();
 bindLeadFilters();
 renderAll();
+hydrateCloudState();
