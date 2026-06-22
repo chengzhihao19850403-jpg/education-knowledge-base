@@ -26,6 +26,28 @@ button {
   touch-action: manipulation;
 }
 
+.jrc-floating-home {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+}
+
+.jrc-floating-home:visited {
+  color: #fff;
+}
+
 .nav,
 .system-nav,
 .top-actions,
@@ -189,6 +211,10 @@ textarea {
 
   table {
     min-width: 760px;
+  }
+
+  .jrc-floating-home {
+    display: inline-flex;
   }
 
   th,

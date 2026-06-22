@@ -16,9 +16,21 @@
     });
   }
 
+  function ensureFloatingHome() {
+    const path = window.location.pathname;
+    const isPortalHome = path.endsWith("/portal/index.html") || path.endsWith("/portal/") || path.endsWith("/portal");
+    if (isPortalHome || document.querySelector(".jrc-floating-home")) return;
+    const link = document.createElement("a");
+    link.className = "jrc-floating-home";
+    link.href = "/jrcedu/portal/index.html";
+    link.textContent = "返回工作台";
+    document.body.appendChild(link);
+  }
+
   function init() {
     enhanceTables();
     enhanceActionGroups();
+    ensureFloatingHome();
   }
 
   document.addEventListener("DOMContentLoaded", init);
