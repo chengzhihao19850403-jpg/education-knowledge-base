@@ -361,12 +361,46 @@
         color: var(--warn);
         line-height: 1.6;
       }
+      .pilot-banner {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.14);
+        color: #1d4ed8;
+        line-height: 1.7;
+      }
+      .compare-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .compare-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.76);
+      }
+      .compare-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .compare-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+        color: var(--ink);
+      }
       @media (max-width: 980px) {
         .hero,
         .grid {
           grid-template-columns: 1fr;
         }
         .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .compare-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .settlement-summary-grid {
@@ -382,6 +416,7 @@
           flex-direction: column;
         }
         .summary-grid,
+        .compare-grid,
         .form-grid,
         .settlement-summary-grid {
           grid-template-columns: 1fr;
@@ -426,6 +461,9 @@
             <a class="button secondary" href="#attendanceFinanceSection">点名结算</a>
             <a class="button secondary" href="#excelReconciliationSection">Excel 对账</a>
           </div>
+          <div class="pilot-banner">
+            当前财务页按“系统先全量算一版，老师再和原 Excel 结果比对”运行。2026年6月、7月、8月先作为试运行核算，不直接作为最终发薪、分红和课销唯一依据。
+          </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
         </article>
@@ -464,9 +502,16 @@
         </article>
       </section>
 
+      <section class="card" id="trialCompareSection">
+        <p class="eyebrow">试运行</p>
+        <h2>系统结果与 Excel 人工结果差异总览</h2>
+        <p style="margin-top: 8px;">先全量导入，再集中看差异。老师只需要核对差异项，不需要先逐条人工审核后再录系统。</p>
+        <div class="compare-grid" id="trialCompareGrid"></div>
+      </section>
+
       <section class="card" id="preimportSection">
         <p class="eyebrow">联动</p>
-        <h2>老师月度结算预览</h2>
+        <h2>老师月度结算草算预览</h2>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
             <thead>
@@ -987,6 +1032,62 @@
         `).join("");
       }
 
+      function renderTrialCompareSummary() {
+        const grid = byId("trialCompareGrid");
+        if (!grid) return;
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const rows = (derived?.preimport?.teacherMonthPrecheck || []).filter((row) => row.period === currentPeriod);
+        if (!rows.length) {
+          grid.innerHTML = `
+            <div class="compare-card"><span>当前月份</span><strong>${escapeHtml(currentPeriod)}</strong></div>
+            <div class="compare-card"><span>试运行状态</span><strong>待导入</strong></div>
+            <div class="compare-card"><span>待核差异</span><strong>0</strong></div>
+            <div class="compare-card"><span>高优先级</span><strong>0</strong></div>
+          `;
+          return;
+        }
+        const teacherCount = rows.length;
+        const totalIssues = rows.reduce((sum, row) => sum + toNumber(row.scheduleOnly) + toNumber(row.salaryOnly), 0);
+        const highPriority = rows.reduce((sum, row) => sum + toNumber(row.highPriorityDifferences), 0);
+        const matchedTotal = rows.reduce((sum, row) => sum + toNumber(row.matchedMarkers), 0);
+        const salaryTotal = rows.reduce((sum, row) => sum + toNumber(row.salaryMarkers), 0);
+        const matchedRate = salaryTotal ? `${Math.round((matchedTotal / salaryTotal) * 100)}%` : "0%";
+        grid.innerHTML = `
+          <div class="compare-card">
+            <span>当前月份</span>
+            <strong>${escapeHtml(currentPeriod)}</strong>
+          </div>
+          <div class="compare-card">
+            <span>参与比对老师</span>
+            <strong>${teacherCount}</strong>
+          </div>
+          <div class="compare-card">
+            <span>待核差异总数</span>
+            <strong>${totalIssues}</strong>
+          </div>
+          <div class="compare-card">
+            <span>已匹配占比</span>
+            <strong>${matchedRate}</strong>
+          </div>
+          <div class="compare-card">
+            <span>高优先级差异</span>
+            <strong>${highPriority}</strong>
+          </div>
+          <div class="compare-card">
+            <span>系统口径</span>
+            <strong>草算版</strong>
+          </div>
+          <div class="compare-card">
+            <span>人工口径</span>
+            <strong>Excel版</strong>
+          </div>
+          <div class="compare-card">
+            <span>当前建议</span>
+            <strong>${highPriority ? "先查高优先级" : totalIssues ? "集中核对差异" : "可进入复核"}</strong>
+          </div>
+        `;
+      }
+
       function renderExcelPreimportPreview() {
         const body = byId("excelPreimportBody");
         if (!body) return;
@@ -1109,6 +1210,7 @@
         if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
         renderExpenses(period);
+        renderTrialCompareSummary();
         renderLinkedFinancePreview();
         renderExcelPreimportPreview();
         renderAttendanceSettlementPreview();
