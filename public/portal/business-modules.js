@@ -22,17 +22,82 @@
     }
   }
 
+  function buildRowFingerprint(row) {
+    if (!row || typeof row !== "object") return "";
+    const fields = [
+      row.student,
+      row.className,
+      row.teacher,
+      row.type,
+      row.risk,
+      row.next,
+      row.content,
+      row.name,
+      row.subject,
+      row.grade,
+      row.track,
+      row.lesson,
+      row.version,
+      row.owner,
+      row.note,
+      row.fileName,
+      row.employee,
+      row.system,
+      row.status,
+      row.title,
+      row.area,
+      row.due,
+      row.createdAt
+    ];
+    return fields.map((value) => normalizeText(value)).filter(Boolean).join("|");
+  }
+
+  function ensureRowId(row, prefix = "row") {
+    if (!row || typeof row !== "object") return row;
+    const existing = String(row.rowId || row.id || "").trim();
+    if (existing) return { ...row, rowId: existing };
+    const seed = buildRowFingerprint(row) || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+    }
+    return { ...row, rowId: `${prefix}-${hash.toString(16)}` };
+  }
+
+  function mergeRowsById(rows, prefix = "row") {
+    const map = new Map();
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const normalized = ensureRowId(row, prefix);
+      const rowId = String(normalized.rowId || "").trim();
+      if (!rowId) return;
+      const existing = map.get(rowId) || {};
+      map.set(rowId, { ...existing, ...normalized, rowId });
+    });
+    return [...map.values()].sort((left, right) => {
+      const rightDate = String(right.updatedAt || right.createdAt || "");
+      const leftDate = String(left.updatedAt || left.createdAt || "");
+      return rightDate.localeCompare(leftDate);
+    });
+  }
+
   function writeStore(key, rows) {
-    localStorage.setItem(key, JSON.stringify(rows));
-    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], rows);
+    const mergedRows = mergeRowsById(rows, key);
+    localStorage.setItem(key, JSON.stringify(mergedRows));
+    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], mergedRows);
   }
 
   function readCloudStore(key, onRows) {
     if (!window.JRC_CLOUD?.readModuleData) return;
     window.JRC_CLOUD.readModuleData(key).then((result) => {
       if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
-      localStorage.setItem(key, JSON.stringify(result.data.payload));
-      onRows(result.data.payload);
+      const localRows = readStore(key, []);
+      const mergedRows = mergeRowsById([...(Array.isArray(localRows) ? localRows : []), ...result.data.payload], key);
+      localStorage.setItem(key, JSON.stringify(mergedRows));
+      if (JSON.stringify(mergedRows) !== JSON.stringify(result.data.payload) && mergedRows.length) {
+        writeCloudStore(key, cloudStoreModules[key], mergedRows);
+      }
+      onRows(mergedRows);
     }).catch((error) => {
       console.warn("云端数据读取失败", key, error);
     });
@@ -544,7 +609,7 @@
     function sanitizeRows(input) {
       return (Array.isArray(input) ? input : []).filter((row) => !["学生 A", "学生 B", "学生 C"].includes(row.student));
     }
-    let rows = sanitizeRows(readStore(key, []));
+    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -703,7 +768,7 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = sanitizeRows(cloudRows);
+      rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
@@ -755,7 +820,7 @@
       const oldSeedNames = ["暑假数学提升课", "初一数学衔接课", "科学专题课"];
       return (Array.isArray(input) ? input : []).filter((row) => !oldSeedNames.includes(row.name));
     }
-    let rows = sanitizeRows(readStore(key, []));
+    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
 
     function gradeScopeText() {
@@ -1126,7 +1191,7 @@
     render();
     setText("curriculumMessage", gradeScopeText());
     readCloudStore(key, (cloudRows) => {
-      rows = sanitizeRows(cloudRows);
+      rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
@@ -1158,7 +1223,7 @@
       const oldSeedTypes = ["员工基础档案核对", "系统权限分组", "培训记录归档"];
       return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTypes.includes(row.type));
     }
-    let rows = sanitizeRows(readStore(key, []));
+    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -1316,7 +1381,7 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = sanitizeRows(cloudRows);
+      rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
@@ -1348,7 +1413,7 @@
       const oldSeedTitles = ["教室可用状态核对", "暑假值班表", "门店异常记录"];
       return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTitles.includes(row.title));
     }
-    let rows = sanitizeRows(readStore(key, []));
+    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
 
     function fillForm(row) {
@@ -1506,7 +1571,7 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = sanitizeRows(cloudRows);
+      rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
