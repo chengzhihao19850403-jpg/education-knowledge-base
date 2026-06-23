@@ -336,6 +336,33 @@
         color: var(--ink);
         line-height: 1.7;
       }
+      .feedback-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .feedback-summary-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px;
+        background: rgba(255,255,255,0.76);
+      }
+      .feedback-summary-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .feedback-summary-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+      }
+      .feedback-rank-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
       .muted {
         color: var(--muted);
       }
@@ -411,6 +438,8 @@
         .filters,
         .manager-panel,
         .feedback-grid,
+        .feedback-summary,
+        .feedback-rank-grid,
         .pipeline,
         .module-grid {
           grid-template-columns: 1fr;
@@ -418,7 +447,7 @@
         .span-2 { grid-column: auto; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623i">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623j">
   </head>
   <body data-page-permission="suggestions.access">
     <main class="shell">
@@ -573,6 +602,8 @@
       <section class="card" id="siteFeedbackSection" hidden>
         <p class="eyebrow">试用反馈</p>
         <h2>全站反馈问题</h2>
+        <div class="feedback-summary" id="siteFeedbackSummary"></div>
+        <div class="feedback-rank-grid" id="siteFeedbackRanks"></div>
         <div class="feedback-grid" id="siteFeedbackList"></div>
       </section>
 
@@ -812,6 +843,46 @@
         if (!section || !list) return;
         section.hidden = !canManage;
         if (!canManage) return;
+        const summaryNode = byId("siteFeedbackSummary");
+        const ranksNode = byId("siteFeedbackRanks");
+        const pendingRows = siteFeedbackRows.filter((row) => !["已处理", "已转任务"].includes(row.status));
+        const taskRows = siteFeedbackRows.filter((row) => row.status === "已转任务");
+        const teacherNames = new Set(siteFeedbackRows.map((row) => row.userName || "未登录"));
+        const systemNames = new Set(siteFeedbackRows.map((row) => row.system || "未知页面"));
+        const countBy = (field) => {
+          const map = new Map();
+          siteFeedbackRows.forEach((row) => {
+            const key = String(row[field] || (field === "userName" ? "未登录" : "未知页面"));
+            map.set(key, (map.get(key) || 0) + 1);
+          });
+          return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+        };
+        if (summaryNode) {
+          summaryNode.innerHTML = [
+            ["反馈总数", siteFeedbackRows.length],
+            ["待处理", pendingRows.length],
+            ["已转任务", taskRows.length],
+            ["提交老师", teacherNames.size],
+            ["涉及系统", systemNames.size]
+          ].map(([label, value]) => `
+            <div class="feedback-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+          `).join("");
+        }
+        if (ranksNode) {
+          const teacherRows = countBy("userName");
+          const systemRows = countBy("system");
+          const renderRank = (title, rows) => `
+            <div class="feedback-card">
+              <h3>${escapeHtml(title)}</h3>
+              <div class="comment-list">
+                ${rows.length ? rows.map(([name, count]) => `
+                  <div class="comment-item"><strong>${escapeHtml(name)}：</strong>${count} 条</div>
+                `).join("") : `<div class="empty">暂无</div>`}
+              </div>
+            </div>
+          `;
+          ranksNode.innerHTML = renderRank("按老师统计", teacherRows) + renderRank("按系统统计", systemRows);
+        }
         const rows = [...siteFeedbackRows]
           .sort((left, right) => {
             const leftDone = ["已处理", "已转任务"].includes(left.status);
@@ -1251,6 +1322,6 @@
         renderAll();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623i"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
   </body>
 </html>
