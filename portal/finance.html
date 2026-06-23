@@ -554,6 +554,17 @@
         </div>
       </section>
 
+      <section class="card" id="financeAutofillSection">
+        <p class="eyebrow">回填</p>
+        <h2>原始表自动回填建议</h2>
+        <p style="margin-top: 8px;">工资/课时原始表会先统一归到“其他老师结算成本”草算字段；支出原始表会带入当月支出台账，状态保持“待复核”。</p>
+        <div class="compare-grid" id="financeAutofillGrid"></div>
+        <div class="actions">
+          <button class="button" type="button" id="financeAutofillButton">一键带入本月草算</button>
+        </div>
+        <div class="auth-note" id="financeAutofillMessage">当前还没有可带入的原始表汇总。</div>
+      </section>
+
       <section class="card" id="preimportSection">
         <p class="eyebrow">联动</p>
         <h2>老师月度结算草算预览</h2>
@@ -907,6 +918,11 @@
 
       function setFinanceImportMessage(text) {
         const node = byId("financeImportMessage");
+        if (node) node.textContent = text;
+      }
+
+      function setFinanceAutofillMessage(text) {
+        const node = byId("financeAutofillMessage");
         if (node) node.textContent = text;
       }
 
@@ -1391,6 +1407,88 @@
         }
       }
 
+      function currentImportedRows(bundle = readPreimportBundle()) {
+        return {
+          expenseRows: (bundle.expenseRows || []).filter((row) => row.period === currentPeriod),
+          salaryRows: (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod)
+        };
+      }
+
+      function renderFinanceAutofillPreview() {
+        const grid = byId("financeAutofillGrid");
+        if (!grid) return;
+        const { expenseRows, salaryRows } = currentImportedRows();
+        const expenseAmount = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const period = getPeriod();
+        const importedExpenseIds = new Set((period.expenses || []).map((row) => row.importSourceId).filter(Boolean));
+        const notImportedExpenseCount = expenseRows.filter((row) => !importedExpenseIds.has(row.id)).length;
+        grid.innerHTML = `
+          <div class="compare-card">
+            <span>工资/课时建议带入</span>
+            <strong>${money(salaryAmount)}</strong>
+          </div>
+          <div class="compare-card">
+            <span>支出建议带入</span>
+            <strong>${money(expenseAmount)}</strong>
+          </div>
+          <div class="compare-card">
+            <span>待带入支出行</span>
+            <strong>${notImportedExpenseCount}</strong>
+          </div>
+          <div class="compare-card">
+            <span>当前草算其他老师结算成本</span>
+            <strong>${money(period.otherTeacherCost || 0)}</strong>
+          </div>
+        `;
+        setFinanceAutofillMessage(
+          salaryRows.length || expenseRows.length
+            ? `当前月份已识别工资/课时 ${salaryRows.length} 条、支出 ${expenseRows.length} 条，可一键带入草算。`
+            : "当前月份还没有可带入的财务原始表。"
+        );
+      }
+
+      function applyFinanceAutofill() {
+        const period = getPeriod();
+        const { expenseRows, salaryRows } = currentImportedRows();
+        if (!expenseRows.length && !salaryRows.length) {
+          setFinanceAutofillMessage("当前月份没有可带入的原始表数据。");
+          return;
+        }
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        period.otherTeacherCost = String(Math.round(salaryAmount * 100) / 100);
+        period.expenses = period.expenses || [];
+        const existingImportIds = new Set(period.expenses.map((row) => row.importSourceId).filter(Boolean));
+        expenseRows.forEach((row) => {
+          if (existingImportIds.has(row.id)) return;
+          period.expenses.push({
+            id: `expense-linked-${row.id}`,
+            importSourceId: row.id,
+            date: row.date || todayText(),
+            category: row.category || "其他",
+            amount: toNumber(row.amount),
+            operator: row.operator || "原始表导入",
+            status: row.status || "待审核",
+            paymentMethod: "未填",
+            notes: `[原始表导入] ${row.sourceFileName || ""}${row.notes ? `｜${row.notes}` : ""}`.trim(),
+            reviewStatus: "待复核",
+            createdBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录",
+            createdAt: new Date().toISOString()
+          });
+        });
+        period.reviewStatus = "待复核";
+        period.updatedAt = new Date().toISOString();
+        period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        writeState(state).then((result) => {
+          setFinanceAutofillMessage(
+            result?.ok
+              ? `已把工资/课时 ${money(salaryAmount)} 和支出 ${expenseRows.length} 条带入 ${currentPeriod} 草算，并同步到云端。`
+              : `已先把工资/课时 ${money(salaryAmount)} 和支出 ${expenseRows.length} 条带入本机草算；云端同步稍后再试。`
+          );
+        });
+        render();
+      }
+
       function renderExcelPreimportPreview() {
         const body = byId("excelPreimportBody");
         if (!body) return;
@@ -1515,6 +1613,7 @@
         renderExpenses(period);
         renderTrialCompareSummary();
         renderFinanceImportPreview();
+        renderFinanceAutofillPreview();
         renderLinkedFinancePreview();
         renderExcelPreimportPreview();
         renderAttendanceSettlementPreview();
@@ -1712,6 +1811,7 @@
       byId("exportSummaryButton").addEventListener("click", exportSummary);
       byId("exportExpensesButton").addEventListener("click", exportExpenses);
       byId("financeImportButton").addEventListener("click", importFinanceSheets);
+      byId("financeAutofillButton").addEventListener("click", applyFinanceAutofill);
       byId("expenseTableBody").addEventListener("click", (event) => {
         const button = event.target.closest("[data-delete-expense]");
         if (!button) return;
