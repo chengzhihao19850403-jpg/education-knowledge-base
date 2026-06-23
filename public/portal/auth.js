@@ -1103,7 +1103,7 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
   holder.innerHTML = `
     <div class="jrc-employee-directory__head">
       <strong>全员名单</strong>
-      <span>${jrcCanManageEmployees(currentEmployee) ? "你当前可以直接新增员工基础账号。" : "后续新增员工账号后，这里会自动同步显示。"}</span>
+      <span>${jrcCanManageEmployees(currentEmployee) ? "可新增和维护员工账号。" : "员工基础信息。"}</span>
     </div>
     <div class="jrc-employee-directory__tools">
       <input type="search" class="jrc-employee-search" data-employee-search placeholder="搜索姓名 / 拼音 / 手机 / 微信">

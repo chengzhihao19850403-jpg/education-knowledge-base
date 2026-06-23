@@ -611,7 +611,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
@@ -859,10 +859,10 @@
         };
         if (summaryNode) {
           summaryNode.innerHTML = [
-            ["反馈总数", siteFeedbackRows.length],
+            ["试用反馈", siteFeedbackRows.length],
             ["待处理", pendingRows.length],
             ["已转任务", taskRows.length],
-            ["提交老师", teacherNames.size],
+            ["参与老师", teacherNames.size],
             ["涉及系统", systemNames.size]
           ].map(([label, value]) => `
             <div class="feedback-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
@@ -881,7 +881,7 @@
               </div>
             </div>
           `;
-          ranksNode.innerHTML = renderRank("按老师统计", teacherRows) + renderRank("按系统统计", systemRows);
+          ranksNode.innerHTML = renderRank("试用贡献记录", teacherRows) + renderRank("系统反馈分布", systemRows);
         }
         const rows = [...siteFeedbackRows]
           .sort((left, right) => {
