@@ -891,8 +891,9 @@ function jrcGetPermissions(subject) {
   permissions.add("portal.access");
   permissions.add("paike.access");
   permissions.add("suggestions.access");
+  permissions.add("campus.access");
 
-  if (subject.role !== "授课老师") {
+  if (subject.role === "学管") {
     permissions.add("knowledge.access");
   }
 
@@ -992,12 +993,12 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "knowledge.access": "学管知识库系统主要给学管、管理员和相关培训人员使用。",
     "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
     "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
-    "hr.access": "人事与培训系统涉及员工档案和权限，暂时只给总管理员使用。",
+    "hr.access": "人事与培训系统涉及员工档案和权限，仅总管理员使用。",
     "campus.access": "校区运营系统已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
     "admin.access": "这个管理区只给总管理员使用。"
   };
-  return hints[permissionKey] || `${role}账号当前不需要日常使用这个入口。需要开通时，可以让管理员在人事与培训系统里调整权限。`;
+  return hints[permissionKey] || `${role}账号未开通此入口。需要开通时，由管理员在人事与培训系统里调整权限。`;
 }
 
 function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
@@ -1291,12 +1292,11 @@ function jrcApplyPermissionDecorations(currentEmployee) {
     const permission = node.getAttribute("data-requires-permission-card");
     if (!permission) return;
     const allowed = jrcHasPermission(permission, currentEmployee);
-    if (allowed) return;
-    node.classList.add("jrc-card-locked");
-    const note = document.createElement("div");
-    note.className = "jrc-card-lock-note";
-    note.textContent = jrcGetPermissionHint(permission, currentEmployee);
-    node.appendChild(note);
+    node.hidden = !allowed;
+    node.setAttribute("aria-hidden", allowed ? "false" : "true");
+    if (!allowed) return;
+    node.classList.remove("jrc-card-locked");
+    node.querySelectorAll(":scope > .jrc-card-lock-note").forEach((note) => note.remove());
   });
 
   document.querySelectorAll("[data-role-greeting]").forEach((node) => {

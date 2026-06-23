@@ -38,22 +38,22 @@
         font-weight: 700;
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623c">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
   </head>
   <body data-page-permission="knowledge.access">
     <main>
-      <h1>正在打开学管知识库系统</h1>
-      <p>这里会跳转到原来的知识库页面，里面保留搜索查询、学管课堂学习内容和阶段测试。</p>
+      <h1>学管知识库系统</h1>
+      <p>知识查询、学习内容和阶段测试。</p>
       <a data-requires-permission="knowledge.access" href="/jrcedu/">立即打开</a>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
-    <script src="/jrcedu/portal/auth.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
     <script>
       if (window.JRC_CURRENT_EMPLOYEE && window.jrcHasPermission?.("knowledge.access")) {
         window.location.replace("/jrcedu/");
       }
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
   </body>
 </html>

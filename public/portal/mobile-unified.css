@@ -165,6 +165,57 @@ textarea {
   gap: 8px;
 }
 
+.shell,
+.layout,
+.grid,
+.hero,
+.workbench-grid,
+.module-grid,
+.metrics,
+.form-grid,
+.linkage-grid,
+.template-grid,
+.quick-actions,
+.compact-toolbar,
+.worklist-grid,
+.nav-list,
+.stack-list,
+.lead-card-list,
+.lead-card-actions,
+.filters,
+.section-head {
+  max-width: 100%;
+}
+
+.layout > *,
+.grid > *,
+.hero > *,
+.workbench-grid > *,
+.module-grid > *,
+.metrics > *,
+.form-grid > *,
+.linkage-grid > *,
+.template-grid > *,
+.quick-actions > *,
+.compact-toolbar > *,
+.worklist-grid > *,
+.nav-list > *,
+.stack-list > *,
+.lead-card-list > *,
+.lead-card-actions > *,
+.filters > *,
+.card,
+.panel,
+.note,
+.content-section,
+.table-wrap {
+  min-width: 0;
+}
+
+.table-wrap {
+  max-width: 100%;
+}
+
 @media (max-width: 760px) {
   body {
     overflow-x: hidden;

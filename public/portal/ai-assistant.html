@@ -63,7 +63,7 @@
       @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .topbar { flex-direction: column; align-items: flex-start; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .button, .nav-link { width: 100%; min-height: 46px; } }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623c">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
   </head>
   <body data-page-permission="ai.access">
     <main class="shell">
@@ -153,7 +153,7 @@
     </main>
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
     <script>
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
@@ -268,7 +268,11 @@
           const result = await window.JRC_CLOUD?.aiAssistant?.(payload);
           if (result?.ok && result.data?.result) {
             renderResult(result.data.result);
-            byId("aiConfigNotice").textContent = result.data.provider === "minimax" ? "AI 接口已接入 MiniMax。" : "AI 接口未配置，当前为本地整理。";
+            byId("aiConfigNotice").textContent = result.data.provider === "minimax"
+              ? "AI 接口已接入 MiniMax。"
+              : result.data.configured
+                ? "MiniMax 已配置，当前调用失败时会自动使用本地整理。"
+                : "AI 接口未配置，当前为本地整理。";
             byId("aiMessage").textContent = "整理完成，请检查后保存。";
             return;
           }
@@ -403,6 +407,6 @@
         byId("aiConfigNotice").textContent = "AI 页面已就绪；MiniMax Key 配好后会自动调用模型。";
       });
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
   </body>
 </html>

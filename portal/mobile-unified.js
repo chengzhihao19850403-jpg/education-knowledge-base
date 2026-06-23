@@ -29,10 +29,22 @@
     document.body.appendChild(link);
   }
 
+  function enhanceFormFocus() {
+    if (!window.matchMedia?.("(max-width: 760px)")?.matches) return;
+    document.querySelectorAll("input, select, textarea").forEach((node) => {
+      node.addEventListener("focus", () => {
+        window.setTimeout(() => {
+          node.scrollIntoView({ block: "center", behavior: "smooth" });
+        }, 180);
+      }, { passive: true });
+    });
+  }
+
   function init() {
     enhanceTables();
     enhanceActionGroups();
     ensureFloatingHome();
+    enhanceFormFocus();
   }
 
   document.addEventListener("DOMContentLoaded", init);

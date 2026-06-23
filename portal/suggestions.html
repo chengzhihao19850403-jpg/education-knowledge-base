@@ -391,7 +391,7 @@
         .span-2 { grid-column: auto; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623c">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
   </head>
   <body data-page-permission="suggestions.access">
     <main class="shell">
@@ -440,7 +440,7 @@
           <p class="eyebrow">提交</p>
           <h2>提交建议或改进事项</h2>
           <form id="suggestionForm" class="form-grid">
-            <label class="field">
+            <label class="field" data-manager-only-field>
               事项类型
               <select name="entryType">
                 <option value="suggestion" selected>员工建议</option>
@@ -547,7 +547,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const statusMap = {
@@ -584,6 +584,7 @@
       const currentEmployee = window.JRC_CURRENT_EMPLOYEE || null;
       const currentName = currentEmployee?.name || "员工";
       const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
+      const sampleSuggestionIds = new Set(["s1", "s2", "s3"]);
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -595,85 +596,11 @@
       }
 
       function defaultSuggestions() {
-        return [
-          {
-            id: "s1",
-            title: "每周固定一次排课变更收口",
-            category: "流程优化",
-            impact: "high",
-            content: "建议每周固定一个时间处理下周排课变更，避免老师临时在微信群里反复确认，减少漏课和教室冲突。",
-            author: "周珊",
-            anonymous: false,
-            createdAt: "2026-06-18",
-            status: "doing",
-            owner: "周珊",
-            verifier: "程志豪",
-            dueDate: "2026-06-24",
-            taskStandard: "下周排课变更在固定时间前完成收口，并记录遗漏问题。",
-            subtasks: "1. 确定每周排课变更收口时间\n2. 通知老师统一提交变更\n3. 汇总遗漏问题",
-            completionReport: "",
-            rewardLevel: "monthly",
-            rewardAmount: "",
-            rewardReason: "减少微信群反复确认，提高排课收口效率。",
-            rewardStatus: "candidate",
-            votes: 12,
-            liked: false,
-            decision: "先执行一周，收集老师反馈。",
-            comments: [
-              { author: "程志豪", text: "这个可以和排课系统待确认事项合并。", time: "2026-06-19" }
-            ]
-          },
-          {
-            id: "s2",
-            title: "投影仪亮度不足要纳入设备台账",
-            category: "校区运营",
-            impact: "medium",
-            content: "三楼 5 号教室投影仪亮度不够，影响暑假班看板书。建议设备问题统一登记，月底安排维修或采购。",
-            author: "海滢滢",
-            anonymous: false,
-            createdAt: "2026-06-17",
-            status: "approved",
-            owner: "陈雨晴",
-            verifier: "程志豪",
-            dueDate: "2026-06-28",
-            taskStandard: "完成设备台账登记，明确维修或采购处理结果。",
-            subtasks: "1. 登记三楼 5 号教室投影仪问题\n2. 询价维修或采购方案\n3. 给出处理时间",
-            completionReport: "",
-            rewardLevel: "none",
-            rewardAmount: "",
-            rewardReason: "",
-            rewardStatus: "none",
-            votes: 8,
-            liked: false,
-            decision: "转入校区运营系统的设备记录处理。",
-            comments: []
-          },
-          {
-            id: "s3",
-            title: "新老师培训内容需要测试闭环",
-            category: "员工关怀",
-            impact: "medium",
-            content: "建议新人看完学管课堂后必须完成阶段测试，避免只看不掌握。",
-            author: "匿名",
-            anonymous: true,
-            createdAt: "2026-06-16",
-            status: "triage",
-            owner: "颜雨涵",
-            verifier: "程志豪",
-            dueDate: "",
-            taskStandard: "",
-            subtasks: "",
-            completionReport: "",
-            rewardLevel: "none",
-            rewardAmount: "",
-            rewardReason: "",
-            rewardStatus: "none",
-            votes: 6,
-            liked: false,
-            decision: "和学管知识库合并设计。",
-            comments: []
-          }
-        ];
+        return [];
+      }
+
+      function withoutSampleSuggestions(rows) {
+        return rows.filter((item) => !sampleSuggestionIds.has(String(item.id || "")));
       }
 
       function normalizeSuggestion(item) {
@@ -701,7 +628,7 @@
         try {
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
           if (Array.isArray(parsed)) {
-            const normalized = parsed.map(normalizeSuggestion);
+            const normalized = withoutSampleSuggestions(parsed.map(normalizeSuggestion));
             if (JSON.stringify(normalized) !== JSON.stringify(parsed)) {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
             }
@@ -732,8 +659,11 @@
             return;
           }
           if (!Array.isArray(result.data.payload)) return;
-          suggestions = result.data.payload.map(normalizeSuggestion);
+          suggestions = withoutSampleSuggestions(result.data.payload.map(normalizeSuggestion));
           localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+            console.warn("Failed to clean cloud sample suggestions", error);
+          });
         } catch (error) {
           console.warn("Failed to hydrate suggestions from cloud", error);
         }
@@ -933,6 +863,14 @@
         renderList();
       }
 
+      function applyFormPermission() {
+        document.querySelectorAll("[data-manager-only-field]").forEach((node) => {
+          node.hidden = !canManage;
+          const select = node.querySelector("select");
+          if (select && !canManage) select.value = "suggestion";
+        });
+      }
+
       function addSuggestion() {
         const form = byId("suggestionForm");
         const data = new FormData(form);
@@ -1122,10 +1060,11 @@
       });
 
       (async () => {
+        applyFormPermission();
         await hydrateCloudSuggestions();
         renderAll();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623c"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
   </body>
 </html>
