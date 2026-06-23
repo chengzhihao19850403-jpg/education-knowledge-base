@@ -53,6 +53,7 @@
         background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800;
       }
       .tag.warn { background: rgba(180,83,9,0.10); color: var(--amber); }
+      .tag.review { background: rgba(37,99,235,0.10); color: #1d4ed8; }
       .auth-note, .notice {
         margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted);
       }
@@ -90,7 +91,7 @@
         .attendance-touch-actions .button { min-height: 46px; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623i">
   </head>
   <body data-page-permission="studentService.access">
     <main class="shell">
@@ -190,7 +191,7 @@
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>日期</th><th>老师</th><th>班级 / 课程</th><th>人数</th><th>未落实</th><th>特殊结算提示</th><th>保存时间</th></tr>
+              <tr><th>日期</th><th>老师</th><th>班级 / 课程</th><th>人数</th><th>未落实</th><th>复核</th><th>特殊结算提示</th><th>保存时间</th></tr>
             </thead>
             <tbody id="attendanceHistoryBody"></tbody>
           </table>
@@ -198,7 +199,7 @@
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>结算口径</th></tr>
+              <tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>复核</th><th>结算口径</th></tr>
             </thead>
             <tbody id="attendanceSettlementBody"></tbody>
           </table>
@@ -442,8 +443,12 @@
         const readVisibleRows = () => readRows().filter(sessionVisibleToCurrentUser);
         const saveRows = (rows) => {
           localStorage.setItem(STORE_KEY, JSON.stringify(rows));
-          window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", rows).catch((error) => {
+          if (!window.JRC_CLOUD?.writeModuleData) {
+            return Promise.resolve({ ok: false, localOnly: true });
+          }
+          return window.JRC_CLOUD.writeModuleData(STORE_KEY, "studentService", rows).catch((error) => {
             console.warn("点名数据云端保存失败", error);
+            return { ok: false, error };
           });
         };
         const hydrateCloudRows = () => {
@@ -795,6 +800,7 @@
                 financePresent: 0,
                 specialPresent: 0,
                 followupCount: 0,
+                reviewPending: 0,
                 classNames: new Set()
               });
             }
@@ -807,6 +813,7 @@
               group.financePresent += countFinancePresent(row, teacher);
               group.specialPresent += countSpecialPresent(row, teacher);
               if (needsFollowup(row)) group.followupCount += 1;
+              if ((session.reviewStatus || "待复核") !== "已确认") group.reviewPending += 1;
             });
           });
           return Array.from(groups.values()).sort((a, b) => `${b.period}${b.teacher}`.localeCompare(`${a.period}${a.teacher}`));
@@ -856,7 +863,7 @@
           if (!settlementBody) return;
           const rows = deriveSettlementRows();
           if (!rows.length) {
-            settlementBody.innerHTML = `<tr><td colspan="9">暂无点名结算数据。保存点名后，这里会按老师和月份自动汇总到课、课销和课时费依据。</td></tr>`;
+            settlementBody.innerHTML = `<tr><td colspan="10">暂无点名结算数据。保存点名后，这里会按老师和月份自动汇总到课、课销和课时费依据。</td></tr>`;
             return;
           }
           settlementBody.innerHTML = rows.slice(0, 20).map((row) => `
@@ -869,6 +876,7 @@
               <td>${row.financePresent}</td>
               <td>${row.specialPresent}</td>
               <td>${row.followupCount ? `<span class="tag warn">${row.followupCount} 人</span>` : "已落实"}</td>
+              <td>${row.reviewPending ? `<span class="tag review">${row.reviewPending} 人待复核</span>` : `<span class="tag">已确认</span>`}</td>
               <td>${escapeHtml(settlementBasis(row))}</td>
             </tr>
           `).join("");
@@ -876,7 +884,7 @@
         const renderHistory = () => {
           const sessions = readVisibleRows();
           if (!sessions.length) {
-            historyBody.innerHTML = `<tr><td colspan="7">暂无已保存点名记录。</td></tr>`;
+            historyBody.innerHTML = `<tr><td colspan="8">暂无已保存点名记录。</td></tr>`;
             return;
           }
           historyBody.innerHTML = sessions.slice(0, 12).map((session) => {
@@ -891,6 +899,10 @@
                 <td>${escapeHtml(session.className || "-")}</td>
                 <td>${session.rows.length} 人，实到 ${session.rows.filter(isEffectivePresent).length} 人</td>
                 <td>${unresolved ? `${unresolved} 人待落实` : "已落实"}</td>
+                <td>
+                  <span class="tag review">${escapeHtml(session.reviewStatus || "待复核")}</span>
+                  ${canManageAll() && (session.reviewStatus || "待复核") !== "已确认" ? `<br><button class="button secondary" type="button" data-confirm-attendance="${escapeHtml(session.id)}">确认复核</button>` : ""}
+                </td>
                 <td>${escapeHtml(special)}</td>
                 <td>${escapeHtml(new Date(session.createdAt).toLocaleString("zh-CN"))}</td>
               </tr>
@@ -1011,6 +1023,21 @@
           renderScoreAnalytics();
           renderPreimportOptions();
         };
+        const confirmAttendanceSession = (sessionId) => {
+          const rows = readRows();
+          const target = rows.find((session) => session.id === sessionId);
+          if (!target) return;
+          target.reviewStatus = "已确认";
+          target.reviewedAt = new Date().toISOString();
+          target.reviewedBy = currentEmployee()?.name || "未登录";
+          Promise.resolve(saveRows(rows)).then((result) => {
+            setMessage(result?.ok
+              ? "已保存到云端：本节点名已确认复核，可作为课时费和课销核对依据。"
+              : "已先保存在本机：本节点名已确认复核，云端同步稍后再试。");
+          });
+          renderHistory();
+          renderSettlement();
+        };
         const toCsvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
         const exportCsv = () => {
           const sessions = readVisibleRows();
@@ -1018,7 +1045,7 @@
             setMessage("当前没有可导出的点名记录。");
             return;
           }
-          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "操作人", "保存时间"];
+          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "复核状态", "操作人", "保存时间"];
           const dataRows = sessions.flatMap((session) => session.rows.map((row) => [
             session.date,
             periodFromDate(session.date),
@@ -1033,6 +1060,7 @@
             countSpecialPresent(row, session.teacher),
             settlementText({ ...row, teacher: session.teacher }),
             row.followup,
+            session.reviewStatus || "待复核",
             session.operatorName,
             session.createdAt
           ]));
@@ -1109,23 +1137,32 @@
             lessonType: fields.lessonType?.value || "正常课",
             className: fields.className?.value?.trim() || "",
             operatorName: currentEmployee()?.name || "未登录",
+            reviewStatus: "待复核",
             createdAt: new Date().toISOString(),
             rows: draftRows.map((row) => ({ ...row, teacher }))
           };
           const sessions = readRows();
           sessions.unshift(session);
-          saveRows(sessions);
+          const saveResult = saveRows(sessions);
           renderHistory();
           renderSettlement();
           renderFollowups();
           renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
-          setMessage(unresolved
-            ? `已保存。本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
-            : "已保存。本节课点名、课时费和课销判断已完成。");
+          Promise.resolve(saveResult).then((result) => {
+            const saveText = result?.ok ? "已保存到云端，状态为“待复核”。" : "已先保存在本机，状态为“待复核”；云端同步稍后再试。";
+            setMessage(unresolved
+              ? `${saveText} 本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
+              : `${saveText} 本节课点名、课时费和课销判断已完成。`);
+          });
         });
         exportButton.addEventListener("click", () => {
           if (canUseAttendance()) exportCsv();
+        });
+        historyBody.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-confirm-attendance]");
+          if (!button || !canManageAll()) return;
+          confirmAttendanceSession(button.getAttribute("data-confirm-attendance"));
         });
         rosterBody.addEventListener("click", (event) => {
           const button = event.target.closest("[data-attendance-status]");
@@ -1165,6 +1202,6 @@
         hydratePreimportBundle();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623i"></script>
   </body>
 </html>

@@ -338,6 +338,10 @@
       .status-pill.paid {
         background: rgba(13, 148, 136, 0.13);
       }
+      .status-pill.review {
+        background: rgba(37, 99, 235, 0.12);
+        color: #1d4ed8;
+      }
       .muted {
         color: var(--muted);
       }
@@ -391,7 +395,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623i">
   </head>
   <body data-page-permission="finance.access">
     <main class="shell">
@@ -540,6 +544,9 @@
         <article class="card">
           <p class="eyebrow">月结</p>
           <h2>月度收入与老师结算成本</h2>
+          <div class="tag-row" style="margin-bottom: 12px;">
+            <span class="tag" id="periodReviewStatus">草稿</span>
+          </div>
           <form id="monthlyForm" class="form-grid">
             <label class="field">
               课时总收入
@@ -592,8 +599,10 @@
           </form>
           <div class="actions">
             <button class="button" type="button" id="saveMonthlyButton">保存本月数据</button>
+            <button class="button secondary" type="button" id="confirmMonthlyReviewButton">确认本月复核</button>
             <button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button>
           </div>
+          <div class="auth-note" id="financeSaveMessage">财务数据保存后默认进入“待复核”，复核前不作为正式工资、课销和分红依据。</div>
         </article>
 
         <aside class="card">
@@ -684,6 +693,7 @@
                 <th>金额</th>
                 <th>经办/报销人</th>
                 <th>状态</th>
+                <th>复核</th>
                 <th>说明</th>
                 <th>操作</th>
               </tr>
@@ -744,6 +754,7 @@
       function createPeriod(periodName) {
         return {
           periodName,
+          reviewStatus: "草稿",
           lessonIncome: 0,
           otherIncome: 0,
           dividendRate: defaultDividendRate(periodName),
@@ -774,15 +785,23 @@
 
       function writeState(nextState) {
         localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(nextState));
-        if (!cloudFinanceReady) return;
-        window.JRC_CLOUD?.writeModuleData?.(FINANCE_STORAGE_KEY, "finance", nextState).catch((error) => {
+        if (!cloudFinanceReady || !window.JRC_CLOUD?.writeModuleData) {
+          return Promise.resolve({ ok: false, localOnly: true });
+        }
+        return window.JRC_CLOUD.writeModuleData(FINANCE_STORAGE_KEY, "finance", nextState).catch((error) => {
           console.warn("财务数据云端保存失败", error);
+          return { ok: false, error };
         });
       }
 
       let state = readState();
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
+
+      function setFinanceMessage(text) {
+        const node = byId("financeSaveMessage");
+        if (node) node.textContent = text;
+      }
 
       function readLocalAttendance() {
         try {
@@ -883,7 +902,33 @@
         MONEY_FIELDS.forEach((field) => {
           period[field] = form.elements[field]?.value ?? "";
         });
-        writeState(state);
+        period.reviewStatus = "待复核";
+        period.updatedAt = new Date().toISOString();
+        period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? `已保存到云端：${currentPeriod} 月结数据已进入“待复核”。`
+            : `已保存在本机：${currentPeriod} 月结数据为“待复核”，云端同步稍后再试。`);
+        });
+        render();
+      }
+
+      function confirmCurrentPeriodReview() {
+        const period = getPeriod();
+        period.reviewStatus = "已确认";
+        period.reviewedAt = new Date().toISOString();
+        period.reviewedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        period.expenses = (period.expenses || []).map((expense) => ({
+          ...expense,
+          reviewStatus: expense.reviewStatus === "已确认" ? "已确认" : "已确认",
+          reviewedAt: expense.reviewedAt || period.reviewedAt,
+          reviewedBy: expense.reviewedBy || period.reviewedBy
+        }));
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? `已保存到云端：${currentPeriod} 财务数据已确认复核。`
+            : `已先保存在本机：${currentPeriod} 财务数据已确认复核，云端同步稍后再试。`);
+        });
         render();
       }
 
@@ -900,7 +945,7 @@
         const body = byId("expenseTableBody");
         const expenses = [...(period.expenses || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
         if (!expenses.length) {
-          body.innerHTML = `<tr><td colspan="7"><div class="empty">本月还没有录入日常支出或报销。</div></td></tr>`;
+          body.innerHTML = `<tr><td colspan="8"><div class="empty">本月还没有录入日常支出或报销。</div></td></tr>`;
           return;
         }
         body.innerHTML = expenses.map((expense) => `
@@ -910,6 +955,7 @@
             <td class="money-cell">${money(expense.amount)}</td>
             <td>${escapeHtml(expense.operator || "-")}</td>
             <td><span class="status-pill ${expense.status === "待审核" ? "pending" : expense.status === "已支付" ? "paid" : ""}">${escapeHtml(expense.status || "待审核")}</span></td>
+            <td><span class="status-pill review">${escapeHtml(expense.reviewStatus || "待复核")}</span></td>
             <td>${escapeHtml(expense.notes || "-")}</td>
             <td><button class="button danger" type="button" data-delete-expense="${escapeHtml(expense.id)}">删除</button></td>
           </tr>
@@ -1059,6 +1105,8 @@
 
       function render() {
         const period = getPeriod();
+        const reviewNode = byId("periodReviewStatus");
+        if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
         renderExpenses(period);
         renderLinkedFinancePreview();
@@ -1083,9 +1131,16 @@
           operator: form.elements.operator.value.trim(),
           status: form.elements.status.value,
           paymentMethod: form.elements.paymentMethod.value,
-          notes: form.elements.notes.value.trim()
+          notes: form.elements.notes.value.trim(),
+          reviewStatus: "待复核",
+          createdBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录",
+          createdAt: new Date().toISOString()
         });
-        writeState(state);
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? "支出/报销已保存到云端，状态为“待复核”。"
+            : "支出/报销已先保存在本机，状态为“待复核”；云端同步稍后再试。");
+        });
         form.reset();
         form.elements.date.value = todayText();
         render();
@@ -1094,7 +1149,14 @@
       function deleteExpense(id) {
         const period = getPeriod();
         period.expenses = (period.expenses || []).filter((expense) => expense.id !== id);
-        writeState(state);
+        period.reviewStatus = "待复核";
+        period.updatedAt = new Date().toISOString();
+        period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? "已删除支出并同步云端，本月状态回到“待复核”。"
+            : "已删除本机支出，本月状态回到“待复核”；云端同步稍后再试。");
+        });
         render();
       }
 
@@ -1130,9 +1192,11 @@
         const totals = calculate(period);
         const attendanceRows = deriveAttendanceSettlementRows();
         downloadCsv(`财务月度汇总-${currentPeriod}.csv`, [
-          ["月份", "课时总收入", "其他收入", "老师结算成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
+          ["月份", "复核状态", "复核人", "课时总收入", "其他收入", "老师结算成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
           [
             currentPeriod,
+            period.reviewStatus || "草稿",
+            period.reviewedBy || period.updatedBy || "",
             period.lessonIncome,
             period.otherIncome,
             totals.teacherCost,
@@ -1166,7 +1230,7 @@
       function exportExpenses() {
         const period = getPeriod();
         const rows = [
-          ["月份", "日期", "类别", "金额", "经办/报销人", "状态", "支付方式", "说明"],
+          ["月份", "日期", "类别", "金额", "经办/报销人", "状态", "复核状态", "复核人", "支付方式", "说明"],
           ...(period.expenses || []).map((expense) => [
             currentPeriod,
             expense.date,
@@ -1174,6 +1238,8 @@
             expense.amount,
             expense.operator,
             expense.status,
+            expense.reviewStatus || "待复核",
+            expense.reviewedBy || expense.createdBy || "",
             expense.paymentMethod,
             expense.notes
           ])
@@ -1197,6 +1263,7 @@
       });
       byId("monthlyForm").addEventListener("input", syncPeriodFromForm);
       byId("saveMonthlyButton").addEventListener("click", syncPeriodFromForm);
+      byId("confirmMonthlyReviewButton").addEventListener("click", confirmCurrentPeriodReview);
       byId("addExpenseButton").addEventListener("click", addExpense);
       byId("exportSummaryButton").addEventListener("click", exportSummary);
       byId("exportExpensesButton").addEventListener("click", exportExpenses);
@@ -1212,6 +1279,6 @@
       hydrateCloudAttendance();
       applyEditPermission();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623i"></script>
   </body>
 </html>

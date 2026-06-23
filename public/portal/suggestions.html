@@ -310,6 +310,32 @@
         font-size: 13px;
         line-height: 1.6;
       }
+      .feedback-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .feedback-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255,255,255,0.78);
+      }
+      .feedback-card.is-done {
+        opacity: 0.72;
+      }
+      .feedback-meta {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .feedback-content {
+        margin-top: 10px;
+        color: var(--ink);
+        line-height: 1.7;
+      }
       .muted {
         color: var(--muted);
       }
@@ -384,6 +410,7 @@
         .form-grid,
         .filters,
         .manager-panel,
+        .feedback-grid,
         .pipeline,
         .module-grid {
           grid-template-columns: 1fr;
@@ -391,7 +418,7 @@
         .span-2 { grid-column: auto; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623i">
   </head>
   <body data-page-permission="suggestions.access">
     <main class="shell">
@@ -543,6 +570,12 @@
         <div class="pipeline" id="pipelineBoard"></div>
       </section>
 
+      <section class="card" id="siteFeedbackSection" hidden>
+        <p class="eyebrow">试用反馈</p>
+        <h2>全站反馈问题</h2>
+        <div class="feedback-grid" id="siteFeedbackList"></div>
+      </section>
+
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
@@ -550,6 +583,7 @@
     <script src="/jrcedu/portal/auth.js?v=20260623g"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
+      const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
       const statusMap = {
         new: "待评估",
         triage: "已评估",
@@ -624,6 +658,16 @@
         return normalized;
       }
 
+      function readRowsFromStorage(key, fallback = []) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "null");
+          return Array.isArray(parsed) ? parsed : fallback;
+        } catch (error) {
+          console.warn(`Failed to read ${key}`, error);
+          return fallback;
+        }
+      }
+
       function readSuggestions() {
         try {
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -670,6 +714,40 @@
       }
 
       let suggestions = readSuggestions();
+      let siteFeedbackRows = readRowsFromStorage(FEEDBACK_STORAGE_KEY, []);
+
+      function mergeById(rows) {
+        const map = new Map();
+        rows.forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const id = String(row.id || "").trim() || `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          map.set(id, { ...row, id });
+        });
+        return [...map.values()]
+          .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
+          .slice(0, 300);
+      }
+
+      function writeSiteFeedbackRows() {
+        siteFeedbackRows = mergeById(siteFeedbackRows);
+        localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(siteFeedbackRows));
+        window.JRC_CLOUD?.writeModuleData?.(FEEDBACK_STORAGE_KEY, "siteFeedback", siteFeedbackRows).catch((error) => {
+          console.warn("Failed to sync site feedback to cloud", error);
+        });
+      }
+
+      async function hydrateSiteFeedback() {
+        if (!canManage) return;
+        if (!window.JRC_CLOUD?.readModuleData) return;
+        try {
+          const result = await window.JRC_CLOUD.readModuleData(FEEDBACK_STORAGE_KEY);
+          if (!result?.ok || !Array.isArray(result.data?.payload)) return;
+          siteFeedbackRows = mergeById([...siteFeedbackRows, ...result.data.payload]);
+          localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(siteFeedbackRows));
+        } catch (error) {
+          console.warn("Failed to hydrate site feedback from cloud", error);
+        }
+      }
 
       function isDueSoon(item) {
         if (!item.dueDate || ["launched", "paused"].includes(item.status)) return false;
@@ -726,6 +804,49 @@
         byId("statReview").textContent = suggestions.filter((item) => item.status === "review").length;
         byId("statLaunched").textContent = suggestions.filter((item) => item.status === "launched").length;
         byId("statReward").textContent = suggestions.filter((item) => item.rewardStatus === "candidate").length;
+      }
+
+      function renderSiteFeedback() {
+        const section = byId("siteFeedbackSection");
+        const list = byId("siteFeedbackList");
+        if (!section || !list) return;
+        section.hidden = !canManage;
+        if (!canManage) return;
+        const rows = [...siteFeedbackRows]
+          .sort((left, right) => {
+            const leftDone = ["已处理", "已转任务"].includes(left.status);
+            const rightDone = ["已处理", "已转任务"].includes(right.status);
+            if (leftDone !== rightDone) return leftDone ? 1 : -1;
+            return String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
+          })
+          .slice(0, 20);
+        if (!rows.length) {
+          list.innerHTML = `<div class="empty">暂无全站反馈。</div>`;
+          return;
+        }
+        list.innerHTML = rows.map((row) => {
+          const done = ["已处理", "已转任务"].includes(row.status);
+          return `
+            <article class="feedback-card ${done ? "is-done" : ""}" data-feedback-id="${escapeHtml(row.id)}">
+              <div class="suggestion-head">
+                <div>
+                  <div class="suggestion-title">${escapeHtml(row.type || "试用反馈")}</div>
+                  <div class="feedback-meta">
+                    ${escapeHtml(row.userName || "未登录")}｜${escapeHtml(row.system || "未知页面")}
+                    <br>${escapeHtml((row.createdAt || "").replace("T", " ").slice(0, 19))}
+                  </div>
+                </div>
+                <span class="status-pill ${done ? "launched" : "new"}">${escapeHtml(row.status || "待处理")}</span>
+              </div>
+              <p class="feedback-content">${escapeHtml(row.content || "")}</p>
+              <div class="card-tools">
+                <a class="button secondary" href="${escapeHtml(row.url || "#")}" target="_blank" rel="noreferrer">打开页面</a>
+                ${!done ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
+                ${row.status !== "已处理" ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
+              </div>
+            </article>
+          `;
+        }).join("");
       }
 
       function renderPipeline() {
@@ -861,6 +982,7 @@
         renderStats();
         renderPipeline();
         renderList();
+        renderSiteFeedback();
       }
 
       function applyFormPermission() {
@@ -949,6 +1071,51 @@
         item.comments = item.comments || [];
         item.comments.push({ author: currentName, text: `已转为任务，负责人：${item.owner}，验收人：${item.verifier}。`, time: today() });
         writeSuggestions();
+        renderAll();
+      }
+
+      function findFeedback(target) {
+        const card = target.closest("[data-feedback-id]");
+        if (!card) return null;
+        return siteFeedbackRows.find((row) => row.id === card.getAttribute("data-feedback-id"));
+      }
+
+      function convertFeedbackToTask(feedback) {
+        if (!feedback) return;
+        const createdDate = today();
+        suggestions.unshift({
+          id: `t-feedback-${Date.now()}`,
+          entryType: "task",
+          title: `处理反馈：${feedback.type || "试用问题"}`,
+          category: "技术工具",
+          impact: feedback.type === "数据不对" || feedback.type === "按钮点不开" ? "high" : "medium",
+          content: `${feedback.content || ""}\n\n来源页面：${feedback.system || "-"}\n反馈人：${feedback.userName || "未登录"}\n页面链接：${feedback.url || "-"}`,
+          author: feedback.userName || "系统反馈",
+          anonymous: false,
+          createdAt: createdDate,
+          status: "assigned",
+          owner: currentName,
+          dueDate: createdDate,
+          verifier: currentName,
+          taskId: `task-feedback-${Date.now()}`,
+          taskStandard: "确认问题是否存在；能修则修复并上线，不能修则写明原因和替代处理方式。",
+          subtasks: "",
+          completionReport: "",
+          rewardLevel: "none",
+          rewardAmount: "",
+          rewardReason: "",
+          rewardStatus: "none",
+          votes: 0,
+          liked: false,
+          decision: "来自全站反馈，已转为执行任务。",
+          sourceFeedbackId: feedback.id,
+          comments: [{ author: currentName, text: "全站反馈已转为任务。", time: createdDate }]
+        });
+        feedback.status = "已转任务";
+        feedback.processedAt = new Date().toISOString();
+        feedback.processedBy = currentName;
+        writeSuggestions();
+        writeSiteFeedbackRows();
         renderAll();
       }
 
@@ -1058,13 +1225,32 @@
         writeSuggestions();
         renderAll();
       });
+      byId("siteFeedbackList")?.addEventListener("click", (event) => {
+        const actionButton = event.target.closest("[data-feedback-action]");
+        if (!actionButton || !canManage) return;
+        const feedback = findFeedback(actionButton);
+        if (!feedback) return;
+        const action = actionButton.getAttribute("data-feedback-action");
+        if (action === "task") {
+          convertFeedbackToTask(feedback);
+          return;
+        }
+        if (action === "done") {
+          feedback.status = "已处理";
+          feedback.processedAt = new Date().toISOString();
+          feedback.processedBy = currentName;
+          writeSiteFeedbackRows();
+          renderAll();
+        }
+      });
 
       (async () => {
         applyFormPermission();
         await hydrateCloudSuggestions();
+        await hydrateSiteFeedback();
         renderAll();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623i"></script>
   </body>
 </html>
