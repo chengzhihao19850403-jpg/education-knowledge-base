@@ -443,6 +443,50 @@
         line-height: 1.6;
       }
 
+      .detail-section {
+        margin-top: 18px;
+      }
+
+      .filter-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.8fr 1fr;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .filter-field span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .filter-field input,
+      .filter-field select {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.88);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      .detail-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+
+      .detail-count {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       .flow-card {
         padding: 20px;
       }
@@ -479,7 +523,8 @@
         .grid,
         .quick-grid,
         .flow-grid,
-        .metric-grid {
+        .metric-grid,
+        .filter-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -563,6 +608,50 @@
         </article>
       </section>
 
+      <section class="hero detail-section" id="scheduleDetailSection">
+        <h2>云端平时排课明细</h2>
+        <p>老师上传后，正式写入云端的平时排课会先在这里核对。先看明细，再决定是否进入完整版继续调课。</p>
+        <div class="filter-grid">
+          <label class="filter-field">
+            <span>老师</span>
+            <select id="detailTeacherFilter">
+              <option value="">全部老师</option>
+            </select>
+          </label>
+          <label class="filter-field">
+            <span>日期</span>
+            <input id="detailDateFilter" type="date">
+          </label>
+          <label class="filter-field">
+            <span>班级关键词</span>
+            <input id="detailClassFilter" type="text" placeholder="输入班级名或课程名">
+          </label>
+        </div>
+        <div class="detail-toolbar">
+          <div class="detail-count" id="detailCountText">正在读取云端平时排课明细...</div>
+          <a class="button button-secondary" href="./prototype/june.html">去平时模式完整版继续改课</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>老师</th>
+                <th>班级</th>
+                <th>节次</th>
+                <th>开始</th>
+                <th>结束</th>
+                <th>教室</th>
+                <th>排课状态</th>
+                <th>确认状态</th>
+                <th>备注</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleDetailBody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="grid">
         <article class="card">
           <h2>常用模板</h2>
@@ -589,7 +678,14 @@
         const preimportMetricGrid = document.getElementById("preimportMetricGrid");
         const preimportTeacherBody = document.getElementById("preimportTeacherBody");
         const preimportCloudNote = document.getElementById("preimportCloudNote");
+        const detailTeacherFilter = document.getElementById("detailTeacherFilter");
+        const detailDateFilter = document.getElementById("detailDateFilter");
+        const detailClassFilter = document.getElementById("detailClassFilter");
+        const detailCountText = document.getElementById("detailCountText");
+        const scheduleDetailBody = document.getElementById("scheduleDetailBody");
         let uploadHandlerBound = false;
+        let detailFilterBound = false;
+        let currentScheduleSnapshot = { scheduleEntries: [], teachers: [], rooms: [] };
 
         function escapeHtml(value) {
           return String(value ?? "")
@@ -727,9 +823,114 @@
           uploadResultNode.className = `upload-result${type ? ` is-${type}` : ""}`;
         }
 
+        function readStoredScheduleSnapshot() {
+          try {
+            const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null");
+            return parsed && typeof parsed === "object"
+              ? parsed
+              : { scheduleEntries: [], teachers: [], rooms: [] };
+          } catch {
+            return { scheduleEntries: [], teachers: [], rooms: [] };
+          }
+        }
+
+        function sortedTeacherNames(snapshot = currentScheduleSnapshot) {
+          const names = new Set();
+          (Array.isArray(snapshot.teachers) ? snapshot.teachers : []).forEach((teacher) => {
+            const name = String(teacher?.name || "").trim();
+            if (name) names.add(name);
+          });
+          (Array.isArray(snapshot.scheduleEntries) ? snapshot.scheduleEntries : []).forEach((entry) => {
+            const name = String(entry?.teacherName || "").trim();
+            if (name) names.add(name);
+          });
+          return Array.from(names).sort((left, right) => left.localeCompare(right, "zh-CN"));
+        }
+
+        function renderDetailTeacherOptions(snapshot = currentScheduleSnapshot) {
+          if (!detailTeacherFilter) return;
+          const currentValue = detailTeacherFilter.value;
+          const options = sortedTeacherNames(snapshot);
+          detailTeacherFilter.innerHTML = `
+            <option value="">全部老师</option>
+            ${options.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+          `;
+          detailTeacherFilter.value = options.includes(currentValue) ? currentValue : "";
+        }
+
+        function filteredScheduleEntries(snapshot = currentScheduleSnapshot) {
+          const teacher = String(detailTeacherFilter?.value || "").trim();
+          const date = String(detailDateFilter?.value || "").trim();
+          const classKeyword = String(detailClassFilter?.value || "").trim().toLowerCase();
+          return (Array.isArray(snapshot.scheduleEntries) ? snapshot.scheduleEntries : []).filter((entry) => {
+            if (teacher && String(entry.teacherName || "").trim() !== teacher) return false;
+            if (date && String(entry.courseDate || "").trim() !== date) return false;
+            if (classKeyword && !String(entry.className || "").toLowerCase().includes(classKeyword)) return false;
+            return true;
+          });
+        }
+
+        function renderScheduleDetailTable(snapshot = currentScheduleSnapshot, sourceLabel = "当前浏览器缓存") {
+          if (!scheduleDetailBody || !detailCountText) return;
+          const rows = filteredScheduleEntries(snapshot);
+          detailCountText.textContent = `${sourceLabel}：共 ${formatNumber(rows.length)} 行明细${rows.length !== (snapshot.scheduleEntries || []).length ? ` / 总 ${formatNumber((snapshot.scheduleEntries || []).length)} 行` : ""}`;
+          if (!rows.length) {
+            scheduleDetailBody.innerHTML = `<tr><td colspan="10">当前筛选条件下没有平时排课明细。</td></tr>`;
+            return;
+          }
+          scheduleDetailBody.innerHTML = rows.map((entry) => `
+            <tr>
+              <td>${escapeHtml(entry.courseDate || "-")}</td>
+              <td>${escapeHtml(entry.teacherName || "-")}</td>
+              <td>${escapeHtml(entry.className || "-")}</td>
+              <td>${formatNumber(entry.slotIndex)}</td>
+              <td>${escapeHtml(entry.startTime || "-")}</td>
+              <td>${escapeHtml(entry.endTime || "-")}</td>
+              <td>${escapeHtml(entry.classroomName || "-")}</td>
+              <td>${escapeHtml(entry.scheduleStatus || "scheduled")}</td>
+              <td>${escapeHtml(entry.confirmationStatus || "pending")}</td>
+              <td>${escapeHtml(entry.notes || "")}</td>
+            </tr>
+          `).join("");
+        }
+
+        function renderScheduleSnapshot(snapshot = currentScheduleSnapshot, sourceLabel = "当前浏览器缓存") {
+          currentScheduleSnapshot = snapshot && typeof snapshot === "object"
+            ? snapshot
+            : { scheduleEntries: [], teachers: [], rooms: [] };
+          renderDetailTeacherOptions(currentScheduleSnapshot);
+          renderScheduleDetailTable(currentScheduleSnapshot, sourceLabel);
+        }
+
+        async function hydrateScheduleDetailFromCloud() {
+          renderScheduleSnapshot(readStoredScheduleSnapshot(), "当前浏览器缓存");
+          if (!window.JRC_CLOUD?.readModuleData) return;
+          try {
+            const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+            const payload = result?.data?.payload;
+            const cloudSnapshot = payload?.parsedValue || payload || null;
+            if (result?.ok && result.data?.found && cloudSnapshot && typeof cloudSnapshot === "object") {
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudSnapshot));
+              renderScheduleSnapshot(cloudSnapshot, "云端平时排课");
+            }
+          } catch (error) {
+            detailCountText.textContent = `已显示当前浏览器缓存；云端平时排课读取失败：${error.message || error}`;
+          }
+        }
+
+        function bindDetailFilters() {
+          if (detailFilterBound) return;
+          [detailTeacherFilter, detailDateFilter, detailClassFilter].forEach((node) => {
+            node?.addEventListener("input", () => renderScheduleDetailTable());
+            node?.addEventListener("change", () => renderScheduleDetailTable());
+          });
+          detailFilterBound = true;
+        }
+
         function persistRegularImportResult(payload, message) {
           if (payload && payload.snapshot) {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.snapshot));
+            renderScheduleSnapshot(payload.snapshot, "本次上传后已写入云端");
           }
           const currentMetaRaw = window.localStorage.getItem(STORAGE_META_KEY);
           let currentMeta = {};
@@ -961,11 +1162,13 @@
         function showCloudShell(message = "") {
           gateNode.hidden = true;
           shellNode.hidden = false;
+          bindDetailFilters();
           if (!uploadHandlerBound && uploadButton) {
             uploadButton.addEventListener("click", handleWorkbookUpload);
             uploadHandlerBound = true;
           }
           hydratePreimportFromCloud();
+          hydrateScheduleDetailFromCloud();
           if (message) {
             updateUploadResult(message, "success");
           }
@@ -1010,11 +1213,13 @@
 
           gateNode.hidden = true;
           shellNode.hidden = false;
+          bindDetailFilters();
           if (!uploadHandlerBound && uploadButton) {
             uploadButton.addEventListener("click", handleWorkbookUpload);
             uploadHandlerBound = true;
           }
           hydratePreimportFromCloud();
+          hydrateScheduleDetailFromCloud();
         } catch (error) {
           if (isCloudTransitionMode()) {
             showCloudShell(`云端排课入口已打开，但旧版排课缓存同步暂时失败：${error.message || error}。可以先查看下方已解析表格核对，或进入平时 / 暑假模式查看。`);
