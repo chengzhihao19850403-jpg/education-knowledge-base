@@ -709,8 +709,26 @@
           });
         }
 
+        function mergePreimportBundle(baseBundle, overrideBundle) {
+          const base = baseBundle && typeof baseBundle === "object" ? baseBundle : {};
+          const override = overrideBundle && typeof overrideBundle === "object" ? overrideBundle : {};
+          return {
+            ...base,
+            ...override,
+            summary: {
+              ...(base.summary || {}),
+              ...(override.summary || {})
+            },
+            scheduleSessions: Array.isArray(override.scheduleSessions) ? override.scheduleSessions : Array.isArray(base.scheduleSessions) ? base.scheduleSessions : [],
+            salaryAttendance: Array.isArray(override.salaryAttendance) ? override.salaryAttendance : Array.isArray(base.salaryAttendance) ? base.salaryAttendance : [],
+            expenseRows: Array.isArray(override.expenseRows) ? override.expenseRows : Array.isArray(base.expenseRows) ? base.expenseRows : [],
+            reconciliationIssues: Array.isArray(override.reconciliationIssues) ? override.reconciliationIssues : Array.isArray(base.reconciliationIssues) ? base.reconciliationIssues : [],
+            teacherMonthPrecheck: Array.isArray(override.teacherMonthPrecheck) ? override.teacherMonthPrecheck : Array.isArray(base.teacherMonthPrecheck) ? base.teacherMonthPrecheck : []
+          };
+        }
+
         function currentPreimportBundle() {
-          return window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || null;
+          return mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, window.JRC_PREIMPORT_BUNDLE);
         }
 
         function renderPreimportSummary(bundle = currentPreimportBundle(), sourceLabel = "内置核对汇总") {
@@ -783,7 +801,7 @@
           try {
             const result = await window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY);
             if (result?.ok && result.data?.found && result.data.payload) {
-              window.JRC_PREIMPORT_BUNDLE = result.data.payload;
+              window.JRC_PREIMPORT_BUNDLE = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
               renderPreimportSummary(window.JRC_PREIMPORT_BUNDLE, "云端完整核对包");
               if (!Array.isArray(currentScheduleSnapshot?.scheduleEntries) || !currentScheduleSnapshot.scheduleEntries.length) {
                 const fallbackSnapshot = buildSnapshotFromPreimportBundle(window.JRC_PREIMPORT_BUNDLE);

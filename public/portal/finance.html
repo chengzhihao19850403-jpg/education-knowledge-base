@@ -959,7 +959,25 @@
       let state = readState();
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
-      let financePreimportBundle = window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || {
+      function mergePreimportBundle(baseBundle, overrideBundle) {
+        const base = baseBundle && typeof baseBundle === "object" ? baseBundle : {};
+        const override = overrideBundle && typeof overrideBundle === "object" ? overrideBundle : {};
+        return {
+          ...base,
+          ...override,
+          summary: {
+            ...(base.summary || {}),
+            ...(override.summary || {})
+          },
+          scheduleSessions: Array.isArray(override.scheduleSessions) ? override.scheduleSessions : Array.isArray(base.scheduleSessions) ? base.scheduleSessions : [],
+          salaryAttendance: Array.isArray(override.salaryAttendance) ? override.salaryAttendance : Array.isArray(base.salaryAttendance) ? base.salaryAttendance : [],
+          expenseRows: Array.isArray(override.expenseRows) ? override.expenseRows : Array.isArray(base.expenseRows) ? base.expenseRows : [],
+          reconciliationIssues: Array.isArray(override.reconciliationIssues) ? override.reconciliationIssues : Array.isArray(base.reconciliationIssues) ? base.reconciliationIssues : [],
+          teacherMonthPrecheck: Array.isArray(override.teacherMonthPrecheck) ? override.teacherMonthPrecheck : Array.isArray(base.teacherMonthPrecheck) ? base.teacherMonthPrecheck : []
+        };
+      }
+
+      let financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, window.JRC_PREIMPORT_BUNDLE) || {
         schemaVersion: "jrc-preimport-paike-finance-bundle-v2",
         generatedAt: new Date().toISOString().slice(0, 10),
         status: "待审核",
@@ -1041,10 +1059,10 @@
       }
 
       function writePreimportBundle(nextBundle) {
-        financePreimportBundle = nextBundle;
-        window.JRC_PREIMPORT_BUNDLE = nextBundle;
+        financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, nextBundle);
+        window.JRC_PREIMPORT_BUNDLE = financePreimportBundle;
         return window.JRC_CLOUD?.writeModuleData
-          ? window.JRC_CLOUD.writeModuleData(PREIMPORT_STORE_KEY, "finance-preimport", nextBundle).catch((error) => {
+          ? window.JRC_CLOUD.writeModuleData(PREIMPORT_STORE_KEY, "finance-preimport", financePreimportBundle).catch((error) => {
               console.warn("财务预导入数据云端保存失败", error);
               return { ok: false, error };
             })
@@ -1054,7 +1072,7 @@
       function hydrateCloudPreimport() {
         window.JRC_CLOUD?.readModuleData?.(PREIMPORT_STORE_KEY).then((result) => {
           if (!result.ok || !result.data?.found || !result.data.payload) return;
-          financePreimportBundle = result.data.payload;
+          financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
           window.JRC_PREIMPORT_BUNDLE = financePreimportBundle;
           render();
         }).catch((error) => {

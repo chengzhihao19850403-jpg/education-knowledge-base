@@ -404,7 +404,24 @@
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
-        let preimportBundle = window.JRC_PREIMPORT_BUNDLE || null;
+        const mergePreimportBundle = (baseBundle, overrideBundle) => {
+          const base = baseBundle && typeof baseBundle === "object" ? baseBundle : {};
+          const override = overrideBundle && typeof overrideBundle === "object" ? overrideBundle : {};
+          return {
+            ...base,
+            ...override,
+            summary: {
+              ...(base.summary || {}),
+              ...(override.summary || {})
+            },
+            scheduleSessions: Array.isArray(override.scheduleSessions) ? override.scheduleSessions : Array.isArray(base.scheduleSessions) ? base.scheduleSessions : [],
+            salaryAttendance: Array.isArray(override.salaryAttendance) ? override.salaryAttendance : Array.isArray(base.salaryAttendance) ? base.salaryAttendance : [],
+            expenseRows: Array.isArray(override.expenseRows) ? override.expenseRows : Array.isArray(base.expenseRows) ? base.expenseRows : [],
+            reconciliationIssues: Array.isArray(override.reconciliationIssues) ? override.reconciliationIssues : Array.isArray(base.reconciliationIssues) ? base.reconciliationIssues : [],
+            teacherMonthPrecheck: Array.isArray(override.teacherMonthPrecheck) ? override.teacherMonthPrecheck : Array.isArray(base.teacherMonthPrecheck) ? base.teacherMonthPrecheck : []
+          };
+        };
+        let preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, window.JRC_PREIMPORT_BUNDLE);
 
         const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
         const hasPermission = (key) => typeof window.jrcHasPermission === "function"
@@ -474,7 +491,7 @@
               renderPreimportOptions();
               return;
             }
-            preimportBundle = result.data.payload;
+            preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
             window.JRC_PREIMPORT_BUNDLE = preimportBundle;
             renderPreimportOptions();
           }).catch((error) => {
