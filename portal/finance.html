@@ -1007,6 +1007,50 @@
         return String(value || "").slice(0, 7) || currentPeriod;
       }
 
+      function inferPeriodFromText(value) {
+        const text = String(value || "").trim();
+        if (!text) return "";
+        const directMatch = text.match(/(20\d{2})[-./年\s]*(\d{1,2})/);
+        if (directMatch) {
+          return `${directMatch[1]}-${String(directMatch[2]).padStart(2, "0")}`;
+        }
+        const chineseMonthMap = {
+          "一": 1,
+          "二": 2,
+          "三": 3,
+          "四": 4,
+          "五": 5,
+          "六": 6,
+          "七": 7,
+          "八": 8,
+          "九": 9,
+          "十": 10,
+          "十一": 11,
+          "十二": 12
+        };
+        const chineseMatch = text.match(/([一二三四五六七八九十]{1,3})月/);
+        if (chineseMatch) {
+          const month = chineseMonthMap[chineseMatch[1]];
+          if (month) return `2026-${String(month).padStart(2, "0")}`;
+        }
+        const numericMonthMatch = text.match(/(^|[^0-9])(\d{1,2})月/);
+        if (numericMonthMatch) {
+          const month = Number(numericMonthMatch[2]);
+          if (month >= 1 && month <= 12) return `2026-${String(month).padStart(2, "0")}`;
+        }
+        return "";
+      }
+
+      function resolveImportedPeriod({ date = "", fileName = "", category = "", notes = "", fallback = currentPeriod } = {}) {
+        return (
+          monthFromDateText(date) ||
+          inferPeriodFromText(fileName) ||
+          inferPeriodFromText(category) ||
+          inferPeriodFromText(notes) ||
+          fallback
+        );
+      }
+
       function normalizeDateText(value) {
         const text = String(value || "").trim().replaceAll("/", "-").replaceAll(".", "-");
         const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -1036,10 +1080,11 @@
           const status = String(rowValueByAliases(row, ["状态", "审核状态", "支付状态", "status"]) || "").trim() || "待审核";
           const notes = String(rowValueByAliases(row, ["说明", "备注", "用途", "notes", "remark"]) || "").trim();
           if (!amount && !category && !operator && !notes) return null;
+          const period = resolveImportedPeriod({ date, fileName, category, notes });
           return {
             id: `expense-import-${Date.now().toString(36)}-${index}`,
             date,
-            period: monthFromDateText(date),
+            period,
             category,
             amount,
             operator,
@@ -1062,6 +1107,13 @@
           const status = String(rowValueByAliases(row, ["状态", "结算状态", "status"]) || "").trim() || "待对账";
           const notes = String(rowValueByAliases(row, ["备注", "说明", "notes", "remark"]) || "").trim();
           if (!teacherName && !studentName && !className && !amount && !hours) return null;
+          const period = resolveImportedPeriod({
+            date,
+            fileName,
+            category: className,
+            notes,
+            fallback: currentPeriod
+          });
           return {
             id: `salary-import-${Date.now().toString(36)}-${index}`,
             teacherName,
@@ -1070,13 +1122,57 @@
             amount,
             hours,
             date,
-            period: monthFromDateText(date || currentPeriod),
+            period,
             status,
             notes,
             sourceFileName: fileName,
             importedAt: new Date().toISOString()
           };
         }).filter(Boolean);
+      }
+
+      function importedRowsForPeriod(periodName, bundle = readPreimportBundle()) {
+        return {
+          expenseRows: (bundle.expenseRows || []).filter((row) => row.period === periodName),
+          salaryRows: (bundle.salaryAttendance || []).filter((row) => row.period === periodName)
+        };
+      }
+
+      function createImportedExpenseDraft(row) {
+        return {
+          id: `expense-linked-${row.id}`,
+          importSourceId: row.id,
+          date: row.date || todayText(),
+          category: row.category || "其他",
+          amount: toNumber(row.amount),
+          operator: row.operator || "原始表导入",
+          status: row.status || "待审核",
+          paymentMethod: "未填",
+          notes: `[原始表导入] ${row.sourceFileName || ""}${row.notes ? `｜${row.notes}` : ""}`.trim(),
+          reviewStatus: "待复核",
+          createdBy: window.JRC_CURRENT_EMPLOYEE?.name || "系统自动带入",
+          createdAt: new Date().toISOString()
+        };
+      }
+
+      function periodHasManualContent(period) {
+        if (!period || typeof period !== "object") return false;
+        if ((period.expenses || []).length) return true;
+        return MONEY_FIELDS.some((field) => toNumber(period[field]) !== 0 || String(period[field] || "").trim() !== "");
+      }
+
+      function seedPeriodFromImportedRows(periodName, period) {
+        if (!period || periodHasManualContent(period)) return false;
+        const { expenseRows, salaryRows } = importedRowsForPeriod(periodName);
+        if (!expenseRows.length && !salaryRows.length) return false;
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        if (salaryAmount) period.otherTeacherCost = String(Math.round(salaryAmount * 100) / 100);
+        period.expenses = expenseRows.map(createImportedExpenseDraft);
+        period.reviewStatus = "待复核";
+        period.updatedAt = new Date().toISOString();
+        period.updatedBy = "系统自动带入";
+        period.importSeeded = true;
+        return true;
       }
 
       function summarizePreimportBundle(bundle) {
@@ -1160,7 +1256,12 @@
       function getPeriod(periodName = currentPeriod) {
         if (!state.periods[periodName]) {
           state.periods[periodName] = createPeriod(periodName);
+          seedPeriodFromImportedRows(periodName, state.periods[periodName]);
           writeState(state);
+          return state.periods[periodName];
+        }
+        if (!state.periods[periodName].importSeeded) {
+          if (seedPeriodFromImportedRows(periodName, state.periods[periodName])) writeState(state);
         }
         return state.periods[periodName];
       }
@@ -1408,10 +1509,7 @@
       }
 
       function currentImportedRows(bundle = readPreimportBundle()) {
-        return {
-          expenseRows: (bundle.expenseRows || []).filter((row) => row.period === currentPeriod),
-          salaryRows: (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod)
-        };
+        return importedRowsForPeriod(currentPeriod, bundle);
       }
 
       function renderFinanceAutofillPreview() {
@@ -1461,20 +1559,7 @@
         const existingImportIds = new Set(period.expenses.map((row) => row.importSourceId).filter(Boolean));
         expenseRows.forEach((row) => {
           if (existingImportIds.has(row.id)) return;
-          period.expenses.push({
-            id: `expense-linked-${row.id}`,
-            importSourceId: row.id,
-            date: row.date || todayText(),
-            category: row.category || "其他",
-            amount: toNumber(row.amount),
-            operator: row.operator || "原始表导入",
-            status: row.status || "待审核",
-            paymentMethod: "未填",
-            notes: `[原始表导入] ${row.sourceFileName || ""}${row.notes ? `｜${row.notes}` : ""}`.trim(),
-            reviewStatus: "待复核",
-            createdBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录",
-            createdAt: new Date().toISOString()
-          });
+          period.expenses.push(createImportedExpenseDraft(row));
         });
         period.reviewStatus = "待复核";
         period.updatedAt = new Date().toISOString();

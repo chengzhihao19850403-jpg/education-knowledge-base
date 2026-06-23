@@ -785,6 +785,12 @@
             if (result?.ok && result.data?.found && result.data.payload) {
               window.JRC_PREIMPORT_BUNDLE = result.data.payload;
               renderPreimportSummary(window.JRC_PREIMPORT_BUNDLE, "云端完整核对包");
+              if (!Array.isArray(currentScheduleSnapshot?.scheduleEntries) || !currentScheduleSnapshot.scheduleEntries.length) {
+                const fallbackSnapshot = buildSnapshotFromPreimportBundle(window.JRC_PREIMPORT_BUNDLE);
+                if (fallbackSnapshot.scheduleEntries.length) {
+                  renderScheduleSnapshot(fallbackSnapshot, "已解析待核对排课");
+                }
+              }
             }
           } catch (error) {
             preimportCloudNote.textContent = `已显示内置核对汇总；云端完整核对包暂时读取失败：${error.message || error}`;
@@ -902,6 +908,30 @@
           renderScheduleDetailTable(currentScheduleSnapshot, sourceLabel);
         }
 
+        function buildSnapshotFromPreimportBundle(bundle = currentPreimportBundle()) {
+          const sessions = Array.isArray(bundle?.scheduleSessions) ? bundle.scheduleSessions : [];
+          if (!sessions.length) return { scheduleEntries: [], teachers: [], rooms: [] };
+          const scheduleEntries = sessions.map((session, index) => ({
+            id: session.sourceId || `preimport-${index + 1}`,
+            courseDate: session.date || "",
+            teacherName: session.teacherName || "",
+            className: session.lessonTypeRaw || "未填课程",
+            slotIndex: index + 1,
+            startTime: session.startTime || "",
+            endTime: session.endTime || "",
+            classroomName: session.roomName || "待补教室",
+            scheduleStatus: session.status || "待对账",
+            confirmationStatus: session.importConfidence || "已解析",
+            notes: `${session.studentCount || 0}人｜${(session.studentNames || []).join("、")}${session.rawText ? `｜${session.rawText}` : ""}`.trim()
+          }));
+          const teacherNames = Array.from(new Set(scheduleEntries.map((entry) => String(entry.teacherName || "").trim()).filter(Boolean)));
+          return {
+            scheduleEntries,
+            teachers: teacherNames.map((name) => ({ name })),
+            rooms: []
+          };
+        }
+
         async function hydrateScheduleDetailFromCloud() {
           renderScheduleSnapshot(readStoredScheduleSnapshot(), "当前浏览器缓存");
           if (!window.JRC_CLOUD?.readModuleData) return;
@@ -909,11 +939,22 @@
             const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
             const payload = result?.data?.payload;
             const cloudSnapshot = payload?.parsedValue || payload || null;
-            if (result?.ok && result.data?.found && cloudSnapshot && typeof cloudSnapshot === "object") {
+            if (result?.ok && result.data?.found && cloudSnapshot && typeof cloudSnapshot === "object" && Array.isArray(cloudSnapshot.scheduleEntries) && cloudSnapshot.scheduleEntries.length) {
               window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudSnapshot));
               renderScheduleSnapshot(cloudSnapshot, "云端平时排课");
+              return;
+            }
+            const fallbackSnapshot = buildSnapshotFromPreimportBundle(window.JRC_PREIMPORT_BUNDLE || currentPreimportBundle());
+            if (fallbackSnapshot.scheduleEntries.length) {
+              renderScheduleSnapshot(fallbackSnapshot, "已解析待核对排课");
             }
           } catch (error) {
+            const fallbackSnapshot = buildSnapshotFromPreimportBundle(window.JRC_PREIMPORT_BUNDLE || currentPreimportBundle());
+            if (fallbackSnapshot.scheduleEntries.length) {
+              renderScheduleSnapshot(fallbackSnapshot, "已解析待核对排课");
+              detailCountText.textContent = `已显示已解析待核对排课；云端正式排课读取失败：${error.message || error}`;
+              return;
+            }
             detailCountText.textContent = `已显示当前浏览器缓存；云端平时排课读取失败：${error.message || error}`;
           }
         }
