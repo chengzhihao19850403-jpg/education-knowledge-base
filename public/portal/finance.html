@@ -693,6 +693,29 @@
         </div>
       </section>
 
+      <section class="card" id="rowDiffSection">
+        <p class="eyebrow">行级核对</p>
+        <h2>排课行与工资行逐条查看</h2>
+        <p style="margin-top: 8px;">按当前月份直接列出排课行与工资行，方便老师快速发现“排了课但工资表没有”、“工资表有行但排课里没找到”的情况。</p>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>来源</th>
+                <th>老师</th>
+                <th>学生</th>
+                <th>日期</th>
+                <th>时长/课次</th>
+                <th>金额/课型</th>
+                <th>原始标记</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="rowDiffBody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="card" id="attendanceFinanceSection">
         <p class="eyebrow">点名</p>
         <h2>点名课时费与课销</h2>
@@ -1854,6 +1877,66 @@
         `).join("");
       }
 
+      function renderRowDiffPreview() {
+        const body = byId("rowDiffBody");
+        if (!body) return;
+        const bundle = readPreimportBundle();
+        const scheduleRows = (bundle.scheduleSessions || [])
+          .filter((row) => row.period === currentPeriod)
+          .flatMap((row) => {
+            const students = Array.isArray(row.studentNames) && row.studentNames.length ? row.studentNames : [row.lessonTypeRaw || "未标学生"];
+            return students.map((studentName) => ({
+              source: "排课",
+              teacherName: row.teacherName || "未匹配老师",
+              studentName,
+              date: row.date || "",
+              duration: row.hours || "",
+              amountOrType: row.lessonTypeRaw || "",
+              rawMark: row.cell || row.sourceId || "",
+              status: row.status || row.importConfidence || "待对账"
+            }));
+          });
+        const salaryRows = (bundle.salaryAttendance || [])
+          .filter((row) => row.period === currentPeriod)
+          .map((row) => ({
+            source: "工资",
+            teacherName: row.teacherName || "未匹配老师",
+            studentName: row.studentName || "未填学生",
+            date: row.date || "",
+            duration: row.lessonNo || row.hours || "",
+            amountOrType: salaryRowAmount(row),
+            rawMark: row.cell || row.raw || "",
+            status: row.status || "待对账"
+          }));
+        const rows = [...scheduleRows, ...salaryRows]
+          .sort((a, b) => {
+            return (
+              String(a.date || "").localeCompare(String(b.date || "")) ||
+              String(a.teacherName || "").localeCompare(String(b.teacherName || ""), "zh-CN") ||
+              String(a.studentName || "").localeCompare(String(b.studentName || ""), "zh-CN")
+            );
+          })
+          .slice(0, 200);
+
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前月份还没有可逐条核对的排课行或工资行。</td></tr>`;
+          return;
+        }
+
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.source)}</td>
+            <td>${escapeHtml(row.teacherName)}</td>
+            <td>${escapeHtml(row.studentName)}</td>
+            <td>${escapeHtml(row.date || "-")}</td>
+            <td>${escapeHtml(row.duration || "-")}</td>
+            <td>${row.source === "工资" ? `<span class="money-cell">${money(row.amountOrType)}</span>` : escapeHtml(row.amountOrType || "-")}</td>
+            <td>${escapeHtml(row.rawMark || "-")}</td>
+            <td>${escapeHtml(row.status || "-")}</td>
+          </tr>
+        `).join("");
+      }
+
       function attendancePeriod(date) {
         return String(date || "").slice(0, 7) || "待定月份";
       }
@@ -1957,6 +2040,7 @@
         renderLinkedFinancePreview();
         renderExcelPreimportPreview();
         renderTeacherDiffPreview();
+        renderRowDiffPreview();
         renderAttendanceSettlementPreview();
       }
 
