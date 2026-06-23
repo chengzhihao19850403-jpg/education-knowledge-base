@@ -924,6 +924,12 @@
         return Number.isFinite(parsed) ? parsed : 0;
       };
       const todayText = () => new Date().toISOString().slice(0, 10);
+      const salaryRowAmount = (row) => {
+        const commission = toNumber(row?.commission);
+        const explicitAmount = toNumber(row?.amount);
+        const courseFee = toNumber(row?.courseFee);
+        return explicitAmount || commission || courseFee || 0;
+      };
 
       function monthDiff(start, current) {
         const [sy, sm] = String(start).split("-").map(Number);
@@ -1266,7 +1272,7 @@
         if (!period || periodHasManualContent(period)) return false;
         const { expenseRows, salaryRows } = importedRowsForPeriod(periodName);
         if (!expenseRows.length && !salaryRows.length) return false;
-        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
         if (salaryAmount) period.otherTeacherCost = String(Math.round(salaryAmount * 100) / 100);
         period.expenses = expenseRows.map(createImportedExpenseDraft);
         period.reviewStatus = "待复核";
@@ -1648,7 +1654,7 @@
         const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
         if (grid) {
           const totalExpense = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
-          const totalSalary = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+          const totalSalary = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
           grid.innerHTML = `
             <div class="compare-card"><span>本月导入支出</span><strong>${expenseRows.length}</strong></div>
             <div class="compare-card"><span>本月导入工资/课时</span><strong>${salaryRows.length}</strong></div>
@@ -1678,11 +1684,11 @@
                   <td>${escapeHtml(row.date || "-")}</td>
                   <td>${escapeHtml(row.teacherName || "-")}</td>
                   <td>${escapeHtml(row.studentName || row.className || "-")}</td>
-                  <td class="money-cell">${money(row.amount)}</td>
-                  <td>${escapeHtml(row.hours || 0)}</td>
+                  <td class="money-cell">${money(salaryRowAmount(row))}</td>
+                  <td>${escapeHtml(row.hours || row.lessonNo || 0)}</td>
                   <td>${escapeHtml(row.status || "待对账")}</td>
                   <td>${escapeHtml(row.sourceFileName || "-")}</td>
-                  <td>${escapeHtml(row.notes || "-")}</td>
+                  <td>${escapeHtml(row.notes || row.raw || "-")}</td>
                 </tr>
               `).join("")
             : `<tr><td colspan="8" class="muted">当前月份还没有导入工资/课时原始表。</td></tr>`;
@@ -1698,7 +1704,7 @@
         if (!grid) return;
         const { expenseRows, salaryRows } = currentImportedRows();
         const expenseAmount = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
-        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
         const period = getPeriod();
         const importedExpenseIds = new Set((period.expenses || []).map((row) => row.importSourceId).filter(Boolean));
         const notImportedExpenseCount = expenseRows.filter((row) => !importedExpenseIds.has(row.id)).length;
@@ -1734,7 +1740,7 @@
           setFinanceAutofillMessage("当前月份没有可带入的原始表数据。");
           return;
         }
-        const salaryAmount = salaryRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const salaryAmount = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
         period.otherTeacherCost = String(Math.round(salaryAmount * 100) / 100);
         period.expenses = period.expenses || [];
         const existingImportIds = new Set(period.expenses.map((row) => row.importSourceId).filter(Boolean));
@@ -1795,7 +1801,7 @@
           }
           const group = salaryByTeacher.get(teacher);
           group.rowCount += 1;
-          group.amount += toNumber(row.amount);
+          group.amount += salaryRowAmount(row);
         });
 
         const teacherNames = new Set([
