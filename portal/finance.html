@@ -392,6 +392,58 @@
         font-size: 24px;
         color: var(--ink);
       }
+      .month-status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .month-status-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(248, 250, 252, 0.92);
+      }
+      .month-status-card.active {
+        border-color: rgba(15, 118, 110, 0.24);
+        background: rgba(236, 253, 245, 0.96);
+      }
+      .month-status-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-weight: 700;
+      }
+      .month-status-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .month-status-tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        background: rgba(148, 163, 184, 0.16);
+        color: #334155;
+      }
+      .month-status-tag.ok {
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+      }
+      .month-status-tag.warn {
+        background: rgba(245, 158, 11, 0.16);
+        color: #b45309;
+      }
+      .month-status-note {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 13px;
+      }
       @media (max-width: 980px) {
         .hero,
         .grid {
@@ -507,6 +559,13 @@
         <h2>系统结果与 Excel 人工结果差异总览</h2>
         <p style="margin-top: 8px;">先全量导入，再集中看差异。老师只需要核对差异项，不需要先逐条人工审核后再录系统。</p>
         <div class="compare-grid" id="trialCompareGrid"></div>
+      </section>
+
+      <section class="card" id="monthStatusSection">
+        <p class="eyebrow">月份状态</p>
+        <h2>当前哪些月份已经有数据</h2>
+        <p style="margin-top: 8px;">直接看每个月已有哪类数据，避免把“没切换月份”误看成“系统没有内容”。</p>
+        <div class="month-status-grid" id="monthStatusGrid"></div>
       </section>
 
       <section class="card" id="financeImportSection">
@@ -1458,6 +1517,86 @@
         `;
       }
 
+      function collectMonthStatusRows() {
+        const bundle = readPreimportBundle();
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const months = new Map();
+        function ensureMonth(periodName) {
+          const key = String(periodName || "").trim();
+          if (!key) return null;
+          if (!months.has(key)) {
+            months.set(key, {
+              period: key,
+              scheduleSessions: 0,
+              salaryRows: 0,
+              expenseRows: 0,
+              precheckRows: 0,
+              financeDraft: false
+            });
+          }
+          return months.get(key);
+        }
+
+        (bundle.scheduleSessions || []).forEach((row) => {
+          const month = ensureMonth(row.period || monthFromDateText(row.date));
+          if (month) month.scheduleSessions += 1;
+        });
+        (bundle.salaryAttendance || []).forEach((row) => {
+          const month = ensureMonth(row.period || monthFromDateText(row.date));
+          if (month) month.salaryRows += 1;
+        });
+        (bundle.expenseRows || []).forEach((row) => {
+          const month = ensureMonth(row.period || monthFromDateText(row.date));
+          if (month) month.expenseRows += 1;
+        });
+        (derived?.preimport?.teacherMonthPrecheck || []).forEach((row) => {
+          const month = ensureMonth(row.period);
+          if (month) month.precheckRows += 1;
+        });
+        Object.keys(state.periods || {}).forEach((periodName) => {
+          const month = ensureMonth(periodName);
+          if (!month) return;
+          month.financeDraft = periodHasManualContent(state.periods[periodName]);
+        });
+
+        return Array.from(months.values()).sort((a, b) => String(a.period).localeCompare(String(b.period)));
+      }
+
+      function renderMonthStatusSummary() {
+        const grid = byId("monthStatusGrid");
+        if (!grid) return;
+        const rows = collectMonthStatusRows();
+        if (!rows.length) {
+          grid.innerHTML = `<div class="month-status-card"><div class="month-status-title">还没有月份数据</div><div class="month-status-note">先导入工资表、支出表或排课表后，这里会自动显示可用月份。</div></div>`;
+          return;
+        }
+        grid.innerHTML = rows.map((row) => {
+          const tags = [];
+          if (row.scheduleSessions) tags.push(`<span class="month-status-tag ok">排课 ${row.scheduleSessions} 条</span>`);
+          if (row.salaryRows) tags.push(`<span class="month-status-tag ok">工资/课时 ${row.salaryRows} 条</span>`);
+          if (row.expenseRows) tags.push(`<span class="month-status-tag ok">支出 ${row.expenseRows} 条</span>`);
+          if (row.precheckRows) tags.push(`<span class="month-status-tag warn">对账 ${row.precheckRows} 位老师</span>`);
+          if (row.financeDraft) tags.push(`<span class="month-status-tag ok">已生成月结草算</span>`);
+          if (!tags.length) tags.push(`<span class="month-status-tag">待导入</span>`);
+          const note = [
+            row.scheduleSessions ? "已有排课来源" : "",
+            row.salaryRows ? "已有工资或课时费来源" : "",
+            row.expenseRows ? "已有支出报销来源" : "",
+            row.precheckRows ? "已有差异核对数据" : ""
+          ].filter(Boolean).join("，") || "当前月份还没有导入任何试运行数据。";
+          return `
+            <div class="month-status-card ${row.period === currentPeriod ? "active" : ""}">
+              <div class="month-status-title">
+                <span>${escapeHtml(row.period)}</span>
+                ${row.period === currentPeriod ? `<span class="status-pill ok">当前</span>` : ""}
+              </div>
+              <div class="month-status-tags">${tags.join("")}</div>
+              <div class="month-status-note">${escapeHtml(note)}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
       function renderFinanceImportPreview() {
         const bundle = readPreimportBundle();
         const expenseBody = byId("importedExpenseBody");
@@ -1697,6 +1836,7 @@
         renderSummary(period);
         renderExpenses(period);
         renderTrialCompareSummary();
+        renderMonthStatusSummary();
         renderFinanceImportPreview();
         renderFinanceAutofillPreview();
         renderLinkedFinancePreview();
