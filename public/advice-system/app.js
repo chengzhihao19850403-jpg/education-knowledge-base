@@ -2002,7 +2002,7 @@ function bindBatchImport() {
   }
   byId("resetAdmissionsButton")?.addEventListener("click", () => {
     if (!canEditAdmissions()) return;
-    const confirmed = window.confirm("刷新当前浏览器的本地副本，不删除云端招生数据。确认继续吗？刷新页面后会重新读取云端数据。");
+    const confirmed = window.confirm("将重新读取云端招生数据，不删除任何云端记录。确认继续吗？");
     if (!confirmed) return;
     state.leads = [];
     state.followups = [];

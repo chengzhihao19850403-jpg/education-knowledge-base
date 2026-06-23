@@ -256,40 +256,18 @@
     <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
     <script>
       const STORAGE_KEY = "jrc-teaching-quality-system-v2-demo";
+      const LEGACY_INSPECTION_CLASSES = new Set(["初三数学冲刺班", "初一数学暑假预备班", "科学三升四小班", "六年级数学复习班", "二年级数学提升班", "校长示范课"]);
+      const LEGACY_SURVEY_SCORES = new Set(["刘大君:91", "叶源泽:84", "海滢滢:90", "赵萱:78", "李舒:73", "程志豪:60", "刘大君:88", "叶源泽:82", "海滢滢:91", "李舒:72", "程志豪:58"]);
+      const LEGACY_OBJECTIVE_TEACHERS = new Set(["刘大君", "叶源泽", "海滢滢", "赵萱", "李舒", "程志豪"]);
+      const LEGACY_TICKET_IDS = new Set(["TQ-202606-001", "TQ-202606-002"]);
       const defaultState = {
         selectedTeacher: "程志豪",
         weights: { inspection: 35, studentSurvey: 20, parentSurvey: 35, objective: 10 },
-        inspections: [
-          { teacher: "刘大君", className: "初三数学冲刺班", lessonType: "在读班", date: "2026-06-18", scores: [92, 88, 90, 94, 91], note: "课堂节奏稳定，压轴题讲解清晰，薄弱学生答疑还可以再多留 5 分钟。", tags: ["分层关注"], attachment: "板书照片 1 张" },
-          { teacher: "叶源泽", className: "初一数学暑假预备班", lessonType: "试听课", date: "2026-06-19", scores: [84, 80, 82, 86, 88], note: "互动不错，但例题梯度可以再清晰，试听后家长希望看到更明确的提分路径。", tags: ["试听转化观察"], attachment: "课堂记录截图" },
-          { teacher: "海滢滢", className: "科学三升四小班", lessonType: "在读班", date: "2026-06-17", scores: [87, 89, 86, 90, 92], note: "课堂趣味性和耐心较好，家长沟通反馈要继续保持及时。", tags: [], attachment: "无" },
-          { teacher: "赵萱", className: "六年级数学复习班", lessonType: "在读班", date: "2026-06-16", scores: [78, 77, 76, 80, 79], note: "课堂结构基本完整，后续继续观察练习反馈节奏。", tags: ["常规观察"], attachment: "课堂记录截图" },
-          { teacher: "李舒", className: "二年级数学提升班", lessonType: "在读班", date: "2026-06-16", scores: [74, 73, 72, 76, 75], note: "课堂练习反馈节奏需要继续观察，不代表最终评价。", tags: ["练习记录"], attachment: "课堂记录截图" },
-          { teacher: "程志豪", className: "校长示范课", lessonType: "练习记录", date: "2026-06-15", scores: [62, 60, 58, 64, 62], note: "内部整改演练记录，统一放在程志豪名下，避免影响老师情绪。", tags: ["重点整改"], attachment: "课堂记录截图" }
-        ],
-        studentSurveys: [
-          { teacher: "刘大君", score: 91 }, { teacher: "叶源泽", score: 84 }, { teacher: "海滢滢", score: 90 }, { teacher: "赵萱", score: 78 }, { teacher: "李舒", score: 73 }, { teacher: "程志豪", score: 60 }
-        ],
-        parentSurveys: [
-          { teacher: "刘大君", score: 88, tags: ["续课意愿高"] },
-          { teacher: "叶源泽", score: 82, tags: ["价格匹配度顾虑"] },
-          { teacher: "海滢滢", score: 91, tags: ["转介绍意愿高"] },
-          { teacher: "赵萱", score: 78, tags: ["课堂节奏观察"] },
-          { teacher: "李舒", score: 72, tags: ["练习记录"] },
-          { teacher: "程志豪", score: 58, tags: ["课堂秩序管理", "课后反馈及时性不足"] }
-        ],
-        objectiveMetrics: [
-          { teacher: "刘大君", renewalRate: 92, trialConversionRate: 66, referrals: 2, feedbackRecords: 18, complaints: 0, lateRecords: 0, missedHomework: 1, missedMakeup: 0 },
-          { teacher: "叶源泽", renewalRate: 82, trialConversionRate: 45, referrals: 1, feedbackRecords: 11, complaints: 0, lateRecords: 1, missedHomework: 1, missedMakeup: 0 },
-          { teacher: "海滢滢", renewalRate: 88, trialConversionRate: 50, referrals: 2, feedbackRecords: 14, complaints: 0, lateRecords: 0, missedHomework: 0, missedMakeup: 0 },
-          { teacher: "赵萱", renewalRate: 73, trialConversionRate: 38, referrals: 0, feedbackRecords: 8, complaints: 0, lateRecords: 1, missedHomework: 1, missedMakeup: 1 },
-          { teacher: "李舒", renewalRate: 70, trialConversionRate: 36, referrals: 0, feedbackRecords: 6, complaints: 1, lateRecords: 1, missedHomework: 2, missedMakeup: 1 },
-          { teacher: "程志豪", renewalRate: 60, trialConversionRate: 25, referrals: 0, feedbackRecords: 2, complaints: 2, lateRecords: 2, missedHomework: 3, missedMakeup: 2 }
-        ],
-        tickets: [
-          { id: "TQ-202606-001", teacher: "程志豪", problem: "课堂秩序管理、课后反馈及时性不足", dueDate: "2026-06-25", status: "待教师提交整改" },
-          { id: "TQ-202606-002", teacher: "程志豪", problem: "试听课提分路径表达不够明确", dueDate: "2026-06-24", status: "整改中" }
-        ],
+        inspections: [],
+        studentSurveys: [],
+        parentSurveys: [],
+        objectiveMetrics: [],
+        tickets: [],
         templates: [
           { type: "学生匿名问卷", enabled: true, sendAfter: "课程结束后 30 分钟", questions: "易懂程度、趣味性、答疑耐心、作业难度、课堂收获" },
           { type: "在读家长问卷", enabled: true, sendAfter: "每月抽样推送", questions: "课堂吸收、课后反馈、回复速度、责任心、续课意愿、转介绍意愿" },
@@ -299,6 +277,15 @@
       let state = normalizeQualityState(loadState());
       let cloudQualityReady = false;
       function byId(id) { return document.getElementById(id); }
+      function isLegacyInspection(record) {
+        return LEGACY_INSPECTION_CLASSES.has(record.className) && String(record.date || "").startsWith("2026-06-");
+      }
+      function isLegacySurvey(record) {
+        return LEGACY_SURVEY_SCORES.has(`${record.teacher}:${Number(record.score)}`);
+      }
+      function isLegacyObjective(record) {
+        return LEGACY_OBJECTIVE_TEACHERS.has(record.teacher) && !record.createdAt && !record.source;
+      }
       function normalizeQualityState(input) {
         const next = { ...input };
         next.inspections = (Array.isArray(next.inspections) ? next.inspections : []).map((record) => {
@@ -310,7 +297,11 @@
             note = "内部整改演练记录，统一放在程志豪名下，避免影响老师情绪。";
           }
           return { ...record, note };
-        });
+        }).filter((record) => !isLegacyInspection(record));
+        next.studentSurveys = (Array.isArray(next.studentSurveys) ? next.studentSurveys : []).filter((record) => !isLegacySurvey(record));
+        next.parentSurveys = (Array.isArray(next.parentSurveys) ? next.parentSurveys : []).filter((record) => !isLegacySurvey(record));
+        next.objectiveMetrics = (Array.isArray(next.objectiveMetrics) ? next.objectiveMetrics : []).filter((record) => !isLegacyObjective(record));
+        next.tickets = (Array.isArray(next.tickets) ? next.tickets : []).filter((ticket) => !LEGACY_TICKET_IDS.has(String(ticket.id || "")));
         return next;
       }
       function loadState() {
@@ -350,7 +341,12 @@
         const name = currentTeacherName();
         return teachers().includes(name) ? [name] : [];
       }
-      function avg(values) { const valid = values.map(Number).filter(Number.isFinite); return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0; }
+      function avg(values) {
+        const valid = values
+          .map((value) => value === null || value === undefined || value === "" ? NaN : Number(value))
+          .filter(Number.isFinite);
+        return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+      }
       function clamp(value) { return Math.max(0, Math.min(100, Math.round(Number(value) || 0))); }
       function inspectionAvg(record) { return clamp(avg(record.scores || [])); }
       function teachers() {
@@ -367,18 +363,39 @@
         return clamp(78 + Math.max(0, Number(metrics.renewalRate || 0) - 70) * 0.25 + Math.max(0, Number(metrics.trialConversionRate || 0) - 35) * 0.18 + Number(metrics.referrals || 0) * 2.5 + Math.min(8, Number(metrics.feedbackRecords || 0) * 0.35) - Number(metrics.complaints || 0) * 8 - Number(metrics.lateRecords || 0) * 4 - Number(metrics.missedHomework || 0) * 3 - Number(metrics.missedMakeup || 0) * 4);
       }
       function stats(teacher) {
-        const inspection = avg(state.inspections.filter((r) => r.teacher === teacher).map(inspectionAvg)) || 82;
-        const studentSurvey = avg(state.studentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score)) || 82;
-        const parentSurvey = avg(state.parentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score)) || 82;
-        const objective = objectiveScore(state.objectiveMetrics.find((r) => r.teacher === teacher));
-        const total = Math.round((inspection * 0.35 + studentSurvey * 0.20 + parentSurvey * 0.35 + objective * 0.10) * 10) / 10;
-        const grade = total >= 90 ? "S" : total >= 80 ? "A" : total >= 70 ? "B" : "C";
-        const coefficient = grade === "S" ? 1.1 : grade === "A" ? 1.0 : grade === "B" ? 0.9 : 0.8;
-        const advice = grade === "S" ? "优先分配优质试听班，可纳入评优。" : grade === "A" ? "正常排课与奖励，继续保持。" : grade === "B" ? "增加抽样听课频次，安排教研帮扶。" : "强制整改，连续两月 C 级触发人事预警。";
-        return { teacher, inspection: Math.round(inspection * 10) / 10, studentSurvey: Math.round(studentSurvey * 10) / 10, parentSurvey: Math.round(parentSurvey * 10) / 10, objective, total, grade, coefficient, advice };
+        const inspectionValues = state.inspections.filter((r) => r.teacher === teacher).map(inspectionAvg);
+        const studentValues = state.studentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score);
+        const parentValues = state.parentSurveys.filter((r) => r.teacher === teacher).map((r) => r.score);
+        const metrics = state.objectiveMetrics.find((r) => r.teacher === teacher);
+        const inspection = inspectionValues.length ? Math.round(avg(inspectionValues) * 10) / 10 : null;
+        const studentSurvey = studentValues.length ? Math.round(avg(studentValues) * 10) / 10 : null;
+        const parentSurvey = parentValues.length ? Math.round(avg(parentValues) * 10) / 10 : null;
+        const objective = metrics ? objectiveScore(metrics) : null;
+        const components = [
+          { score: inspection, weight: 0.35 },
+          { score: studentSurvey, weight: 0.20 },
+          { score: parentSurvey, weight: 0.35 },
+          { score: objective, weight: 0.10 }
+        ].filter((item) => Number.isFinite(item.score));
+        const weightTotal = components.reduce((sum, item) => sum + item.weight, 0);
+        const total = weightTotal ? Math.round((components.reduce((sum, item) => sum + item.score * item.weight, 0) / weightTotal) * 10) / 10 : null;
+        const dataReady = Number.isFinite(total);
+        const readyForGrade = inspectionValues.length && studentValues.length && parentValues.length && metrics;
+        const grade = readyForGrade ? (total >= 90 ? "S" : total >= 80 ? "A" : total >= 70 ? "B" : "C") : "";
+        const coefficient = grade === "S" ? 1.1 : grade === "A" ? 1.0 : grade === "B" ? 0.9 : grade === "C" ? 0.8 : null;
+        const advice = !dataReady
+          ? "等待巡课、问卷或客观数据采集。"
+          : !readyForGrade
+            ? "数据采集中，暂不生成评级。"
+            : grade === "S" ? "优先分配优质试听班，可纳入评优。" : grade === "A" ? "正常排课与奖励，继续保持。" : grade === "B" ? "增加抽样听课频次，安排教研帮扶。" : "强制整改，连续两月 C 级触发人事预警。";
+        return { teacher, inspection, studentSurvey, parentSurvey, objective, total, dataReady, grade, coefficient, advice };
       }
-      function ranking() { return teachers().map(stats).sort((a, b) => b.total - a.total); }
-      function scoreCell(score) { return `<strong>${score}</strong><div class="score-bar" style="--w:${Math.round(score)}%"><span></span></div>`; }
+      function ranking() { return teachers().map(stats).sort((a, b) => (b.total ?? -1) - (a.total ?? -1)); }
+      function formatScore(score) { return Number.isFinite(score) ? String(score) : "待采集"; }
+      function scoreCell(score) {
+        const width = Number.isFinite(score) ? Math.round(score) : 0;
+        return `<strong>${formatScore(score)}</strong><div class="score-bar" style="--w:${width}%"><span></span></div>`;
+      }
       function renderOptions() {
         const profileTeachers = canViewFullQuality() ? teachers() : visibleTeacherNames();
         const inspectionTeachers = canEdit() ? teachers() : profileTeachers;
@@ -445,28 +462,29 @@
         renderPublicBoard(items);
 
         if (canViewFullQuality()) {
+          const scoredItems = items.filter((i) => Number.isFinite(i.total));
           byId("qualityMetricOneLabel").textContent = "本月教师均分";
-          byId("qualityAverageScore").textContent = String(Math.round(avg(items.map((i) => i.total)) * 10) / 10);
-          byId("qualityMetricOneHint").textContent = "按权重自动计算";
+          byId("qualityAverageScore").textContent = scoredItems.length ? String(Math.round(avg(scoredItems.map((i) => i.total)) * 10) / 10) : "待采集";
+          byId("qualityMetricOneHint").textContent = scoredItems.length ? "按权重自动计算" : "等待真实采集数据";
           byId("qualityMetricTwoLabel").textContent = "S / A 级教师";
           byId("qualityStrongCount").textContent = String(items.filter((i) => i.grade === "S" || i.grade === "A").length);
-          byId("qualityMetricTwoHint").textContent = "优先分配优质试听班";
+          byId("qualityMetricTwoHint").textContent = "仅统计已完整采集档案";
           byId("qualityMetricThreeLabel").textContent = "B / C 预警";
           byId("qualityAlertCount").textContent = String(items.filter((i) => i.grade === "B" || i.grade === "C").length);
-          byId("qualityMetricThreeHint").textContent = "增加抽样和教研帮扶";
+          byId("qualityMetricThreeHint").textContent = "仅统计已完整采集档案";
           byId("qualityMetricFourLabel").textContent = "未闭环整改";
           byId("qualityTicketCount").textContent = String(state.tickets.filter((t) => !t.status.includes("已闭环")).length);
           byId("qualityMetricFourHint").textContent = "到期前提醒教务复查";
         } else {
           byId("qualityMetricOneLabel").textContent = "我的综合评分";
-          byId("qualityAverageScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
+          byId("qualityAverageScore").textContent = selectedStats?.dataReady ? String(selectedStats.total) : "待采集";
           byId("qualityMetricOneHint").textContent = "只显示本人数据";
           byId("qualityMetricTwoLabel").textContent = "我的档案";
-          byId("qualityStrongCount").textContent = selectedStats ? "已建档" : "-";
-          byId("qualityMetricTwoHint").textContent = "不公开个人评级";
+          byId("qualityStrongCount").textContent = selectedStats?.dataReady ? "已采集" : "待采集";
+          byId("qualityMetricTwoHint").textContent = "不公开评级";
           byId("qualityMetricThreeLabel").textContent = "我的改进方向";
-          byId("qualityAlertCount").textContent = selectedStats ? "查看" : "暂无";
-          byId("qualityMetricThreeHint").textContent = selectedStats ? getWeakTag(selected) : "来自问卷和巡课汇总";
+          byId("qualityAlertCount").textContent = selectedStats?.dataReady ? "查看" : "暂无";
+          byId("qualityMetricThreeHint").textContent = selectedStats?.dataReady ? getWeakTag(selected) : "等待巡课和问卷";
           byId("qualityMetricFourLabel").textContent = "我的未闭环整改";
           byId("qualityTicketCount").textContent = String(visibleTickets.filter((t) => !t.status.includes("已闭环")).length);
           byId("qualityMetricFourHint").textContent = "仅显示本人相关工单";
@@ -477,18 +495,18 @@
         if (rankingWrap) rankingWrap.hidden = !canViewFullQuality();
         if (gradeFilters) gradeFilters.hidden = !canViewFullQuality();
         byId("qualityRankingBody").innerHTML = visibleItems.length
-          ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td><span class="grade ${item.grade.toLowerCase()}">${item.grade}</span></td><td>${canViewFullQuality() ? item.coefficient : "本人可见"}</td><td>${item.inspection}</td><td>${item.studentSurvey}</td><td>${item.parentSurvey}</td><td>${item.objective}</td><td>${item.advice}</td></tr>`).join("")
+          ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td>${item.grade ? `<span class="grade ${item.grade.toLowerCase()}">${item.grade}</span>` : `<span class="tag">采集中</span>`}</td><td>${canViewFullQuality() ? (item.coefficient ?? "待确认") : "本人可见"}</td><td>${formatScore(item.inspection)}</td><td>${formatScore(item.studentSurvey)}</td><td>${formatScore(item.parentSurvey)}</td><td>${formatScore(item.objective)}</td><td>${item.advice}</td></tr>`).join("")
           : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，请联系人事管理员补齐姓名和任课信息。</td></tr>`;
         byId("inspectionBody").innerHTML = visibleInspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("") || `<tr><td colspan="6">当前账号暂无巡课记录。</td></tr>`;
         byId("templateList").innerHTML = state.templates.map((t) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p></div>`).join("");
         byId("ticketBody").innerHTML = visibleTickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("") || `<tr><td colspan="4">当前账号暂无整改工单。</td></tr>`;
         state.selectedTeacher = selected;
         const weakTag = getWeakTag(selected);
-        byId("profileScore").textContent = selectedStats ? String(selectedStats.total) : "待建档";
+        byId("profileScore").textContent = selectedStats?.dataReady ? String(selectedStats.total) : "待采集";
         byId("profileGrade").textContent = selectedStats
-          ? (canViewFullQuality() ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : "个人改进数据，仅本人和管理端可见")
+          ? (selectedStats.grade && canViewFullQuality() ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : selectedStats.dataReady ? "数据采集中，暂不评级" : "暂无真实评价数据")
           : "暂未匹配本人档案";
-        byId("profileInspection").textContent = selectedStats ? String(selectedStats.inspection) : "0";
+        byId("profileInspection").textContent = selectedStats?.inspection ? String(selectedStats.inspection) : "待采集";
         byId("profileWeakTag").textContent = weakTag;
         byId("profileTicket").textContent = String(state.tickets.filter((t) => t.teacher === selected && !t.status.includes("已闭环")).length);
         byId("inspectionEntryCard").hidden = !canEdit();

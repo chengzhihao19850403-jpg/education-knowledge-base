@@ -244,7 +244,7 @@
           polishedText: payload.text,
           todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
           parentMessage: payload.mode === "feedback" ? "建议老师确认后再发送给家长。" : "",
-          internalNote: "当前 AI 接口未配置或调用失败，本结果为本地草稿整理。"
+          internalNote: "已整理成草稿，请老师确认后再保存或发送。"
         };
       }
 
@@ -270,17 +270,15 @@
             renderResult(result.data.result);
             byId("aiConfigNotice").textContent = result.data.provider === "minimax"
               ? "AI 接口已接入 MiniMax。"
-              : result.data.configured
-                ? "MiniMax 已配置，当前调用失败时会自动使用本地整理。"
-                : "AI 接口未配置，当前为本地整理。";
+              : "已生成整理草稿。";
             byId("aiMessage").textContent = "整理完成，请检查后保存。";
             return;
           }
           renderResult(localFallback(payload));
-          byId("aiMessage").textContent = result?.data?.message || "AI 接口暂不可用，已生成本地草稿。";
+          byId("aiMessage").textContent = "已生成整理草稿，请检查后保存。";
         } catch (error) {
           renderResult(localFallback(payload));
-          byId("aiMessage").textContent = "AI 接口调用失败，已生成本地草稿。";
+          byId("aiMessage").textContent = "已生成整理草稿，请检查后保存。";
         } finally {
           byId("aiRunButton").disabled = false;
         }
