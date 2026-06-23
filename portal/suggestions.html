@@ -695,6 +695,10 @@
         return rows.filter((item) => !sampleSuggestionIds.has(String(item.id || "")));
       }
 
+      function normalizeSuggestionRows(rows) {
+        return withoutSampleSuggestions((Array.isArray(rows) ? rows : []).map(normalizeSuggestion));
+      }
+
       function normalizeSuggestion(item) {
         const normalized = { ...item };
         const oldDecision = "进入" + "资产与采购" + "系统候选需求。";
@@ -730,7 +734,7 @@
         try {
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
           if (Array.isArray(parsed)) {
-            const normalized = withoutSampleSuggestions(parsed.map(normalizeSuggestion));
+            const normalized = normalizeSuggestionRows(parsed);
             if (JSON.stringify(normalized) !== JSON.stringify(parsed)) {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
             }
@@ -742,7 +746,25 @@
         return defaultSuggestions();
       }
 
+      function mergeSuggestionsById(rows) {
+        const map = new Map();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const normalized = normalizeSuggestion(row);
+          const id = String(normalized.id || "").trim();
+          if (!id) return;
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...normalized, id });
+        });
+        return withoutSampleSuggestions([...map.values()]).sort((left, right) => {
+          const rightDate = String(right.createdAt || right.updatedAt || "");
+          const leftDate = String(left.createdAt || left.updatedAt || "");
+          return rightDate.localeCompare(leftDate);
+        });
+      }
+
       function writeSuggestions() {
+        suggestions = mergeSuggestionsById(suggestions);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
         window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
           console.warn("Failed to sync suggestions to cloud", error);
@@ -754,18 +776,29 @@
         try {
           const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
           if (!result?.ok) return;
+          const localSuggestions = mergeSuggestionsById(suggestions);
           if (!result.data?.found) {
-            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
-              console.warn("Failed to seed suggestions to cloud", error);
-            });
+            suggestions = localSuggestions;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+            if (suggestions.length) {
+              window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+                console.warn("Failed to seed suggestions to cloud", error);
+              });
+            }
             return;
           }
           if (!Array.isArray(result.data.payload)) return;
-          suggestions = withoutSampleSuggestions(result.data.payload.map(normalizeSuggestion));
+          const cloudSuggestions = normalizeSuggestionRows(result.data.payload);
+          suggestions = mergeSuggestionsById([...cloudSuggestions, ...localSuggestions]);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
-          window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
-            console.warn("Failed to clean cloud sample suggestions", error);
-          });
+          const cloudChanged =
+            JSON.stringify(suggestions) !== JSON.stringify(cloudSuggestions) ||
+            JSON.stringify(localSuggestions) !== JSON.stringify(suggestions);
+          if (cloudChanged && suggestions.length) {
+            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+              console.warn("Failed to merge suggestions to cloud", error);
+            });
+          }
         } catch (error) {
           console.warn("Failed to hydrate suggestions from cloud", error);
         }

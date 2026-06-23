@@ -176,6 +176,22 @@
         try { return JSON.parse(raw || "null") ?? fallback; } catch { return fallback; }
       }
 
+      function mergeSuggestionRows(rows) {
+        const map = new Map();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const id = String(row.id || "").trim();
+          if (!id) return;
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...row, id });
+        });
+        return [...map.values()].sort((left, right) => {
+          const rightDate = String(right.createdAt || right.updatedAt || "");
+          const leftDate = String(left.createdAt || left.updatedAt || "");
+          return rightDate.localeCompare(leftDate);
+        });
+      }
+
       function today() {
         return new Date().toISOString().slice(0, 10);
       }
@@ -305,13 +321,13 @@
         byId("aiMessage").textContent = "已保存 AI 草稿。";
       }
 
-      function saveToSuggestionTask() {
+      async function saveToSuggestionTask() {
         if (!latestResult) {
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
         const mode = byId("aiModeInput").value;
-        const rows = safeParse(localStorage.getItem(SUGGESTION_KEY), []);
+        let rows = safeParse(localStorage.getItem(SUGGESTION_KEY), []);
         const isTask = mode === "todo" || mode === "task";
         const item = {
           id: `${isTask ? "t" : "s"}-${Date.now()}`,
@@ -340,7 +356,13 @@
           decision: "",
           comments: [{ author: currentName, text: "由 AI 助手生成草稿。", time: today() }]
         };
-        const nextRows = [item, ...(Array.isArray(rows) ? rows : [])];
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(SUGGESTION_KEY);
+          if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+            rows = mergeSuggestionRows([...remote.data.payload, ...(Array.isArray(rows) ? rows : [])]);
+          }
+        } catch (_) {}
+        const nextRows = mergeSuggestionRows([item, ...(Array.isArray(rows) ? rows : [])]);
         localStorage.setItem(SUGGESTION_KEY, JSON.stringify(nextRows));
         window.JRC_CLOUD?.writeModuleData?.(SUGGESTION_KEY, "suggestions", nextRows).catch(() => {});
         byId("aiMessage").textContent = isTask ? "已保存为任务草稿。" : "已保存为建议草稿。";

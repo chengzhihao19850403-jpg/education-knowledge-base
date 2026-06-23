@@ -522,6 +522,13 @@ async function handlePutModuleData(req, res, headers) {
   const payload = body.payload === undefined ? null : body.payload;
   const operatorName = body.operatorName || body.operator?.name || "-";
   const operatorUsername = body.operatorUsername || body.operator?.username || "-";
+  const existing = await pool.query(`
+    select payload, version
+    from module_data_store
+    where store_key = $1
+    limit 1
+  `, [storeKey]);
+  const previousRow = existing.rows[0] || null;
   const result = await pool.query(`
     insert into module_data_store (
       store_key, module_key, payload, version, updated_by_name, updated_by_username, updated_at
@@ -536,6 +543,33 @@ async function handlePutModuleData(req, res, headers) {
       updated_at = now()
     returning store_key, module_key, version, updated_at
   `, [storeKey, moduleKey, JSON.stringify(payload), operatorName, operatorUsername]);
+  const nextVersion = result.rows[0].version;
+  await pool.query(`
+    insert into audit_logs (
+      module_key,
+      action_key,
+      target_type,
+      target_id,
+      summary,
+      before_data,
+      after_data,
+      operator_name,
+      operator_username,
+      operator_role
+    )
+    values ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
+  `, [
+    moduleKey,
+    previousRow ? "module-data-update" : "module-data-create",
+    "module_store",
+    storeKey,
+    `${storeKey} 保存至 v${nextVersion}`,
+    JSON.stringify(previousRow?.payload ?? null),
+    JSON.stringify(payload),
+    operatorName,
+    operatorUsername,
+    moduleKey
+  ]);
   send(res, 200, {
     ok: true,
     storeKey: result.rows[0].store_key,
