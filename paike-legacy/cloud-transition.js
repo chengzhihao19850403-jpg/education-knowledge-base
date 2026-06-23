@@ -66,7 +66,8 @@
 
   function safeParse(raw, fallback = null) {
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      return parsed ?? fallback;
     } catch {
       return fallback;
     }
@@ -74,7 +75,8 @@
 
   function readManifest() {
     const raw = nativeGetItem.call(window.localStorage, manifestKey);
-    const parsed = safeParse(raw, {});
+    const parsedValue = safeParse(raw, {});
+    const parsed = parsedValue && typeof parsedValue === "object" ? parsedValue : {};
     return {
       version: "2026-06-21-paike-legacy-cloud-transition-v1",
       updatedAt: parsed.updatedAt || "",

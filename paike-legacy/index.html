@@ -6,7 +6,8 @@
     <title>匠人程排课系统</title>
     <script src="../portal/cloud-api.js?v=20260623b"></script>
     <script src="../portal/auth.js?v=20260623h"></script>
-    <script src="./cloud-transition.js?v=20260623a"></script>
+    <script src="../portal/preimport-data.js?v=20260623a"></script>
+    <script src="./cloud-transition.js?v=20260623b"></script>
     <script>
       document.documentElement.classList.add("access-check-pending");
       window.setTimeout(() => {
@@ -349,6 +350,98 @@
         color: var(--brand-dark);
       }
 
+      .preimport-summary {
+        margin-top: 18px;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .metric-card {
+        min-height: 86px;
+        padding: 14px;
+        border: 1px solid rgba(188, 88, 46, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .metric-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .metric-card strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--ink);
+        font-size: 24px;
+        line-height: 1.1;
+      }
+
+      .table-wrap {
+        margin-top: 16px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        min-width: 860px;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        background: rgba(31, 41, 51, 0.07);
+        color: var(--muted);
+      }
+
+      .status-pill.pending {
+        background: rgba(188, 88, 46, 0.12);
+        color: var(--brand-dark);
+      }
+
+      .status-pill.ok {
+        background: rgba(13, 148, 136, 0.12);
+        color: #0f766e;
+      }
+
+      .cloud-note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(13, 148, 136, 0.09);
+        color: #0f766e;
+        line-height: 1.6;
+      }
+
       .flow-card {
         padding: 20px;
       }
@@ -384,7 +477,8 @@
       @media (max-width: 900px) {
         .grid,
         .quick-grid,
-        .flow-grid {
+        .flow-grid,
+        .metric-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -412,7 +506,7 @@
             <h2>上传老师最新总表</h2>
             <label class="field-label" for="homeTeacherWorkbookInput">老师总表文件</label>
             <input id="homeTeacherWorkbookInput" class="cell-input" type="file" multiple accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="tool-inline-note">支持多个老师文件一起上传，系统会自动拆分到平时模式和暑假模式。</div>
+            <div class="tool-inline-note">CSV 可直接写入云端平时模式；XLSX 自动拆分正在迁移，昨晚已解析的 Excel 数据先在下方核对。</div>
             <div id="homeUploadResult" class="upload-result">还没有上传记录。</div>
           </div>
           <div class="quick-actions">
@@ -421,6 +515,32 @@
             <a class="button button-secondary" href="./prototype/index.html">去暑假模式继续排课</a>
           </div>
         </article>
+      </section>
+
+      <section class="hero preimport-summary" id="preimportSummarySection">
+        <h2>已解析表格核对</h2>
+        <p>昨晚已读取的排课表和工资表先进入核对区。核对通过前，不自动写入正式工资和家长课销。</p>
+        <div class="metric-grid" id="preimportMetricGrid"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>老师</th>
+                <th>月份</th>
+                <th>课表学生人次</th>
+                <th>课表小时</th>
+                <th>工资表点名</th>
+                <th>已匹配</th>
+                <th>只在课表</th>
+                <th>只在工资表</th>
+                <th>高优先级差异</th>
+                <th>核对状态</th>
+              </tr>
+            </thead>
+            <tbody id="preimportTeacherBody"></tbody>
+          </table>
+        </div>
+        <div class="cloud-note" id="preimportCloudNote">正在读取云端核对数据...</div>
       </section>
 
       <section class="quick-grid">
@@ -460,11 +580,16 @@
         const BACKEND_STATE_KEY = "june_regular";
         const REGULAR_XLSX_IMPORT_PATH = "/api/import/june-regular-xlsx";
         const REGULAR_CSV_IMPORT_PATH = "/api/import/june-regular-csv";
+        const PREIMPORT_STORE_KEY = "jrc-paike-finance-preimport-2026-06-22";
         const gateNode = document.getElementById("accessGate");
         const shellNode = document.querySelector(".shell");
         const uploadInput = document.getElementById("homeTeacherWorkbookInput");
         const uploadButton = document.getElementById("homeUploadButton");
         const uploadResultNode = document.getElementById("homeUploadResult");
+        const preimportMetricGrid = document.getElementById("preimportMetricGrid");
+        const preimportTeacherBody = document.getElementById("preimportTeacherBody");
+        const preimportCloudNote = document.getElementById("preimportCloudNote");
+        let uploadHandlerBound = false;
 
         function escapeHtml(value) {
           return String(value ?? "")
@@ -473,6 +598,101 @@
             .replaceAll(">", "&gt;")
             .replaceAll('"', "&quot;")
             .replaceAll("'", "&#39;");
+        }
+
+        function toNumber(value) {
+          const number = Number(value);
+          return Number.isFinite(number) ? number : 0;
+        }
+
+        function formatNumber(value, digits = 0) {
+          const number = toNumber(value);
+          return number.toLocaleString("zh-CN", {
+            maximumFractionDigits: digits,
+            minimumFractionDigits: 0,
+          });
+        }
+
+        function currentPreimportBundle() {
+          return window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || null;
+        }
+
+        function renderPreimportSummary(bundle = currentPreimportBundle(), sourceLabel = "内置核对汇总") {
+          if (!preimportMetricGrid || !preimportTeacherBody || !preimportCloudNote) return;
+          if (!bundle) {
+            preimportMetricGrid.innerHTML = "";
+            preimportTeacherBody.innerHTML = `<tr><td colspan="10">当前还没有读取到排课和工资表核对数据。</td></tr>`;
+            preimportCloudNote.textContent = "暂未读取到预导入数据。";
+            return;
+          }
+
+          const summary = bundle.summary || {};
+          const rows = Array.isArray(bundle.teacherMonthPrecheck)
+            ? bundle.teacherMonthPrecheck
+            : Array.isArray(summary.byTeacher)
+              ? summary.byTeacher
+              : [];
+          const scheduleSessions = toNumber(summary.scheduleSessionCount || bundle.scheduleSessions?.length);
+          const studentSessions = toNumber(summary.scheduleStudentSessionCount);
+          const salaryMarkers = toNumber(summary.salaryAttendanceCount || bundle.salaryAttendance?.length);
+          const highIssues = toNumber(summary.highPriorityIssueCount);
+
+          const metrics = [
+            ["排课课次", scheduleSessions],
+            ["学生课次", studentSessions],
+            ["工资点名", salaryMarkers],
+            ["高优先级待核", highIssues],
+          ];
+          preimportMetricGrid.innerHTML = metrics.map(([label, value]) => `
+            <div class="metric-card">
+              <span>${escapeHtml(label)}</span>
+              <strong>${formatNumber(value)}</strong>
+            </div>
+          `).join("");
+
+          if (!rows.length) {
+            preimportTeacherBody.innerHTML = `<tr><td colspan="10">已读取到汇总，但暂时没有老师月度核对明细。</td></tr>`;
+          } else {
+            preimportTeacherBody.innerHTML = rows.map((row) => {
+              const scheduleOnly = toNumber(row.scheduleOnly);
+              const salaryOnly = toNumber(row.salaryOnly);
+              const highPriority = toNumber(row.highPriorityDifferences);
+              const issueCount = scheduleOnly + salaryOnly;
+              const status = issueCount || highPriority
+                ? `<span class="status-pill pending">待核 ${formatNumber(issueCount + highPriority)} 条</span>`
+                : `<span class="status-pill ok">可复核</span>`;
+              return `
+                <tr>
+                  <td>${escapeHtml(row.teacherName || "-")}</td>
+                  <td>${escapeHtml(row.period || "-")}</td>
+                  <td>${formatNumber(row.scheduleStudentSessions)}</td>
+                  <td>${formatNumber(row.scheduleHours, 2)}</td>
+                  <td>${formatNumber(row.salaryMarkers)}</td>
+                  <td>${formatNumber(row.matchedMarkers)}</td>
+                  <td>${formatNumber(scheduleOnly)}</td>
+                  <td>${formatNumber(salaryOnly)}</td>
+                  <td>${highPriority ? `<span class="status-pill pending">${formatNumber(highPriority)}</span>` : "0"}</td>
+                  <td>${status}</td>
+                </tr>
+              `;
+            }).join("");
+          }
+
+          preimportCloudNote.textContent = `${sourceLabel}；这些数据用于老师核对，确认无误后再进入正式排课、点名课销和财务结算。`;
+        }
+
+        async function hydratePreimportFromCloud() {
+          renderPreimportSummary(currentPreimportBundle(), "内置核对汇总");
+          if (!window.JRC_CLOUD?.readModuleData) return;
+          try {
+            const result = await window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY);
+            if (result?.ok && result.data?.found && result.data.payload) {
+              window.JRC_PREIMPORT_BUNDLE = result.data.payload;
+              renderPreimportSummary(window.JRC_PREIMPORT_BUNDLE, "云端完整核对包");
+            }
+          } catch (error) {
+            preimportCloudNote.textContent = `已显示内置核对汇总；云端完整核对包暂时读取失败：${error.message || error}`;
+          }
         }
 
         function getFileExtension(fileName) {
@@ -721,6 +941,19 @@
           `;
         }
 
+        function showCloudShell(message = "") {
+          gateNode.hidden = true;
+          shellNode.hidden = false;
+          if (!uploadHandlerBound && uploadButton) {
+            uploadButton.addEventListener("click", handleWorkbookUpload);
+            uploadHandlerBound = true;
+          }
+          hydratePreimportFromCloud();
+          if (message) {
+            updateUploadResult(message, "success");
+          }
+        }
+
         function isCloudTransitionMode() {
           return window.location.hostname.endsWith("github.io") || window.location.pathname.includes("/paike-legacy/");
         }
@@ -732,9 +965,7 @@
               STORAGE_META_KEY,
               SUMMER_REVIEW_STORAGE_KEY,
             ]);
-            gateNode.hidden = true;
-            shellNode.hidden = false;
-            uploadButton?.addEventListener("click", handleWorkbookUpload);
+            showCloudShell("云端排课入口已打开。已解析表格请在下方核对，确认后再进入正式排课和结算。");
             return;
           }
 
@@ -762,8 +993,16 @@
 
           gateNode.hidden = true;
           shellNode.hidden = false;
-          uploadButton?.addEventListener("click", handleWorkbookUpload);
+          if (!uploadHandlerBound && uploadButton) {
+            uploadButton.addEventListener("click", handleWorkbookUpload);
+            uploadHandlerBound = true;
+          }
+          hydratePreimportFromCloud();
         } catch (error) {
+          if (isCloudTransitionMode()) {
+            showCloudShell(`云端排课入口已打开，但旧版排课缓存同步暂时失败：${error.message || error}。可以先查看下方已解析表格核对，或进入平时 / 暑假模式查看。`);
+            return;
+          }
           renderGate(
             "当前无法使用排课系统入口",
             "这台电脑现在不在同一局域网，或无法正常读取主控电脑后台数据，禁止进入和录入。",
