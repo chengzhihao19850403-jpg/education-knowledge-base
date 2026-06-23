@@ -4,11 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>匠人程排课系统</title>
-    <script src="../portal/cloud-api.js?v=20260622d"></script>
-    <script src="../portal/auth.js?v=20260622g"></script>
-    <script src="./cloud-transition.js?v=20260622a"></script>
+    <script src="../portal/cloud-api.js?v=20260623b"></script>
+    <script src="../portal/auth.js?v=20260623h"></script>
+    <script src="./cloud-transition.js?v=20260623a"></script>
     <script>
       document.documentElement.classList.add("access-check-pending");
+      window.setTimeout(() => {
+        document.documentElement.classList.remove("access-check-pending");
+      }, 2500);
     </script>
     <style>
       :root {
@@ -386,7 +389,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260622b">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623k">
   </head>
   <body>
     <section id="accessGate" class="access-gate" hidden></section>
@@ -771,6 +774,6 @@
         }
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260622b"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623k"></script>
   </body>
 </html>

@@ -7,6 +7,9 @@
     <script>
       (() => {
         document.documentElement.classList.add("access-check-pending");
+        window.setTimeout(() => {
+          document.documentElement.classList.remove("access-check-pending");
+        }, 2500);
         try {
           const params = new URLSearchParams(window.location.search);
           const value = params.get("simple");
@@ -17,7 +20,7 @@
       })();
     </script>
     <link rel="stylesheet" href="./styles.css">
-    <link rel="stylesheet" href="../../portal/mobile-unified.css?v=20260622b">
+    <link rel="stylesheet" href="../../portal/mobile-unified.css?v=20260623k">
   </head>
   <body>
     <section id="accessGate" class="access-gate" hidden></section>
@@ -713,10 +716,10 @@
       </section>
     </div>
 
-    <script src="../../portal/cloud-api.js?v=20260622d"></script>
-    <script src="../../portal/auth.js?v=20260622g"></script>
-    <script src="../cloud-transition.js?v=20260622a"></script>
-    <script src="./app.js?v=20260622a"></script>
-    <script src="../../portal/mobile-unified.js?v=20260622b"></script>
+    <script src="../../portal/cloud-api.js?v=20260623b"></script>
+    <script src="../../portal/auth.js?v=20260623h"></script>
+    <script src="../cloud-transition.js?v=20260623a"></script>
+    <script src="./app.js?v=20260623a"></script>
+    <script src="../../portal/mobile-unified.js?v=20260623k"></script>
   </body>
 </html>
