@@ -7,6 +7,7 @@
     <script src="../portal/cloud-api.js?v=20260623b"></script>
     <script src="../portal/auth.js?v=20260623h"></script>
     <script src="../portal/preimport-data.js?v=20260623a"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./cloud-transition.js?v=20260623b"></script>
     <script>
       document.documentElement.classList.add("access-check-pending");
@@ -578,7 +579,6 @@
         const STORAGE_META_KEY = "paike-june-system-meta-v1";
         const SUMMER_REVIEW_STORAGE_KEY = "paike-summer-import-review-v1";
         const BACKEND_STATE_KEY = "june_regular";
-        const REGULAR_XLSX_IMPORT_PATH = "/api/import/june-regular-xlsx";
         const REGULAR_CSV_IMPORT_PATH = "/api/import/june-regular-csv";
         const PREIMPORT_STORE_KEY = "jrc-paike-finance-preimport-2026-06-22";
         const gateNode = document.getElementById("accessGate");
@@ -753,32 +753,45 @@
           );
         }
 
-        async function uploadWorkbookFile(file) {
+        async function workbookFileToCsvText(file) {
           const extension = getFileExtension(file.name);
-          let response;
-          if (extension === "xlsx") {
-            response = await fetch(buildStateScopedUrl(REGULAR_XLSX_IMPORT_PATH, BACKEND_STATE_KEY), {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                file_name: file.name,
-                file_base64: arrayBufferToBase64(await file.arrayBuffer()),
-              }),
-            });
-          } else {
-            response = await fetch(buildStateScopedUrl(REGULAR_CSV_IMPORT_PATH, BACKEND_STATE_KEY), {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                file_name: file.name,
-                csv_text: await file.text(),
-              }),
-            });
+          if (extension === "csv") {
+            return {
+              csvText: await file.text(),
+              sourceLabel: "CSV",
+              uploadFileName: file.name,
+            };
           }
+          if (!window.XLSX) {
+            throw new Error("Excel 解析组件还没加载完成，请稍后重试。");
+          }
+          const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+          const firstSheetName = workbook.SheetNames?.[0];
+          if (!firstSheetName) {
+            throw new Error("Excel 文件没有可读取的工作表。");
+          }
+          const firstSheet = workbook.Sheets[firstSheetName];
+          const csvText = window.XLSX.utils.sheet_to_csv(firstSheet);
+          const uploadFileName = file.name.replace(/\.(xlsx|xls)$/i, ".csv");
+          return {
+            csvText,
+            sourceLabel: `Excel(${firstSheetName})`,
+            uploadFileName,
+          };
+        }
+
+        async function uploadWorkbookFile(file) {
+          const { csvText, sourceLabel, uploadFileName } = await workbookFileToCsvText(file);
+          const response = await fetch(buildStateScopedUrl(REGULAR_CSV_IMPORT_PATH, BACKEND_STATE_KEY), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              file_name: uploadFileName,
+              csv_text: csvText,
+            }),
+          });
           if (!response.ok) {
             let errorPayload = null;
             try {
@@ -786,7 +799,11 @@
             } catch (error) {}
             throw new Error(errorPayload?.message || errorPayload?.error || `HTTP ${response.status}`);
           }
-          return response.json();
+          return {
+            ...(await response.json()),
+            uploadSourceLabel: sourceLabel,
+            uploadFileName,
+          };
         }
 
         async function handleWorkbookUpload() {
@@ -802,7 +819,7 @@
           }
 
           uploadButton.disabled = true;
-          updateUploadResult(`正在批量上传并自动拆分，共 ${files.length} 个文件，请稍等...`);
+          updateUploadResult(`正在批量上传并写入云端，共 ${files.length} 个文件，请稍等...`);
           try {
             let totalAcceptedCount = 0;
             let totalQuestionCount = 0;
@@ -817,7 +834,7 @@
 
             for (let index = 0; index < files.length; index += 1) {
               const file = files[index];
-              updateUploadResult(`正在上传并自动拆分（${index + 1}/${files.length}）：${file.name}`);
+              updateUploadResult(`正在上传到云端（${index + 1}/${files.length}）：${file.name}`);
               try {
                 const payload = await uploadWorkbookFile(file);
                 lastPayload = payload;
@@ -838,7 +855,7 @@
                   questionFiles.push(`${file.name}（${questionCount} 行待确认）`);
                 }
                 perFileLines.push(
-                  `${file.name}：平时 ${acceptedCount} 行` +
+                  `${file.name}（${payload.uploadSourceLabel || "云端导入"}）：平时 ${acceptedCount} 行` +
                     (questionCount ? `，待确认 ${questionCount} 行` : "") +
                     (warningCount ? `，警告 ${warningCount} 行` : "") +
                     `；暑假 ${summerDemandCount} 个待开班`
