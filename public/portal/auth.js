@@ -700,6 +700,59 @@ function jrcCollectPreimportFinanceRows() {
   };
 }
 
+function jrcBuildDerivedTeacherMonthPrecheck(scheduleRows, preimportFinance) {
+  const teacherMonth = new Map();
+
+  function ensureMonth(teacherName, period) {
+    const key = `${teacherName || "未匹配老师"}|${period || "待定月份"}`;
+    if (!teacherMonth.has(key)) {
+      teacherMonth.set(key, {
+        teacherName: teacherName || "未匹配老师",
+        period: period || "待定月份",
+        scheduleStudentSessions: 0,
+        scheduleHours: 0,
+        salaryMarkers: 0,
+        matchedMarkers: 0,
+        scheduleOnly: 0,
+        salaryOnly: 0,
+        highPriorityDifferences: 0
+      });
+    }
+    return teacherMonth.get(key);
+  }
+
+  scheduleRows
+    .filter((row) => row.source === "Excel已上传排课")
+    .forEach((row) => {
+      const month = ensureMonth(row.teacherName, row.period);
+      month.scheduleStudentSessions += 1;
+      month.scheduleHours += jrcToNumber(row.hours);
+    });
+
+  (preimportFinance.salaryAttendance || []).forEach((row) => {
+    const teacherName = String(row.teacherName || row.teacher || "").trim();
+    const period = row.period || jrcMonthFromDate(row.date) || "";
+    if (!teacherName) return;
+    const month = ensureMonth(teacherName, period);
+    month.salaryMarkers += 1;
+  });
+
+  teacherMonth.forEach((row) => {
+    row.matchedMarkers = Math.min(row.scheduleStudentSessions, row.salaryMarkers);
+    row.scheduleOnly = Math.max(0, row.scheduleStudentSessions - row.salaryMarkers);
+    row.salaryOnly = Math.max(0, row.salaryMarkers - row.scheduleStudentSessions);
+    row.highPriorityDifferences = row.scheduleOnly + row.salaryOnly;
+    row.scheduleHours = Math.round(row.scheduleHours * 100) / 100;
+  });
+
+  return Array.from(teacherMonth.values()).sort((left, right) => {
+    return (
+      String(left.period || "").localeCompare(String(right.period || "")) ||
+      String(left.teacherName || "").localeCompare(String(right.teacherName || ""), "zh-CN")
+    );
+  });
+}
+
 function jrcCollectAdmissionsRows() {
   const state = jrcReadJsonStore("advice-system-stage-prototype", {});
   const leads = Array.isArray(state.leads) ? state.leads : [];
@@ -762,6 +815,7 @@ function jrcDeriveSystemLinks() {
   const admissions = jrcCollectAdmissionsRows();
   const quality = jrcCollectTeachingQualityRows();
   const preimportFinance = jrcCollectPreimportFinanceRows();
+  const effectiveTeacherMonthPrecheck = jrcBuildDerivedTeacherMonthPrecheck(schedules, preimportFinance);
   const employees = jrcGetAllEmployees();
   const qualityByTeacher = new Map(quality.map((row) => [row.teacherName, row]));
   const employeeByName = new Map(employees.map((employee) => [employee.name, employee]));
@@ -799,7 +853,7 @@ function jrcDeriveSystemLinks() {
     month.scheduledHours += row.hours;
     if (row.source === "Excel已上传排课") month.preimportStudentSessions += 1;
   });
-  preimportFinance.teacherMonthPrecheck.forEach((precheck) => {
+  effectiveTeacherMonthPrecheck.forEach((precheck) => {
     const month = ensureTeacherMonth(precheck.teacherName, precheck.period);
     month.preimportStudentSessions = Math.max(month.preimportStudentSessions, jrcToNumber(precheck.scheduleStudentSessions));
     month.preimportIssueCount = Math.max(month.preimportIssueCount, jrcToNumber(precheck.scheduleOnly) + jrcToNumber(precheck.salaryOnly));
@@ -826,9 +880,9 @@ function jrcDeriveSystemLinks() {
       employees: employees.length
       ,
       preimportScheduleSessions: preimportFinance.summary?.scheduleSessionCount || 0,
-      preimportSalaryMarkers: preimportFinance.summary?.salaryAttendanceCount || 0,
+      preimportSalaryMarkers: preimportFinance.salaryAttendance?.length || preimportFinance.summary?.salaryAttendanceCount || 0,
       preimportExpenseRows: preimportFinance.summary?.expenseRowCount || 0,
-      preimportHighIssues: preimportFinance.summary?.highPriorityIssueCount || 0
+      preimportHighIssues: effectiveTeacherMonthPrecheck.reduce((sum, row) => sum + jrcToNumber(row.highPriorityDifferences), 0)
     },
     teacherMonthRows: Array.from(teacherMonth.values()).map((row) => ({
       ...row,
@@ -845,7 +899,10 @@ function jrcDeriveSystemLinks() {
       preimportFinanceExpenses: preimportFinance.expenses,
       preimportReconciliationIssues: preimportFinance.issues
     },
-    preimport: preimportFinance
+    preimport: {
+      ...preimportFinance,
+      teacherMonthPrecheck: effectiveTeacherMonthPrecheck
+    }
   };
 }
 
