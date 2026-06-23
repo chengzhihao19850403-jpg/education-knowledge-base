@@ -449,6 +449,65 @@
             return [];
           }
         };
+        const buildAttendanceRowId = (session, row) => {
+          const parts = [
+            session?.date,
+            session?.teacher,
+            session?.className,
+            row?.studentName,
+            row?.createdAt
+          ].map((value) => String(value || "").trim()).filter(Boolean);
+          return parts.join("|");
+        };
+        const ensureAttendanceRowId = (session, row) => {
+          const existing = String(row?.rowId || row?.id || "").trim();
+          if (existing) return { ...row, rowId: existing };
+          const seed = buildAttendanceRowId(session, row) || `att-row-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          let hash = 0;
+          for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+          return { ...row, rowId: `att-row-${hash.toString(16)}` };
+        };
+        const ensureAttendanceSessionId = (session) => {
+          const existing = String(session?.id || session?.sessionId || "").trim();
+          const rows = (Array.isArray(session?.rows) ? session.rows : []).map((row) => ensureAttendanceRowId(session, row));
+          if (existing) return { ...session, id: existing, rows };
+          const seed = [
+            session?.date,
+            session?.teacher,
+            session?.className,
+            session?.lessonType,
+            rows.map((row) => row.rowId).join("|")
+          ].map((value) => String(value || "").trim()).filter(Boolean).join("|");
+          let hash = 0;
+          for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+          return { ...session, id: `class-att-${hash.toString(16)}`, rows };
+        };
+        const mergeAttendanceSessions = (...groups) => {
+          const map = new Map();
+          groups.flat().forEach((session) => {
+            if (!session || typeof session !== "object") return;
+            const normalized = ensureAttendanceSessionId(session);
+            const rowsById = new Map();
+            (Array.isArray(normalized.rows) ? normalized.rows : []).forEach((row) => {
+              const safeRow = ensureAttendanceRowId(normalized, row);
+              rowsById.set(safeRow.rowId, { ...(rowsById.get(safeRow.rowId) || {}), ...safeRow });
+            });
+            const existing = map.get(normalized.id) || {};
+            const mergedExistingRows = Array.isArray(existing.rows) ? existing.rows : [];
+            mergedExistingRows.forEach((row) => {
+              const safeRow = ensureAttendanceRowId(normalized, row);
+              rowsById.set(safeRow.rowId, { ...safeRow, ...(rowsById.get(safeRow.rowId) || {}) });
+            });
+            map.set(normalized.id, {
+              ...existing,
+              ...normalized,
+              id: normalized.id,
+              rows: [...rowsById.values()]
+            });
+          });
+          return [...map.values()]
+            .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+        };
         const shouldScopeToCurrentTeacher = () => {
           const employee = currentEmployee();
           return employee?.role === "授课老师" && !canManageAll();
@@ -457,21 +516,38 @@
           if (!shouldScopeToCurrentTeacher()) return true;
           return String(session?.teacher || "") === String(currentEmployee()?.name || "");
         };
-        const readVisibleRows = () => readRows().filter(sessionVisibleToCurrentUser);
+        const readVisibleRows = () => mergeAttendanceSessions(readRows()).filter(sessionVisibleToCurrentUser);
         const saveRows = (rows) => {
-          localStorage.setItem(STORE_KEY, JSON.stringify(rows));
+          let mergedRows = mergeAttendanceSessions(rows);
+          localStorage.setItem(STORE_KEY, JSON.stringify(mergedRows));
           if (!window.JRC_CLOUD?.writeModuleData) {
             return Promise.resolve({ ok: false, localOnly: true });
           }
-          return window.JRC_CLOUD.writeModuleData(STORE_KEY, "studentService", rows).catch((error) => {
-            console.warn("点名数据云端保存失败", error);
-            return { ok: false, error };
-          });
+          return Promise.resolve(window.JRC_CLOUD?.readModuleData?.(STORE_KEY))
+            .then((remote) => {
+              const remoteRows = Array.isArray(remote?.data?.payload) ? remote.data.payload : [];
+              mergedRows = mergeAttendanceSessions(mergedRows, remoteRows);
+              localStorage.setItem(STORE_KEY, JSON.stringify(mergedRows));
+              return window.JRC_CLOUD.writeModuleData(STORE_KEY, "studentService", mergedRows);
+            })
+            .catch((error) => {
+              console.warn("点名数据云端保存失败", error);
+              return { ok: false, error };
+            });
         };
         const hydrateCloudRows = () => {
+          const localRows = mergeAttendanceSessions(readRows());
+          localStorage.setItem(STORE_KEY, JSON.stringify(localRows));
           window.JRC_CLOUD?.readModuleData?.(STORE_KEY).then((result) => {
-            if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
-            localStorage.setItem(STORE_KEY, JSON.stringify(result.data.payload));
+            if (!result.ok) return;
+            const remoteRows = Array.isArray(result.data?.payload) ? result.data.payload : [];
+            const mergedRows = mergeAttendanceSessions(localRows, remoteRows);
+            localStorage.setItem(STORE_KEY, JSON.stringify(mergedRows));
+            if ((!result.data?.found && mergedRows.length) || JSON.stringify(mergedRows) !== JSON.stringify(remoteRows)) {
+              window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", mergedRows).catch((error) => {
+                console.warn("点名数据云端回写失败", error);
+              });
+            }
             renderHistory();
             renderSettlement();
             renderFollowups();

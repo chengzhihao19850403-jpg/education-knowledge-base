@@ -276,6 +276,46 @@
           { type: "试听家长问卷", enabled: true, sendAfter: "试听结束后 2 小时", questions: "试听满意度、未报名异议、意向等级、是否进培育群" }
         ]
       };
+      function buildQualityId(prefix, parts) {
+        const seed = (Array.isArray(parts) ? parts : [parts]).map((value) => String(value || "").trim()).filter(Boolean).join("|")
+          || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        let hash = 0;
+        for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+        return `${prefix}-${hash.toString(16)}`;
+      }
+      function mergeQualityRows(prefix, ...groups) {
+        const map = new Map();
+        groups.flat().forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const id = String(row.id || row.rowId || "").trim() || buildQualityId(prefix, [
+            row.teacher,
+            row.className,
+            row.problem,
+            row.date,
+            row.createdAt,
+            row.score,
+            JSON.stringify(row.scores || [])
+          ]);
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...row, id });
+        });
+        return [...map.values()].sort((left, right) => String(right.createdAt || right.date || "").localeCompare(String(left.createdAt || left.date || "")));
+      }
+      function mergeQualityState(...states) {
+        const merged = structuredClone(defaultState);
+        states.forEach((candidate) => {
+          if (!candidate || typeof candidate !== "object") return;
+          if (candidate.selectedTeacher) merged.selectedTeacher = candidate.selectedTeacher;
+          if (candidate.weights) merged.weights = { ...merged.weights, ...candidate.weights };
+          if (Array.isArray(candidate.templates)) merged.templates = candidate.templates;
+          merged.inspections = mergeQualityRows("tq-inspection", merged.inspections, candidate.inspections || []);
+          merged.studentSurveys = mergeQualityRows("tq-student", merged.studentSurveys, candidate.studentSurveys || []);
+          merged.parentSurveys = mergeQualityRows("tq-parent", merged.parentSurveys, candidate.parentSurveys || []);
+          merged.objectiveMetrics = mergeQualityRows("tq-metric", merged.objectiveMetrics, candidate.objectiveMetrics || []);
+          merged.tickets = mergeQualityRows("tq-ticket", merged.tickets, candidate.tickets || []);
+        });
+        return merged;
+      }
       let state = normalizeQualityState(loadState());
       let cloudQualityReady = false;
       function byId(id) { return document.getElementById(id); }
@@ -304,13 +344,14 @@
         next.parentSurveys = (Array.isArray(next.parentSurveys) ? next.parentSurveys : []).filter((record) => !isLegacySurvey(record));
         next.objectiveMetrics = (Array.isArray(next.objectiveMetrics) ? next.objectiveMetrics : []).filter((record) => !isLegacyObjective(record));
         next.tickets = (Array.isArray(next.tickets) ? next.tickets : []).filter((ticket) => !LEGACY_TICKET_IDS.has(String(ticket.id || "")));
-        return next;
+        return mergeQualityState(next);
       }
       function loadState() {
-        try { return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")) }; }
+        try { return normalizeQualityState(mergeQualityState(defaultState, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"))); }
         catch { return structuredClone(defaultState); }
       }
       function persist() {
+        state = normalizeQualityState(state);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         if (!cloudQualityReady) return;
         window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "teachingQuality", state).catch((error) => {
@@ -319,14 +360,22 @@
       }
       function hydrateCloudQuality() {
         window.JRC_CLOUD?.readModuleData?.(STORAGE_KEY).then((result) => {
-          if (!result.ok || !result.data?.found || !result.data.payload) {
+          const localState = normalizeQualityState(state);
+          if (!result.ok) {
             cloudQualityReady = true;
-            persist();
             return;
           }
-          state = normalizeQualityState({ ...structuredClone(defaultState), ...result.data.payload });
+          if (!result.data?.found || !result.data.payload) {
+            state = localState;
+            cloudQualityReady = true;
+            if (state.inspections.length || state.studentSurveys.length || state.parentSurveys.length || state.objectiveMetrics.length || state.tickets.length) persist();
+            return;
+          }
+          const cloudState = normalizeQualityState(mergeQualityState(defaultState, result.data.payload));
+          state = normalizeQualityState(mergeQualityState(cloudState, localState));
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           cloudQualityReady = true;
+          if (JSON.stringify(state) !== JSON.stringify(cloudState)) persist();
           renderAll();
         }).catch((error) => {
           console.warn("教学质量数据云端读取失败", error);

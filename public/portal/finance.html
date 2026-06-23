@@ -991,10 +991,72 @@
         };
       }
 
+      function buildFinanceHash(seed, prefix) {
+        const text = String(seed || "").trim() || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        let hash = 0;
+        for (let index = 0; index < text.length; index += 1) hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+        return `${prefix}-${hash.toString(16)}`;
+      }
+
+      function ensureExpenseId(periodName, expense) {
+        const existing = String(expense?.id || "").trim();
+        if (existing) return { ...expense, id: existing };
+        return {
+          ...expense,
+          id: buildFinanceHash([
+            periodName,
+            expense?.date,
+            expense?.category,
+            expense?.amount,
+            expense?.operator,
+            expense?.createdAt
+          ].join("|"), "expense")
+        };
+      }
+
+      function mergeExpenseRows(periodName, ...groups) {
+        const map = new Map();
+        groups.flat().forEach((expense) => {
+          if (!expense || typeof expense !== "object") return;
+          const safeExpense = ensureExpenseId(periodName, expense);
+          const existing = map.get(safeExpense.id) || {};
+          map.set(safeExpense.id, { ...existing, ...safeExpense, id: safeExpense.id });
+        });
+        return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+      }
+
+      function normalizePeriod(periodName, period = {}) {
+        const base = createPeriod(periodName);
+        return {
+          ...base,
+          ...(period && typeof period === "object" ? period : {}),
+          periodName,
+          expenses: mergeExpenseRows(periodName, period?.expenses || [])
+        };
+      }
+
+      function mergeFinanceStates(...states) {
+        const merged = { periods: {} };
+        states.forEach((candidate) => {
+          const periods = candidate?.periods && typeof candidate.periods === "object" ? candidate.periods : {};
+          Object.entries(periods).forEach(([periodName, periodValue]) => {
+            const existing = merged.periods[periodName] || createPeriod(periodName);
+            const normalizedExisting = normalizePeriod(periodName, existing);
+            const normalizedIncoming = normalizePeriod(periodName, periodValue);
+            merged.periods[periodName] = {
+              ...normalizedExisting,
+              ...normalizedIncoming,
+              expenses: mergeExpenseRows(periodName, normalizedExisting.expenses, normalizedIncoming.expenses)
+            };
+          });
+        });
+        return merged;
+      }
+
       function readState() {
         try {
           const parsed = JSON.parse(localStorage.getItem(FINANCE_STORAGE_KEY) || "{}");
-          if (parsed && parsed.periods) return parsed;
+          if (parsed && parsed.periods) return mergeFinanceStates(parsed);
         } catch (error) {
           console.warn("Failed to read finance state", error);
         }
@@ -1004,11 +1066,13 @@
       let cloudFinanceReady = false;
 
       function writeState(nextState) {
-        localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(nextState));
+        const normalizedState = mergeFinanceStates(nextState);
+        state = normalizedState;
+        localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(normalizedState));
         if (!cloudFinanceReady || !window.JRC_CLOUD?.writeModuleData) {
           return Promise.resolve({ ok: false, localOnly: true });
         }
-        return window.JRC_CLOUD.writeModuleData(FINANCE_STORAGE_KEY, "finance", nextState).catch((error) => {
+        return window.JRC_CLOUD.writeModuleData(FINANCE_STORAGE_KEY, "finance", normalizedState).catch((error) => {
           console.warn("财务数据云端保存失败", error);
           return { ok: false, error };
         });
@@ -1070,13 +1134,68 @@
         }
       }
 
+      function ensureAttendanceRowId(session, row) {
+        const existing = String(row?.rowId || row?.id || "").trim();
+        if (existing) return { ...row, rowId: existing };
+        return {
+          ...row,
+          rowId: buildFinanceHash([
+            session?.date,
+            session?.teacher,
+            session?.className,
+            row?.studentName,
+            row?.createdAt
+          ].join("|"), "att-row")
+        };
+      }
+
+      function ensureAttendanceSessionId(session) {
+        const existing = String(session?.id || session?.sessionId || "").trim();
+        const rows = (Array.isArray(session?.rows) ? session.rows : []).map((row) => ensureAttendanceRowId(session, row));
+        if (existing) return { ...session, id: existing, rows };
+        return {
+          ...session,
+          id: buildFinanceHash([
+            session?.date,
+            session?.teacher,
+            session?.className,
+            session?.lessonType,
+            rows.map((row) => row.rowId).join("|")
+          ].join("|"), "att-session"),
+          rows
+        };
+      }
+
+      function mergeAttendanceSessions(...groups) {
+        const map = new Map();
+        groups.flat().forEach((session) => {
+          if (!session || typeof session !== "object") return;
+          const normalized = ensureAttendanceSessionId(session);
+          const existing = map.get(normalized.id) || {};
+          const rowMap = new Map();
+          [...(Array.isArray(existing.rows) ? existing.rows : []), ...(Array.isArray(normalized.rows) ? normalized.rows : [])].forEach((row) => {
+            const safeRow = ensureAttendanceRowId(normalized, row);
+            rowMap.set(safeRow.rowId, { ...(rowMap.get(safeRow.rowId) || {}), ...safeRow });
+          });
+          map.set(normalized.id, { ...existing, ...normalized, id: normalized.id, rows: [...rowMap.values()] });
+        });
+        return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+      }
+
       function hydrateCloudAttendance() {
-        attendanceSessions = readLocalAttendance();
+        attendanceSessions = mergeAttendanceSessions(readLocalAttendance());
+        localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(attendanceSessions));
         render();
         window.JRC_CLOUD?.readModuleData?.(ATTENDANCE_STORAGE_KEY).then((result) => {
-          if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
-          attendanceSessions = result.data.payload;
+          if (!result.ok) return;
+          const remoteRows = Array.isArray(result.data?.payload) ? result.data.payload : [];
+          attendanceSessions = mergeAttendanceSessions(attendanceSessions, remoteRows);
           localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(attendanceSessions));
+          if ((!result.data?.found && attendanceSessions.length) || JSON.stringify(attendanceSessions) !== JSON.stringify(remoteRows)) {
+            window.JRC_CLOUD?.writeModuleData?.(ATTENDANCE_STORAGE_KEY, "studentService", attendanceSessions).catch((error) => {
+              console.warn("点名结算数据云端回写失败", error);
+            });
+          }
           render();
         }).catch((error) => {
           console.warn("点名结算数据云端读取失败", error);
@@ -1085,14 +1204,23 @@
 
       function hydrateCloudFinance() {
         window.JRC_CLOUD?.readModuleData?.(FINANCE_STORAGE_KEY).then((result) => {
-          if (!result.ok || !result.data?.found || !result.data.payload?.periods) {
+          const localState = mergeFinanceStates(state);
+          if (!result.ok) {
             cloudFinanceReady = true;
-            writeState(state);
             return;
           }
-          state = result.data.payload;
+          if (!result.data?.found || !result.data.payload?.periods) {
+            state = localState;
+            localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(state));
+            cloudFinanceReady = true;
+            if (Object.keys(state.periods || {}).length) writeState(state);
+            return;
+          }
+          const cloudState = mergeFinanceStates(result.data.payload);
+          state = mergeFinanceStates(cloudState, localState);
           localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(state));
           cloudFinanceReady = true;
+          if (JSON.stringify(state) !== JSON.stringify(cloudState)) writeState(state);
           getPeriod(currentPeriod);
           syncFormFromPeriod();
         }).catch((error) => {
