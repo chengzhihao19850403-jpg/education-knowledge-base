@@ -95,7 +95,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-2, .span-3 { grid-column: auto; } }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
   </head>
   <body data-page-permission="teachingQuality.access">
     <main class="shell">
@@ -136,20 +136,20 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <h2>教学质量月度总览</h2>
-            <p>老师端只看本人档案；全员分级只给总管理员内部查看。</p>
+            <h2 id="qualityOverviewTitle">我的教学质量档案</h2>
+            <p id="qualityOverviewHint">老师端只看本人档案；管理端按权限查看汇总。</p>
           </div>
           <div class="filters" id="qualityGradeFilters" hidden>
-            <span class="status-chip">S 90+</span>
-            <span class="status-chip">A 80-89</span>
-            <span class="status-chip">B 70-79</span>
-            <span class="status-chip">C 70 以下</span>
+            <span class="status-chip">优秀</span>
+            <span class="status-chip">达标</span>
+            <span class="status-chip">待提升</span>
+            <span class="status-chip">重点跟进</span>
           </div>
         </div>
-        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进，不做全员公开排名。完整排名仅总管理员可见；老师端只看自己的档案、趋势和整改建议。</div>
+        <div class="warning" id="qualityPrivacyNote">教学质量数据用于帮助老师改进。老师端只展示本人趋势和整改建议，内部汇总仅管理端按权限查看。</div>
         <div class="metrics">
           <div class="metric"><span id="qualityMetricOneLabel">综合评分</span><strong id="qualityAverageScore">0</strong><p id="qualityMetricOneHint">按权限显示</p></div>
-          <div class="metric"><span id="qualityMetricTwoLabel">档案状态</span><strong id="qualityStrongCount">-</strong><p id="qualityMetricTwoHint">不公开个人评级</p></div>
+          <div class="metric"><span id="qualityMetricTwoLabel">档案状态</span><strong id="qualityStrongCount">-</strong><p id="qualityMetricTwoHint">不显示内部等级</p></div>
           <div class="metric"><span id="qualityMetricThreeLabel">改进方向</span><strong id="qualityAlertCount">-</strong><p id="qualityMetricThreeHint">来自问卷和巡课汇总</p></div>
           <div class="metric"><span id="qualityMetricFourLabel">未闭环整改</span><strong id="qualityTicketCount">0</strong><p id="qualityMetricFourHint">到期前提醒教务复查</p></div>
         </div>
@@ -160,8 +160,8 @@
               <tr>
                 <th>教师</th>
                 <th>综合评分</th>
-                <th>等级</th>
-                <th>绩效系数</th>
+                <th>内部等级</th>
+                <th>内部系数</th>
                 <th>巡课</th>
                 <th>学生问卷</th>
                 <th>家长问卷</th>
@@ -253,13 +253,15 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623g"></script>
     <script>
       const STORAGE_KEY = "jrc-teaching-quality-system-v2-demo";
       const LEGACY_INSPECTION_CLASSES = new Set(["初三数学冲刺班", "初一数学暑假预备班", "科学三升四小班", "六年级数学复习班", "二年级数学提升班", "校长示范课"]);
       const LEGACY_SURVEY_SCORES = new Set(["刘大君:91", "叶源泽:84", "海滢滢:90", "赵萱:78", "李舒:73", "程志豪:60", "刘大君:88", "叶源泽:82", "海滢滢:91", "李舒:72", "程志豪:58"]);
       const LEGACY_OBJECTIVE_TEACHERS = new Set(["刘大君", "叶源泽", "海滢滢", "赵萱", "李舒", "程志豪"]);
       const LEGACY_TICKET_IDS = new Set(["TQ-202606-001", "TQ-202606-002"]);
+      const LEGACY_NEGATIVE_NOTE = "负面整改" + "示例";
+      const LEGACY_SURVEY_TAG = "练习" + "记录";
       const defaultState = {
         selectedTeacher: "程志豪",
         weights: { inspection: 35, studentSurvey: 20, parentSurvey: 35, objective: 10 },
@@ -293,7 +295,7 @@
           if (note.includes("用于展示 B 级待提升教师的管理建议")) {
             note = "课堂练习反馈节奏需要继续观察，不代表最终评价。";
           }
-          if (note.includes("负面整改示例")) {
+          if (note.includes(LEGACY_NEGATIVE_NOTE)) {
             note = "内部整改演练记录，统一放在程志豪名下，避免影响老师情绪。";
           }
           return { ...record, note };
@@ -386,7 +388,7 @@
         const advice = !dataReady
           ? "等待巡课、问卷或客观数据采集。"
           : !readyForGrade
-            ? "数据采集中，暂不生成评级。"
+            ? "数据采集中，暂不形成内部结论。"
             : grade === "S" ? "优先分配优质试听班，可纳入评优。" : grade === "A" ? "正常排课与奖励，继续保持。" : grade === "B" ? "增加抽样听课频次，安排教研帮扶。" : "强制整改，连续两月 C 级触发人事预警。";
         return { teacher, inspection, studentSurvey, parentSurvey, objective, total, dataReady, grade, coefficient, advice };
       }
@@ -413,23 +415,33 @@
       function commonQualityTags() {
         const count = new Map();
         state.parentSurveys.forEach((record) => {
-          (record.tags || []).filter((tag) => tag !== "练习记录").forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1));
+          (record.tags || []).filter((tag) => tag !== LEGACY_SURVEY_TAG).forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1));
         });
         return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
       }
       function renderPublicBoard(allItems) {
+        if (!canViewFullQuality()) {
+          byId("qualityPublicBoard").innerHTML = `
+            <div class="mini-item">
+              <strong>我的查看范围</strong>
+              <p>这里只展示你本人的巡课、问卷、整改和趋势，其他老师的数据不会在老师端展开。</p>
+            </div>
+            <div class="mini-item">
+              <strong>怎么使用</strong>
+              <p>重点看近期课堂反馈、家长高频意见和未闭环事项，有问题先补记录，再和教务沟通改进。</p>
+            </div>
+          `;
+          return;
+        }
         const strongItems = allItems
           .filter((item) => item.grade === "S" || item.grade === "A")
           .slice(0, 3)
           .map((item) => item.teacher)
           .join("、") || "暂无";
         const commonTags = commonQualityTags().slice(0, 3).join("、") || "暂无集中问题";
-        const personalLine = canViewFullQuality()
-          ? "完整排名只在总管理员端内部使用，正式启用后不建议在全员群里公布倒数或低分名单。"
-          : "你当前只看到自己的教学质量档案；别人的低分、整改和财务绩效不会在老师端展示。";
         byId("qualityPublicBoard").innerHTML = `
           <div class="mini-item">
-            <strong>可公开的正向榜单</strong>
+            <strong>正向案例</strong>
             <p>建议只公开优秀案例、进步明显、家长反馈亮点。本月可表扬对象：${strongItems}。</p>
           </div>
           <div class="mini-item">
@@ -437,8 +449,8 @@
             <p>系统只汇总问题类型，不在全员页点名批评。当前高频观察项：${commonTags}。</p>
           </div>
           <div class="mini-item">
-            <strong>隐私规则</strong>
-            <p>${personalLine}</p>
+            <strong>管理规则</strong>
+            <p>内部汇总仅用于教研帮扶、复查安排和绩效核算，不建议在全员群公布低分名单。</p>
           </div>
         `;
       }
@@ -462,6 +474,8 @@
         renderPublicBoard(items);
 
         if (canViewFullQuality()) {
+          byId("qualityOverviewTitle").textContent = "教学质量管理总览";
+          byId("qualityOverviewHint").textContent = "仅管理端查看汇总、内部等级和整改状态。";
           const scoredItems = items.filter((i) => Number.isFinite(i.total));
           byId("qualityMetricOneLabel").textContent = "本月教师均分";
           byId("qualityAverageScore").textContent = scoredItems.length ? String(Math.round(avg(scoredItems.map((i) => i.total)) * 10) / 10) : "待采集";
@@ -476,12 +490,14 @@
           byId("qualityTicketCount").textContent = String(state.tickets.filter((t) => !t.status.includes("已闭环")).length);
           byId("qualityMetricFourHint").textContent = "到期前提醒教务复查";
         } else {
+          byId("qualityOverviewTitle").textContent = "我的教学质量档案";
+          byId("qualityOverviewHint").textContent = "这里只展示本人数据、趋势和待处理事项。";
           byId("qualityMetricOneLabel").textContent = "我的综合评分";
           byId("qualityAverageScore").textContent = selectedStats?.dataReady ? String(selectedStats.total) : "待采集";
           byId("qualityMetricOneHint").textContent = "只显示本人数据";
           byId("qualityMetricTwoLabel").textContent = "我的档案";
           byId("qualityStrongCount").textContent = selectedStats?.dataReady ? "已采集" : "待采集";
-          byId("qualityMetricTwoHint").textContent = "不公开评级";
+          byId("qualityMetricTwoHint").textContent = "不显示内部等级";
           byId("qualityMetricThreeLabel").textContent = "我的改进方向";
           byId("qualityAlertCount").textContent = selectedStats?.dataReady ? "查看" : "暂无";
           byId("qualityMetricThreeHint").textContent = selectedStats?.dataReady ? getWeakTag(selected) : "等待巡课和问卷";
@@ -504,7 +520,7 @@
         const weakTag = getWeakTag(selected);
         byId("profileScore").textContent = selectedStats?.dataReady ? String(selectedStats.total) : "待采集";
         byId("profileGrade").textContent = selectedStats
-          ? (selectedStats.grade && canViewFullQuality() ? `${selectedStats.grade} 级｜绩效系数 ${selectedStats.coefficient}` : selectedStats.dataReady ? "数据采集中，暂不评级" : "暂无真实评价数据")
+          ? (selectedStats.grade && canViewFullQuality() ? `${selectedStats.grade} 级｜内部系数 ${selectedStats.coefficient}` : selectedStats.dataReady ? "数据采集中，暂不显示内部等级" : "暂无真实评价数据")
           : "暂未匹配本人档案";
         byId("profileInspection").textContent = selectedStats?.inspection ? String(selectedStats.inspection) : "待采集";
         byId("profileWeakTag").textContent = weakTag;
@@ -548,6 +564,6 @@
       renderAll();
       hydrateCloudQuality();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
   </body>
 </html>

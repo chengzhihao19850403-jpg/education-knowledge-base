@@ -2,6 +2,15 @@
   --jrc-touch-size: 46px;
 }
 
+html,
+body {
+  max-width: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -30,6 +39,7 @@ button.small,
 
 .button,
 button {
+  min-height: var(--jrc-touch-size) !important;
   touch-action: manipulation;
 }
 
@@ -216,6 +226,21 @@ textarea {
   max-width: 100%;
 }
 
+.jrc-auth-bar__inner {
+  max-width: calc(100vw - 24px);
+}
+
+.jrc-auth-bar__inner > div:first-child {
+  min-width: 0;
+}
+
+.jrc-auth-bar__inner span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 760px) {
   body {
     overflow-x: hidden;
@@ -243,6 +268,33 @@ textarea {
   .card-head {
     align-items: flex-start !important;
     flex-direction: column !important;
+  }
+
+  .jrc-auth-bar {
+    position: static !important;
+  }
+
+  .jrc-auth-bar__inner {
+    width: min(100% - 20px, 1280px) !important;
+    min-height: 0 !important;
+    padding: 10px 0 !important;
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .jrc-auth-bar__inner span {
+    white-space: normal !important;
+    line-height: 1.45 !important;
+  }
+
+  .jrc-auth-bar__actions {
+    width: 100%;
+  }
+
+  .jrc-auth-bar button {
+    width: 100%;
+    min-height: 42px !important;
   }
 
   .nav,
@@ -346,6 +398,10 @@ textarea {
 
   table {
     min-width: 760px;
+  }
+
+  .resource-tree-item {
+    grid-template-columns: 1fr !important;
   }
 
   .attendance-summary-grid {

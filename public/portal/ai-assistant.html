@@ -63,7 +63,7 @@
       @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .topbar { flex-direction: column; align-items: flex-start; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .button, .nav-link { width: 100%; min-height: 46px; } }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
   </head>
   <body data-page-permission="ai.access">
     <main class="shell">
@@ -128,7 +128,7 @@
             <button class="button" id="aiRunButton" type="button">AI 整理</button>
             <button class="button secondary" id="aiClearButton" type="button">清空</button>
           </div>
-          <div class="notice" id="aiMessage">语音识别依赖当前浏览器支持；如果不可用，可以用手机键盘听写后再整理。</div>
+          <div class="notice" id="aiMessage">语音识别依赖设备支持；如果不可用，可以用手机键盘听写后再整理。</div>
         </article>
 
         <article class="card">
@@ -153,7 +153,7 @@
     </main>
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623g"></script>
     <script>
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
@@ -351,7 +351,7 @@
         if (!SpeechRecognition) {
           byId("voiceStartButton").disabled = true;
           byId("voiceStopButton").disabled = true;
-          byId("aiMessage").textContent = "当前浏览器不支持实时语音识别，可以使用手机键盘听写后再 AI 整理。";
+          byId("aiMessage").textContent = "当前设备不支持实时语音识别，可以使用手机键盘听写后再 AI 整理。";
           return;
         }
         recognition = new SpeechRecognition();
@@ -405,6 +405,6 @@
         byId("aiConfigNotice").textContent = "AI 页面已就绪；MiniMax Key 配好后会自动调用模型。";
       });
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
   </body>
 </html>

@@ -106,7 +106,7 @@
         <div class="data-sync-item${store.raw === null ? " is-empty" : ""}">
           <span>${item.label}</span>
           <strong>${count}</strong>
-          <em>${store.raw === null ? "当前浏览器暂无数据" : `最近保存：${formatDateTime(savedAt)}`}</em>
+          <em>${store.raw === null ? "当前账号暂无数据" : `最近保存：${formatDateTime(savedAt)}`}</em>
         </div>
       `;
     }).join("");
@@ -125,7 +125,7 @@
       </div>
       <div class="data-sync-status-card">
         <strong>可备份数据</strong>
-        当前浏览器检测到 ${backupReady} 类可导出的业务数据。
+        当前账号检测到 ${backupReady} 类可导出的业务数据。
       </div>
       <div class="data-sync-status-card">
         <strong>下一步</strong>

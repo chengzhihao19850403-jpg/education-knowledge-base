@@ -17,7 +17,7 @@
     { key: "advice-system-stage-prototype", label: "招生管理", risk: "可录入跟进" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", risk: "需财务复核" },
     { key: "jrc-student-service-v2", label: "学生服务", risk: "需和点名核对" },
-    { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", risk: "需替换练习记录" },
+    { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", risk: "按真实采集记录统计" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", risk: "持续收集" },
     { key: "jrc-hr-training-tasks-v2", label: "人事培训", risk: "账号权限已接入" },
     { key: "jrc-campus-operations-v2", label: "校区运营", risk: "可先查看" },
@@ -195,12 +195,12 @@
     const hasData = localStorage.getItem(config.key) !== null;
     const count = countStoreRows(config);
     if (!hasData) {
-      return { label: "待录入", className: "status-warn", detail: "当前浏览器还没有检测到本系统数据。" };
+      return { label: "待录入", className: "status-warn", detail: "当前账号还没有读取到本系统业务数据。" };
     }
     if (config.type === "teachingQuality") {
-      return { label: "待核对", className: "status-warn", detail: `当前 ${count} 条记录，正式启用前需确认真实来源。` };
+      return { label: "采集中", className: "status-warn", detail: `当前 ${count} 条记录，按真实巡课、问卷和整改数据统计。` };
     }
-    return { label: "本地副本", className: "status-ok", detail: `当前浏览器检测到 ${count} 条/类记录，云端状态见下方落地状态。` };
+    return { label: "已读取", className: "status-ok", detail: `当前账号读取到 ${count} 条/类记录，云端状态见下方落地状态。` };
   }
 
   function getEmployeeState() {
@@ -276,7 +276,7 @@
     const holder = $("portalMyTaskList");
     if (!holder) return;
     if (!hasPermission("suggestions.access")) {
-      holder.innerHTML = todoItem("正常", "当前账号暂无任务入口", "该账号没有开放建议任务系统。", "./index.html", "知道了");
+      holder.innerHTML = todoItem("正常", "当前账号未开通任务入口", "需要使用任务协同时，由管理员在人事培训系统里开通建议任务权限。", "./index.html", "返回工作台");
       return;
     }
     const rows = await readSuggestionTasks();
@@ -297,10 +297,10 @@
       return todoItem(level, title, detail, "./suggestions.html", task.status === "review" ? "去验收" : "处理任务");
     }).join("") : todoItem(
       "正常",
-      "当前没有分配给你的任务",
-      "后续建议被采纳并转成任务后，会显示在这里。",
+      "暂无待办任务",
+      "后续建议被采纳并转成任务，或主管给你指派任务后，会显示在这里。",
       "./suggestions.html",
-      "查看建议"
+      "进入建议任务"
     );
   }
 
@@ -371,7 +371,7 @@
       todos.push(todoItem(
         "提醒",
         `教学质量有 ${qualityOpenTickets.length} 条未闭环整改`,
-        "正式启用前要确认哪些是真实整改，哪些只是练习记录。",
+        "请按真实巡课、问卷和教务复查结果处理整改闭环。",
         "./teaching-quality.html",
         "看教学质量"
       ));

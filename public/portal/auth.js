@@ -72,7 +72,7 @@ const JRC_DATA_LINK_RULES = [
     id: "quality-to-finance",
     from: "教学质量系统",
     to: "财务系统",
-    rule: "S/A/B/C 评级转成 1.1/1.0/0.9/0.8 绩效系数，参与课时奖金和教学质量奖励核算。",
+    rule: "教学质量内部等级结果转成财务核算系数，参与课时奖金和教学质量奖励核算。",
     status: "foundation"
   },
   {
@@ -996,7 +996,7 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "hr.access": "人事与培训系统涉及员工档案和权限，仅总管理员使用。",
     "campus.access": "校区运营系统已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
-    "admin.access": "这个管理区只给总管理员使用。"
+    "admin.access": "该入口仅总管理员可用。"
   };
   return hints[permissionKey] || `${role}账号未开通此入口。需要开通时，由管理员在人事与培训系统里调整权限。`;
 }
@@ -1030,7 +1030,7 @@ function jrcEnsureTopbar(currentEmployee) {
     <div class="jrc-auth-bar__inner">
       <div>
         <strong>${currentEmployee.name}</strong>
-        <span>${currentEmployee.role} · 用户名 ${currentEmployee.username} · 当前开放：${jrcGetRoleSummary(currentEmployee)}</span>
+        <span>${currentEmployee.role} · ${currentEmployee.username} · 已开放：${jrcGetRoleSummary(currentEmployee)}</span>
       </div>
       <div class="jrc-auth-bar__actions">
         <button type="button" id="jrcLogoutButton">退出登录</button>
@@ -1321,7 +1321,7 @@ function jrcEnforcePagePermission(currentEmployee) {
   blocker.innerHTML = `
     <div class="jrc-page-block__card">
       <p class="jrc-page-block__eyebrow">Access Restricted</p>
-      <h2>这个系统暂时没有开放给当前账号</h2>
+      <h2>当前账号未开通此系统</h2>
       <p>${jrcGetPermissionHint(requiredPermission, currentEmployee)}你已经成功登录，可以先返回工作台使用已开放的系统入口。</p>
       <div class="jrc-page-block__actions">
         <a href="/jrcedu/portal/index.html">返回统一工作台</a>

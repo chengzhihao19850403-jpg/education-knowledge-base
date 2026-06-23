@@ -90,7 +90,7 @@
         .attendance-touch-actions .button { min-height: 46px; }
       }
     </style>
-    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623e">
+    <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623g">
   </head>
   <body data-page-permission="studentService.access">
     <main class="shell">
@@ -217,7 +217,7 @@
         <div class="section-head">
           <div>
             <h2>成绩同步与学管沟通</h2>
-            <p>出门测成绩保存后会自动沉淀到这里，学管可以看到学生本次分数、班级平均分、排名、趋势和沟通提示，用于课后反馈与家长沟通。</p>
+            <p>出门测成绩保存后会自动进入学生档案，学管可以看到本次分数、班级均分、班内位置、趋势和沟通提示。</p>
           </div>
           <span class="status-chip">学生档案联动</span>
         </div>
@@ -318,7 +318,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623f"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623g"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
@@ -611,7 +611,7 @@
           const lowerName = fileName.toLowerCase();
           if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
             if (!window.XLSX) {
-              setMessage("当前浏览器没有加载 Excel 解析组件。可以先把 Excel 另存为 CSV 上传，或直接复制学生姓名列粘贴。");
+              setMessage("Excel 解析组件还没加载完成。可以稍后重试，也可以先把 Excel 另存为 CSV 上传，或直接复制学生姓名列粘贴。");
               return;
             }
             const buffer = await file.arrayBuffer();
@@ -626,7 +626,7 @@
         };
         const downloadTemplate = () => {
           const header = ["日期", "任课老师", "课程类型", "班级/课程", "学生姓名", "出门测成绩", "备注"];
-          const example = [today(), getSelectedTeacher(), "正常课", "暑假数学提升班", "学生姓名示例", "", "可空"];
+          const example = [today(), getSelectedTeacher(), "正常课", "暑假数学提升班", "学生姓名", "", "可空"];
           const csv = [header, example].map((row) => row.map(toCsvCell).join(",")).join("\n");
           const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
           const url = URL.createObjectURL(blob);
@@ -972,7 +972,7 @@
           if (scoreMetricAlerts) scoreMetricAlerts.textContent = String(alertCount);
           if (scoreMetricRecords) scoreMetricRecords.textContent = String(scoredRows.length);
           if (!rows.length) {
-            scoreBody.innerHTML = `<tr><td colspan="7">暂无出门测成绩。保存带成绩的点名记录后，这里会自动生成学生成绩、排名、平均分和沟通提示。</td></tr>`;
+            scoreBody.innerHTML = `<tr><td colspan="7">暂无出门测成绩。保存带成绩的点名记录后，这里会自动生成学生成绩、班内位置、平均分和沟通提示。</td></tr>`;
             return;
           }
           scoreBody.innerHTML = rows.slice(0, 30).map((row) => {
@@ -1165,6 +1165,6 @@
         hydratePreimportBundle();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260623e"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260623g"></script>
   </body>
 </html>
