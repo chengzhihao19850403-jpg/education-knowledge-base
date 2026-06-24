@@ -235,8 +235,8 @@
         const sections = [
           ["标题", result.title],
           ["摘要", result.summary],
+          ["完整课堂反馈", result.parentMessage],
           ["整理正文", result.polishedText],
-          ["发家长版", result.parentMessage],
           ["建议动作", result.suggestedAction],
           ["待办", Array.isArray(result.todoItems) ? result.todoItems.map((item) => `- ${item}`).join("\\n") : ""],
           ["内部备注", result.internalNote]
@@ -244,14 +244,38 @@
         return sections.map(([label, value]) => `${label}：\\n${Array.isArray(value) ? value.join("\\n") : value}`).join("\\n\\n");
       }
 
+      function isClassFeedbackMode() {
+        return byId("aiModeInput")?.value === "classFeedback";
+      }
+
+      function ensureClassFeedbackTemplate(result, payload = {}) {
+        if (!result || !isClassFeedbackMode()) return result;
+        const target = payload.target ?? byId("aiTargetInput")?.value ?? "";
+        const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
+        const parentMessage = String(result.parentMessage || "");
+        const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈");
+        if (hasTemplate) return result;
+        const template = buildClassFeedbackTemplate(target, sourceText);
+        return {
+          ...result,
+          title: result.title || `${target || "学生"}｜课堂反馈`,
+          summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
+          parentMessage: template,
+          polishedText: template,
+          internalNote: result.internalNote || "模型未完整返回模板，系统已自动套用统一课堂反馈模板。请确认第几次课程、作业名称、具体知识点和下节课计划。"
+        };
+      }
+
       function renderResult(result) {
+        result = ensureClassFeedbackTemplate(result);
         latestResult = result;
         const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
+        const classFeedback = isClassFeedbackMode();
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
-          ${result.polishedText ? `<div class="result-item"><strong>整理正文</strong><p>${escapeHtml(result.polishedText).replace(/\\n/g, "<br>")}</p></div>` : ""}
+          ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong><p>${escapeHtml(result.parentMessage).replace(/\\n/g, "<br>")}</p></div>` : ""}
+          ${result.polishedText && (!classFeedback || result.polishedText !== result.parentMessage) ? `<div class="result-item"><strong>整理正文</strong><p>${escapeHtml(result.polishedText).replace(/\\n/g, "<br>")}</p></div>` : ""}
           ${todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
-          ${result.parentMessage ? `<div class="result-item"><strong>发家长版</strong><p>${escapeHtml(result.parentMessage).replace(/\\n/g, "<br>")}</p></div>` : ""}
           ${result.internalNote ? `<div class="result-item"><strong>内部备注</strong><p>${escapeHtml(result.internalNote).replace(/\\n/g, "<br>")}</p></div>` : ""}
         `;
       }
@@ -323,7 +347,7 @@
         try {
           const result = await window.JRC_CLOUD?.aiAssistant?.(payload);
           if (result?.ok && result.data?.result) {
-            renderResult(result.data.result);
+            renderResult(ensureClassFeedbackTemplate(result.data.result, payload));
             byId("aiConfigNotice").textContent = result.data.provider === "minimax"
               ? "AI 接口已接入 MiniMax。"
               : "已生成整理草稿。";

@@ -1074,6 +1074,24 @@ function parseAiJson(text, fallback) {
   }
 }
 
+function ensureClassFeedbackResult(result, body) {
+  if (String(body?.mode || "") !== "classFeedback") return result;
+  const parentMessage = String(result?.parentMessage || "");
+  const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈");
+  if (hasTemplate) return result;
+  const template = buildClassFeedbackTemplate(body?.target || "家长", body?.text || "");
+  return {
+    ...result,
+    title: result?.title || `${body?.target || "学生"}｜课堂反馈`,
+    summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
+    polishedText: template,
+    parentMessage: template,
+    internalNote: result?.internalNote || "模型未完整返回模板，系统已自动套用统一课堂反馈模板。请确认第几次课程、作业名称、具体知识点和下节课计划。",
+    suggestedAction: result?.suggestedAction || "老师确认后归档学生服务，并复制发给家长。",
+    riskLevel: result?.riskLevel || "正常"
+  };
+}
+
 async function callMinimaxChat(body) {
   const requestHeaders = {
     "Content-Type": "application/json",
@@ -1137,7 +1155,7 @@ async function handleAiAssistant(req, res, headers, authorization) {
       operatorName: authorization?.payload?.name || body.operatorName || "-",
       operatorUsername: authorization?.payload?.sub || body.operatorUsername || "-"
     });
-    const result = parseAiJson(content, fallback);
+    const result = ensureClassFeedbackResult(parseAiJson(content, fallback), body);
     send(res, 200, { ok: true, provider: "minimax", configured: true, model: minimaxModel, result }, headers);
   } catch (error) {
     console.error("MiniMax assistant failed", error);
