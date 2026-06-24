@@ -746,6 +746,18 @@
             <tbody id="attendanceSettlementFinanceBody"></tbody>
           </table>
         </div>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>流转状态</th>
+                <th>说明</th>
+                <th>财务处理</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceFlowFinanceBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="grid" id="monthlySection">
@@ -2212,6 +2224,51 @@
         `).join("");
       }
 
+      function renderAttendanceFlowStatus() {
+        const body = byId("attendanceFlowFinanceBody");
+        if (!body) return;
+        const rows = deriveAttendanceSettlementRows();
+        const teacherCount = new Set(rows.map((row) => row.teacher).filter(Boolean)).size;
+        const totals = rows.reduce((acc, row) => {
+          acc.lessons += row.lessons;
+          acc.financePresent += row.financePresent;
+          acc.specialPresent += row.specialPresent;
+          acc.followupCount += row.followupCount;
+          return acc;
+        }, { lessons: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
+        const statusRows = [
+          {
+            status: rows.length ? "点名已流入财务" : "等待点名流入",
+            detail: rows.length
+              ? `${currentPeriod} 已接到 ${teacherCount} 位老师、${totals.lessons} 节课的点名结算草表。`
+              : `${currentPeriod} 还没有保存过点名记录。`,
+            action: rows.length ? "可先用于和原 Excel 月结表对照，不直接作为最终发薪依据。" : "请老师先在学生服务系统完成点名。"
+          },
+          {
+            status: "普通财务口径",
+            detail: `普通财务人次 ${totals.financePresent}。程志豪、海滢滢、姚老师按规则不进入普通财务自动结算。`,
+            action: "普通老师课时费草算优先看这一列。"
+          },
+          {
+            status: "单独结算口径",
+            detail: `海滢滢、姚老师单独结算人次 ${totals.specialPresent}。`,
+            action: "用于单独课时费核对，不并入普通老师结算。"
+          },
+          {
+            status: totals.followupCount ? "有待追踪" : "缺席追踪正常",
+            detail: totals.followupCount ? `当前还有 ${totals.followupCount} 人次未落实补课/视频课/课销口径。` : "当前点名记录暂无待追踪人次。",
+            action: totals.followupCount ? "财务暂缓确认对应课销和课时费，等学管处理完再复核。" : "可进入下一步财务复核。"
+          }
+        ];
+        body.innerHTML = statusRows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.status)}</td>
+            <td>${escapeHtml(row.detail)}</td>
+            <td>${escapeHtml(row.action)}</td>
+          </tr>
+        `).join("");
+      }
+
       function render() {
         const period = getPeriod();
         const reviewNode = byId("periodReviewStatus");
@@ -2227,6 +2284,7 @@
         renderTeacherDiffPreview();
         renderRowDiffPreview();
         renderAttendanceSettlementPreview();
+        renderAttendanceFlowStatus();
       }
 
       async function importFinanceSheets() {
@@ -2344,6 +2402,13 @@
         const period = getPeriod();
         const totals = calculate(period);
         const attendanceRows = deriveAttendanceSettlementRows();
+        const attendanceTotals = attendanceRows.reduce((acc, row) => {
+          acc.lessons += row.lessons;
+          acc.financePresent += row.financePresent;
+          acc.specialPresent += row.specialPresent;
+          acc.followupCount += row.followupCount;
+          return acc;
+        }, { lessons: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
         downloadCsv(`财务月度汇总-${currentPeriod}.csv`, [
           ["月份", "复核状态", "复核人", "课时总收入", "其他收入", "老师结算成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
           [
@@ -2376,7 +2441,14 @@
             row.specialPresent,
             row.followupCount,
             settlementBasis(row)
-          ])
+          ]),
+          [],
+          ["点名流转状态"],
+          ["项目", "数值", "财务口径"],
+          ["点名课次数", attendanceTotals.lessons, "来源于学生服务系统保存的点名记录"],
+          ["普通财务人次", attendanceTotals.financePresent, "进入普通老师课时费草算"],
+          ["单独结算人次", attendanceTotals.specialPresent, "海滢滢、姚老师单独核对"],
+          ["待追踪人次", attendanceTotals.followupCount, "未落实前不建议确认课销和课时费"]
         ]);
       }
 

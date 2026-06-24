@@ -1400,12 +1400,15 @@
           renderSettlement();
           renderFollowups();
           renderScoreAnalytics();
+          const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([session]) || [];
+          window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session, linkedRows } }));
           const unresolved = session.rows.filter(needsFollowup).length;
           Promise.resolve(saveResult).then((result) => {
             const saveText = result?.ok ? "已保存到云端，状态为“待复核”。" : "已暂存在当前设备，状态为“待复核”；云端连接恢复后会再同步。";
+            const linkText = linkedRows.length ? ` 已同步 ${linkedRows.length} 条学生服务记录。` : "";
             setMessage(unresolved
-              ? `${saveText} 本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
-              : `${saveText} 本节课点名、课时费和课销判断已完成。`);
+              ? `${saveText}${linkText} 本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
+              : `${saveText}${linkText} 本节课点名、课时费和课销判断已完成。`);
           });
         });
         exportButton.addEventListener("click", () => {

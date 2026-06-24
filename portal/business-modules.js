@@ -81,6 +81,79 @@
     });
   }
 
+  function effectiveAttendancePresent(row) {
+    return ["到课", "迟到"].includes(row?.status) || String(row?.exitScore ?? "").trim() !== "";
+  }
+
+  function attendanceNeedsFollowup(row) {
+    return !effectiveAttendancePresent(row) || row?.followup === "待联系家长";
+  }
+
+  function attendanceRowToStudentService(session, row) {
+    const student = normalizeName(row?.studentName || row?.student || "");
+    if (!student) return null;
+    const status = normalizeText(row?.status || "待核对");
+    const exitScore = normalizeText(row?.exitScore || "");
+    const followup = normalizeText(row?.followup || "");
+    const risk = attendanceNeedsFollowup(row) ? "关注" : "正常";
+    const scoreText = exitScore ? `；出门测 ${exitScore}` : "";
+    const statusText = `${session.date || "-"} ${session.className || "未填课程"}：${status}${scoreText}`;
+    const next = attendanceNeedsFollowup(row)
+      ? (followup && followup !== "正常销课并计课时" ? followup : "确认补课/视频课/是否销课")
+      : "常规课后反馈";
+    return {
+      rowId: `att-flow-${session.id || session.date || ""}-${student}`.replace(/\s+/g, ""),
+      student,
+      className: session.className || "-",
+      teacher: session.teacher || row?.teacher || "-",
+      type: exitScore ? "学习跟踪" : "课后反馈",
+      risk,
+      content: statusText,
+      next,
+      sourceModule: "attendance",
+      sourceSessionId: session.id || "",
+      sourceDate: session.date || "",
+      sourceStatus: status,
+      createdAt: session.createdAt || nowText(),
+      updatedAt: nowText()
+    };
+  }
+
+  function syncAttendanceIntoStudentService(sessions, options = {}) {
+    const key = "jrc-student-service-v2";
+    const incoming = (Array.isArray(sessions) ? sessions : [])
+      .flatMap((session) => (Array.isArray(session?.rows) ? session.rows : [])
+        .map((row) => attendanceRowToStudentService(session, row)))
+      .filter(Boolean);
+    if (!incoming.length) return [];
+    const existing = readStore(key, []);
+    const merged = mergeRowsById([...incoming, ...existing], key);
+    localStorage.setItem(key, JSON.stringify(merged));
+    if (window.JRC_CLOUD?.writeModuleData) {
+      const writeMerged = (remoteRows = []) => {
+        const nextRows = mergeRowsById([...incoming, ...remoteRows, ...existing], key);
+        localStorage.setItem(key, JSON.stringify(nextRows));
+        return window.JRC_CLOUD.writeModuleData(key, "studentService", nextRows).catch((error) => {
+          console.warn("点名联动学生服务云端保存失败", error);
+          return { ok: false, error };
+        });
+      };
+      if (window.JRC_CLOUD.readModuleData) {
+        window.JRC_CLOUD.readModuleData(key)
+          .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+          .catch(() => writeMerged([]));
+      } else {
+        writeMerged([]);
+      }
+    }
+    if (options.dispatch !== false) {
+      window.dispatchEvent(new CustomEvent("jrc-student-service-linked", {
+        detail: { rows: incoming, source: "attendance" }
+      }));
+    }
+    return incoming;
+  }
+
   function writeStore(key, rows) {
     const mergedRows = mergeRowsById(rows, key);
     localStorage.setItem(key, JSON.stringify(mergedRows));
@@ -598,6 +671,7 @@
     const moduleKey = "studentService";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-student-service-v2";
+    const attendanceKey = "jrc-class-attendance-v1";
     const defaults = {
       student: "",
       className: "",
@@ -612,6 +686,15 @@
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
+
+    function hydrateFromAttendance() {
+      const sessions = readStore(attendanceKey, []);
+      const linkedRows = syncAttendanceIntoStudentService(sessions, { dispatch: false });
+      if (linkedRows.length) {
+        rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+      }
+      return linkedRows.length;
+    }
 
     function fillForm(row) {
       $("studentNameInput").value = row.student || "";
@@ -639,7 +722,7 @@
             <td>${escapeHtml(row.student)}</td>
             <td>${escapeHtml(row.className)}</td>
             <td>${escapeHtml(row.teacher)}</td>
-            <td>${escapeHtml(row.type)}<br>${escapeHtml(row.content)}</td>
+            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}<br>${escapeHtml(row.content)}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
@@ -767,13 +850,36 @@
       onDenied: () => denyAction("studentServiceMessage", "导入")
     });
     resetForm();
+    const linkedCount = hydrateFromAttendance();
     render();
+    if (linkedCount) {
+      setText("studentServiceMessage", `已从点名系统同步 ${linkedCount} 条学生服务记录。`);
+    }
+    window.JRC_CLOUD?.readModuleData?.(attendanceKey).then((result) => {
+      const remoteSessions = Array.isArray(result?.data?.payload) ? result.data.payload : [];
+      const remoteLinkedCount = syncAttendanceIntoStudentService(remoteSessions, { dispatch: false }).length;
+      if (!remoteLinkedCount) return;
+      rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+      render();
+      setText("studentServiceMessage", `已从云端点名同步 ${remoteLinkedCount} 条学生服务记录。`);
+    }).catch((error) => {
+      console.warn("云端点名联动学生服务读取失败", error);
+    });
     readCloudStore(key, (cloudRows) => {
       rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
+      hydrateFromAttendance();
+      rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       resetForm();
       render();
       setText("studentServiceMessage", "已同步云端学生服务台账。");
+    });
+    window.addEventListener("jrc-attendance-saved", (event) => {
+      const count = syncAttendanceIntoStudentService([event.detail?.session].filter(Boolean), { dispatch: false }).length;
+      if (!count) return;
+      rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+      render();
+      setText("studentServiceMessage", `已从刚保存的点名同步 ${count} 条学生服务记录。`);
     });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
@@ -1593,4 +1699,9 @@
     initHrTraining();
     initCampusOperations();
   });
+
+  window.JRC_BUSINESS_MODULES = {
+    ...(window.JRC_BUSINESS_MODULES || {}),
+    syncAttendanceIntoStudentService
+  };
 })();
