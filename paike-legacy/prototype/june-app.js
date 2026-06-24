@@ -298,6 +298,62 @@ function normalizeState(snapshot) {
   };
 }
 
+function preimportBundle() {
+  return window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || null;
+}
+
+function buildEntryFromPreimportSession(session, index) {
+  if (!session || typeof session !== "object") return null;
+  const teacherName = String(session.teacherName || session.teacher || "").trim();
+  const courseDate = String(session.date || session.courseDate || "").trim();
+  const startTime = normalizeTimeText(session.startTime || "");
+  const endTime = normalizeTimeText(session.endTime || "");
+  if (!teacherName || !courseDate || !startTime) return null;
+  const students = Array.isArray(session.studentNames)
+    ? session.studentNames.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
+  const className = students.length
+    ? students.join("、")
+    : String(session.className || session.lessonTypeRaw || session.rawText || "未命名课程").trim();
+  return createEntry({
+    id: session.sourceId || `preimport-${courseDate}-${teacherName}-${startTime}-${index}`,
+    teacherName,
+    className,
+    courseDate,
+    slotIndex: Number(session.slotIndex || 0),
+    startTime,
+    endTime,
+    classroomName: String(session.classroomName || session.roomName || "").trim(),
+    scheduleStatus: String(session.lessonTypeRaw || "").includes("补") ? "makeup" : "scheduled",
+    confirmationStatus: "pending",
+    notes: [
+      session.lessonTypeRaw ? `类型：${session.lessonTypeRaw}` : "",
+      session.sourceFile ? `来源：${session.sourceFile}` : "",
+      session.rawText ? `原始：${session.rawText}` : ""
+    ].filter(Boolean).join(" / ")
+  });
+}
+
+function buildStateFromPreimportBundle(bundle = preimportBundle()) {
+  const sessions = Array.isArray(bundle?.scheduleSessions) ? bundle.scheduleSessions : [];
+  if (!sessions.length) return createEmptyState();
+  const entries = sessions.map(buildEntryFromPreimportSession).filter(Boolean);
+  return normalizeState({ scheduleEntries: entries });
+}
+
+async function seedFromPreimportBundleIfEmpty(reason = "auto") {
+  if (state.scheduleEntries.length) return false;
+  const preimportState = buildStateFromPreimportBundle();
+  if (!preimportState.scheduleEntries.length) return false;
+  state = preimportState;
+  uiState.importQuestions = [];
+  persistState(`已载入预导入排课数据：${preimportState.scheduleEntries.length} 行，来源为老师 Excel 提炼结果。`, {
+    browserSnapshotOrigin: `preimport_${reason}`,
+    syncLocalDb: false
+  });
+  return true;
+}
+
 function parseSnapshotSafe(raw) {
   if (!raw) {
     return null;
@@ -1058,9 +1114,12 @@ async function initializePersistence() {
   updatePersistenceControls();
   if (!localDbStatus.available) {
     localDbHistoryEntries = [];
-    uiState.importLog = isCloudDataEnabled()
-      ? "已进入云端平时排课模式。当前页面保持旧版操作习惯，新增、修改、上传表格后会同步到云端。"
-      : "当前没有连通平时后台。只有连接到主控电脑后台后，才允许查看和编辑正式排课内容。";
+    const seeded = await seedFromPreimportBundleIfEmpty("cloud_empty");
+    uiState.importLog = seeded
+      ? uiState.importLog
+      : isCloudDataEnabled()
+        ? `已进入云端平时排课模式。当前云端排课明细 ${state.scheduleEntries.length} 行。`
+        : "当前没有连通平时后台。只有连接到主控电脑后台后，才允许查看和编辑正式排课内容。";
     persistUiState();
     renderSaveStatus();
     return;
@@ -2068,9 +2127,13 @@ function renderEntriesTable() {
   }
   const entries = getTableEntries();
   if (!entries.length) {
+    const monthEntries = getMonthlyFilteredEntries({ ignoreDate: true });
+    const emptyText = monthEntries.length
+      ? `当前日期没有排课。本月已有 ${monthEntries.length} 行，可切换日期或老师筛选查看。`
+      : "当前筛选下还没有平时排课行。可以先导入老师排课表，或直接点“新增排课行”。";
     body.innerHTML = `
       <tr>
-        <td colspan="11" class="empty-state">当前筛选下还没有平时排课行。可以先导入 <code>teacher-schedules-template.csv</code>，或直接点“新增排课行”。</td>
+        <td colspan="11" class="empty-state">${escapeHtml(emptyText)}</td>
       </tr>
     `;
     return;
@@ -2122,8 +2185,12 @@ function renderSimpleEntryList() {
   }
   const entries = getMonthlyFilteredEntries();
   if (!entries.length) {
+    const monthEntries = getMonthlyFilteredEntries({ ignoreDate: true });
+    const emptyText = monthEntries.length
+      ? `当前日期没有排课。本月已有 ${monthEntries.length} 行，可切换日期或老师筛选查看。`
+      : "当前筛选下还没有平时排课行。可以先导入老师排课表，或直接点“新增排课行”。";
     node.innerHTML = `
-      <div class="empty-state">当前筛选下还没有平时排课行。可以先导入 <code>teacher-schedules-template.csv</code>，或直接点“新增排课行”。</div>
+      <div class="empty-state">${escapeHtml(emptyText)}</div>
     `;
     return;
   }
