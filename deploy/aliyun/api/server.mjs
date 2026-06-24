@@ -359,6 +359,108 @@ async function readModulePayload(storeKey) {
   return result.rows[0]?.payload || null;
 }
 
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === "[object Object]";
+}
+
+function stableSerialize(value) {
+  if (Array.isArray(value)) return value.map(stableSerialize);
+  if (!isPlainObject(value)) return value;
+  return Object.keys(value).sort().reduce((result, key) => {
+    result[key] = stableSerialize(value[key]);
+    return result;
+  }, {});
+}
+
+function buildModuleMergeId(prefix, row) {
+  const explicitId = [
+    row?.rowId,
+    row?.id,
+    row?.leadId,
+    row?.followupId,
+    row?.auditId,
+    row?.ticketId,
+    row?.sessionId,
+    row?.recordId,
+    row?.entryId,
+    row?.versionId,
+    row?.fileStorageKey
+  ].map((value) => String(value || "").trim()).find(Boolean);
+  if (explicitId) return explicitId;
+
+  const stableParts = [
+    row?.studentName,
+    row?.parentPhone,
+    row?.teacher,
+    row?.teacherName,
+    row?.className,
+    row?.courseDate,
+    row?.date,
+    row?.startTime,
+    row?.endTime,
+    row?.time,
+    row?.student,
+    row?.name,
+    row?.grade,
+    row?.track,
+    row?.lesson,
+    row?.title,
+    row?.fileName,
+    row?.uploadedAt,
+    row?.createdAt
+  ].map((value) => String(value || "").trim()).filter(Boolean);
+
+  const fallbackSeed = stableParts.length
+    ? stableParts.join("|")
+    : JSON.stringify(stableSerialize(Object.fromEntries(
+      Object.entries(row || {}).filter(([key]) => !["updatedAt", "lastUpdatedAt", "lastViewedAt"].includes(key))
+    )));
+  const hash = crypto.createHash("sha1").update(fallbackSeed || `${prefix}-${Date.now()}`).digest("hex").slice(0, 16);
+  return `${prefix}-${hash}`;
+}
+
+function mergeStructuredPayload(previous, incoming, path = "payload") {
+  if (previous === undefined) return incoming;
+
+  if (Array.isArray(previous) && Array.isArray(incoming)) {
+    const allRows = [...previous, ...incoming];
+    const objectRowsOnly = allRows.every((item) => item && typeof item === "object" && !Array.isArray(item));
+    if (!objectRowsOnly) return incoming;
+
+    const prefix = String(path.split(".").pop() || "row").replace(/[^\w-]/g, "") || "row";
+    const map = new Map();
+
+    previous.forEach((row) => {
+      const rowId = buildModuleMergeId(prefix, row);
+      map.set(rowId, { ...row, id: row?.id || rowId });
+    });
+
+    incoming.forEach((row) => {
+      const rowId = buildModuleMergeId(prefix, row);
+      const existing = map.get(rowId);
+      const mergedRow = existing
+        ? mergeStructuredPayload(existing, row, `${path}[]`)
+        : row;
+      map.set(rowId, {
+        ...mergedRow,
+        id: mergedRow?.id || row?.id || existing?.id || rowId
+      });
+    });
+
+    return [...map.values()];
+  }
+
+  if (isPlainObject(previous) && isPlainObject(incoming)) {
+    const merged = { ...previous };
+    Object.entries(incoming).forEach(([key, value]) => {
+      merged[key] = mergeStructuredPayload(previous[key], value, `${path}.${key}`);
+    });
+    return merged;
+  }
+
+  return incoming;
+}
+
 async function upsertModulePayload(storeKey, moduleKey, payload, operatorName = "-", operatorUsername = "-") {
   const result = await pool.query(`
     insert into module_data_store (
@@ -522,6 +624,7 @@ async function handlePutModuleData(req, res, headers) {
   const payload = body.payload === undefined ? null : body.payload;
   const operatorName = body.operatorName || body.operator?.name || "-";
   const operatorUsername = body.operatorUsername || body.operator?.username || "-";
+  const replaceMode = body.replaceMode === "replace";
   const existing = await pool.query(`
     select payload, version
     from module_data_store
@@ -529,6 +632,9 @@ async function handlePutModuleData(req, res, headers) {
     limit 1
   `, [storeKey]);
   const previousRow = existing.rows[0] || null;
+  const mergedPayload = previousRow && !replaceMode
+    ? mergeStructuredPayload(previousRow.payload, payload, storeKey)
+    : payload;
   const result = await pool.query(`
     insert into module_data_store (
       store_key, module_key, payload, version, updated_by_name, updated_by_username, updated_at
@@ -542,7 +648,7 @@ async function handlePutModuleData(req, res, headers) {
       updated_by_username = excluded.updated_by_username,
       updated_at = now()
     returning store_key, module_key, version, updated_at
-  `, [storeKey, moduleKey, JSON.stringify(payload), operatorName, operatorUsername]);
+  `, [storeKey, moduleKey, JSON.stringify(mergedPayload), operatorName, operatorUsername]);
   const nextVersion = result.rows[0].version;
   await pool.query(`
     insert into audit_logs (
@@ -565,7 +671,7 @@ async function handlePutModuleData(req, res, headers) {
     storeKey,
     `${storeKey} 保存至 v${nextVersion}`,
     JSON.stringify(previousRow?.payload ?? null),
-    JSON.stringify(payload),
+    JSON.stringify(mergedPayload),
     operatorName,
     operatorUsername,
     moduleKey
@@ -575,6 +681,7 @@ async function handlePutModuleData(req, res, headers) {
     storeKey: result.rows[0].store_key,
     moduleKey: result.rows[0].module_key,
     version: result.rows[0].version,
+    merged: Boolean(previousRow) && !replaceMode && JSON.stringify(mergedPayload) !== JSON.stringify(payload),
     updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
   }, headers);
 }
