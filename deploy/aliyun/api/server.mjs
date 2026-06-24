@@ -990,6 +990,86 @@ function cleanExtractedText(value) {
     .trim();
 }
 
+function splitFeedbackClauses(rawText) {
+  return String(rawText || "")
+    .replace(/[：:]/g, "：")
+    .split(/[。；;\n，,]/)
+    .map((item) => cleanExtractedText(item))
+    .filter((item) => item && item.length > 1);
+}
+
+function hasStateSignal(text) {
+  return /(状态|表现|注意力|专注|认真|积极|互动|回答|思考|配合|纪律|讲话|说话|插话|走神|开小差|提醒|制止|坐姿|精神|态度|反应|主动|听讲|听课|小动作|情绪|自信|拖拉|粗心)/.test(String(text || ""));
+}
+
+function hasCourseTopic(text) {
+  return /(平行四边形|矩形|菱形|正方形|梯形|三角形|全等|相似|勾股|圆|几何|面积|周长|体积|函数|方程|分数|百分数|比例|应用题|行程|工程|浓度|利润|奥数|计算|科学|物理|化学|实验|力|电|光|密度|知识点|性质|判定|定义|定理|公式|题型|模型|方法|解法|解题|复习|学习|学了|讲了|上了|内容)/.test(String(text || ""));
+}
+
+function isHomeworkClause(text) {
+  return /(作业|课后作业|家庭作业|回家作业|回去|订正|改错|做完|完成.{0,12}(题|页|讲义|练习|试卷|作业)|做.{0,12}(题|页|讲义|练习|试卷))/.test(String(text || ""));
+}
+
+function isPlanClause(text) {
+  return /(下节课|下次课|后续|接下来|下一步|以后|继续|安排|计划|预习|巩固)/.test(String(text || ""));
+}
+
+function polishStateText(parts) {
+  if (!parts.length) return "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。";
+  const text = parts.join("；")
+    .replace(/已经被我制止/g, "老师已及时提醒并制止")
+    .replace(/已经我制止/g, "老师已及时提醒并制止")
+    .replace(/已经被我提醒/g, "老师已及时提醒")
+    .replace(/已经我提醒/g, "老师已及时提醒")
+    .replace(/被我制止/g, "老师已及时提醒并制止")
+    .replace(/我制止/g, "老师已及时提醒并制止")
+    .replace(/被我提醒/g, "老师已及时提醒")
+    .replace(/我提醒/g, "老师已及时提醒");
+  return `${text}。整体来看，孩子能够跟随课堂节奏完成学习，后续老师会继续关注课堂专注度。`;
+}
+
+function parseClassFeedbackInput(rawText) {
+  const clauses = splitFeedbackClauses(rawText);
+  const stateParts = [];
+  const homeworkParts = [];
+  const contentParts = [];
+  const planParts = [];
+  clauses.forEach((clause) => {
+    if (isHomeworkClause(clause)) homeworkParts.push(clause);
+    else if (isPlanClause(clause) && !hasCourseTopic(clause)) planParts.push(clause);
+    else if (hasStateSignal(clause) && !/(知识点|性质|判定|定义|定理|公式)/.test(clause)) stateParts.push(clause);
+    else if (hasCourseTopic(clause)) contentParts.push(clause);
+    else if (isPlanClause(clause)) planParts.push(clause);
+  });
+  const homework = extractHomeworkFromText(homeworkParts.join("；") || rawText);
+  const courseContent = contentParts.length ? contentParts.join("；") : "本节课上课内容待老师补充";
+  const planText = planParts.length ? planParts.join("；") : "下节课我们会继续进行相关知识点巩固，同时穿插重点内容预习和思维训练，帮助孩子把基础掌握得更扎实，学习效果更上一层楼✨";
+  return {
+    stateText: polishStateText(stateParts),
+    homework,
+    courseContent,
+    planText
+  };
+}
+
+function extractTemplateSection(text, label, nextLabels = []) {
+  const source = String(text || "");
+  const start = source.indexOf(label);
+  if (start < 0) return "";
+  const rest = source.slice(start + label.length);
+  const nextIndexes = nextLabels
+    .map((nextLabel) => rest.indexOf(nextLabel))
+    .filter((index) => index >= 0);
+  const end = nextIndexes.length ? Math.min(...nextIndexes) : rest.length;
+  return rest.slice(0, end).trim();
+}
+
+function classFeedbackNeedsRebuild(parentMessage) {
+  const courseSection = extractTemplateSection(parentMessage, "本次课上课内容：", ["知识点要点：", "学习情况反馈："]);
+  const knowledgeSection = extractTemplateSection(parentMessage, "知识点要点：", ["学习情况反馈："]);
+  return hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+}
+
 function formatClassFeedbackText(value, target = "") {
   const greeting = normalizeFeedbackRecipient(target);
   let text = String(value || "")
@@ -1010,14 +1090,15 @@ function formatClassFeedbackText(value, target = "") {
 function buildClassFeedbackTemplate(target, rawText) {
   const greeting = normalizeFeedbackRecipient(target);
   const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
-  const homework = extractHomework(raw);
-  const courseContent = extractCourseContent(raw);
+  const parsed = parseClassFeedbackInput(raw);
+  const homework = parsed.homework;
+  const courseContent = parsed.courseContent;
   const knowledgePoints = buildKnowledgePoints(raw);
   return [
     `${greeting}，这是春季小课第__次课程反馈：`,
     "",
     "上课状态：",
-    "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。",
+    parsed.stateText,
     "",
     "课后作业：",
     `《${homework}》做完`,
@@ -1039,30 +1120,37 @@ function buildClassFeedbackTemplate(target, rawText) {
     "孩子学习态度比较认真，能够在老师引导下思考问题。如果后续能继续保持专注，并加强错题复盘，学习效果会更稳定✨",
     "",
     "3. 后续学习计划",
-    "下节课我们会继续进行相关知识点巩固，同时穿插重点内容预习和思维训练，帮助孩子把基础掌握得更扎实，学习效果更上一层楼✨"
+    parsed.planText
   ].join("\n");
 }
 
-function extractHomework(rawText) {
+function extractHomeworkFromText(rawText) {
   const text = String(rawText || "");
   const match = text.match(/(?:作业|课后作业|回家作业|家庭作业|回去|课后)[是为：: ]*(?:完成|做完|做|写)?([^。；;\n]+)/);
   const homework = cleanExtractedText(match?.[1] || "");
   return homework.replace(/^(完成|做完|做|写)/, "").trim() || "__";
 }
 
+function extractHomework(rawText) {
+  return parseClassFeedbackInput(rawText).homework;
+}
+
 function extractCourseContent(rawText) {
-  const text = String(rawText || "").trim();
-  const match = text.match(/(?:本次课上课内容|上课内容|学习内容|主要内容|今天学了|今天复习|复习了|讲了|学习了|内容)[是为：: ]*([^。；;\n]+)/);
-  const content = cleanExtractedText(match?.[1] || "");
-  if (content) return content;
-  const sentence = text.split(/[。；;\n]/).map((item) => item.trim()).find((item) => /(分数|百分数|比例|方程|几何|面积|周长|体积|圆|三角形|函数|科学|物理|化学|实验|应用题|奥数|计算|行程|工程|浓度|利润)/.test(item));
-  return sentence || text || "本节课课堂情况待老师补充";
+  return parseClassFeedbackInput(rawText).courseContent;
 }
 
 function buildKnowledgePoints(rawText) {
   const content = extractCourseContent(rawText);
   const compact = content.replace(/\s+/g, "");
   const points = [];
+  if (/平行四边形/.test(compact)) {
+    points.push("平行四边形定义：两组对边分别平行的四边形叫平行四边形。");
+    points.push("平行四边形性质：对边平行且相等，对角相等，邻角互补，对角线互相平分。");
+    points.push("平行四边形判定：两组对边分别平行、两组对边分别相等、一组对边平行且相等、两组对角分别相等、对角线互相平分，都可判定为平行四边形。");
+    if (/面积|底|高/.test(compact)) points.push("平行四边形面积：S = 底 × 高，底和高必须对应。");
+  }
+  if (/矩形/.test(compact)) points.push("矩形要点：矩形是有一个角为直角的平行四边形，四个角都是直角，对角线相等且互相平分。");
+  if (/菱形/.test(compact)) points.push("菱形要点：菱形是四条边都相等的平行四边形，对角线互相垂直平分，并分别平分一组对角。");
   if (/分数|应用题/.test(compact)) points.push("分数应用题：先找准单位“1”和对应分率，常用关系是单位量 × 对应分率 = 对应量。");
   if (/百分数|利润|折扣|浓度/.test(compact)) points.push("百分数问题：百分率 = 比较量 ÷ 标准量 × 100%，增长率、折扣、利润率都要先确定比较基准。");
   if (/比例|正比例|反比例/.test(compact)) points.push("比例关系：比例式 a:b = c:d 中内项积等于外项积；正比例关注 y/x 为定值，反比例关注 xy 为定值。");
@@ -1072,7 +1160,7 @@ function buildKnowledgePoints(rawText) {
   if (/长方形|正方形|几何|面积|周长|体积/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
   if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
   if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
-  if (!points.length) points.push(`本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
+  if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
   return points.map((point, index) => `${index + 1}. ${point}`).join("\n");
 }
 
@@ -1084,7 +1172,10 @@ function aiSystemPrompt() {
     "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
     "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；每个栏目之间必须空一行，方便老师复制到微信。",
     "课堂反馈称呼统一用“某某的家长您好”，不要默认写妈妈或爸爸；原始描述里的作业要提取到课后作业；原始描述里的上课主要内容要提取到本次课上课内容。",
+    "生成课堂反馈前必须先做语义分类：孩子表现、注意力、讲话、提醒、制止、互动、状态、纪律等只属于“上课状态”；作业只属于“课后作业”；具体学习主题、章节、题型、知识点才属于“本次课上课内容”。",
+    "严禁把“表现不错、偶尔讲话、已提醒/已制止、注意力、专注度”等课堂状态内容写进“本次课上课内容”或“知识点要点”。",
     "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
+    "如果上课内容提到平行四边形，知识点要点必须包含：定义、性质、判定；涉及面积时补充面积公式。",
     "不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
     "返回严格 JSON，不要 Markdown，不要解释。",
     "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction, riskLevel, className, courseName。",
@@ -1105,6 +1196,13 @@ function buildAiUserPrompt(body) {
     mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
     mode === "classFeedback" ? [
       "根据老师原始描述，匹配并填写以下统一课堂反馈模板；根据实际情况适当改写，不要生硬套话；parentMessage 必须是一段可直接微信发给家长的完整文字；每个栏目之间必须保留空行：",
+      "填写前先把原始内容分类：",
+      "A. 上课状态：孩子表现、注意力、讲话、纪律、互动、提醒、制止、状态、态度。",
+      "B. 课后作业：老师提到的作业、练习、讲义、订正、完成内容。",
+      "C. 本次课上课内容：真实学习主题、章节、题型、知识点，例如平行四边形、函数、方程等。",
+      "D. 知识点要点：只能根据 C 生成定义、公式、性质、判定、定理、方法，不能写孩子状态。",
+      "如果老师只说了孩子状态，没有说具体学习内容，本次课上课内容写“本节课上课内容待老师补充”，知识点要点写“知识点待老师补充”。",
+      "如果 C 包含平行四边形，知识点要点必须写：定义、性质、判定；如果涉及面积，再写 S = 底 × 高。",
       "某某的家长您好，这是春季小课第__次课程反馈：",
       "上课状态：",
       "今天孩子上课状态非常棒！精神饱满，注意力集中，全程紧跟老师节奏。做题反应迅速，思考积极，课堂互动活跃，表现出很强的学习热情和主动性。",
