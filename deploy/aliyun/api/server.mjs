@@ -970,24 +970,67 @@ function localAiDraft(body) {
   };
 }
 
+function normalizeFeedbackRecipient(target) {
+  const raw = String(target || "").trim();
+  if (!raw) return "家长您好";
+  const first = raw.split(/[，,、\s/｜|]+/).filter(Boolean)[0] || raw;
+  if (first === "家长") return "家长您好";
+  if (/家长$/.test(first)) return `${first}您好`;
+  if (/(爸爸|妈妈|父亲|母亲|父母)$/.test(first)) return `${first.replace(/^(.*?)(爸爸|妈妈|父亲|母亲|父母)$/, "$1的家长")}您好`;
+  return `${first}的家长您好`;
+}
+
+function cleanExtractedText(value) {
+  return String(value || "")
+    .replace(/^[是为：:\s]+/, "")
+    .replace(/[。；;，,\s]+$/, "")
+    .replace(/^把/, "")
+    .replace(/^(《|「|“|")/, "")
+    .replace(/(》|」|”|")$/, "")
+    .trim();
+}
+
+function formatClassFeedbackText(value, target = "") {
+  const greeting = normalizeFeedbackRecipient(target);
+  let text = String(value || "")
+    .replace(/^.{0,16}(妈妈|爸爸|父母|家长)[，,：:\s]*您好?[，,：:\s]*/, `${greeting}，`)
+    .replace(/(上课状态：)/g, "\n\n$1\n")
+    .replace(/(课后作业：)/g, "\n\n$1\n")
+    .replace(/(本次课上课内容：)/g, "\n\n$1\n")
+    .replace(/(知识点要点：)/g, "\n\n$1\n")
+    .replace(/(学习情况反馈：)/g, "\n\n$1\n")
+    .replace(/(💡\s*小技巧：)/g, "\n\n$1\n")
+    .replace(/([23]\.\s*[^：\n]+表现|3\.\s*后续学习计划)/g, "\n\n$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (text && !text.startsWith(greeting)) text = `${greeting}，\n\n${text}`;
+  return text;
+}
+
 function buildClassFeedbackTemplate(target, rawText) {
-  const recipient = String(target || "").trim() || "家长";
+  const greeting = normalizeFeedbackRecipient(target);
   const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
+  const homework = extractHomework(raw);
+  const courseContent = extractCourseContent(raw);
+  const knowledgePoints = buildKnowledgePoints(raw);
   return [
-    `${recipient}妈妈，这是春季小课第__次课程反馈：`,
+    `${greeting}，这是春季小课第__次课程反馈：`,
     "",
     "上课状态：",
     "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。",
     "",
     "课后作业：",
-    "《__》做完",
+    `《${homework}》做完`,
     "",
     "本次课上课内容：",
-    raw,
+    courseContent,
+    "",
+    "知识点要点：",
+    knowledgePoints,
     "",
     "学习情况反馈：",
     "1. 知识点掌握情况",
-    "本节课我们重点围绕课堂内容进行了复习和训练。从课堂整体表现来看，孩子对主要知识点已有一定理解，基础题型能够跟上；个别细节和易错点还需要课后继续练习巩固。",
+    `本节课我们重点围绕“${courseContent}”进行了复习和训练。从课堂整体表现来看，孩子对主要知识点已有一定理解，基础题型能够跟上；个别细节和易错点还需要课后继续练习巩固。`,
     "",
     "💡 小技巧：",
     "课后建议先回顾课堂例题，再独立完成同类练习，遇到错题及时整理原因。",
@@ -1000,13 +1043,49 @@ function buildClassFeedbackTemplate(target, rawText) {
   ].join("\n");
 }
 
+function extractHomework(rawText) {
+  const text = String(rawText || "");
+  const match = text.match(/(?:作业|课后作业|回家作业|家庭作业|回去|课后)[是为：: ]*(?:完成|做完|做|写)?([^。；;\n]+)/);
+  const homework = cleanExtractedText(match?.[1] || "");
+  return homework.replace(/^(完成|做完|做|写)/, "").trim() || "__";
+}
+
+function extractCourseContent(rawText) {
+  const text = String(rawText || "").trim();
+  const match = text.match(/(?:本次课上课内容|上课内容|学习内容|主要内容|今天学了|今天复习|复习了|讲了|学习了|内容)[是为：: ]*([^。；;\n]+)/);
+  const content = cleanExtractedText(match?.[1] || "");
+  if (content) return content;
+  const sentence = text.split(/[。；;\n]/).map((item) => item.trim()).find((item) => /(分数|百分数|比例|方程|几何|面积|周长|体积|圆|三角形|函数|科学|物理|化学|实验|应用题|奥数|计算|行程|工程|浓度|利润)/.test(item));
+  return sentence || text || "本节课课堂情况待老师补充";
+}
+
+function buildKnowledgePoints(rawText) {
+  const content = extractCourseContent(rawText);
+  const compact = content.replace(/\s+/g, "");
+  const points = [];
+  if (/分数|应用题/.test(compact)) points.push("分数应用题：先找准单位“1”和对应分率，常用关系是单位量 × 对应分率 = 对应量。");
+  if (/百分数|利润|折扣|浓度/.test(compact)) points.push("百分数问题：百分率 = 比较量 ÷ 标准量 × 100%，增长率、折扣、利润率都要先确定比较基准。");
+  if (/比例|正比例|反比例/.test(compact)) points.push("比例关系：比例式 a:b = c:d 中内项积等于外项积；正比例关注 y/x 为定值，反比例关注 xy 为定值。");
+  if (/方程|等式/.test(compact)) points.push("方程思想：用未知数表示关键信息，根据等量关系建立方程，再检验结果是否符合题意。");
+  if (/圆/.test(compact)) points.push("圆的公式：周长 C = 2πr = πd，面积 S = πr²，题目中要区分半径和直径。");
+  if (/三角形/.test(compact)) points.push("三角形面积：S = 底 × 高 ÷ 2，解题时重点找到对应的底和高。");
+  if (/长方形|正方形|几何|面积|周长|体积/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
+  if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
+  if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
+  if (!points.length) points.push(`本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
+  return points.map((point, index) => `${index + 1}. ${point}`).join("\n");
+}
+
 function aiSystemPrompt() {
   return [
     "你是匠人程教育工作台的内部 AI 助手。",
     "你服务中小学数学/科学教培机构员工，主要帮助整理课后反馈、待办、建议、任务说明和工作台使用问题。",
     "所有输出必须谨慎，涉及学生、家长、财务、考核的信息只能作为草稿，提醒员工人工确认。",
     "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
-    "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
+    "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；每个栏目之间必须空一行，方便老师复制到微信。",
+    "课堂反馈称呼统一用“某某的家长您好”，不要默认写妈妈或爸爸；原始描述里的作业要提取到课后作业；原始描述里的上课主要内容要提取到本次课上课内容。",
+    "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
+    "不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
     "返回严格 JSON，不要 Markdown，不要解释。",
     "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction, riskLevel, className, courseName。",
     "todoItems 必须是字符串数组。没有内容时填空字符串或空数组。"
@@ -1025,16 +1104,16 @@ function buildAiUserPrompt(body) {
     "整理要求：",
     mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
     mode === "classFeedback" ? [
-      "根据老师原始描述，匹配并填写以下统一课堂反馈模板；根据实际情况适当改写，不要生硬套话；parentMessage 必须是一段可直接微信发给家长的完整文字：",
-      "xx妈妈，这是春季小课第__次课程反馈：",
+      "根据老师原始描述，匹配并填写以下统一课堂反馈模板；根据实际情况适当改写，不要生硬套话；parentMessage 必须是一段可直接微信发给家长的完整文字；每个栏目之间必须保留空行：",
+      "某某的家长您好，这是春季小课第__次课程反馈：",
       "上课状态：",
       "今天孩子上课状态非常棒！精神饱满，注意力集中，全程紧跟老师节奏。做题反应迅速，思考积极，课堂互动活跃，表现出很强的学习热情和主动性。",
       "课后作业：",
-      "《__》做完",
+      "《从老师原始描述中提取作业；没有则填 __》做完",
       "本次课上课内容：",
-      "__",
-      "__",
-      "__",
+      "从老师原始描述中提取主要上课内容，分 1-3 行写清楚。",
+      "知识点要点：",
+      "请根据老师提到的上课主要内容，补充家长可查询、可询问孩子的核心定义、公式、定理、解题思路或知识要点；数学要尽量写清公式/方法，科学要尽量写清概念/现象/结论。",
       "学习情况反馈：",
       "1. 知识点掌握情况",
       "本节课我们重点带孩子复习了__。从课堂整体表现来看，孩子对__解题思路清晰明了，__内容也能灵活运用，__核心知识点掌握得较为扎实。不过__方面还有进步空间，建议课后多练习，逐步提升。",
@@ -1077,8 +1156,15 @@ function parseAiJson(text, fallback) {
 function ensureClassFeedbackResult(result, body) {
   if (String(body?.mode || "") !== "classFeedback") return result;
   const parentMessage = String(result?.parentMessage || "");
-  const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈");
-  if (hasTemplate) return result;
+  const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈") && parentMessage.includes("知识点要点");
+  if (hasTemplate) {
+    const formatted = formatClassFeedbackText(parentMessage, body?.target || "");
+    return {
+      ...result,
+      parentMessage: formatted,
+      polishedText: result?.polishedText === parentMessage ? formatted : result?.polishedText
+    };
+  }
   const template = buildClassFeedbackTemplate(body?.target || "家长", body?.text || "");
   return {
     ...result,
