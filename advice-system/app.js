@@ -142,17 +142,105 @@ function loadState() {
   }
 }
 
+function buildAdmissionsId(prefix, parts) {
+  const seed = (Array.isArray(parts) ? parts : [parts]).map((value) => String(value || "").trim()).filter(Boolean).join("|")
+    || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  return `${prefix}-${hash.toString(16)}`;
+}
+
+function ensureLeadId(lead) {
+  const existing = String(lead?.leadId || lead?.id || "").trim();
+  if (existing) return { ...lead, leadId: existing };
+  return {
+    ...lead,
+    leadId: buildAdmissionsId("lead", [
+      lead?.studentName,
+      normalizePhone(lead?.parentPhone),
+      lead?.createdAt
+    ])
+  };
+}
+
+function ensureFollowupId(item) {
+  const existing = String(item?.followupId || item?.id || "").trim();
+  if (existing) return { ...item, followupId: existing };
+  return {
+    ...item,
+    followupId: buildAdmissionsId("followup", [
+      item?.studentName,
+      item?.time,
+      item?.text
+    ])
+  };
+}
+
+function ensureAuditId(item) {
+  const existing = String(item?.auditId || item?.id || "").trim();
+  if (existing) return { ...item, auditId: existing };
+  return {
+    ...item,
+    auditId: buildAdmissionsId("audit", [
+      item?.time,
+      item?.operator,
+      item?.action,
+      item?.studentName,
+      item?.detail
+    ])
+  };
+}
+
+function mergeLeadRows(...groups) {
+  const map = new Map();
+  groups.flat().forEach((lead) => {
+    if (!lead || typeof lead !== "object") return;
+    const safeLead = ensureLeadId(lead);
+    const key = safeLead.leadId;
+    const existing = map.get(key) || {};
+    map.set(key, {
+      ...existing,
+      ...safeLead,
+      leadId: key,
+      renewalRecords: Array.isArray(safeLead.renewalRecords) ? safeLead.renewalRecords : Array.isArray(existing.renewalRecords) ? existing.renewalRecords : []
+    });
+  });
+  return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function mergeFollowupRows(...groups) {
+  const map = new Map();
+  groups.flat().forEach((item) => {
+    if (!item || typeof item !== "object") return;
+    const safeItem = ensureFollowupId(item);
+    const existing = map.get(safeItem.followupId) || {};
+    map.set(safeItem.followupId, { ...existing, ...safeItem, followupId: safeItem.followupId });
+  });
+  return [...map.values()].sort((left, right) => String(right.time || "").localeCompare(String(left.time || "")));
+}
+
+function mergeAuditRows(...groups) {
+  const map = new Map();
+  groups.flat().forEach((item) => {
+    if (!item || typeof item !== "object") return;
+    const safeItem = ensureAuditId(item);
+    const existing = map.get(safeItem.auditId) || {};
+    map.set(safeItem.auditId, { ...existing, ...safeItem, auditId: safeItem.auditId });
+  });
+  return [...map.values()].sort((left, right) => String(right.time || "").localeCompare(String(left.time || ""))).slice(0, 120);
+}
+
 function normalizeState(nextState) {
-  nextState.leads = (nextState.leads || []).map((lead) => ({
+  nextState.leads = mergeLeadRows((nextState.leads || []).map((lead) => ({
     ...lead,
     parentNeed: lead.parentNeed || "",
     studentPainPoint: lead.studentPainPoint || "",
     objection: lead.objection || "暂无明确异议",
     nextFollowupDate: lead.nextFollowupDate || "",
     renewalRecords: Array.isArray(lead.renewalRecords) ? lead.renewalRecords : [],
-  }));
-  nextState.followups = Array.isArray(nextState.followups) ? nextState.followups : [];
-  nextState.auditLogs = Array.isArray(nextState.auditLogs) ? nextState.auditLogs : [];
+  })));
+  nextState.followups = mergeFollowupRows(Array.isArray(nextState.followups) ? nextState.followups : []);
+  nextState.auditLogs = mergeAuditRows(Array.isArray(nextState.auditLogs) ? nextState.auditLogs : []);
   return nextState;
 }
 
@@ -172,6 +260,9 @@ function persistState() {
         commissionRate: employee.commissionRate || ""
       }));
     }
+    state.leads = mergeLeadRows(state.leads);
+    state.followups = mergeFollowupRows(state.followups);
+    state.auditLogs = mergeAuditRows(state.auditLogs);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     scheduleCloudPersist();
   } catch {}
@@ -199,10 +290,19 @@ async function hydrateCloudState() {
         ...structuredClone(defaultState),
         ...result.data.payload,
       });
+      const mergedState = normalizeState({
+        ...structuredClone(defaultState),
+        ...state,
+        ...nextState,
+        leads: mergeLeadRows(state.leads || [], nextState.leads || []),
+        followups: mergeFollowupRows(state.followups || [], nextState.followups || []),
+        auditLogs: mergeAuditRows(state.auditLogs || [], nextState.auditLogs || [])
+      });
       Object.keys(state).forEach((key) => delete state[key]);
-      Object.assign(state, nextState);
+      Object.assign(state, mergedState);
       cloudStoreReady = true;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (JSON.stringify(mergedState) !== JSON.stringify(nextState)) scheduleCloudPersist();
       renderAll();
       return;
     }
@@ -261,14 +361,13 @@ function logAudit(action, studentName, detail) {
   if (!Array.isArray(state.auditLogs)) {
     state.auditLogs = [];
   }
-  state.auditLogs.unshift({
+  state.auditLogs = mergeAuditRows([{
     time: formatNowStamp(),
     operator: getOperatorLabel(),
     action,
     studentName: studentName || "-",
     detail
-  });
-  state.auditLogs = state.auditLogs.slice(0, 120);
+  }], state.auditLogs);
 }
 
 function formatTrialDisplay(trialTime) {
@@ -345,7 +444,7 @@ function pushFollowup(studentName, text, time = "刚刚") {
   if (!Array.isArray(state.followups)) {
     state.followups = [];
   }
-  state.followups.push({ studentName, time, text });
+  state.followups = mergeFollowupRows(state.followups, [{ studentName, time, text }]);
 }
 
 function csvEscape(value) {
@@ -2004,6 +2103,7 @@ function bindBatchImport() {
     if (!canEditAdmissions()) return;
     const confirmed = window.confirm("将重新读取云端招生数据，不删除任何云端记录。确认继续吗？");
     if (!confirmed) return;
+    cloudStoreReady = false;
     state.leads = [];
     state.followups = [];
     state.auditLogs = [];
@@ -2017,6 +2117,7 @@ function bindBatchImport() {
     state.selectedLeadName = "";
     localStorage.removeItem(STORAGE_KEY);
     renderAll();
+    hydrateCloudState();
   });
   button.addEventListener("click", () => {
     if (!canImportAdmissions()) {
