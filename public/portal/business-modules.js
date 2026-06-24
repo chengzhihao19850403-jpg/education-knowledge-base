@@ -726,7 +726,7 @@
             <td>${escapeHtml(row.student)}</td>
             <td>${escapeHtml(row.className)}</td>
             <td>${escapeHtml(row.teacher)}</td>
-            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}<br>${escapeHtml(row.content)}</td>
+            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}` : ""}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
@@ -784,6 +784,7 @@
       { label: "服务类型", value: "type" },
       { label: "风险等级", value: "risk" },
       { label: "记录内容", value: "content" },
+      { label: "家长版反馈", value: "parentMessage" },
       { label: "下一步", value: "next" },
       { label: "创建时间", value: "createdAt" },
       { label: "更新时间", value: "updatedAt" }

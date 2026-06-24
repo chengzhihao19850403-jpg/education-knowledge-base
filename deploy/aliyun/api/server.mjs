@@ -938,6 +938,7 @@ async function handleBackupExport(req, res, headers) {
 function aiModeLabel(mode) {
   return {
     feedback: "课后反馈",
+    classFeedback: "课堂反馈",
     todo: "待办事项",
     suggestion: "员工建议",
     task: "任务说明",
@@ -950,13 +951,22 @@ function localAiDraft(body) {
   const text = String(body.text || "").trim();
   const mode = String(body.mode || "feedback");
   const label = aiModeLabel(mode);
+  const parentMessage = mode === "classFeedback"
+    ? `家长您好，今天课堂反馈如下：${text}\n\n老师建议课后根据本次课堂情况完成对应练习，后续我们也会继续关注孩子的掌握情况。`
+    : mode === "feedback"
+      ? "建议老师确认后再发送给家长。"
+      : "";
   return {
     title: body.target ? `${body.target}｜${label}` : label,
     summary: text ? `已按${label}整理为草稿。` : "AI 接口可用性检测。",
     polishedText: text,
     todoItems: mode === "todo" ? text.split(/[；;。\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
-    parentMessage: mode === "feedback" ? "建议老师确认后再发送给家长。" : "",
-    internalNote: "MiniMax Key 尚未配置或接口暂不可用，本结果为本地草稿整理。"
+    parentMessage,
+    internalNote: "MiniMax Key 尚未配置或接口暂不可用，本结果为本地草稿整理。",
+    suggestedAction: ["feedback", "classFeedback"].includes(mode) ? "老师确认后归档学生服务，并复制发给家长。" : "",
+    riskLevel: "正常",
+    className: "",
+    courseName: ""
   };
 }
 
@@ -965,8 +975,9 @@ function aiSystemPrompt() {
     "你是匠人程教育工作台的内部 AI 助手。",
     "你服务中小学数学/科学教培机构员工，主要帮助整理课后反馈、待办、建议、任务说明和工作台使用问题。",
     "所有输出必须谨慎，涉及学生、家长、财务、考核的信息只能作为草稿，提醒员工人工确认。",
+    "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
     "返回严格 JSON，不要 Markdown，不要解释。",
-    "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction。",
+    "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction, riskLevel, className, courseName。",
     "todoItems 必须是字符串数组。没有内容时填空字符串或空数组。"
   ].join("\n");
 }
@@ -982,6 +993,7 @@ function buildAiUserPrompt(body) {
     "",
     "整理要求：",
     mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
+    mode === "classFeedback" ? "整理成统一课堂反馈模板：1 本节学习内容；2 孩子课堂表现；3 掌握情况与薄弱点；4 作业/练习建议；5 需要家长配合。parentMessage 必须是可直接微信发给家长的一段完整文字；internalNote 写给学管，包含是否需要跟进、风险等级和下一步。" : "",
     mode === "todo" ? "拆成明确待办，尽量包含负责人、截止时间线索和下一步动作。" : "",
     mode === "suggestion" ? "整理成正式管理建议，包含现象、影响、建议方案和预期收益。" : "",
     mode === "task" ? "整理成任务说明，包含目标、完成标准、子任务和验收口径。" : "",

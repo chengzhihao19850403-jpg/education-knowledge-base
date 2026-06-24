@@ -106,6 +106,7 @@
             <label class="field">
               整理类型
               <select id="aiModeInput">
+                <option value="classFeedback">课堂反馈（发家长）</option>
                 <option value="feedback">课后反馈</option>
                 <option value="todo">待办事项</option>
                 <option value="suggestion">员工建议</option>
@@ -141,6 +142,7 @@
             <div class="actions">
               <button class="button secondary" id="copyResultButton" type="button">复制结果</button>
               <button class="button" id="saveDraftButton" type="button">保存草稿</button>
+              <button class="button" id="saveStudentServiceButton" type="button">归档学生服务</button>
               <button class="button warn" id="saveTaskButton" type="button">转成建议/任务</button>
             </div>
           </div>
@@ -157,6 +159,7 @@
     <script>
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
+      const STUDENT_SERVICE_KEY = "jrc-student-service-v2";
       const byId = (id) => document.getElementById(id);
       const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
       const currentName = currentEmployee.name || "员工";
@@ -219,6 +222,7 @@
       function modeLabel(mode) {
         return {
           feedback: "课后反馈",
+          classFeedback: "课堂反馈",
           todo: "待办事项",
           suggestion: "员工建议",
           task: "任务说明",
@@ -232,9 +236,9 @@
           ["标题", result.title],
           ["摘要", result.summary],
           ["整理正文", result.polishedText],
+          ["发家长版", result.parentMessage],
           ["建议动作", result.suggestedAction],
           ["待办", Array.isArray(result.todoItems) ? result.todoItems.map((item) => `- ${item}`).join("\\n") : ""],
-          ["家长沟通建议", result.parentMessage],
           ["内部备注", result.internalNote]
         ].filter(([, value]) => value);
         return sections.map(([label, value]) => `${label}：\\n${Array.isArray(value) ? value.join("\\n") : value}`).join("\\n\\n");
@@ -247,7 +251,7 @@
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
           ${result.polishedText ? `<div class="result-item"><strong>整理正文</strong><p>${escapeHtml(result.polishedText).replace(/\\n/g, "<br>")}</p></div>` : ""}
           ${todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
-          ${result.parentMessage ? `<div class="result-item"><strong>家长沟通建议</strong><p>${escapeHtml(result.parentMessage).replace(/\\n/g, "<br>")}</p></div>` : ""}
+          ${result.parentMessage ? `<div class="result-item"><strong>发家长版</strong><p>${escapeHtml(result.parentMessage).replace(/\\n/g, "<br>")}</p></div>` : ""}
           ${result.internalNote ? `<div class="result-item"><strong>内部备注</strong><p>${escapeHtml(result.internalNote).replace(/\\n/g, "<br>")}</p></div>` : ""}
         `;
       }
@@ -259,7 +263,7 @@
           summary: `已按${label}整理为草稿。`,
           polishedText: payload.text,
           todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
-          parentMessage: payload.mode === "feedback" ? "建议老师确认后再发送给家长。" : "",
+          parentMessage: ["feedback", "classFeedback"].includes(payload.mode) ? `家长您好，${payload.text}。以上为本节课学习反馈，老师会继续跟进孩子的掌握情况。` : "",
           internalNote: "已整理成草稿，请老师确认后再保存或发送。"
         };
       }
@@ -368,6 +372,63 @@
         byId("aiMessage").textContent = isTask ? "已保存为任务草稿。" : "已保存为建议草稿。";
       }
 
+      function studentNameFromTarget() {
+        const target = byId("aiTargetInput").value.trim();
+        if (target) return target.split(/[，,、\s/｜|]+/).filter(Boolean)[0] || target;
+        return latestResult?.studentName || latestResult?.title || "";
+      }
+
+      function mergeRowsById(rows) {
+        const map = new Map();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const id = String(row.id || row.rowId || "").trim() || `ss-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...row, id });
+        });
+        return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
+      }
+
+      async function saveToStudentService() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        const student = studentNameFromTarget();
+        if (!student) {
+          byId("aiMessage").textContent = "请先在关联对象里填写学生姓名。";
+          return;
+        }
+        const mode = byId("aiModeInput").value;
+        const serviceRow = {
+          id: `ai-feedback-${Date.now()}`,
+          student,
+          className: latestResult.className || latestResult.courseName || "-",
+          teacher: currentName,
+          type: ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : "学习跟踪",
+          risk: latestResult.riskLevel || "正常",
+          content: latestResult.internalNote || latestResult.polishedText || resultToText(latestResult),
+          parentMessage: latestResult.parentMessage || "",
+          next: latestResult.suggestedAction || (Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("；") : "") || "学管跟进家长反馈",
+          sourceModule: "aiAssistant",
+          sourceText: byId("aiInputText").value.trim(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: currentName
+        };
+        let rows = safeParse(localStorage.getItem(STUDENT_SERVICE_KEY), []);
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(STUDENT_SERVICE_KEY);
+          if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+            rows = mergeRowsById([...remote.data.payload, ...(Array.isArray(rows) ? rows : [])]);
+          }
+        } catch (_) {}
+        const nextRows = mergeRowsById([serviceRow, ...(Array.isArray(rows) ? rows : [])]);
+        localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
+        const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
+        byId("aiMessage").textContent = result?.ok ? "已归档到学生服务系统，学管可在学生档案中查看并复制给家长。" : "已暂存在当前设备，云端恢复后会同步。";
+      }
+
       function setupVoice() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
@@ -416,6 +477,7 @@
       });
       byId("saveDraftButton").addEventListener("click", saveDraft);
       byId("saveTaskButton").addEventListener("click", saveToSuggestionTask);
+      byId("saveStudentServiceButton")?.addEventListener("click", saveToStudentService);
 
       setupVoice();
       renderDrafts();
