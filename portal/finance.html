@@ -758,6 +758,24 @@
             <tbody id="attendanceFlowFinanceBody"></tbody>
           </table>
         </div>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>老师</th>
+                <th>学生</th>
+                <th>班级 / 课程</th>
+                <th>点名 / 出门测</th>
+                <th>财务人次</th>
+                <th>单独结算</th>
+                <th>异常处理</th>
+                <th>复核</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceDetailFinanceBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="grid" id="monthlySection">
@@ -2158,6 +2176,23 @@
         return "普通老师：有效到课进入课时费结算草表，缺席进入补课/课销追踪";
       }
 
+      function attendanceFinanceStatus(row, teacher) {
+        if (isEffectivePresent(row) && !FINANCE_EXCLUDED_TEACHERS.includes(teacher)) return "计 1";
+        if (FINANCE_EXCLUDED_TEACHERS.includes(teacher)) return "不进普通财务";
+        if (attendanceFollowupHandled(row)) return row.followup || "已处理";
+        return "暂缓";
+      }
+
+      function attendanceSpecialStatus(row, teacher) {
+        if (!SPECIAL_SETTLEMENT_TEACHERS.includes(teacher)) return "-";
+        return isEffectivePresent(row) ? "计 1" : attendanceFollowupHandled(row) ? "已处理不计" : "暂缓";
+      }
+
+      function attendanceExceptionStatus(row) {
+        if (!needsAttendanceFollowup(row)) return attendanceFollowupHandled(row) ? "已处理" : "正常";
+        return row.followup || "待联系家长";
+      }
+
       function deriveAttendanceSettlementRows() {
         const groups = new Map();
         attendanceSessions.forEach((session) => {
@@ -2188,6 +2223,29 @@
           });
         });
         return Array.from(groups.values()).sort((a, b) => a.teacher.localeCompare(b.teacher, "zh-CN"));
+      }
+
+      function deriveAttendanceDetailRows() {
+        return attendanceSessions
+          .filter((session) => attendancePeriod(session.date) === currentPeriod)
+          .flatMap((session) => (session.rows || []).map((row) => {
+            const teacher = session.teacher || row.teacher || "未填老师";
+            return {
+              date: session.date || "-",
+              teacher,
+              studentName: row.studentName || row.student || "-",
+              className: session.className || "-",
+              status: row.status || "-",
+              exitScore: row.exitScore || "",
+              financeStatus: attendanceFinanceStatus(row, teacher),
+              specialStatus: attendanceSpecialStatus(row, teacher),
+              exceptionStatus: attendanceExceptionStatus(row),
+              followupHandledBy: row.followupHandledBy || "",
+              followupHandledAt: row.followupHandledAt || "",
+              reviewStatus: session.reviewStatus || "待复核"
+            };
+          }))
+          .sort((a, b) => `${b.date}${b.teacher}${b.studentName}`.localeCompare(`${a.date}${a.teacher}${a.studentName}`, "zh-CN"));
       }
 
       function renderAttendanceSettlementPreview() {
@@ -2226,6 +2284,32 @@
             <td>${escapeHtml(settlementBasis(row))}</td>
           </tr>
         `).join("");
+      }
+
+      function renderAttendanceDetailPreview() {
+        const body = byId("attendanceDetailFinanceBody");
+        if (!body) return;
+        const rows = deriveAttendanceDetailRows();
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="9" class="muted">当前月份暂无逐学生点名明细。</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.slice(0, 80).map((row) => {
+          const exceptionClass = row.exceptionStatus === "正常" || row.exceptionStatus === "已处理" ? "status-pill ok" : "status-pill pending";
+          return `
+            <tr>
+              <td>${escapeHtml(row.date)}</td>
+              <td>${escapeHtml(row.teacher)}</td>
+              <td><strong>${escapeHtml(row.studentName)}</strong></td>
+              <td>${escapeHtml(row.className)}</td>
+              <td>${escapeHtml(row.status)}${row.exitScore ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
+              <td>${escapeHtml(row.financeStatus)}</td>
+              <td>${escapeHtml(row.specialStatus)}</td>
+              <td><span class="${exceptionClass}">${escapeHtml(row.exceptionStatus)}</span>${row.followupHandledBy ? `<br>${escapeHtml(row.followupHandledBy)} ${escapeHtml(String(row.followupHandledAt).slice(0, 10))}` : ""}</td>
+              <td>${escapeHtml(row.reviewStatus)}</td>
+            </tr>
+          `;
+        }).join("");
       }
 
       function renderAttendanceFlowStatus() {
@@ -2288,6 +2372,7 @@
         renderTeacherDiffPreview();
         renderRowDiffPreview();
         renderAttendanceSettlementPreview();
+        renderAttendanceDetailPreview();
         renderAttendanceFlowStatus();
       }
 
@@ -2406,6 +2491,7 @@
         const period = getPeriod();
         const totals = calculate(period);
         const attendanceRows = deriveAttendanceSettlementRows();
+        const attendanceDetailRows = deriveAttendanceDetailRows();
         const attendanceTotals = attendanceRows.reduce((acc, row) => {
           acc.lessons += row.lessons;
           acc.financePresent += row.financePresent;
@@ -2452,7 +2538,24 @@
           ["点名课次数", attendanceTotals.lessons, "来源于学生服务系统保存的点名记录"],
           ["普通财务人次", attendanceTotals.financePresent, "进入普通老师课时费草算"],
           ["单独结算人次", attendanceTotals.specialPresent, "海滢滢、姚老师单独核对"],
-          ["待追踪人次", attendanceTotals.followupCount, "未落实前不建议确认课销和课时费"]
+          ["待追踪人次", attendanceTotals.followupCount, "未落实前不建议确认课销和课时费"],
+          [],
+          ["逐学生点名明细"],
+          ["日期", "老师", "学生", "班级/课程", "点名状态", "出门测", "普通财务人次", "单独结算", "异常处理", "处理人", "处理时间", "复核状态"],
+          ...attendanceDetailRows.map((row) => [
+            row.date,
+            row.teacher,
+            row.studentName,
+            row.className,
+            row.status,
+            row.exitScore,
+            row.financeStatus,
+            row.specialStatus,
+            row.exceptionStatus,
+            row.followupHandledBy,
+            row.followupHandledAt,
+            row.reviewStatus
+          ])
         ]);
       }
 
