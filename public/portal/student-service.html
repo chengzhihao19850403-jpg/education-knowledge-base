@@ -254,6 +254,14 @@
           <div class="metric"><span>续费风险</span><strong id="studentMetricRisk">0</strong><p>剩余课时 + 满意度</p></div>
           <div class="metric"><span>家长沟通记录</span><strong id="studentMetricCommunication">0</strong><p>按学生永久留痕</p></div>
         </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>最近课程</th><th>任课老师</th><th>出勤</th><th>成绩</th><th>状态</th><th>学管下一步</th></tr>
+            </thead>
+            <tbody id="studentProfileSummaryBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="grid">
@@ -405,6 +413,7 @@
         const scoreMetricAverage = document.getElementById("scoreMetricAverage");
         const scoreMetricAlerts = document.getElementById("scoreMetricAlerts");
         const scoreMetricRecords = document.getElementById("scoreMetricRecords");
+        const studentProfileSummaryBody = document.getElementById("studentProfileSummaryBody");
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
@@ -557,6 +566,7 @@
             renderSettlement();
             renderFollowups();
             renderScoreAnalytics();
+            renderStudentProfileSummary();
             setMessage("已同步云端点名和出门测记录。");
           }).catch((error) => {
             console.warn("点名数据云端读取失败", error);
@@ -1142,6 +1152,7 @@
           renderSettlement();
           renderFollowups();
           renderScoreAnalytics();
+          renderStudentProfileSummary();
           if (updatedSession) {
             const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([updatedSession]) || [];
             window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session: updatedSession, linkedRows } }));
@@ -1327,6 +1338,88 @@
             `;
           }).join("");
         };
+        const deriveStudentProfileSummary = () => {
+          const profiles = new Map();
+          readVisibleRows().slice().reverse().forEach((session) => {
+            (session.rows || []).forEach((row) => {
+              const name = String(row.studentName || "").trim();
+              if (!name) return;
+              if (!profiles.has(name)) {
+                profiles.set(name, {
+                  studentName: name,
+                  teachers: new Set(),
+                  totalLessons: 0,
+                  presentLessons: 0,
+                  unresolved: 0,
+                  scores: [],
+                  latestDate: "",
+                  latestClass: "",
+                  latestTeacher: ""
+                });
+              }
+              const profile = profiles.get(name);
+              profile.totalLessons += 1;
+              if (isEffectivePresent(row)) profile.presentLessons += 1;
+              if (needsFollowup(row)) profile.unresolved += 1;
+              const score = numericScore(row.exitScore);
+              if (score != null) profile.scores.push({ score, date: session.date || "" });
+              if (String(session.date || "") >= String(profile.latestDate || "")) {
+                profile.latestDate = session.date || "";
+                profile.latestClass = session.className || "";
+                profile.latestTeacher = session.teacher || "";
+              }
+              if (session.teacher) profile.teachers.add(session.teacher);
+            });
+          });
+          return [...profiles.values()].map((profile) => {
+            const attendanceRate = profile.totalLessons ? Math.round((profile.presentLessons / profile.totalLessons) * 100) : 0;
+            const scoreValues = profile.scores.map((item) => item.score);
+            const averageScore = average(scoreValues);
+            const latestScore = profile.scores.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]?.score ?? null;
+            let status = "正常";
+            let nextAction = "常规课后反馈";
+            if (profile.unresolved > 0) {
+              status = "待跟进";
+              nextAction = `有 ${profile.unresolved} 次未处理点名异常，先确认补课/视频课/课销口径`;
+            } else if (profile.totalLessons >= 2 && attendanceRate < 80) {
+              status = "出勤关注";
+              nextAction = "联系家长确认出勤原因，必要时安排补课";
+            } else if (latestScore != null && latestScore < 70) {
+              status = "成绩关注";
+              nextAction = "反馈本次出门测薄弱点，安排针对性练习";
+            } else if (latestScore != null && averageScore != null && latestScore >= averageScore + 10) {
+              status = "可正向反馈";
+              nextAction = "把本次进步点反馈给家长";
+            }
+            return { ...profile, attendanceRate, latestScore, averageScore, status, nextAction };
+          }).sort((a, b) => {
+            const priority = (row) => row.unresolved > 0 ? 0 : row.status !== "正常" ? 1 : 2;
+            return priority(a) - priority(b) || String(b.latestDate).localeCompare(String(a.latestDate));
+          });
+        };
+        const renderStudentProfileSummary = () => {
+          if (!studentProfileSummaryBody) return;
+          const rows = deriveStudentProfileSummary();
+          if (!rows.length) {
+            studentProfileSummaryBody.innerHTML = `<tr><td colspan="7">暂无学生汇总。保存点名后，这里会自动形成学生个人档案。</td></tr>`;
+            return;
+          }
+          studentProfileSummaryBody.innerHTML = rows.slice(0, 40).map((row) => {
+            const statusClass = row.status === "正常" || row.status === "可正向反馈" ? "tag" : "tag warn";
+            const scoreText = row.latestScore == null ? "暂无出门测" : `最近 ${row.latestScore}；均分 ${row.averageScore ?? "-"}`;
+            return `
+              <tr>
+                <td><strong>${escapeHtml(row.studentName)}</strong></td>
+                <td>${escapeHtml(row.latestDate || "-")}<br>${escapeHtml(row.latestClass || "-")}</td>
+                <td>${escapeHtml(row.latestTeacher || [...row.teachers].join("、") || "-")}</td>
+                <td>${row.presentLessons}/${row.totalLessons} 次<br>到课率 ${row.attendanceRate}%</td>
+                <td>${escapeHtml(scoreText)}</td>
+                <td><span class="${statusClass}">${escapeHtml(row.status)}</span>${row.unresolved ? `<br>${row.unresolved} 次待处理` : ""}</td>
+                <td>${escapeHtml(row.nextAction)}</td>
+              </tr>
+            `;
+          }).join("");
+        };
         const renderAll = () => {
           if (!canUseAttendance()) {
             buildButton.disabled = true;
@@ -1339,6 +1432,7 @@
           renderSettlement();
           renderFollowups();
           renderScoreAnalytics();
+          renderStudentProfileSummary();
           renderPreimportOptions();
         };
         const confirmAttendanceSession = (sessionId) => {
@@ -1472,6 +1566,7 @@
           renderSettlement();
           renderFollowups();
           renderScoreAnalytics();
+          renderStudentProfileSummary();
           const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([session]) || [];
           window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session, linkedRows } }));
           const unresolved = session.rows.filter(needsFollowup).length;
