@@ -105,7 +105,8 @@
 
   function writeCloudStore(key, moduleKey, rows) {
     if (!window.JRC_CLOUD?.writeModuleData) return;
-    window.JRC_CLOUD.writeModuleData(key, moduleKey, rows).catch((error) => {
+    const context = Array.isArray(rows) && rows.length === 0 ? { replaceMode: "replace" } : {};
+    window.JRC_CLOUD.writeModuleData(key, moduleKey, rows, context).catch((error) => {
       console.warn("云端数据保存失败", key, error);
     });
   }

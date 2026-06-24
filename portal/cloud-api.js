@@ -256,6 +256,7 @@
         storeKey,
         moduleKey,
         payload,
+        replaceMode: context.replaceMode || "",
         operatorName: operator.name || "-",
         operatorUsername: operator.username || "-"
       }
