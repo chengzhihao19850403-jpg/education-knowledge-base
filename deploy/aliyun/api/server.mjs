@@ -12,7 +12,7 @@ const uploadDir = process.env.JRC_UPLOAD_DIR || "/opt/jrcedu-uploads";
 const uploadMaxBytes = Number(process.env.JRC_UPLOAD_MAX_BYTES || 30 * 1024 * 1024);
 const jsonMaxBytes = Number(process.env.JRC_JSON_MAX_BYTES || 72 * 1024 * 1024);
 const minimaxApiKey = process.env.JRC_MINIMAX_API_KEY || process.env.MINIMAX_API_KEY || "";
-const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimax.io/v1/chat/completions";
+const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimaxi.com/v1/chat/completions";
 const minimaxModel = process.env.JRC_MINIMAX_MODEL || "MiniMax-M3";
 const minimaxGroupId = process.env.JRC_MINIMAX_GROUP_ID || "";
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
@@ -1177,7 +1177,7 @@ function aiSystemPrompt() {
     "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
     "如果上课内容提到平行四边形，知识点要点必须包含：定义、性质、判定；涉及面积时补充面积公式。",
     "不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
-    "返回严格 JSON，不要 Markdown，不要解释。",
+    "返回严格 JSON，不要 Markdown，不要解释，不要输出 <think>、分析过程、英文 reasoning、代码块或模板外文字。",
     "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction, riskLevel, className, courseName。",
     "todoItems 必须是字符串数组。没有内容时填空字符串或空数组。"
   ].join("\n");
@@ -1231,8 +1231,16 @@ function buildAiUserPrompt(body) {
   ].filter(Boolean).join("\n");
 }
 
+function stripThinkingText(text) {
+  return String(text || "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
 function parseAiJson(text, fallback) {
-  const raw = String(text || "").trim();
+  const raw = stripThinkingText(text);
   if (!raw) return fallback;
   try {
     const parsed = JSON.parse(raw);
@@ -1249,6 +1257,35 @@ function parseAiJson(text, fallback) {
     }
     return { ...fallback, polishedText: raw, internalNote: fallback.internalNote || "模型返回非 JSON，已作为正文保留。" };
   }
+}
+
+function requireAiJson(text) {
+  const raw = stripThinkingText(text);
+  if (!raw) {
+    const error = new Error("MiniMax 返回为空。");
+    error.statusCode = 502;
+    error.code = "minimax_empty_response";
+    throw error;
+  }
+  const candidates = [raw];
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) candidates.push(raw.slice(firstBrace, lastBrace + 1));
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      return {
+        ...parsed,
+        todoItems: Array.isArray(parsed.todoItems) ? parsed.todoItems : []
+      };
+    } catch {
+      // Try next candidate.
+    }
+  }
+  const error = new Error(`MiniMax 没有返回可解析 JSON：${raw.slice(0, 240)}`);
+  error.statusCode = 502;
+  error.code = "minimax_non_json_response";
+  throw error;
 }
 
 function ensureClassFeedbackResult(result, body) {
@@ -1285,7 +1322,10 @@ async function callMinimaxChat(body) {
         { role: "system", content: aiSystemPrompt() },
         { role: "user", content: buildAiUserPrompt(body) }
       ],
-      temperature: 0.25
+      temperature: 0.25,
+      max_completion_tokens: 2400,
+      thinking: { type: "disabled" },
+      reasoning_split: true
     })
   });
   const text = await response.text();
@@ -1344,7 +1384,8 @@ async function handleAiAssistant(req, res, headers, authorization) {
       operatorName: authorization?.payload?.name || body.operatorName || "-",
       operatorUsername: authorization?.payload?.sub || body.operatorUsername || "-"
     });
-    const result = ensureClassFeedbackResult(parseAiJson(content, fallback), body);
+    const parsed = isClassFeedback ? requireAiJson(content) : parseAiJson(content, fallback);
+    const result = ensureClassFeedbackResult(parsed, body);
     send(res, 200, { ok: true, provider: "minimax", configured: true, model: minimaxModel, result }, headers);
   } catch (error) {
     console.error("MiniMax assistant failed", error);
