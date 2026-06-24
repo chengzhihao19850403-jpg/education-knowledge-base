@@ -36,7 +36,7 @@
           </div>
         </div>
         <div class="mode-status-row">
-          <div id="topBackendStatus" class="mode-status-chip">后台状态读取中</div>
+          <div id="topBackendStatus" class="mode-status-chip">云端状态读取中</div>
           <div id="topSaveStatus" class="mode-status-chip">最近保存读取中</div>
         </div>
       </section>
@@ -52,10 +52,10 @@
         <div class="hero-actions">
           <button id="saveButton" class="button button-secondary">保存当前模式</button>
           <button id="addEntryButton" class="button button-primary">新增排课行</button>
-          <button id="loadDbButton" class="button button-secondary advanced-only" hidden>从平时后台读取</button>
+          <button id="loadDbButton" class="button button-secondary advanced-only" hidden>刷新备用数据</button>
           <button id="exportSnapshotButton" class="button button-ghost advanced-only">导出平时快照</button>
           <a class="button button-ghost" href="./index.html?simple=1">切到暑假模式</a>
-          <a class="button button-ghost simple-only" href="./june.html">打开本模式完整版</a>
+          <a class="button button-ghost simple-only" href="./june.html">打开更多排课工具</a>
           <a class="button button-ghost" href="../index.html">返回系统首页</a>
           <a class="button button-ghost" href="/jrcedu/portal/index.html">返回工作台</a>
         </div>
@@ -83,7 +83,7 @@
           </article>
           <article class="simple-step-card">
             <strong>4. 改完会自动保存</strong>
-            <p>如果是直接打开局域网页面，通常不需要再手动填后台地址。需要更多导入、历史版本这些工具时，再点“打开本模式完整版”。</p>
+            <p>现在按云端共享排课使用。日常只需要打开网站、修改、保存，不需要再填写备用后台地址。</p>
           </article>
         </div>
         <div class="tool-inline-note">
@@ -123,8 +123,8 @@
           </div>
 
           <div class="tool-card">
-            <h3>保存状态</h3>
-            <label class="field-label" for="backendBaseUrlInput">平时后台地址</label>
+            <h3>云端保存状态</h3>
+            <label class="field-label" for="backendBaseUrlInput">备用后台地址</label>
             <input
               id="backendBaseUrlInput"
               class="cell-input"
@@ -133,23 +133,23 @@
               placeholder="http://192.168.1.20:8000"
             >
             <div class="tool-action-row">
-              <button id="connectBackendButton" class="button button-secondary">连接平时后台</button>
-              <button id="clearBackendButton" class="button button-ghost">清除后台地址</button>
+              <button id="connectBackendButton" class="button button-secondary">连接备用后台</button>
+              <button id="clearBackendButton" class="button button-ghost">清除备用地址</button>
             </div>
             <div class="tool-inline-note">
-              平时系统会独立写入后台里的 <code>june_regular</code> 数据，不会覆盖寒暑假系统。
+              日常使用以云端数据为准；这里仅保留旧版备用工具，不需要老师填写。
             </div>
-            <p id="backendConnectionText" class="backend-connection-status">当前未连接平时后台。</p>
+            <p id="backendConnectionText" class="backend-connection-status">正在读取云端保存状态。</p>
             <p id="saveStatusText" class="save-status">当前数据会自动保存在当前浏览器中。</p>
-            <label class="field-label" for="dbHistorySelect">平时后台历史版本</label>
+            <label class="field-label" for="dbHistorySelect">备用历史版本</label>
             <select id="dbHistorySelect" class="cell-select" disabled>
-              <option value="">当前未连接平时后台</option>
+              <option value="">云端模式下通常不用选择</option>
             </select>
             <div class="tool-action-row">
               <button id="refreshDbHistoryButton" class="button button-ghost" disabled>刷新历史</button>
               <button id="restoreDbHistoryButton" class="button button-secondary" disabled>恢复选中版本</button>
             </div>
-            <div id="dbHistoryHint" class="tool-inline-note">连接平时后台后，这里会显示最近保存记录；恢复后也会再记一条恢复记录。</div>
+            <div id="dbHistoryHint" class="tool-inline-note">云端排课会自动同步；备用历史工具只在管理员排查时使用。</div>
             <div id="importLog" class="import-log empty-state">还没有导入记录。</div>
           </div>
         </div>

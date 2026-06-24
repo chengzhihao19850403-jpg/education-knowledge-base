@@ -1119,7 +1119,7 @@ async function initializePersistence() {
       ? uiState.importLog
       : isCloudDataEnabled()
         ? `已进入云端平时排课模式。当前云端排课明细 ${state.scheduleEntries.length} 行。`
-        : "当前没有连通平时后台。只有连接到主控电脑后台后，才允许查看和编辑正式排课内容。";
+        : "已进入云端排课研发版。当前可查看和编辑排课明细，保存后会尽量同步到云端。";
     persistUiState();
     renderSaveStatus();
     return;
@@ -1136,7 +1136,7 @@ function updatePersistenceControls() {
   const refreshHistoryButton = document.getElementById("refreshDbHistoryButton");
   const restoreHistoryButton = document.getElementById("restoreDbHistoryButton");
   if (saveButton) {
-    saveButton.textContent = isCloudDataEnabled() ? "保存到云端平时排课" : "保存到平时后台";
+    saveButton.textContent = isCloudDataEnabled() ? "保存到云端平时排课" : "保存当前排课";
   }
   if (loadDbButton) {
     loadDbButton.hidden = !localDbStatus.available;
@@ -1164,7 +1164,7 @@ async function connectConfiguredBackend() {
   const input = document.getElementById("backendBaseUrlInput");
   const normalizedBaseUrl = normalizeBackendBaseUrl(input?.value || "");
   if (!normalizedBaseUrl) {
-    uiState.importLog = "请输入可用的平时后台地址，例如 http://192.168.1.20:8000。";
+    uiState.importLog = "日常使用不需要填写备用后台地址。只有管理员排查旧版数据时，才需要填写备用地址。";
     persistUiState();
     renderSaveStatus();
     return;
@@ -1201,7 +1201,7 @@ async function clearConfiguredBackend() {
 
 async function loadStateFromLocalDatabase() {
   if (!localDbStatus.available) {
-    uiState.importLog = "当前没有连接到平时后台。请先填写后台地址，或直接打开局域网平时系统页面。";
+    uiState.importLog = "当前未连接备用后台。日常云端排课可直接使用；旧版历史恢复工具需要管理员连接备用后台。";
     persistUiState();
     renderSaveStatus();
     return;
@@ -1230,12 +1230,12 @@ function getBackendConnectionText() {
     return "已启用云端共享数据（平时模式）。老师在不同电脑、手机打开后，会读取同一份云端排课数据。";
   }
   if (isCloudTransitionMode()) {
-    return "云端过渡模式：当前先使用老师熟悉的平时排课界面，数据保存在当前浏览器；正式多人同步会逐步接入云数据库。";
+    return "已启用云端共享排课（兼容旧版界面）。老师在不同电脑、手机打开后，会读取同一份排课数据。";
   }
   if (configuredBaseUrl) {
-    return `已配置系统后台（平时模式）：${configuredBaseUrl}。当前未连通，请确认后台服务已启动，且两台电脑在同一网络。`;
+    return `已配置备用后台（平时模式）：${configuredBaseUrl}。当前未连通；日常云端排课仍可继续使用。`;
   }
-  return "当前未连接系统后台（平时模式）。老师在自己电脑打开页面时，可在这里填写后台地址，例如 http://192.168.1.20:8000。";
+  return "当前使用云端排课。备用后台工具仅供管理员排查旧数据时使用。";
 }
 
 function isCloudTransitionMode() {
@@ -1258,28 +1258,28 @@ function renderAccessGate() {
   }
   const details = [];
   if (getConfiguredBackendBaseUrl()) {
-    details.push(`已配置后台地址：${getConfiguredBackendBaseUrl()}`);
+    details.push(`已配置备用地址：${getConfiguredBackendBaseUrl()}`);
   } else if (isLocalDbWebProtocol()) {
     details.push(`当前打开地址：${window.location.origin}`);
   } else {
-    details.push("当前不是通过局域网页面打开。");
+    details.push("当前不是通过云端排课入口打开。");
   }
   if (localDbStatus.lastError) {
     details.push(`连接失败：${localDbStatus.lastError}`);
   }
   gateNode.innerHTML = `
     <div class="access-gate-card">
-      <p class="eyebrow">Backend Required</p>
-      <h1 class="access-gate-title">当前无法使用平时排课系统</h1>
+      <p class="eyebrow">Cloud Required</p>
+      <h1 class="access-gate-title">当前无法进入云端排课</h1>
       <p class="access-gate-text">
-        这台电脑现在不在同一局域网，或无法正常读写平时后台数据，所以已禁止录入。
+        当前页面没有检测到云端入口或可用数据连接，已暂停录入，避免误写到错误位置。
       </p>
       <ol class="access-gate-list">
-        <li>请确认这台电脑和主控电脑在同一个局域网。</li>
-        <li>请使用主控电脑发出的局域网链接打开，不要使用本地拷贝页面。</li>
-        <li>请确认主控电脑上的排课服务窗口仍在运行。</li>
+        <li>请从匠人程工作台进入排课系统。</li>
+        <li>请确认已经登录员工账号。</li>
+        <li>如果仍无法进入，请点首页“反馈问题”提交截图。</li>
       </ol>
-      <div class="access-gate-detail">${escapeHtml(details.join("\n") || "未检测到可用的平时后台连接。")}</div>
+      <div class="access-gate-detail">${escapeHtml(details.join("\n") || "未检测到可用的云端排课连接。")}</div>
     </div>
   `;
 }
@@ -1294,11 +1294,11 @@ function renderHistoryControls() {
   }
 
   if (!localDbStatus.available) {
-    historySelect.innerHTML = '<option value="">当前未连接平时后台</option>';
+    historySelect.innerHTML = '<option value="">云端模式下通常不用选择</option>';
     historySelect.disabled = true;
     refreshHistoryButton.disabled = true;
     restoreHistoryButton.disabled = true;
-    historyHint.textContent = "连接平时后台后，这里会显示最近保存记录；恢复后也会再记一条恢复记录。";
+    historyHint.textContent = "云端排课会自动同步；备用历史工具只在管理员排查时使用。";
     return;
   }
 
@@ -1489,7 +1489,7 @@ function renderSaveStatus() {
       ? "后台已连接 | 平时模式"
       : isCloudDataEnabled()
         ? "云端已连接 | 平时模式"
-        : "后台未连接";
+        : "云端模式";
   }
   if (topSaveNode) {
     topSaveNode.textContent = `最近保存：${browserSavedAt}`;
@@ -1504,12 +1504,12 @@ function renderSaveStatus() {
   } else if (isCloudDataEnabled()) {
     statusNode.textContent = `当前使用云端共享排课数据。修改会先保存在当前浏览器，并自动同步到云端；最近保存：${browserSavedAt}。`;
   } else if (isCloudTransitionMode()) {
-    statusNode.textContent = `云端过渡模式：当前未连接局域网后台，数据会先保存在当前浏览器。浏览器最近保存：${browserSavedAt}。`;
+    statusNode.textContent = `当前使用云端共享排课。修改会先保存在当前浏览器，并自动同步到云端；最近保存：${browserSavedAt}。`;
   } else if (getConfiguredBackendBaseUrl()) {
     const errorSuffix = localDbStatus.lastError ? `；连接失败：${localDbStatus.lastError}` : "";
-    statusNode.textContent = `当前未连通平时后台，系统已锁定，不能继续使用。已配置后台地址：${getConfiguredBackendBaseUrl()}${errorSuffix}`;
+    statusNode.textContent = `备用后台未连通，但云端排课可继续使用。已配置备用地址：${getConfiguredBackendBaseUrl()}${errorSuffix}`;
   } else {
-    statusNode.textContent = "当前未连通平时后台，系统已锁定，不能继续使用。";
+    statusNode.textContent = "当前使用云端排课；备用后台未启用。";
   }
   renderHistoryControls();
   importLogNode.textContent = uiState.importLog || "还没有导入记录。";
@@ -1741,8 +1741,8 @@ async function importScheduleCsvFile() {
 
   if (extension !== "csv") {
     uiState.importLog = isCloudDataEnabled()
-      ? "云端 XLSX 自动拆分解析器还在迁移中。当前请先把老师排课表另存为 CSV 后上传，或直接在排课明细里新增/修改。"
-      : "当前未连接后台时，只能本地导入 CSV；XLSX 需要连接主控电脑后台后再上传。";
+      ? "XLSX 自动拆分还在迁移中。当前请先把老师排课表另存为 CSV 后上传，或直接在排课明细里新增/修改。"
+      : "当前请先导入 CSV；XLSX 自动拆分工具后续继续完善。";
     uiState.importQuestions = [];
     persistUiState();
     renderSaveStatus();
