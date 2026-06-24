@@ -434,6 +434,7 @@
     renderDataStates();
     renderCloudReadiness();
     renderDataFlows();
+    renderLinkHealth();
   }
 
   function renderDataStates() {
@@ -468,6 +469,76 @@
     if (payload.periods || payload.expenses) return Object.keys(payload.periods || {}).length + (payload.expenses || []).length;
     if (Array.isArray(payload.tickets) || Array.isArray(payload.inspections)) return (payload.tickets || []).length + (payload.inspections || []).length;
     return Object.keys(payload).length;
+  }
+
+  function normalizeCloudStorePayload(payload) {
+    if (!payload || typeof payload !== "object") return payload;
+    if (payload.parsedValue && typeof payload.parsedValue === "object") return payload.parsedValue;
+    if (typeof payload.rawValue === "string") {
+      try {
+        return JSON.parse(payload.rawValue);
+      } catch {
+        return payload;
+      }
+    }
+    return payload;
+  }
+
+  async function readLinkedStore(key, fallback) {
+    let value = readStore(key, fallback);
+    if (window.JRC_CLOUD?.readModuleData) {
+      try {
+        const result = await window.JRC_CLOUD.readModuleData(key);
+        if (result?.ok && result.data?.found) {
+          value = normalizeCloudStorePayload(result.data.payload);
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+      } catch (error) {
+        console.warn("Failed to read linked store", key, error);
+      }
+    }
+    return value ?? fallback;
+  }
+
+  function attendanceSessionKey(session) {
+    return [
+      session?.date,
+      session?.teacher,
+      session?.className
+    ].map((value) => String(value || "").trim()).join("|");
+  }
+
+  function attendanceStudentKey(session, row) {
+    return [
+      session?.date,
+      session?.teacher,
+      session?.className,
+      row?.studentName || row?.student
+    ].map((value) => String(value || "").trim()).join("|");
+  }
+
+  function scheduleStudentKey(row) {
+    return [
+      row?.date || row?.courseDate,
+      row?.teacherName || row?.teacher,
+      row?.className,
+      row?.studentName || row?.student
+    ].map((value) => String(value || "").trim()).join("|");
+  }
+
+  function isEffectiveAttendance(row) {
+    return ["到课", "迟到"].includes(row?.status) || String(row?.exitScore ?? "").trim() !== "";
+  }
+
+  function linkHealthCard(title, label, className, detail, href, actionText = "查看") {
+    return `
+      <a class="data-state-card" href="${escapeHtml(href || "./index.html")}" style="text-decoration:none;">
+        <strong>${escapeHtml(title)}</strong>
+        <span class="badge ${className}">${escapeHtml(label)}</span>
+        <p>${escapeHtml(detail)}</p>
+        <p style="color:#bc582e;font-weight:800;">${escapeHtml(actionText)}</p>
+      </a>
+    `;
   }
 
   async function renderCloudReadiness() {
@@ -555,6 +626,107 @@
         <p>重新导入真实排课、教学质量和招生数据后，这里会按老师和月份形成课时、教学系数、招生实收的联动草表。</p>
       </div>
     `);
+  }
+
+  async function renderLinkHealth() {
+    const holder = $("portalLinkHealthList");
+    if (!holder) return;
+    holder.innerHTML = `
+      <div class="data-state-card">
+        <strong>正在自检</strong>
+        <span class="badge status-warn">读取中</span>
+        <p>正在检查排课、点名、学生服务和财务之间的数据流转。</p>
+      </div>
+    `;
+    const foundation = window.JRC_DATA_FOUNDATION;
+    const derived = foundation?.deriveSystemLinks?.() || { scheduleRows: [], counts: {} };
+    const [paikeRegular, attendanceSessions, studentRows, financeState] = await Promise.all([
+      readLinkedStore("paike-june-system-v1", {}),
+      readLinkedStore("jrc-class-attendance-v1", []),
+      readLinkedStore("jrc-student-service-v2", []),
+      readLinkedStore("jrc-finance-ledger-v1", {})
+    ]);
+    const regularEntries = Array.isArray(paikeRegular?.scheduleEntries) ? paikeRegular.scheduleEntries : [];
+    const scheduleRows = Array.isArray(derived.scheduleRows) && derived.scheduleRows.length
+      ? derived.scheduleRows
+      : regularEntries.map((entry) => ({
+          date: entry.courseDate || entry.date || "",
+          teacherName: entry.teacherName || entry.teacher || "",
+          className: entry.className || "",
+          studentName: entry.studentName || entry.className || ""
+        }));
+    const sessions = Array.isArray(attendanceSessions) ? attendanceSessions : [];
+    const studentServiceRows = Array.isArray(studentRows) ? studentRows : [];
+    const attendanceStudentKeys = new Set(
+      sessions.flatMap((session) => (Array.isArray(session.rows) ? session.rows : [])
+        .map((row) => attendanceStudentKey(session, row)))
+        .filter(Boolean)
+    );
+    const scheduleStudentKeys = new Set(scheduleRows.map(scheduleStudentKey).filter(Boolean));
+    const serviceLinkedKeys = new Set(
+      studentServiceRows
+        .filter((row) => row.sourceModule === "attendance" || row.sourceSessionId)
+        .map((row) => [
+          row.sourceDate,
+          row.teacher,
+          row.className,
+          row.student
+        ].map((value) => String(value || "").trim()).join("|"))
+        .filter(Boolean)
+    );
+    const attendanceSessionKeys = new Set(sessions.map(attendanceSessionKey).filter(Boolean));
+    const unresolvedCount = sessions.reduce((sum, session) => sum + (Array.isArray(session.rows) ? session.rows : [])
+      .filter((row) => !isEffectiveAttendance(row) || row.followup === "待联系家长").length, 0);
+    const effectiveCount = sessions.reduce((sum, session) => sum + (Array.isArray(session.rows) ? session.rows : [])
+      .filter(isEffectiveAttendance).length, 0);
+    const scheduleWithoutAttendance = [...scheduleStudentKeys].filter((key) => key && !attendanceStudentKeys.has(key)).length;
+    const attendanceWithoutService = [...attendanceStudentKeys].filter((key) => key && !serviceLinkedKeys.has(key)).length;
+    const financePeriods = financeState?.periods && typeof financeState.periods === "object" ? Object.keys(financeState.periods).length : 0;
+    const hasFinanceAttendance = sessions.length > 0;
+
+    const cards = [
+      linkHealthCard(
+        "排课 → 点名",
+        scheduleRows.length ? (scheduleWithoutAttendance ? "有待点名" : "已覆盖") : "待导入",
+        scheduleRows.length && !scheduleWithoutAttendance ? "status-ok" : "status-warn",
+        scheduleRows.length
+          ? `排课明细 ${scheduleRows.length} 人次；仍有约 ${scheduleWithoutAttendance} 人次未形成点名记录。`
+          : "还没有读取到排课明细，需先导入或维护排课。",
+        "./paike.html",
+        "看排课"
+      ),
+      linkHealthCard(
+        "点名 → 学生服务",
+        sessions.length ? (attendanceWithoutService ? "待沉淀" : "已沉淀") : "待点名",
+        sessions.length && !attendanceWithoutService ? "status-ok" : "status-warn",
+        sessions.length
+          ? `已保存点名 ${sessions.length} 节 / ${attendanceStudentKeys.size} 人次；约 ${attendanceWithoutService} 人次未进入学生服务台账。`
+          : "还没有点名记录。老师保存点名后会自动流入学生服务。",
+        "./student-service.html",
+        "看学生服务"
+      ),
+      linkHealthCard(
+        "点名 → 财务",
+        hasFinanceAttendance ? "已接入" : "待点名",
+        hasFinanceAttendance ? "status-ok" : "status-warn",
+        hasFinanceAttendance
+          ? `财务可读取 ${sessions.length} 节点名，当前有效到课 ${effectiveCount} 人次，待追踪 ${unresolvedCount} 人次。`
+          : "财务等待学生服务系统保存点名后生成结算草表。",
+        "./finance.html#attendanceFinanceSection",
+        "看财务"
+      ),
+      linkHealthCard(
+        "财务月结",
+        financePeriods ? "已有草表" : "待录入",
+        financePeriods ? "status-ok" : "status-warn",
+        financePeriods
+          ? `财务系统已有 ${financePeriods} 个月份草表；点名结算仍需财务复核后确认。`
+          : "还没有月结草表，先用点名和原 Excel 对照，确认后再补月结数据。",
+        "./finance.html",
+        "看月结"
+      )
+    ];
+    holder.innerHTML = cards.join("");
   }
 
   document.addEventListener("DOMContentLoaded", renderPortalDashboard);
