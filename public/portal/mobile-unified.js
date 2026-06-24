@@ -175,7 +175,7 @@
       const result = await saveFeedback(row);
       content.value = "";
       submitButton.disabled = false;
-      message.textContent = result.ok ? "已提交到云端，管理员会统一查看。" : "已先保存在本机，云端连接恢复后可再同步。";
+      message.textContent = result.ok ? "已提交到云端，管理员会统一查看。" : "已暂存在当前设备，云端连接恢复后可再同步。";
       window.setTimeout(() => {
         panel.hidden = true;
         message.textContent = "提交后管理员会在后台统一整理。";

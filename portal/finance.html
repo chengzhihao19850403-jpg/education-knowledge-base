@@ -1605,7 +1605,7 @@
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? `已保存到云端：${currentPeriod} 月结数据已进入“待复核”。`
-            : `已保存在本机：${currentPeriod} 月结数据为“待复核”，云端同步稍后再试。`);
+            : `已暂存在当前设备：${currentPeriod} 月结数据为“待复核”，云端同步稍后再试。`);
         });
         render();
       }
@@ -1624,7 +1624,7 @@
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? `已保存到云端：${currentPeriod} 财务数据已确认复核。`
-            : `已先保存在本机：${currentPeriod} 财务数据已确认复核，云端同步稍后再试。`);
+            : `已暂存在当前设备：${currentPeriod} 财务数据已确认复核，云端同步稍后再试。`);
         });
         render();
       }
@@ -1959,7 +1959,7 @@
           setFinanceAutofillMessage(
             result?.ok
               ? `已把课时收入 ${money(revenueAmount)}、工资/课时 ${money(salaryAmount)} 和支出 ${expenseRows.length} 条带入 ${currentPeriod} 草算，并同步到云端。`
-              : `已先把课时收入 ${money(revenueAmount)}、工资/课时 ${money(salaryAmount)} 和支出 ${expenseRows.length} 条带入本机草算；云端同步稍后再试。`
+              : `已先把课时收入 ${money(revenueAmount)}、工资/课时 ${money(salaryAmount)} 和支出 ${expenseRows.length} 条带入当前试运行草算；云端连接恢复后会再同步。`
           );
         });
         render();
@@ -2292,7 +2292,7 @@
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? "支出/报销已保存到云端，状态为“待复核”。"
-            : "支出/报销已先保存在本机，状态为“待复核”；云端同步稍后再试。");
+            : "支出/报销已暂存在当前设备，状态为“待复核”；云端连接恢复后会再同步。");
         });
         form.reset();
         form.elements.date.value = todayText();
@@ -2308,7 +2308,7 @@
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? "已删除支出并同步云端，本月状态回到“待复核”。"
-            : "已删除本机支出，本月状态回到“待复核”；云端同步稍后再试。");
+            : "已暂存删除操作，本月状态回到“待复核”；云端连接恢复后会再同步。");
         });
         render();
       }

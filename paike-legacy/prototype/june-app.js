@@ -1086,8 +1086,8 @@ async function syncLocalDatabaseSnapshot() {
     });
     if (migrated) {
       uiState.importLog = databaseState?.snapshot
-        ? "已把当前浏览器里较新的平时数据同步到后台数据库。"
-        : "已把当前浏览器里的平时数据迁入后台数据库。";
+        ? "已把当前设备较新的平时数据同步到备用后台。"
+        : "已把当前设备里的平时数据迁入备用后台。";
       persistUiState();
     }
     return;
@@ -1500,11 +1500,11 @@ function renderSaveStatus() {
       : "尚未写入";
     const historySuffix = localDbHistoryEntries.length ? `；最近保留历史 ${localDbHistoryEntries.length} 条` : "";
     const errorSuffix = localDbStatus.lastError ? `；最近一次后台同步失败：${localDbStatus.lastError}` : "";
-    statusNode.textContent = `当前数据会先保存在当前浏览器，并同步写入平时后台（${localDbStatus.baseUrl}）。浏览器最近保存：${browserSavedAt}；后台最近写入：${databaseSavedAt}${historySuffix}${errorSuffix}`;
+    statusNode.textContent = `当前数据会先暂存在当前设备，并同步写入备用后台（${localDbStatus.baseUrl}）。当前设备最近保存：${browserSavedAt}；后台最近写入：${databaseSavedAt}${historySuffix}${errorSuffix}`;
   } else if (isCloudDataEnabled()) {
-    statusNode.textContent = `当前使用云端共享排课数据。修改会先保存在当前浏览器，并自动同步到云端；最近保存：${browserSavedAt}。`;
+    statusNode.textContent = `当前使用云端共享排课数据。修改会自动保存并同步到云端；最近保存：${browserSavedAt}。`;
   } else if (isCloudTransitionMode()) {
-    statusNode.textContent = `当前使用云端共享排课。修改会先保存在当前浏览器，并自动同步到云端；最近保存：${browserSavedAt}。`;
+    statusNode.textContent = `当前使用云端共享排课。修改会自动保存并同步到云端；最近保存：${browserSavedAt}。`;
   } else if (getConfiguredBackendBaseUrl()) {
     const errorSuffix = localDbStatus.lastError ? `；连接失败：${localDbStatus.lastError}` : "";
     statusNode.textContent = `备用后台未连通，但云端排课可继续使用。已配置备用地址：${getConfiguredBackendBaseUrl()}${errorSuffix}`;

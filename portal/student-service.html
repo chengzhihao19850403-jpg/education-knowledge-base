@@ -1282,7 +1282,7 @@
           Promise.resolve(saveRows(rows)).then((result) => {
             setMessage(result?.ok
               ? "已保存到云端：本节点名已确认复核，可作为课时费和课销核对依据。"
-              : "已先保存在本机：本节点名已确认复核，云端同步稍后再试。");
+              : "已暂存在当前设备：本节点名已确认复核，云端连接恢复后会再同步。");
           });
           renderHistory();
           renderSettlement();
@@ -1402,7 +1402,7 @@
           renderScoreAnalytics();
           const unresolved = session.rows.filter(needsFollowup).length;
           Promise.resolve(saveResult).then((result) => {
-            const saveText = result?.ok ? "已保存到云端，状态为“待复核”。" : "已先保存在本机，状态为“待复核”；云端同步稍后再试。";
+            const saveText = result?.ok ? "已保存到云端，状态为“待复核”。" : "已暂存在当前设备，状态为“待复核”；云端连接恢复后会再同步。";
             setMessage(unresolved
               ? `${saveText} 本节课还有 ${unresolved} 名学生需要落实补课、视频课或不销课处理。`
               : `${saveText} 本节课点名、课时费和课销判断已完成。`);
