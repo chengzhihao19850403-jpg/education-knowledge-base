@@ -126,6 +126,14 @@
           </select>
         </label>
         <label>
+          紧急程度
+          <select class="jrc-feedback-severity">
+            <option>普通</option>
+            <option>紧急</option>
+            <option>可后置</option>
+          </select>
+        </label>
+        <label>
           问题说明
           <textarea class="jrc-feedback-content" placeholder="请写清楚在哪个页面、点了什么、希望怎么改。"></textarea>
         </label>
@@ -142,6 +150,7 @@
     const message = dock.querySelector(".jrc-feedback-message");
     const content = dock.querySelector(".jrc-feedback-content");
     const type = dock.querySelector(".jrc-feedback-type");
+    const severity = dock.querySelector(".jrc-feedback-severity");
 
     openButton.addEventListener("click", () => {
       panel.hidden = !panel.hidden;
@@ -163,6 +172,7 @@
         id: `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
         system: systemName(),
         type: type.value,
+        severity: severity?.value || "普通",
         content: text,
         url: location.href,
         userName: employee?.name || "未登录",

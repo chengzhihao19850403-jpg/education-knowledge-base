@@ -365,7 +365,7 @@
       }
       .feedback-toolbar {
         display: grid;
-        grid-template-columns: minmax(220px, 1fr) 150px auto;
+        grid-template-columns: minmax(220px, 1fr) 140px 140px auto;
         gap: 10px;
         margin-top: 14px;
       }
@@ -629,6 +629,12 @@
             <option value="已转任务">已转任务</option>
             <option value="已处理">已处理</option>
           </select>
+          <select id="siteFeedbackSeverityFilter">
+            <option value="">全部紧急度</option>
+            <option value="紧急">紧急</option>
+            <option value="普通">普通</option>
+            <option value="可后置">可后置</option>
+          </select>
           <button class="button secondary" type="button" id="exportFeedbackButton">导出反馈 CSV</button>
         </div>
         <div class="feedback-grid" id="siteFeedbackList"></div>
@@ -807,12 +813,32 @@
       let suggestions = readSuggestions();
       let siteFeedbackRows = readRowsFromStorage(FEEDBACK_STORAGE_KEY, []);
 
+      function normalizeFeedback(row) {
+        const normalized = { ...(row || {}) };
+        const type = String(normalized.type || "试用反馈");
+        normalized.id = String(normalized.id || "").trim() || `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        normalized.userName = normalized.userName || normalized.name || "未登录";
+        normalized.username = normalized.username || "";
+        normalized.role = normalized.role || "";
+        normalized.system = normalized.system || normalized.pageTitle || "未知页面";
+        normalized.type = type;
+        normalized.status = normalized.status || "待处理";
+        normalized.severity = normalized.severity || (["数据不对", "按钮点不开"].includes(type) ? "紧急" : "普通");
+        normalized.content = normalized.content || normalized.description || "";
+        normalized.url = normalized.url || "";
+        normalized.createdAt = normalized.createdAt || new Date().toISOString();
+        normalized.feedbackCategory = normalized.feedbackCategory || (type === "功能建议" ? "功能建议" : type === "数据不对" ? "数据错误" : type === "手机显示问题" ? "手机端问题" : "使用问题");
+        return normalized;
+      }
+
       function mergeById(rows) {
         const map = new Map();
         rows.forEach((row) => {
           if (!row || typeof row !== "object") return;
-          const id = String(row.id || "").trim() || `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-          map.set(id, { ...row, id });
+          const normalized = normalizeFeedback(row);
+          const id = String(normalized.id || "").trim();
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...normalized, id });
         });
         return [...map.values()]
           .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
@@ -905,10 +931,12 @@
         if (!canManage) return;
         const keyword = String(byId("siteFeedbackSearch")?.value || "").trim().toLowerCase();
         const statusFilter = String(byId("siteFeedbackStatusFilter")?.value || "");
+        const severityFilter = String(byId("siteFeedbackSeverityFilter")?.value || "");
         const summaryNode = byId("siteFeedbackSummary");
         const ranksNode = byId("siteFeedbackRanks");
         const pendingRows = siteFeedbackRows.filter((row) => !["已处理", "已转任务"].includes(row.status));
         const taskRows = siteFeedbackRows.filter((row) => row.status === "已转任务");
+        const urgentRows = siteFeedbackRows.filter((row) => row.severity === "紧急" && !["已处理", "已转任务"].includes(row.status));
         const teacherNames = new Set(siteFeedbackRows.map((row) => row.userName || "未登录"));
         const systemNames = new Set(siteFeedbackRows.map((row) => row.system || "未知页面"));
         const countBy = (field) => {
@@ -922,6 +950,7 @@
         if (summaryNode) {
           summaryNode.innerHTML = [
             ["试用反馈", siteFeedbackRows.length],
+            ["紧急", urgentRows.length],
             ["待处理", pendingRows.length],
             ["已转任务", taskRows.length],
             ["参与老师", teacherNames.size],
@@ -953,10 +982,14 @@
               .toLowerCase();
             return (!statusFilter || status === statusFilter) && (!keyword || haystack.includes(keyword));
           })
+          .filter((row) => {
+            return !severityFilter || row.severity === severityFilter;
+          })
           .sort((left, right) => {
             const leftDone = ["已处理", "已转任务"].includes(left.status);
             const rightDone = ["已处理", "已转任务"].includes(right.status);
             if (leftDone !== rightDone) return leftDone ? 1 : -1;
+            if (left.severity !== right.severity) return left.severity === "紧急" ? -1 : right.severity === "紧急" ? 1 : 0;
             return String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
           })
           .slice(0, 20);
@@ -973,6 +1006,7 @@
                   <div class="suggestion-title">${escapeHtml(row.type || "试用反馈")}</div>
                   <div class="feedback-meta">
                     ${escapeHtml(row.userName || "未登录")}｜${escapeHtml(row.system || "未知页面")}
+                    ｜${escapeHtml(row.feedbackCategory || "使用问题")}｜${escapeHtml(row.severity || "普通")}
                     <br>${escapeHtml((row.createdAt || "").replace("T", " ").slice(0, 19))}
                   </div>
                 </div>
@@ -1223,13 +1257,14 @@
       function convertFeedbackToTask(feedback) {
         if (!feedback) return;
         const createdDate = today();
+        const highImpact = feedback.severity === "紧急" || ["数据不对", "按钮点不开"].includes(feedback.type);
         suggestions.unshift({
           id: `t-feedback-${Date.now()}`,
           entryType: "task",
           title: `处理反馈：${feedback.type || "试用问题"}`,
           category: "技术工具",
-          impact: feedback.type === "数据不对" || feedback.type === "按钮点不开" ? "high" : "medium",
-          content: `${feedback.content || ""}\n\n来源页面：${feedback.system || "-"}\n反馈人：${feedback.userName || "未登录"}\n页面链接：${feedback.url || "-"}`,
+          impact: highImpact ? "high" : "medium",
+          content: `${feedback.content || ""}\n\n严重程度：${feedback.severity || "普通"}\n问题分类：${feedback.feedbackCategory || "使用问题"}\n来源页面：${feedback.system || "-"}\n反馈人：${feedback.userName || "未登录"}\n页面链接：${feedback.url || "-"}`,
           author: feedback.userName || "系统反馈",
           anonymous: false,
           createdAt: createdDate,
@@ -1238,7 +1273,9 @@
           dueDate: createdDate,
           verifier: currentName,
           taskId: `task-feedback-${Date.now()}`,
-          taskStandard: "确认问题是否存在；能修则修复并上线，不能修则写明原因和替代处理方式。",
+          taskStandard: highImpact
+            ? "当天确认问题是否存在；影响登录、数据、提交或手机端核心使用的，优先修复并上线；不能修则写明临时替代方案。"
+            : "确认问题是否存在；能修则修复并上线，不能修则写明原因和替代处理方式。",
           subtasks: "",
           completionReport: "",
           rewardLevel: "none",
@@ -1252,6 +1289,7 @@
           comments: [{ author: currentName, text: "全站反馈已转为任务。", time: createdDate }]
         });
         feedback.status = "已转任务";
+        feedback.taskId = suggestions[0].taskId;
         feedback.processedAt = new Date().toISOString();
         feedback.processedBy = currentName;
         writeSuggestions();
@@ -1333,7 +1371,7 @@
 
       function exportFeedbackCsv() {
         const rows = [
-          ["提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "状态", "问题说明", "页面链接", "处理人", "处理时间"],
+          ["提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "问题分类", "紧急程度", "状态", "任务编号", "问题说明", "页面链接", "处理人", "处理时间"],
           ...siteFeedbackRows.map((row) => [
             row.createdAt || "",
             row.userName || "",
@@ -1341,7 +1379,10 @@
             row.role || "",
             row.system || "",
             row.type || "",
+            row.feedbackCategory || "",
+            row.severity || "普通",
             row.status || "待处理",
+            row.taskId || "",
             row.content || "",
             row.url || "",
             row.processedBy || "",
@@ -1368,6 +1409,7 @@
       byId("exportFeedbackButton")?.addEventListener("click", exportFeedbackCsv);
       byId("siteFeedbackSearch")?.addEventListener("input", renderSiteFeedback);
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
+      byId("siteFeedbackSeverityFilter")?.addEventListener("change", renderSiteFeedback);
       ["searchInput", "statusFilter", "taskViewFilter", "categoryFilter"].forEach((id) => {
         byId(id).addEventListener("input", renderList);
         byId(id).addEventListener("change", renderList);
