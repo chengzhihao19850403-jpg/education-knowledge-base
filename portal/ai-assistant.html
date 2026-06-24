@@ -256,6 +256,36 @@
         `;
       }
 
+      function buildClassFeedbackTemplate(target, rawText) {
+        const recipient = String(target || "").trim() || "家长";
+        const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
+        return [
+          `${recipient}妈妈，这是春季小课第__次课程反馈：`,
+          "",
+          "上课状态：",
+          "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。",
+          "",
+          "课后作业：",
+          "《__》做完",
+          "",
+          "本次课上课内容：",
+          raw,
+          "",
+          "学习情况反馈：",
+          "1. 知识点掌握情况",
+          "本节课我们重点围绕课堂内容进行了复习和训练。从课堂整体表现来看，孩子对主要知识点已有一定理解，基础题型能够跟上；个别细节和易错点还需要课后继续练习巩固。",
+          "",
+          "💡 小技巧：",
+          "课后建议先回顾课堂例题，再独立完成同类练习，遇到错题及时整理原因。",
+          "",
+          "2. 学习能力表现",
+          "孩子学习态度比较认真，能够在老师引导下思考问题。如果后续能继续保持专注，并加强错题复盘，学习效果会更稳定✨",
+          "",
+          "3. 后续学习计划",
+          "下节课我们会继续进行相关知识点巩固，同时穿插重点内容预习和思维训练，帮助孩子把基础掌握得更扎实，学习效果更上一层楼✨"
+        ].join("\\n");
+      }
+
       function localFallback(payload) {
         const label = modeLabel(payload.mode);
         return {
@@ -263,8 +293,14 @@
           summary: `已按${label}整理为草稿。`,
           polishedText: payload.text,
           todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
-          parentMessage: ["feedback", "classFeedback"].includes(payload.mode) ? `家长您好，${payload.text}。以上为本节课学习反馈，老师会继续跟进孩子的掌握情况。` : "",
-          internalNote: "已整理成草稿，请老师确认后再保存或发送。"
+          parentMessage: payload.mode === "classFeedback"
+            ? buildClassFeedbackTemplate(payload.target, payload.text)
+            : payload.mode === "feedback"
+              ? `家长您好，${payload.text}。以上为本节课学习反馈，老师会继续跟进孩子的掌握情况。`
+              : "",
+          internalNote: payload.mode === "classFeedback"
+            ? "已按校区统一课堂反馈模板生成。请老师确认第几次课程、作业名称、具体知识点和下节课计划后再发家长。"
+            : "已整理成草稿，请老师确认后再保存或发送。"
         };
       }
 
