@@ -58,6 +58,7 @@
         margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(13,148,136,0.16); color: var(--muted);
       }
       .notice { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .attendance-source-status { margin-top: 0; padding: 12px 14px; }
       .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
       .metric { padding: 16px; }
       .metric span { color: var(--muted); font-size: 13px; }
@@ -160,6 +161,7 @@
           <label class="field"><span>任课老师</span><select id="attendanceTeacher"></select></label>
           <label class="field"><span>课程类型</span><select id="attendanceLessonType"><option>正常课</option><option>试听课</option><option>补课</option><option>视频课</option><option>录播核销</option></select></label>
           <label class="field span-3"><span>从已上传排课选择</span><select id="attendancePreimportSelect"></select></label>
+          <div class="notice span-3 attendance-source-status" id="attendanceSourceStatus">排课数据：正在同步。</div>
           <label class="field span-3"><span>班级 / 课程</span><input id="attendanceClass" placeholder="例如：暑假数学提升班 / 初一数学小班"></label>
           <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。"></textarea></label>
         </div>
@@ -318,7 +320,7 @@
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
-    <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/preimport-data.js?v=20260624b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -359,6 +361,7 @@
       (function () {
         const STORE_KEY = "jrc-class-attendance-v1";
         const PREIMPORT_STORE_KEY = "jrc-paike-finance-preimport-2026-06-22";
+        const PAIKE_REGULAR_STORE_KEY = "paike-june-system-v1";
         const SETTLEMENT_TEACHERS = ["海滢滢", "姚老师"];
         const FINANCE_EXCLUDED_TEACHERS = ["程志豪", "海滢滢", "姚老师"];
         const ATTENDANCE_STATUSES = ["到课", "迟到", "请假", "缺席", "待核对"];
@@ -387,6 +390,7 @@
         const saveButton = document.getElementById("attendanceSaveButton");
         const exportButton = document.getElementById("attendanceExportButton");
         const message = document.getElementById("attendanceMessage");
+        const sourceStatus = document.getElementById("attendanceSourceStatus");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
         const settlementBody = document.getElementById("attendanceSettlementBody");
@@ -422,6 +426,7 @@
           };
         };
         let preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, window.JRC_PREIMPORT_BUNDLE);
+        let paikeRegularState = null;
 
         const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
         const hasPermission = (key) => typeof window.jrcHasPermission === "function"
@@ -557,23 +562,47 @@
             console.warn("点名数据云端读取失败", error);
           });
         };
-        const hydratePreimportBundle = () => {
+        const safeJsonParse = (raw, fallback = null) => {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        };
+        const normalizePaikeRegularPayload = (payload) => {
+          if (!payload || typeof payload !== "object") return null;
+          if (payload.parsedValue && typeof payload.parsedValue === "object" && Array.isArray(payload.parsedValue.scheduleEntries)) {
+            return payload.parsedValue;
+          }
+          if (typeof payload.rawValue === "string") {
+            const parsed = safeJsonParse(payload.rawValue, null);
+            if (parsed && typeof parsed === "object" && Array.isArray(parsed.scheduleEntries)) return parsed;
+          }
+          if (Array.isArray(payload.scheduleEntries)) return payload;
+          return null;
+        };
+        const hydrateScheduleSources = () => {
           if (!window.JRC_CLOUD?.readModuleData) {
             renderPreimportOptions();
             return;
           }
-          window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY).then((result) => {
-            if (!result.ok || !result.data?.found || !result.data.payload?.scheduleSessions) {
-              renderPreimportOptions();
-              return;
+          const preimportTask = window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY).then((result) => {
+            if (result.ok && result.data?.found && result.data.payload?.scheduleSessions) {
+              preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
+              window.JRC_PREIMPORT_BUNDLE = preimportBundle;
             }
-            preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
-            window.JRC_PREIMPORT_BUNDLE = preimportBundle;
-            renderPreimportOptions();
           }).catch((error) => {
             console.warn("已上传排课数据云端读取失败", error);
-            renderPreimportOptions();
           });
+          const paikeTask = window.JRC_CLOUD.readModuleData(PAIKE_REGULAR_STORE_KEY).then((result) => {
+            if (result.ok && result.data?.found) {
+              const normalized = normalizePaikeRegularPayload(result.data.payload);
+              if (normalized?.scheduleEntries?.length) paikeRegularState = normalized;
+            }
+          }).catch((error) => {
+            console.warn("云端正式排课明细读取失败", error);
+          });
+          Promise.allSettled([preimportTask, paikeTask]).then(renderPreimportOptions);
         };
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
@@ -671,7 +700,7 @@
           return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`;
         };
         const parseRoster = () => parseRosterRecords(fields.rosterInput?.value || "").rows.map((row) => row.studentName);
-        const ensureTeacherOption = (teacherName) => {
+        const ensureTeacherOption = (teacherName, options = {}) => {
           const name = String(teacherName || "").trim();
           if (!name || !fields.teacher) return;
           const exists = Array.from(fields.teacher.options).some((option) => option.value === name);
@@ -681,7 +710,7 @@
             option.textContent = name;
             fields.teacher.appendChild(option);
           }
-          if (canManageAll()) fields.teacher.value = name;
+          if (options.select && canManageAll()) fields.teacher.value = name;
         };
         const applyRosterImport = (parsed, sourceLabel) => {
           if (!parsed.rows.length) {
@@ -689,7 +718,7 @@
             return;
           }
           if (parsed.date && fields.date) fields.date.value = normalizeDateInput(parsed.date);
-          if (parsed.teacher) ensureTeacherOption(parsed.teacher);
+          if (parsed.teacher) ensureTeacherOption(parsed.teacher, { select: true });
           if (parsed.className && fields.className) fields.className.value = parsed.className;
           if (parsed.lessonType && fields.lessonType) fields.lessonType.value = parsed.lessonType;
           fields.rosterInput.value = parsed.rows.map((row) => row.studentName).join("\n");
@@ -744,19 +773,110 @@
         const setMessage = (text) => {
           if (message) message.textContent = text;
         };
-        const getPreimportSessions = () => {
+        const splitRosterNames = (value) => String(value || "")
+          .split(/[\n,，、;；]+/)
+          .map((name) => name.trim())
+          .filter(Boolean)
+          .filter((name) => !["学生", "学员", "姓名", "未标学生", "未填学生"].includes(name));
+        const isLikelyStudentName = (value) => {
+          const text = String(value || "").trim();
+          if (!text || text.length > 6) return false;
+          if (/[班课级组数学科学语文英语物理化学生物政治历史地理暑春秋寒培优强基]/.test(text)) return false;
+          return /^[\u4e00-\u9fa5A-Za-z·]{2,6}$/.test(text);
+        };
+        const extractNoteValue = (notes, label) => {
+          const pattern = new RegExp(`${label}：([^/]+)`);
+          const match = String(notes || "").match(pattern);
+          return match ? match[1].trim() : "";
+        };
+        const scheduleRowKey = (row) => [
+          row.date,
+          row.teacherName,
+          row.startTime,
+          row.endTime,
+          row.studentName
+        ].map((value) => String(value || "").trim()).join("|");
+        const scheduleSessionKey = (row) => [
+          row.date,
+          row.teacherName,
+          row.startTime,
+          row.endTime,
+          row.className,
+          row.sourceId
+        ].map((value) => String(value || "").trim()).join("|");
+        const dedupeScheduleRows = (rows) => {
+          const map = new Map();
+          rows.forEach((row) => {
+            if (!row?.date || !row?.teacherName || !row?.studentName) return;
+            const key = scheduleRowKey(row);
+            const previous = map.get(key);
+            if (!previous || previous.className === "排课课程") map.set(key, row);
+          });
+          return [...map.values()].sort((left, right) => (
+            String(left.date || "").localeCompare(String(right.date || "")) ||
+            String(left.startTime || "").localeCompare(String(right.startTime || "")) ||
+            String(left.teacherName || "").localeCompare(String(right.teacherName || ""), "zh-CN") ||
+            String(left.studentName || "").localeCompare(String(right.studentName || ""), "zh-CN")
+          ));
+        };
+        const rowsFromPreimportBundle = () => {
           const rows = [];
           (Array.isArray(preimportBundle?.scheduleSessions) ? preimportBundle.scheduleSessions : []).forEach((session) => {
             (Array.isArray(session.studentNames) ? session.studentNames : []).forEach((studentName) => {
               rows.push({
-                date: session.date,
+                date: normalizeDateInput(session.date),
                 teacherName: session.teacherName,
-                className: session.lessonTypeRaw || "未填课程",
+                className: session.lessonTypeRaw || session.className || "排课课程",
                 sourceId: session.sourceId,
+                startTime: session.startTime || "",
+                endTime: session.endTime || "",
+                classroomName: session.classroomName || session.roomName || "",
+                sourceType: "预导入",
                 studentName
               });
             });
           });
+          return rows;
+        };
+        const studentNamesFromPaikeEntry = (entry) => {
+          if (Array.isArray(entry.studentNames) && entry.studentNames.length) {
+            return entry.studentNames.map((name) => String(name || "").trim()).filter(Boolean);
+          }
+          if (String(entry.studentName || "").trim()) return [String(entry.studentName).trim()];
+          const names = splitRosterNames(entry.className || entry.students || "");
+          if (names.length > 1) return names;
+          if (names.length === 1 && /来源：|原始：|类型：/.test(String(entry.notes || "")) && isLikelyStudentName(names[0])) return names;
+          return [];
+        };
+        const rowsFromPaikeRegularState = () => {
+          const entries = Array.isArray(paikeRegularState?.scheduleEntries) ? paikeRegularState.scheduleEntries : [];
+          return entries.flatMap((entry, index) => {
+            const teacherName = String(entry.teacherName || entry.teacher || "").trim();
+            const date = normalizeDateInput(entry.courseDate || entry.date || "");
+            const students = studentNamesFromPaikeEntry(entry);
+            if (!teacherName || !date || !students.length) return [];
+            const noteType = extractNoteValue(entry.notes, "类型");
+            const classNameRaw = String(entry.className || entry.courseName || "").trim();
+            const classRosterLike = splitRosterNames(classNameRaw).length > 1 || (students.length === 1 && classNameRaw === students[0]);
+            const className = noteType || entry.lessonType || (classRosterLike ? "排课课程" : classNameRaw) || "排课课程";
+            return students.map((studentName) => ({
+              date,
+              teacherName,
+              className,
+              sourceId: entry.id || `paike-${index}`,
+              startTime: entry.startTime || "",
+              endTime: entry.endTime || "",
+              classroomName: entry.classroomName || entry.roomName || "",
+              sourceType: "排课系统",
+              studentName
+            }));
+          });
+        };
+        const getAllScheduleRosterRows = () => dedupeScheduleRows([
+          ...rowsFromPreimportBundle(),
+          ...rowsFromPaikeRegularState()
+        ]);
+        const filterScheduleRosterRows = (rows) => {
           const date = fields.date?.value || "";
           const teacher = getSelectedTeacher();
           return rows.filter((row) => {
@@ -765,22 +885,57 @@
             return row.studentName;
           });
         };
+        const autoAlignScheduleFilter = (rows) => {
+          if (!fields.date || fields.date.dataset.userSelected === "1") return;
+          if (filterScheduleRosterRows(rows).length) return;
+          const teacher = getSelectedTeacher();
+          const teacherRows = rows.filter((row) => !teacher || row.teacherName === teacher);
+          const candidate = teacherRows.find((row) => row.date >= today()) || teacherRows[0];
+          if (candidate?.date) fields.date.value = candidate.date;
+        };
+        const updateAttendanceSourceStatus = (allRows, matchedRows, groupedCount) => {
+          if (!sourceStatus) return;
+          if (!allRows.length) {
+            sourceStatus.textContent = "排课数据：暂未读取到明细，可手动粘贴名单或上传名单。";
+            return;
+          }
+          const totalSessions = new Set(allRows.map(scheduleSessionKey)).size;
+          const matchedSessions = groupedCount ?? new Set(matchedRows.map(scheduleSessionKey)).size;
+          sourceStatus.textContent = `排课数据：已接入 ${totalSessions} 节 / ${allRows.length} 人次；当前筛选匹配 ${matchedSessions} 节 / ${matchedRows.length} 人次。`;
+        };
+        const getPreimportSessions = () => {
+          const rows = getAllScheduleRosterRows();
+          autoAlignScheduleFilter(rows);
+          return filterScheduleRosterRows(rows);
+        };
         const renderPreimportOptions = () => {
           if (!fields.preimportSelect) return;
+          const allRows = getAllScheduleRosterRows();
+          if (canManageAll()) {
+            Array.from(new Set(allRows.map((row) => row.teacherName).filter(Boolean)))
+              .forEach((teacherName) => ensureTeacherOption(teacherName));
+          }
+          autoAlignScheduleFilter(allRows);
+          const matchedRows = filterScheduleRosterRows(allRows);
           const grouped = new Map();
-          getPreimportSessions().forEach((row) => {
-            const key = `${row.date}|${row.teacherName}|${row.className || "未填课程"}|${row.sourceId || ""}`;
+          matchedRows.forEach((row) => {
+            const key = scheduleSessionKey(row);
             if (!grouped.has(key)) {
               grouped.set(key, {
                 date: row.date,
                 teacherName: row.teacherName,
                 className: row.className || "未填课程",
+                startTime: row.startTime || "",
+                endTime: row.endTime || "",
+                classroomName: row.classroomName || "",
+                sourceType: row.sourceType || "排课",
                 students: []
               });
             }
             grouped.get(key).students.push(row.studentName);
           });
           const options = Array.from(grouped.values()).sort((a, b) => `${a.date}${a.teacherName}${a.className}`.localeCompare(`${b.date}${b.teacherName}${b.className}`, "zh-CN"));
+          updateAttendanceSourceStatus(allRows, matchedRows, options.length);
           if (!options.length) {
             const label = preimportBundle ? "当前日期和老师没有匹配排课" : "可手动粘贴名单点名";
             fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
@@ -788,7 +943,8 @@
           }
           fields.preimportSelect.innerHTML = options.map((item) => {
             const payload = encodeURIComponent(JSON.stringify(item));
-            return `<option value="${payload}">${escapeHtml(item.date)} ${escapeHtml(item.teacherName)}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
+            const timeLabel = item.startTime ? ` ${escapeHtml(item.startTime)}${item.endTime ? `-${escapeHtml(item.endTime)}` : ""}` : "";
+            return `<option value="${payload}">${escapeHtml(item.date)}${timeLabel} ${escapeHtml(item.teacherName)}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
           }).join("");
         };
         const loadPreimportRoster = () => {
@@ -807,7 +963,7 @@
             return;
           }
           if (fields.date) fields.date.value = item.date || fields.date.value;
-          ensureTeacherOption(item.teacherName);
+          ensureTeacherOption(item.teacherName, { select: true });
           if (fields.className) fields.className.value = item.className || "";
           fields.rosterInput.value = item.students.join("\n");
           draftRows = item.students.map((studentName) => ({
@@ -818,7 +974,7 @@
             followup: "正常销课并计课时"
           }));
           renderRoster();
-          setMessage(`已从已上传排课带出 ${item.students.length} 名学生。保存点名前请核对实际到课和出门测。`);
+          setMessage(`已从${item.sourceType || "排课"}带出 ${item.students.length} 名学生。保存点名前请核对实际到课和出门测。`);
         };
         const populateTeachers = () => {
           const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
@@ -1172,7 +1328,10 @@
 
         if (fields.date && !fields.date.value) fields.date.value = today();
         populateTeachers();
-        fields.date?.addEventListener("change", renderPreimportOptions);
+        fields.date?.addEventListener("change", () => {
+          fields.date.dataset.userSelected = "1";
+          renderPreimportOptions();
+        });
         fields.teacher?.addEventListener("change", renderPreimportOptions);
         loadPreimportButton?.addEventListener("click", loadPreimportRoster);
         importButton.addEventListener("click", () => {
@@ -1292,7 +1451,7 @@
         });
         renderAll();
         hydrateCloudRows();
-        hydratePreimportBundle();
+        hydrateScheduleSources();
       })();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
