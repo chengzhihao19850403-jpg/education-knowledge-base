@@ -1263,17 +1263,10 @@ function ensureClassFeedbackResult(result, body) {
       polishedText: result?.polishedText === parentMessage ? formatted : result?.polishedText
     };
   }
-  const template = buildClassFeedbackTemplate(body?.target || "家长", body?.text || "");
-  return {
-    ...result,
-    title: result?.title || `${body?.target || "学生"}｜课堂反馈`,
-    summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
-    polishedText: template,
-    parentMessage: template,
-    internalNote: result?.internalNote || "模型未完整返回模板，系统已自动套用统一课堂反馈模板。请确认第几次课程、作业名称、具体知识点和下节课计划。",
-    suggestedAction: result?.suggestedAction || "老师确认后归档学生服务，并复制发给家长。",
-    riskLevel: result?.riskLevel || "正常"
-  };
+  const error = new Error("MiniMax 没有返回完整课堂反馈模板。");
+  error.statusCode = 502;
+  error.code = "minimax_incomplete_class_feedback";
+  throw error;
 }
 
 async function callMinimaxChat(body) {
@@ -1315,6 +1308,7 @@ async function handleAiAssistant(req, res, headers, authorization) {
   const body = await readJson(req, 2 * 1024 * 1024);
   const text = String(body.text || "").trim();
   const fallback = localAiDraft(body);
+  const isClassFeedback = String(body.mode || "") === "classFeedback";
   if (body.mode === "health") {
     send(res, 200, {
       ok: true,
@@ -1330,7 +1324,18 @@ async function handleAiAssistant(req, res, headers, authorization) {
     return;
   }
   if (!minimaxApiKey) {
-    send(res, 200, { ok: true, provider: "local", configured: false, result: fallback }, headers);
+    const payload = {
+      ok: false,
+      provider: "none",
+      configured: false,
+      error: "minimax_key_missing",
+      message: "MiniMax Key 尚未配置，课堂反馈未生成。请先在阿里云服务环境变量中配置 JRC_MINIMAX_API_KEY。"
+    };
+    if (!isClassFeedback) {
+      send(res, 200, { ok: true, provider: "local", configured: false, result: fallback, warning: payload.error, message: payload.message }, headers);
+      return;
+    }
+    send(res, 503, payload, headers);
     return;
   }
   try {
@@ -1343,14 +1348,20 @@ async function handleAiAssistant(req, res, headers, authorization) {
     send(res, 200, { ok: true, provider: "minimax", configured: true, model: minimaxModel, result }, headers);
   } catch (error) {
     console.error("MiniMax assistant failed", error);
-    send(res, 200, {
-      ok: true,
-      provider: "local",
+    const payload = {
+      ok: false,
+      provider: "minimax",
       configured: true,
-      warning: "minimax_failed",
-      message: "MiniMax 暂时调用失败，已返回本地草稿。",
-      result: fallback
-    }, headers);
+      model: minimaxModel,
+      error: error?.code || "minimax_failed",
+      statusCode: error?.statusCode || 500,
+      message: `MiniMax 调用失败，课堂反馈未生成：${String(error?.message || error).slice(0, 500)}`
+    };
+    if (!isClassFeedback) {
+      send(res, 200, { ok: true, provider: "local", configured: true, warning: payload.error, message: payload.message, result: fallback }, headers);
+      return;
+    }
+    send(res, 502, payload, headers);
   }
 }
 

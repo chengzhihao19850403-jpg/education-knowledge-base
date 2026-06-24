@@ -496,6 +496,16 @@
         };
       }
 
+      function renderAiFailure(message) {
+        latestResult = null;
+        byId("aiResultBox").innerHTML = `
+          <div class="result-item">
+            <strong>AI 调用未成功</strong>
+            <p>${escapeHtml(message || "MiniMax 没有调用成功，本次不生成课堂反馈。")}</p>
+          </div>
+        `;
+      }
+
       async function runAi() {
         const text = byId("aiInputText").value.trim();
         if (!text) {
@@ -522,9 +532,23 @@
             byId("aiMessage").textContent = "整理完成，请检查后保存。";
             return;
           }
+          const errorMessage = result?.data?.message || result?.data?.error || "MiniMax 没有调用成功。";
+          if (payload.mode === "classFeedback") {
+            renderAiFailure(errorMessage);
+            byId("aiConfigNotice").textContent = "课堂反馈必须调用 MiniMax；当前未成功。";
+            byId("aiMessage").textContent = "AI 调用失败，未生成课堂反馈。";
+            return;
+          }
           renderResult(localFallback(payload));
           byId("aiMessage").textContent = "已生成整理草稿，请检查后保存。";
         } catch (error) {
+          if (payload.mode === "classFeedback") {
+            const message = error?.message || "MiniMax 没有调用成功。";
+            renderAiFailure(message);
+            byId("aiConfigNotice").textContent = "课堂反馈必须调用 MiniMax；当前未成功。";
+            byId("aiMessage").textContent = "AI 调用失败，未生成课堂反馈。";
+            return;
+          }
           renderResult(localFallback(payload));
           byId("aiMessage").textContent = "已生成整理草稿，请检查后保存。";
         } finally {
