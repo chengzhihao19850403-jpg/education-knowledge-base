@@ -724,6 +724,7 @@
           <div class="settlement-summary-card"><span>课程数</span><strong id="attendanceFinanceLessons">0</strong></div>
           <div class="settlement-summary-card"><span>总人次</span><strong id="attendanceFinanceTotal">0</strong></div>
           <div class="settlement-summary-card"><span>有效到课</span><strong id="attendanceFinancePresent">0</strong></div>
+          <div class="settlement-summary-card"><span>普通财务</span><strong id="attendanceFinanceRegular">0</strong></div>
           <div class="settlement-summary-card"><span>单独结算</span><strong id="attendanceFinanceSpecial">0</strong></div>
           <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
         </div>
@@ -912,7 +913,7 @@
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
-    <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
+    <script src="/jrcedu/portal/preimport-data.js?v=20260624b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
@@ -2181,13 +2182,15 @@
           acc.lessons += row.lessons;
           acc.totalStudents += row.totalStudents;
           acc.effectivePresent += row.effectivePresent;
+          acc.financePresent += row.financePresent;
           acc.specialPresent += row.specialPresent;
           acc.followupCount += row.followupCount;
           return acc;
-        }, { lessons: 0, totalStudents: 0, effectivePresent: 0, specialPresent: 0, followupCount: 0 });
+        }, { lessons: 0, totalStudents: 0, effectivePresent: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
         if (byId("attendanceFinanceLessons")) byId("attendanceFinanceLessons").textContent = String(totals.lessons);
         if (byId("attendanceFinanceTotal")) byId("attendanceFinanceTotal").textContent = String(totals.totalStudents);
         if (byId("attendanceFinancePresent")) byId("attendanceFinancePresent").textContent = String(totals.effectivePresent);
+        if (byId("attendanceFinanceRegular")) byId("attendanceFinanceRegular").textContent = String(totals.financePresent);
         if (byId("attendanceFinanceSpecial")) byId("attendanceFinanceSpecial").textContent = String(totals.specialPresent);
         if (byId("attendanceFinanceFollowup")) byId("attendanceFinanceFollowup").textContent = String(totals.followupCount);
         if (!rows.length) {
