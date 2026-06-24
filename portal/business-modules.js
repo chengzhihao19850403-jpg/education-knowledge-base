@@ -85,8 +85,12 @@
     return ["到课", "迟到"].includes(row?.status) || String(row?.exitScore ?? "").trim() !== "";
   }
 
+  function attendanceFollowupHandled(row) {
+    return row?.followupHandled === true || row?.followupStatus === "已处理";
+  }
+
   function attendanceNeedsFollowup(row) {
-    return !effectiveAttendancePresent(row) || row?.followup === "待联系家长";
+    return (!effectiveAttendancePresent(row) || row?.followup === "待联系家长") && !attendanceFollowupHandled(row);
   }
 
   function attendanceRowToStudentService(session, row) {

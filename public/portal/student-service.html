@@ -209,7 +209,7 @@
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>学生</th><th>日期 / 课程</th><th>老师</th><th>当前状态</th><th>应处理方式</th><th>为什么要处理</th></tr>
+              <tr><th>学生</th><th>日期 / 课程</th><th>老师</th><th>异常类型</th><th>处理方式</th><th>财务 / 课销口径</th><th>操作</th></tr>
             </thead>
             <tbody id="attendanceFollowupBody"></tbody>
           </table>
@@ -322,7 +322,7 @@
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260624b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260624a"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       (function () {
@@ -606,7 +606,8 @@
         };
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
-        const needsFollowup = (row) => !isEffectivePresent(row) || row.followup === "待联系家长";
+        const isFollowupHandled = (row) => row?.followupHandled === true || row?.followupStatus === "已处理";
+        const needsFollowup = (row) => (!isEffectivePresent(row) || row.followup === "待联系家长") && !isFollowupHandled(row);
         const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
         const isSpecialSettlementTeacher = (teacher) => SETTLEMENT_TEACHERS.includes(teacher);
         const isFinanceExcludedTeacher = (teacher) => FINANCE_EXCLUDED_TEACHERS.includes(teacher);
@@ -1084,17 +1085,76 @@
           if (row.followup === "待联系家长") return "到课/缺课结果还没有和家长处理口径确认。";
           return "需要人工复核。";
         };
+        const followupType = (row) => {
+          if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "出门测修正";
+          if (row.status === "请假") return "请假处理";
+          if (row.status === "待核对") return "待核对";
+          if (row.status === "缺席") return "缺席追踪";
+          if (row.followup === "待联系家长") return "待联系家长";
+          return "待处理";
+        };
+        const followupFinanceRule = (row, session) => {
+          const teacher = session?.teacher || row?.teacher || "";
+          const method = row.followup || "待联系家长";
+          if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "有成绩，建议先修正到课后再结算";
+          if (method === "正常销课并计课时") return isFinanceExcludedTeacher(teacher) ? "只进单独/教学记录" : "进入普通课时费和家长课销";
+          if (method === "不计课时不销课") return "不进课时费，不扣家长课时";
+          if (method === "线下补课后再销课" || method === "视频补课完成后销课") return "先暂缓，完成补课后再销课";
+          if (method === "录播核销") return "按录播完成记录核销";
+          if (method === "请假顺延") return "请假顺延，本节暂不销课";
+          return "暂缓结算，等学管/老师确认";
+        };
         const deriveFollowupRows = () => {
           return readVisibleRows().flatMap((session) => (session.rows || [])
-            .filter((row) => needsFollowup(row) || (hasExitScore(row) && !["到课", "迟到"].includes(row.status)))
+            .filter((row) => needsFollowup(row) || (hasExitScore(row) && !["到课", "迟到"].includes(row.status) && !isFollowupHandled(row)))
             .map((row) => ({ session, row })))
             .sort((a, b) => String(b.session.date || "").localeCompare(String(a.session.date || "")));
+        };
+        const splitFollowupKey = (key) => {
+          const [sessionId, rowId] = String(key || "").split("|");
+          return { sessionId, rowId };
+        };
+        const selectedFollowupMethod = (key) => {
+          const select = Array.from(followupBody?.querySelectorAll("[data-followup-method]") || [])
+            .find((node) => node.getAttribute("data-followup-method") === key);
+          return select?.value || "待联系家长";
+        };
+        const updateAttendanceFollowup = (sessionId, rowId, updates) => {
+          const sessions = mergeAttendanceSessions(readRows());
+          let updatedSession = null;
+          const nextSessions = sessions.map((session) => {
+            if (String(session.id) !== String(sessionId)) return session;
+            const rows = (session.rows || []).map((row) => {
+              const safeRow = ensureAttendanceRowId(session, row);
+              if (String(safeRow.rowId) !== String(rowId)) return safeRow;
+              return {
+                ...safeRow,
+                ...updates,
+                followupHandledAt: new Date().toISOString(),
+                followupHandledBy: currentEmployee()?.name || "未登录"
+              };
+            });
+            updatedSession = { ...session, rows };
+            return updatedSession;
+          });
+          const saveResult = saveRows(nextSessions);
+          renderHistory();
+          renderSettlement();
+          renderFollowups();
+          renderScoreAnalytics();
+          if (updatedSession) {
+            const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([updatedSession]) || [];
+            window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session: updatedSession, linkedRows } }));
+          }
+          Promise.resolve(saveResult).then((result) => {
+            setMessage(result?.ok ? "异常处理已保存到云端，并同步学生服务台账。" : "异常处理已暂存在当前设备，云端连接恢复后会再同步。");
+          });
         };
         const renderFollowups = () => {
           if (!followupBody) return;
           const rows = deriveFollowupRows();
           if (!rows.length) {
-            followupBody.innerHTML = `<tr><td colspan="6">暂无待追踪学生。缺席、请假、待核对或缺测学生保存后会自动进入这里。</td></tr>`;
+            followupBody.innerHTML = `<tr><td colspan="7">暂无待处理异常。缺席、请假、待核对或出门测修正会自动进入这里。</td></tr>`;
             return;
           }
           followupBody.innerHTML = rows.slice(0, 30).map(({ session, row }) => `
@@ -1102,9 +1162,18 @@
               <td><strong>${escapeHtml(row.studentName)}</strong></td>
               <td>${escapeHtml(session.date || "-")}<br>${escapeHtml(session.className || "-")}</td>
               <td>${escapeHtml(session.teacher || "-")}</td>
-              <td>${escapeHtml(row.status || "-")}${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
-              <td>${escapeHtml(row.followup || "待联系家长")}</td>
-              <td>${escapeHtml(followupReason(row, session))}</td>
+              <td>${escapeHtml(followupType(row))}<br><span class="tag warn">${escapeHtml(row.status || "-")}</span>${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
+              <td>
+                <select data-followup-method="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}" style="min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 10px; background:#fff;">
+                  ${FOLLOWUP_OPTIONS.map((option) => `<option ${row.followup === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+                </select>
+                <br>${escapeHtml(followupReason(row, session))}
+              </td>
+              <td>${escapeHtml(followupFinanceRule(row, session))}</td>
+              <td>
+                ${hasExitScore(row) && !["到课", "迟到"].includes(row.status) ? `<button class="button secondary" type="button" data-mark-attendance-present="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}">修正到课</button><br>` : ""}
+                <button class="button" type="button" data-resolve-followup="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}">标记已处理</button>
+              </td>
             </tr>
           `).join("");
         };
@@ -1294,7 +1363,7 @@
             setMessage("当前没有可导出的点名记录。");
             return;
           }
-          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "复核状态", "操作人", "保存时间"];
+          const header = ["日期", "月份", "老师", "课程类型", "班级/课程", "学生", "点名状态", "出门测成绩", "实到判断", "普通财务人次", "单独结算人次", "课时课销规则", "后续处理", "异常处理状态", "处理人", "处理时间", "复核状态", "操作人", "保存时间"];
           const dataRows = sessions.flatMap((session) => session.rows.map((row) => [
             session.date,
             periodFromDate(session.date),
@@ -1309,6 +1378,9 @@
             countSpecialPresent(row, session.teacher),
             settlementText({ ...row, teacher: session.teacher }),
             row.followup,
+            isFollowupHandled(row) ? "已处理" : needsFollowup(row) ? "待处理" : "正常",
+            row.followupHandledBy || "",
+            row.followupHandledAt || "",
             session.reviewStatus || "待复核",
             session.operatorName,
             session.createdAt
@@ -1418,6 +1490,31 @@
           const button = event.target.closest("[data-confirm-attendance]");
           if (!button || !canManageAll()) return;
           confirmAttendanceSession(button.getAttribute("data-confirm-attendance"));
+        });
+        followupBody?.addEventListener("click", (event) => {
+          const resolveButton = event.target.closest("[data-resolve-followup]");
+          const presentButton = event.target.closest("[data-mark-attendance-present]");
+          if (!resolveButton && !presentButton) return;
+          if (!canUseAttendance()) return;
+          const key = resolveButton?.getAttribute("data-resolve-followup") || presentButton?.getAttribute("data-mark-attendance-present");
+          const { sessionId, rowId } = splitFollowupKey(key);
+          if (!sessionId || !rowId) return;
+          if (presentButton) {
+            updateAttendanceFollowup(sessionId, rowId, {
+              status: "到课",
+              followup: "正常销课并计课时",
+              followupStatus: "已处理",
+              followupHandled: true,
+              followupNote: "出门测成绩反向确认到课"
+            });
+            return;
+          }
+          updateAttendanceFollowup(sessionId, rowId, {
+            followup: selectedFollowupMethod(key),
+            followupStatus: "已处理",
+            followupHandled: true,
+            followupNote: "异常处理台账确认"
+          });
         });
         rosterBody.addEventListener("click", (event) => {
           const button = event.target.closest("[data-attendance-status]");
