@@ -726,7 +726,7 @@
             <td>${escapeHtml(row.student)}</td>
             <td>${escapeHtml(row.className)}</td>
             <td>${escapeHtml(row.teacher)}</td>
-            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}` : ""}</td>
+            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}<br><button type="button" data-action="copy-parent-message" data-index="${index}" style="margin-top:6px; min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(13,148,136,0.28); background:rgba(13,148,136,0.08); color:#0f766e; cursor:pointer;">复制家长文案</button>` : ""}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
@@ -759,6 +759,10 @@
         risk: $("studentRiskInput")?.value || "正常",
         content: normalizeText($("studentContentInput")?.value) || "-",
         next: normalizeText($("studentNextActionInput")?.value) || "-",
+        parentMessage: editingIndex >= 0 ? rows[editingIndex].parentMessage || "" : "",
+        sourceModule: editingIndex >= 0 ? rows[editingIndex].sourceModule || "" : "",
+        sourceText: editingIndex >= 0 ? rows[editingIndex].sourceText || "" : "",
+        createdBy: editingIndex >= 0 ? rows[editingIndex].createdBy || currentOperator().name || "" : currentOperator().name || "",
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
@@ -818,6 +822,22 @@
         setText("studentServiceMessage", `已删除 ${removed.student} 的记录。`);
       }
     }, capabilities, "studentServiceMessage");
+    $("studentServiceTableBody")?.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-action='copy-parent-message']");
+      if (!button) return;
+      const index = Number(button.getAttribute("data-index"));
+      const message = rows[index]?.parentMessage || "";
+      if (!message) {
+        setText("studentServiceMessage", "这条记录没有家长版文案。");
+        return;
+      }
+      try {
+        await navigator.clipboard?.writeText(message);
+        setText("studentServiceMessage", `已复制 ${rows[index]?.student || "学生"} 的家长版反馈。`);
+      } catch {
+        setText("studentServiceMessage", "复制失败，可以手动选中文案复制。");
+      }
+    });
     bindTableImport({
       buttonId: "studentImportButton",
       inputId: "studentImportInput",
