@@ -433,6 +433,27 @@
         color: var(--muted);
         text-align: center;
       }
+      .assign-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(31, 41, 51, 0.42);
+      }
+      .assign-modal[hidden] { display: none; }
+      .assign-dialog {
+        width: min(460px, 100%);
+        padding: 22px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,0.72);
+        background: #fff;
+        box-shadow: 0 24px 64px rgba(31, 41, 51, 0.24);
+      }
+      .assign-dialog .field {
+        margin-top: 14px;
+      }
       @media (max-width: 1080px) {
         .hero,
         .grid {
@@ -551,7 +572,7 @@
             </label>
             <label class="field">
               建议处理人
-              <input name="owner" placeholder="可不填，需要执行时再派人">
+              <select name="owner" id="ownerSelect"></select>
             </label>
             <label class="field">
               希望完成时间
@@ -636,6 +657,24 @@
       </section>
 
     </main>
+    <div class="assign-modal" id="assignTaskModal" hidden>
+      <div class="assign-dialog">
+        <p class="eyebrow">派任务</p>
+        <h2 id="assignTaskTitle">选择负责人</h2>
+        <label class="field">
+          负责人
+          <select id="assignTaskOwnerSelect"></select>
+        </label>
+        <label class="field">
+          截止日期
+          <input id="assignTaskDueInput" type="date">
+        </label>
+        <div class="actions">
+          <button class="button" type="button" id="assignTaskConfirmButton">确认派出</button>
+          <button class="button secondary" type="button" id="assignTaskCancelButton">取消</button>
+        </div>
+      </div>
+    </div>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
 
@@ -667,6 +706,12 @@
       const currentUsername = currentEmployee?.username || currentName;
       const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
       const sampleSuggestionIds = new Set(["s1", "s2", "s3"]);
+      const assignableNames = () => {
+        const names = (Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [])
+          .map((employee) => String(employee?.name || "").trim())
+          .filter(Boolean);
+        return Array.from(new Set([currentName, ...names])).filter(Boolean);
+      };
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -675,6 +720,13 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#039;");
+      }
+
+      function ownerOptions(selected = "") {
+        const current = String(selected || "").trim();
+        const names = assignableNames();
+        if (current && !names.includes(current)) names.unshift(current);
+        return [`<option value="">未分配</option>`, ...names.map((name) => `<option value="${escapeHtml(name)}" ${name === current ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
       }
 
       function defaultSuggestions() {
@@ -799,6 +851,7 @@
 
       let suggestions = readSuggestions();
       let siteFeedbackRows = readRowsFromStorage(FEEDBACK_STORAGE_KEY, []);
+      let pendingAssignment = null;
 
       function normalizeFeedback(row) {
         const normalized = { ...(row || {}) };
@@ -1070,7 +1123,7 @@
                 </label>
                 <label class="field">
                   负责人
-                  <input data-manager-field="owner" value="${escapeHtml(item.owner || "")}">
+                  <select data-manager-field="owner">${ownerOptions(item.owner)}</select>
                 </label>
                 <label class="field">
                   截止日期
@@ -1102,6 +1155,8 @@
           const select = node.querySelector("select");
           if (select && !canManage) select.value = "suggestion";
         });
+        const ownerSelect = byId("ownerSelect");
+        if (ownerSelect) ownerSelect.innerHTML = ownerOptions("");
       }
 
       function addSuggestion() {
@@ -1118,6 +1173,10 @@
         const anonymous = data.get("anonymous") === "on";
         const owner = String(data.get("owner") || "").trim();
         const isDirectTask = entryType === "task";
+        if (isDirectTask && !owner) {
+          alert("直接新增任务请先选择负责人。");
+          return;
+        }
         suggestions.unshift({
           id: `${isDirectTask ? "t" : "s"}-${Date.now()}`,
           entryType,
@@ -1129,7 +1188,7 @@
           anonymous,
           createdAt: today(),
           status: isDirectTask ? "assigned" : "new",
-          owner: isDirectTask ? (owner || currentName) : owner,
+          owner,
           dueDate: String(data.get("dueDate") || "").trim(),
           verifier: "",
           taskId: isDirectTask ? `task-${Date.now()}` : "",
@@ -1171,17 +1230,57 @@
         renderAll();
       }
 
-      function convertToTask(item) {
-        const owner = item.owner || prompt("派给谁执行？请输入负责人姓名", currentName);
-        if (!owner || !owner.trim()) return;
+      function assignSuggestionItem(item, owner, dueDate = "") {
+        if (!owner || !owner.trim()) {
+          alert("请先选择或填写负责人，再派任务。");
+          return false;
+        }
         item.status = "assigned";
         item.taskId = item.taskId || `task-${Date.now()}`;
         item.owner = owner.trim();
+        if (dueDate) item.dueDate = dueDate;
         item.decision = item.decision || `已派给 ${item.owner} 执行。`;
         item.comments = item.comments || [];
         item.comments.push({ author: currentName, text: `已派任务给 ${item.owner}。`, time: today() });
+        return true;
+      }
+
+      function openAssignModal(target) {
+        pendingAssignment = target;
+        const modal = byId("assignTaskModal");
+        const ownerSelect = byId("assignTaskOwnerSelect");
+        const dueInput = byId("assignTaskDueInput");
+        if (!modal || !ownerSelect || !dueInput) return;
+        const existingOwner = target?.item?.owner || target?.feedback?.owner || "";
+        ownerSelect.innerHTML = ownerOptions(existingOwner);
+        dueInput.value = target?.item?.dueDate || (target?.feedback ? today() : "");
+        byId("assignTaskTitle").textContent = target?.feedback ? "选择反馈处理人" : "选择任务负责人";
+        modal.hidden = false;
+      }
+
+      function closeAssignModal() {
+        pendingAssignment = null;
+        const modal = byId("assignTaskModal");
+        if (modal) modal.hidden = true;
+      }
+
+      function confirmAssignment() {
+        const owner = byId("assignTaskOwnerSelect")?.value || "";
+        const dueDate = byId("assignTaskDueInput")?.value || "";
+        if (!pendingAssignment) return;
+        if (pendingAssignment.item) {
+          if (!assignSuggestionItem(pendingAssignment.item, owner, dueDate)) return;
+        }
+        if (pendingAssignment.feedback) {
+          if (!convertFeedbackToTask(pendingAssignment.feedback, owner, dueDate)) return;
+        }
+        closeAssignModal();
         writeSuggestions();
         renderAll();
+      }
+
+      function convertToTask(item) {
+        openAssignModal({ item });
       }
 
       function findFeedback(target) {
@@ -1190,10 +1289,14 @@
         return siteFeedbackRows.find((row) => row.id === card.getAttribute("data-feedback-id"));
       }
 
-      function convertFeedbackToTask(feedback) {
+      function convertFeedbackToTask(feedback, owner, dueDate = "") {
         if (!feedback) return;
         const createdDate = today();
         const highImpact = feedback.severity === "紧急" || ["数据不对", "按钮点不开"].includes(feedback.type);
+        if (!owner || !owner.trim()) {
+          alert("请先选择或填写负责人，再转为任务。");
+          return false;
+        }
         suggestions.unshift({
           id: `t-feedback-${Date.now()}`,
           entryType: "task",
@@ -1205,8 +1308,8 @@
           anonymous: false,
           createdAt: createdDate,
           status: "assigned",
-          owner: currentName,
-          dueDate: createdDate,
+          owner: owner.trim(),
+          dueDate: dueDate || createdDate,
           verifier: "",
           taskId: `task-feedback-${Date.now()}`,
           taskStandard: "",
@@ -1226,9 +1329,8 @@
         feedback.taskId = suggestions[0].taskId;
         feedback.processedAt = new Date().toISOString();
         feedback.processedBy = currentName;
-        writeSuggestions();
         writeSiteFeedbackRows();
-        renderAll();
+        return true;
       }
 
       function submitCompletion(item) {
@@ -1322,6 +1424,11 @@
 
       byId("submitSuggestionButton").addEventListener("click", addSuggestion);
       byId("exportSuggestionsButton").addEventListener("click", exportCsv);
+      byId("assignTaskConfirmButton")?.addEventListener("click", confirmAssignment);
+      byId("assignTaskCancelButton")?.addEventListener("click", closeAssignModal);
+      byId("assignTaskModal")?.addEventListener("click", (event) => {
+        if (event.target?.id === "assignTaskModal") closeAssignModal();
+      });
       byId("exportFeedbackButton")?.addEventListener("click", exportFeedbackCsv);
       byId("siteFeedbackSearch")?.addEventListener("input", renderSiteFeedback);
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
@@ -1367,7 +1474,7 @@
         if (!feedback) return;
         const action = actionButton.getAttribute("data-feedback-action");
         if (action === "task") {
-          convertFeedbackToTask(feedback);
+          openAssignModal({ feedback });
           return;
         }
         if (action === "done") {
