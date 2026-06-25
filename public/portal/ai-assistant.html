@@ -178,12 +178,12 @@
           </div>
           <div class="result-panel">
             <h3>课堂反馈草稿库</h3>
-            <p style="margin-top:6px;">保留最近 50 条，方便老师回看和继续编辑。</p>
+            <p style="margin-top:6px;">普通账号仅显示本人草稿，保留最近 50 条，方便回看和继续编辑。</p>
             <div class="draft-list" id="aiDraftList"></div>
           </div>
           <div class="result-panel">
             <h3>已归档课堂反馈</h3>
-            <p style="margin-top:6px;">从学生服务系统读取已归档内容，方便查看上一次或前几次讲了什么。</p>
+            <p style="margin-top:6px;">普通账号仅显示本人归档内容，方便查看上一次或前几次讲了什么。</p>
             <div class="history-tools">
               <input id="archivedFeedbackSearchInput" type="search" placeholder="搜索学生 / 课程 / 内容">
               <button class="button secondary" id="refreshArchivedFeedbackButton" type="button">刷新归档</button>
@@ -206,6 +206,8 @@
       const byId = (id) => document.getElementById(id);
       const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
       const currentName = currentEmployee.name || "员工";
+      const currentAccountName = String(currentEmployee.name || "").trim();
+      const currentUsername = String(currentEmployee.username || "").trim();
       let recognition = null;
       let latestResult = null;
 
@@ -252,15 +254,33 @@
         window.JRC_CLOUD?.writeModuleData?.(DRAFT_KEY, "ai", rows.slice(0, 80)).catch(() => {});
       }
 
+      function canViewAllAiHistory() {
+        const permissions = Array.isArray(currentEmployee.permissions)
+          ? currentEmployee.permissions.join(" ")
+          : String(currentEmployee.permissions || "");
+        const profile = `${currentEmployee.role || ""} ${permissions} ${currentAccountName}`;
+        return /(超级管理员|总管理员|管理员|校长|主管|主任|组长|教务负责人|学管负责人)/.test(profile);
+      }
+
+      function rowBelongsToCurrentUser(row) {
+        if (canViewAllAiHistory()) return true;
+        if (!currentAccountName && !currentUsername) return false;
+        const ownerNames = [row.createdBy, row.teacher, row.owner, row.operatorName, row.author]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        const ownerUsernames = [row.createdByUsername, row.teacherUsername, row.ownerUsername, row.operatorUsername, row.username]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        return Boolean(
+          (currentUsername && ownerUsernames.includes(currentUsername)) ||
+          (currentAccountName && ownerNames.includes(currentAccountName))
+        );
+      }
+
       function visibleDraftRows(rows) {
-        const username = String(currentEmployee.username || "");
         return (Array.isArray(rows) ? rows : [])
           .filter((row) => row && typeof row === "object")
-          .filter((row) => {
-            const owner = String(row.createdBy || row.operatorName || "");
-            const ownerUsername = String(row.createdByUsername || row.operatorUsername || "");
-            return !owner || owner === currentName || ownerUsername === username;
-          });
+          .filter((row) => rowBelongsToCurrentUser(row));
       }
 
       function draftDisplayText(row) {
@@ -303,16 +323,11 @@
       }
 
       function archivedFeedbackRowsFrom(rows) {
-        const currentRole = String(currentEmployee.role || "");
-        const isTeacher = currentRole.includes("授课老师") || currentRole.includes("老师");
         return (Array.isArray(rows) ? rows : [])
           .filter((row) => row && typeof row === "object")
           .filter((row) => String(row.type || "").includes("课后反馈") || row.parentMessage)
           .filter((row) => String(row.sourceModule || "") === "aiAssistant" || row.parentMessage)
-          .filter((row) => {
-            if (!isTeacher) return true;
-            return [row.teacher, row.createdBy, row.owner].map((value) => String(value || "")).includes(currentName);
-          })
+          .filter((row) => rowBelongsToCurrentUser(row))
           .sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 
@@ -913,6 +928,7 @@
           student,
           className: latestResult.className || latestResult.courseName || "-",
           teacher: currentName,
+          teacherUsername: currentUsername,
           type: mode === "attendanceFollowup" ? "缺勤跟进" : ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : mode === "parentCommunication" ? "家长沟通" : "学习跟踪",
           risk: latestResult.riskLevel || "正常",
           content: latestResult.internalNote || latestResult.polishedText || resultToText(latestResult),
@@ -924,7 +940,8 @@
           lessonNumber: latestResult.lessonNumber || feedbackMeta(student, byId("aiInputText").value.trim()).lessonNumber,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          createdBy: currentName
+          createdBy: currentName,
+          createdByUsername: currentUsername
         };
         let rows = safeParse(localStorage.getItem(STUDENT_SERVICE_KEY), []);
         try {
