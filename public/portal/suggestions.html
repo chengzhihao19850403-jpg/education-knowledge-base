@@ -1272,7 +1272,9 @@
         const exportButton = byId("exportFeedbackButton");
         if (exportButton) exportButton.hidden = !canManage;
         const pendingRows = visibleBaseRows.filter((row) => !closedStatuses.includes(row.status));
+        const processedRows = visibleBaseRows.filter((row) => closedStatuses.includes(row.status));
         const taskRows = visibleBaseRows.filter((row) => row.status === "已转任务");
+        const reopenedRows = visibleBaseRows.filter((row) => row.status === "继续反馈");
         const urgentRows = visibleBaseRows.filter((row) => row.severity === "紧急" && !closedStatuses.includes(row.status));
         const teacherNames = new Set(visibleBaseRows.map((row) => row.userName || "未登录"));
         const systemNames = new Set(visibleBaseRows.map((row) => row.system || "未知页面"));
@@ -1285,14 +1287,22 @@
           return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
         };
         if (summaryNode) {
-          summaryNode.innerHTML = [
-            [canManage ? "试用反馈" : "我的反馈", visibleBaseRows.length],
-            ["紧急", urgentRows.length],
+          const summaryRows = canManage ? [
+            ["试用反馈", visibleBaseRows.length],
+            ["已处理", processedRows.length],
             ["待处理", pendingRows.length],
-            ["已转任务", taskRows.length],
-            [canManage ? "参与老师" : "我的账号", teacherNames.size],
+            ["紧急", urgentRows.length],
+            ["参与老师", teacherNames.size],
             ["涉及系统", systemNames.size]
-          ].map(([label, value]) => `
+          ] : [
+            ["我共提反馈", visibleBaseRows.length],
+            ["已处理", processedRows.length],
+            ["待处理", pendingRows.length],
+            ["继续反馈", reopenedRows.length],
+            ["已转任务", taskRows.length],
+            ["涉及系统", systemNames.size]
+          ];
+          summaryNode.innerHTML = summaryRows.map(([label, value]) => `
             <div class="feedback-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
           `).join("");
         }

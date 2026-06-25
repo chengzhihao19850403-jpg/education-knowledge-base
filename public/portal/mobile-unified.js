@@ -35,6 +35,19 @@
     return "open";
   }
 
+  function feedbackStats(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const processedStatuses = ["已确认解决", "已处理", "已转任务"];
+    const processed = list.filter((row) => processedStatuses.includes(row?.status || "")).length;
+    const reopened = list.filter((row) => row?.status === "继续反馈").length;
+    return {
+      total: list.length,
+      processed,
+      pending: Math.max(0, list.length - processed),
+      reopened
+    };
+  }
+
   function writeFeedbackRows(rows) {
     localStorage.setItem(feedbackStoreKey, JSON.stringify(rows.slice(0, 300)));
   }
@@ -209,6 +222,7 @@
             <strong>我的反馈</strong>
             <a href="/jrcedu/portal/suggestions.html">查看全部</a>
           </div>
+          <div class="jrc-feedback-history__stats"></div>
           <div class="jrc-feedback-history__list"></div>
         </div>
       </div>
@@ -223,14 +237,24 @@
     const content = dock.querySelector(".jrc-feedback-content");
     const type = dock.querySelector(".jrc-feedback-type");
     const severity = dock.querySelector(".jrc-feedback-severity");
+    const historyStats = dock.querySelector(".jrc-feedback-history__stats");
     const historyList = dock.querySelector(".jrc-feedback-history__list");
 
     function renderMyFeedbackHistory() {
       if (!historyList) return;
-      const mine = readFeedbackRows()
+      const allMine = readFeedbackRows()
         .filter(rowBelongsToCurrentUser)
-        .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
-        .slice(0, 5);
+        .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+      const mine = allMine.slice(0, 5);
+      if (historyStats) {
+        const stats = feedbackStats(allMine);
+        historyStats.innerHTML = `
+          <span>共提 ${stats.total} 条</span>
+          <span>已处理 ${stats.processed} 条</span>
+          <span>待处理 ${stats.pending} 条</span>
+          ${stats.reopened ? `<span>继续反馈 ${stats.reopened} 条</span>` : ""}
+        `;
+      }
       historyList.innerHTML = mine.length ? mine.map((row) => {
         const status = row.status || "待处理";
         const createdAt = String(row.createdAt || "").replace("T", " ").slice(0, 16);
