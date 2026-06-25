@@ -377,10 +377,13 @@
         margin-top: 16px;
       }
       .compare-card {
+        display: block;
         padding: 16px;
         border: 1px solid var(--line);
         border-radius: 18px;
         background: rgba(255,255,255,0.76);
+        color: inherit;
+        text-decoration: none;
       }
       .compare-card span {
         color: var(--muted);
@@ -508,6 +511,7 @@
             <span class="tag warn">待审核数据不入账</span>
           </div>
           <div class="quick-actions">
+            <a class="button secondary" href="#teacherSettlementEntry">老师结算</a>
             <a class="button secondary" href="#monthlySection">月结录入</a>
             <a class="button secondary" href="#expenseSection">支出报销</a>
             <a class="button secondary" href="#attendanceFinanceSection">点名结算</a>
@@ -552,6 +556,33 @@
           <strong class="summary-value" id="dividendPool">¥0</strong>
           <div class="summary-note" id="retainedProfit">留存 ¥0</div>
         </article>
+      </section>
+
+      <section class="card" id="teacherSettlementEntry">
+        <p class="eyebrow">老师结算</p>
+        <h2>老师结算结果 / 核对结果</h2>
+        <div class="compare-grid">
+          <a class="compare-card" href="#preimportSection">
+            <span>结算草算结果</span>
+            <strong>老师月度结算</strong>
+            <em>查看排课、质量、招生联动后的老师结算候选项</em>
+          </a>
+          <a class="compare-card" href="#teacherDiffSection">
+            <span>核对结果</span>
+            <strong>老师差异核对</strong>
+            <em>按老师看系统试算和 Excel 差异</em>
+          </a>
+          <a class="compare-card" href="#rowDiffSection">
+            <span>逐条核对</span>
+            <strong>排课行 / 工资行</strong>
+            <em>查具体哪节课、哪一行金额有差异</em>
+          </a>
+          <a class="compare-card" href="#attendanceFinanceSection">
+            <span>点名联动</span>
+            <strong>到课课时费 / 课销</strong>
+            <em>从点名和出门测生成结算依据</em>
+          </a>
+        </div>
       </section>
 
       <section class="card" id="trialCompareSection">

@@ -992,7 +992,8 @@
                 <button class="status-chip" id="filterNewButton" type="button">新建未联系</button>
                 <button class="status-chip" id="filterTrialButton" type="button">待试听 / 已试听</button>
                 <button class="status-chip" id="filterEnrolledButton" type="button">已报名</button>
-                <button class="status-chip" id="exportFilteredLeadsButton" type="button">导出当前筛选</button>
+                <button class="status-chip" id="exportFilteredLeadsButton" type="button">导出当前筛选 Excel</button>
+                <button class="status-chip" id="exportAllLeadsButton" type="button">导出全部 Excel</button>
               </div>
             </div>
             <div class="compact-toolbar">
@@ -1226,6 +1227,7 @@
             </div>
             <div class="section-actions">
               <button class="button small" id="saveDetailButton" type="button">保存当前线索修改</button>
+              <button class="button small secondary" id="unlockAttributionButton" type="button">解锁归属链</button>
               <span class="inline-message" id="saveDetailMessage"></span>
             </div>
             <div class="section-head" style="margin-top: 20px;">
@@ -1577,6 +1579,10 @@
                 <select id="feedbackLeadSelect">
                   <option value="">暂无待反馈学生</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>学生姓名</label>
+                <input id="feedbackLeadNameInput" placeholder="下拉没有时可手填">
               </div>
               <div class="field">
                 <label>试听是否到场</label>
@@ -1957,8 +1963,8 @@
           <section class="panel content-section" data-section-group="insights">
             <div class="section-head">
               <div>
-                <h2>转介绍关系</h2>
-                <div class="hint">记录推荐链、奖励方式和推荐结果。</div>
+                <h2>转介绍排序与费用</h2>
+                <div class="hint">按推荐结果自动排序。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">家长转介绍</span>
@@ -1967,75 +1973,40 @@
             </div>
             <div class="metrics">
               <div class="metric">
-                <div class="metric-meta">推荐家长</div>
-                <strong>待生成</strong>
-                <div class="metric-meta">导入转介绍线索后自动统计</div>
+                <div class="metric-meta">推荐人</div>
+                <strong id="referralPeopleCount">0</strong>
+                <div class="metric-meta">有推荐记录的人数</div>
               </div>
               <div class="metric">
-                <div class="metric-meta">推荐方式</div>
-                <strong>老带新</strong>
-                <div class="metric-meta">返现 / 抵课奖励</div>
+                <div class="metric-meta">推荐线索</div>
+                <strong id="referralLeadCount">0</strong>
+                <div class="metric-meta">含家长/员工推荐</div>
               </div>
               <div class="metric">
-                <div class="metric-meta">员工推荐</div>
-                <strong>待生成</strong>
-                <div class="metric-meta">推荐奖与顾问提成可并行</div>
+                <div class="metric-meta">推荐成交</div>
+                <strong id="referralEnrollCount">0</strong>
+                <div class="metric-meta" id="referralEnrollMeta">实收 0</div>
               </div>
               <div class="metric">
-                <div class="metric-meta">推荐绑定</div>
-                <strong>二维码</strong>
-                <div class="metric-meta">专属推荐码自动绑定</div>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel content-section" data-section-group="settings">
-            <div class="section-head">
-              <div>
-                <h2>提成链结构</h2>
-                <div class="hint">定义提成对象、适用场景和冲突关系。</div>
-              </div>
-              <div class="filters">
-                <span class="status-chip">按实收金额</span>
-                <span class="status-chip">财务联动</span>
+                <div class="metric-meta">预估奖励</div>
+                <strong id="referralRewardEstimate">0</strong>
+                <div class="metric-meta">按成交候选估算</div>
               </div>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>提成对象</th>
-                    <th>适用场景</th>
-                    <th>当前口径</th>
-                    <th>规则参数</th>
+                    <th>排名</th>
+                    <th>推荐人</th>
+                    <th>推荐线索</th>
+                    <th>报名人数</th>
+                    <th>实收金额</th>
+                    <th>预估奖励</th>
+                    <th>奖励状态</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td>网销渠道提成</td>
-                    <td>线上渠道首单成交</td>
-                    <td>按来源渠道和网销归属锁定</td>
-                    <td>比例、首单范围、续费是否排除</td>
-                  </tr>
-                  <tr>
-                    <td>招生顾问提成</td>
-                    <td>顾问全程跟进成交</td>
-                    <td>首单、续费、扩科可分开</td>
-                    <td>阶梯奖金、月度累计规则</td>
-                  </tr>
-                  <tr>
-                    <td>员工推荐奖</td>
-                    <td>老师 / 教务 / 行政推荐新生</td>
-                    <td>默认不冲掉顾问提成</td>
-                    <td>金额或比例、发放节点</td>
-                  </tr>
-                  <tr>
-                    <td>家长转介绍奖励</td>
-                    <td>老家长推荐新生</td>
-                    <td>可选返现或抵课</td>
-                    <td>奖励形式、二级裂变是否继续奖励</td>
-                  </tr>
-                </tbody>
+                <tbody id="referralRankingBody"></tbody>
               </table>
             </div>
           </section>
@@ -2072,50 +2043,6 @@
                 <strong id="dormantHighIntentCount">0</strong>
                 <div class="metric-meta">优先人工追踪</div>
               </div>
-            </div>
-          </section>
-
-          <section class="panel content-section" data-section-group="settings">
-            <div class="section-head">
-              <div>
-                <h2>转介绍奖励规则</h2>
-                <div class="hint">明确奖励形式、触发条件和发放节点。</div>
-              </div>
-              <div class="filters">
-                <span class="status-chip">返现 / 抵课双模式</span>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>奖励类型</th>
-                    <th>触发条件</th>
-                    <th>奖励方式</th>
-                    <th>发放节点</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>家长转介绍首单</td>
-                    <td>被推荐学生首单已实收到账</td>
-                    <td>返现或抵课二选一</td>
-                    <td>报名到账后发放</td>
-                  </tr>
-                  <tr>
-                    <td>家长转介绍二级裂变</td>
-                    <td>被推荐家长再次成功推荐新生</td>
-                    <td>较低一级奖励</td>
-                    <td>二次成交确认后发放</td>
-                  </tr>
-                  <tr>
-                    <td>员工推荐奖</td>
-                    <td>员工推荐新生成功报名</td>
-                    <td>固定奖励或按比例</td>
-                    <td>报名到账后发放</td>
-                  </tr>
-                </tbody>
-              </table>
             </div>
           </section>
 
@@ -2234,6 +2161,22 @@
                 <strong id="consultantCommissionLabel">待财务确认</strong>
                 <div class="metric-meta">只做候选，不直接发放</div>
               </div>
+            </div>
+            <div class="table-wrap" style="margin-top: 18px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>周期</th>
+                    <th>新增线索</th>
+                    <th>已约试听</th>
+                    <th>报名成交</th>
+                    <th>实收金额</th>
+                    <th>试听率</th>
+                    <th>成交率</th>
+                  </tr>
+                </thead>
+                <tbody id="consultantPeriodBody"></tbody>
+              </table>
             </div>
           </section>
 

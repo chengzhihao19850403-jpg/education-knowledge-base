@@ -150,9 +150,9 @@
 
         <article class="card">
           <h2>上传课程资料</h2>
-          <p>登记标准课件、讲义、题目图片、老师版答案和板书照片。</p>
+          <p>选择年级、体系和课次后，可一次上传多份资料。</p>
           <div class="form-grid">
-            <label class="field"><span>资料名称</span><input id="curriculumNameInput" placeholder="例如：五年级暑假第 1 讲"></label>
+            <label class="field"><span>资料名称</span><input id="curriculumNameInput" placeholder="不填时自动使用文件名"></label>
             <label class="field"><span>学科 / 年级</span><input id="curriculumSubjectInput" placeholder="例如：数学 / 五年级"></label>
             <label class="field"><span>年级</span><select id="curriculumGradeInput"><option>一年级</option><option>二年级</option><option>三年级</option><option>四年级</option><option>五年级</option><option>六年级</option><option>初一</option><option>初二</option><option>初三</option></select></label>
             <label class="field"><span>课程体系</span><select id="curriculumTrackInput"><option>课内体系</option><option>培优体系</option><option>奥数体系</option><option>强基重高选拔体系</option></select></label>
@@ -161,7 +161,7 @@
             <label class="field"><span>课次 / 专题</span><input id="curriculumLessonInput" placeholder="例如：第 1 讲 / 分数应用题"></label>
             <label class="field"><span>当前版本</span><input id="curriculumVersionInput" placeholder="V1.0"></label>
             <label class="field"><span>负责人</span><input id="curriculumOwnerInput" placeholder="填写负责人"></label>
-            <label class="field span-3"><span>上传文件</span><input id="curriculumFileInput" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.heic,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="file-note">云端支持 30MB 以内 PDF、Word、PPT 和图片。</div><div class="file-preview" id="curriculumFilePreview">尚未选择文件。</div></label>
+            <label class="field span-3"><span>上传文件</span><input id="curriculumFileInput" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.heic,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="file-note">可批量选择；重复文件会更新版本，不会重复生成多条。</div><div class="file-preview" id="curriculumFilePreview">尚未选择文件。</div></label>
             <label class="field span-3"><span>版本说明</span><textarea id="curriculumNoteInput" placeholder="说明适用对象、重点难点和老师使用注意事项。"></textarea></label>
           </div>
           <div class="actions">

@@ -1017,14 +1017,42 @@
       const preview = $("curriculumFilePreview");
       if (!preview) return;
       if (row.fileName) {
-        preview.textContent = `当前文件：${row.fileName}（${formatFileSize(row.fileSize)}）。重新选择文件后会替换。`;
+        preview.textContent = `当前文件：${row.fileName}（${formatFileSize(row.fileSize)}）。重新选择文件后会更新版本。`;
         return;
       }
       preview.textContent = "尚未选择文件。";
     }
 
-    async function selectedFilePayload(existing = {}, metadata = {}) {
-      const file = $("curriculumFileInput")?.files?.[0];
+    function fileBaseName(fileName) {
+      return normalizeText(String(fileName || "").replace(/\.[^.]+$/g, "")) || "未命名资料";
+    }
+
+    function curriculumDuplicateKey(row, fileName = row?.fileName || "") {
+      return [
+        row?.grade,
+        row?.track,
+        row?.type,
+        row?.lesson,
+        fileName || row?.name
+      ].map((value) => normalizeText(value).toLowerCase()).join("|");
+    }
+
+    function bumpVersion(version) {
+      const text = normalizeText(version) || "V1.0";
+      const match = text.match(/^v?(\d+)(?:\.(\d+))?$/i);
+      if (!match) return `${text}-新版`;
+      const major = Number(match[1] || 1);
+      const minor = Number(match[2] || 0) + 1;
+      return `V${major}.${minor}`;
+    }
+
+    function findDuplicateCurriculumIndex(payload, fileName) {
+      const keyText = curriculumDuplicateKey(payload, fileName);
+      return rows.findIndex((row, index) => index !== editingIndex && curriculumDuplicateKey(row, row.fileName) === keyText);
+    }
+
+    async function selectedFilePayload(existing = {}, metadata = {}, fileOverride = null) {
+      const file = fileOverride || $("curriculumFileInput")?.files?.[0];
       if (!file) {
         return {
           fileName: existing.fileName || "",
@@ -1116,13 +1144,18 @@
     }
 
     $("curriculumFileInput")?.addEventListener("change", () => {
-      const file = $("curriculumFileInput")?.files?.[0];
-      if (!file) {
+      const files = Array.from($("curriculumFileInput")?.files || []);
+      if (!files.length) {
         renderFilePreview(editingIndex >= 0 ? rows[editingIndex] : {});
         return;
       }
       const preview = $("curriculumFilePreview");
-      if (preview) preview.textContent = `已选择：${file.name}（${formatFileSize(file.size)}）`;
+      if (preview) {
+        const totalSize = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+        preview.textContent = files.length === 1
+          ? `已选择：${files[0].name}（${formatFileSize(files[0].size)}）`
+          : `已选择 ${files.length} 个文件，总计 ${formatFileSize(totalSize)}。保存后逐个上传。`;
+      }
     });
 
     $("curriculumSaveButton")?.addEventListener("click", async () => {
@@ -1131,9 +1164,11 @@
         denyAction("curriculumMessage", editingIndex >= 0 ? "修改" : "新增");
         return;
       }
-      const name = normalizeName($("curriculumNameInput")?.value);
+      const files = Array.from($("curriculumFileInput")?.files || []);
+      const inputName = normalizeName($("curriculumNameInput")?.value);
+      const name = inputName || (files.length ? fileBaseName(files[0].name) : "");
       if (!name) {
-        setText("curriculumMessage", "请先填写资料名称。");
+        setText("curriculumMessage", "请填写资料名称，或先选择要上传的文件。");
         return;
       }
       const selectedGrade = $("curriculumGradeInput")?.value || "";
@@ -1141,9 +1176,7 @@
         setText("curriculumMessage", "当前账号只能上传自己负责年级的课程资料。");
         return;
       }
-      const existing = editingIndex >= 0 ? rows[editingIndex] : {};
       const basePayload = {
-        name,
         subject: normalizeSubjectForScope($("curriculumSubjectInput")?.value, selectedGrade),
         grade: selectedGrade || "-",
         track: $("curriculumTrackInput")?.value || "-",
@@ -1154,29 +1187,54 @@
         version: normalizeText($("curriculumVersionInput")?.value) || "V1.0",
         owner: normalizeName($("curriculumOwnerInput")?.value) || currentEmployee.name || "-",
         note: normalizeText($("curriculumNoteInput")?.value) || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
-      let filePayload = {};
+      const uploadFiles = files.length ? files : [null];
+      let addedCount = 0;
+      let updatedCount = 0;
       try {
-        filePayload = await selectedFilePayload(existing, basePayload);
+        for (const file of uploadFiles) {
+          const rowName = inputName || (file ? fileBaseName(file.name) : name);
+          const duplicateIndex = file ? findDuplicateCurriculumIndex({ ...basePayload, name: rowName }, file.name) : -1;
+          const targetIndex = editingIndex >= 0 && uploadFiles.length === 1 ? editingIndex : duplicateIndex;
+          const existing = targetIndex >= 0 ? rows[targetIndex] : {};
+          const nextVersion = targetIndex >= 0 ? bumpVersion(existing.version || basePayload.version) : basePayload.version;
+          const rowBase = {
+            ...existing,
+            ...basePayload,
+            name: rowName,
+            version: nextVersion,
+            createdAt: existing.createdAt || nowText()
+          };
+          const filePayload = await selectedFilePayload(existing, rowBase, file);
+          const payload = {
+            ...rowBase,
+            ...filePayload,
+            versionHistory: targetIndex >= 0
+              ? [
+                  ...(Array.isArray(existing.versionHistory) ? existing.versionHistory : []),
+                  {
+                    version: existing.version || "V1.0",
+                    fileName: existing.fileName || "",
+                    updatedAt: existing.updatedAt || existing.createdAt || nowText()
+                  }
+                ].slice(-10)
+              : (Array.isArray(existing.versionHistory) ? existing.versionHistory : [])
+          };
+          if (targetIndex >= 0) {
+            rows[targetIndex] = payload;
+            updatedCount += 1;
+          } else {
+            rows.unshift(payload);
+            addedCount += 1;
+          }
+        }
       } catch (error) {
         setText("curriculumMessage", error.message || "文件读取失败。");
         return;
       }
-      const payload = {
-        ...basePayload,
-        ...filePayload,
-      };
-      if (editingIndex >= 0) {
-        rows[editingIndex] = payload;
-        recordAudit(moduleKey, "更新", name, `${payload.type} / ${payload.version}`);
-        setText("curriculumMessage", `已更新 ${name}${payload.fileName ? `，文件 ${payload.fileName} 已保存。` : "。"}`);
-      } else {
-        rows.unshift(payload);
-        recordAudit(moduleKey, "新增", name, `${payload.type} / ${payload.version}`);
-        setText("curriculumMessage", `已保存 ${name}${payload.fileName ? `，文件 ${payload.fileName} 已上传。` : "。"}`);
-      }
+      recordAudit(moduleKey, addedCount && updatedCount ? "批量保存" : updatedCount ? "更新" : "新增", name, `新增 ${addedCount} 条 / 更新 ${updatedCount} 条`);
+      setText("curriculumMessage", `已保存：新增 ${addedCount} 条，更新 ${updatedCount} 条。重复资料已自动升级版本。`);
       writeStore(key, rows);
       resetForm();
       render();
