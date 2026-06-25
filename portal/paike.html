@@ -3,85 +3,418 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>排课系统</title>
+    <title>匠人程工作台｜排课系统</title>
     <style>
+      :root {
+        --bg: #f6f8f7;
+        --panel: rgba(255,255,255,0.96);
+        --ink: #172132;
+        --muted: #627086;
+        --line: rgba(23,33,50,0.09);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --warn: #b45309;
+        --danger: #b91c1c;
+        --shadow: 0 18px 50px rgba(23,33,50,0.12);
+      }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
         font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
-        background: #f6f8f7;
-        color: #172132;
+        background:
+          radial-gradient(circle at top left, rgba(13,148,136,0.14), transparent 28%),
+          linear-gradient(180deg, #fbfcfc 0%, #edf3f3 100%);
+        color: var(--ink);
       }
-      main {
-        width: min(560px, calc(100vw - 32px));
-        padding: 28px;
-        border: 1px solid rgba(23, 33, 50, 0.08);
-        border-radius: 18px;
-        background: #fff;
-        box-shadow: 0 18px 50px rgba(23, 33, 50, 0.12);
+      .shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
       }
-      .topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-      h1 { margin: 0; font-size: 26px; }
-      p { margin: 12px 0 0; color: #627086; line-height: 1.7; }
-      a {
+      .topbar,
+      .card,
+      .status-card {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.72);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+      }
+      .brand-name { font-size: 18px; font-weight: 800; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav-link,
+      .button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 42px;
-        padding: 0 18px;
+        padding: 0 16px;
         border-radius: 999px;
-        background: #0d9488;
+        border: 0;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
         color: #fff;
         text-decoration: none;
-        font-weight: 700;
+        font-weight: 800;
       }
-      a.secondary {
-        background: #fff;
-        color: #172132;
-        border: 1px solid rgba(23, 33, 50, 0.10);
+      .button.secondary,
+      .nav-link {
+        background: rgba(255,255,255,0.86);
+        color: var(--ink);
+        border: 1px solid var(--line);
       }
-      .quick {
+      .hero {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+        gap: 18px;
+      }
+      .card { padding: 24px; }
+      .card + .card,
+      .grid + .card,
+      .card + .grid { margin-top: 18px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
         margin-top: 16px;
       }
-      .quick a {
-        border-radius: 14px;
-        min-height: 52px;
+      .tag,
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: rgba(13,148,136,0.1);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .tag.warn,
+      .status-pill.warn {
+        background: rgba(180,83,9,0.1);
+        color: var(--warn);
+      }
+      .status-pill.danger {
+        background: rgba(185,28,28,0.1);
+        color: var(--danger);
+      }
+      .quick-grid,
+      .status-grid,
+      .path-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .status-card,
+      .path-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.78);
+      }
+      .status-card span,
+      .path-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .status-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+        color: var(--ink);
+      }
+      .status-card p,
+      .path-card p {
+        margin-top: 8px;
+        font-size: 13px;
+      }
+      .path-card strong {
+        display: block;
+        margin-top: 8px;
+      }
+      .notice {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(37,99,235,0.08);
+        border: 1px solid rgba(37,99,235,0.14);
+        color: #1d4ed8;
+        line-height: 1.7;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.78);
+      }
+      table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 13px;
+      }
+      th {
+        color: var(--muted);
+        background: rgba(13,148,136,0.06);
+      }
+      tr:last-child td { border-bottom: 0; }
+      .empty {
+        padding: 22px;
+        color: var(--muted);
+        text-align: center;
+      }
+      @media (max-width: 960px) {
+        .hero,
+        .quick-grid,
+        .status-grid,
+        .path-grid {
+          grid-template-columns: 1fr;
+        }
       }
       @media (max-width: 640px) {
-        body { display: block; }
-        main {
-          width: min(100% - 20px, 560px);
-          margin: 18px auto;
-          padding: 20px;
+        .shell {
+          width: min(100% - 20px, 1180px);
+          padding: 18px 0 34px;
         }
-        .quick { grid-template-columns: 1fr; }
-        .topline { align-items: flex-start; flex-direction: column; }
-        .topline a { width: 100%; }
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .card { padding: 18px; border-radius: 18px; }
+        .button,
+        .nav-link { width: 100%; }
       }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623k">
   </head>
   <body data-page-permission="paike.access">
-    <main>
-      <div class="topline">
-        <h1>排课系统</h1>
-        <a class="secondary" href="/jrcedu/portal/index.html">返回工作台</a>
-      </div>
-      <p>按老师熟悉的旧版界面进入，云端保存和点名课销逐步接入。</p>
-      <div class="quick">
-        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html">上传总表</a>
-        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式</a>
-        <a data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式</a>
-        <a data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">点名课销</a>
-      </div>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">System 01 · 排课系统</div>
+        </div>
+        <a class="nav-link" href="/jrcedu/portal/index.html">返回工作台</a>
+      </section>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">排课</p>
+          <h1>排课系统</h1>
+          <p class="hero-text">先看云端有没有读到排课数据，再按老师熟悉的旧版界面核对平时课表、暑假课表和点名课销。</p>
+          <div class="tag-row">
+            <span class="tag">旧版熟悉界面</span>
+            <span class="tag">云端核对</span>
+            <span class="tag">点名课销联动</span>
+            <span class="tag warn">空数据先查月份和入口</span>
+          </div>
+          <div class="quick-grid">
+            <a class="button" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html">上传总表</a>
+            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式</a>
+            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式</a>
+            <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">点名课销</a>
+          </div>
+          <div class="notice">如果进入后看不到数据，先不要判断为“丢了”。先看下方核对台：云端是否读到数据、六月和平时模式是否有明细、暑假模式是否有数据。</div>
+        </article>
+
+        <aside class="card">
+          <p class="eyebrow">怎么试</p>
+          <h2>周老师核对顺序</h2>
+          <div class="path-grid">
+            <div class="path-card"><span>1</span><strong>看核对台</strong><p>先确认云端数据行数，不要直接进旧版页面猜。</p></div>
+            <div class="path-card"><span>2</span><strong>进对应模式</strong><p>六月平时课看“平时模式”，七八月看“暑假模式”。</p></div>
+            <div class="path-card"><span>3</span><strong>报具体问题</strong><p>反馈时写清老师、学生、日期、哪个入口没有显示。</p></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">核对台</p>
+        <h2>云端排课数据状态</h2>
+        <div class="status-grid" id="paikeStatusGrid"></div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">最近明细</p>
+        <h2>当前读到的排课样例</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>来源</th>
+                <th>月份</th>
+                <th>日期</th>
+                <th>老师</th>
+                <th>学生/班级</th>
+                <th>时间/课时</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="paikePreviewBody"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
+
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
+    <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script>
+      const byId = (id) => document.getElementById(id);
+      const stores = {
+        importReview: "paike-summer-import-review-v1",
+        regular: "paike-june-system-v1",
+        preimport: "jrc-paike-finance-preimport-2026-06-22"
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function safeParse(raw, fallback) {
+        try {
+          return JSON.parse(raw || "null") ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function readLocal(key, fallback) {
+        return safeParse(localStorage.getItem(key), fallback);
+      }
+
+      async function readCloud(key, fallback) {
+        const local = readLocal(key, fallback);
+        if (!window.JRC_CLOUD?.readModuleData) return local;
+        try {
+          const result = await window.JRC_CLOUD.readModuleData(key);
+          if (result?.ok && result.data?.found) return result.data.payload ?? local;
+        } catch (error) {
+          console.warn("读取排课云端数据失败", key, error);
+        }
+        return local;
+      }
+
+      function scheduleSessionsFromPreimport(bundle) {
+        return Array.isArray(bundle?.scheduleSessions) ? bundle.scheduleSessions : [];
+      }
+
+      function scheduleEntriesFromRegular(data) {
+        return Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
+      }
+
+      function renderStatus({ reviewRows, regularEntries, scheduleSessions }) {
+        const grid = byId("paikeStatusGrid");
+        const juneRows = scheduleSessions.filter((row) => row.period === "2026-06").length + regularEntries.length;
+        const summerRows = scheduleSessions.filter((row) => ["2026-07", "2026-08"].includes(row.period)).length;
+        const teacherCount = new Set(scheduleSessions.map((row) => row.teacherName).filter(Boolean)).size;
+        const cards = [
+          ["待确认问题", reviewRows.length, reviewRows.length ? "还有导入疑问或命名不一致，需要排课老师拍板。" : "暂无待确认项。", reviewRows.length ? "warn" : ""],
+          ["六月/平时数据", juneRows, juneRows ? "已读到六月或平时模式数据。" : "如果老师说六月没数据，先查上传总表和平时模式入口。", juneRows ? "" : "warn"],
+          ["暑假数据", summerRows, summerRows ? "已读到七八月暑假数据。" : "暑假模式为空时，先查是否已导入七八月表。", summerRows ? "" : "warn"],
+          ["涉及老师", teacherCount, teacherCount ? "排课明细里已有老师字段。" : "暂未从云端明细识别到老师。", teacherCount ? "" : "warn"]
+        ];
+        grid.innerHTML = cards.map(([label, value, note, tone]) => `
+          <div class="status-card">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
+            <p><span class="status-pill ${tone}">${tone ? "需核对" : "已读取"}</span></p>
+            <p>${escapeHtml(note)}</p>
+          </div>
+        `).join("");
+      }
+
+      function renderPreview({ regularEntries, scheduleSessions }) {
+        const body = byId("paikePreviewBody");
+        const regularRows = regularEntries.slice(0, 20).map((row) => ({
+          source: "平时模式",
+          period: row.period || String(row.date || "").slice(0, 7) || "-",
+          date: row.date || "-",
+          teacher: row.teacher || row.teacherName || "-",
+          student: row.studentName || row.student || row.className || "-",
+          time: row.time || row.startTime || row.hours || "-",
+          status: row.status || "已读取"
+        }));
+        const preimportRows = scheduleSessions.slice(0, 40).map((row) => ({
+          source: row.sourceFile || "Excel",
+          period: row.period || "-",
+          date: row.date || "-",
+          teacher: row.teacherName || "-",
+          student: Array.isArray(row.studentNames) ? row.studentNames.join("、") : row.lessonTypeRaw || "-",
+          time: row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.hours || "-",
+          status: row.status || row.importConfidence || "已读取"
+        }));
+        const rows = [...regularRows, ...preimportRows]
+          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+          .slice(0, 40);
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="7"><div class="empty">当前页面还没有读到排课明细。请先检查上传总表、平时模式和暑假模式；如果旧版里有数据但这里没有，请反馈“旧版有、核对台没有”。</div></td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.source)}</td>
+            <td>${escapeHtml(row.period)}</td>
+            <td>${escapeHtml(row.date)}</td>
+            <td>${escapeHtml(row.teacher)}</td>
+            <td>${escapeHtml(row.student)}</td>
+            <td>${escapeHtml(row.time)}</td>
+            <td>${escapeHtml(row.status)}</td>
+          </tr>
+        `).join("");
+      }
+
+      async function initPaikeDashboard() {
+        const [reviewRows, regularData, preimportData] = await Promise.all([
+          readCloud(stores.importReview, []),
+          readCloud(stores.regular, {}),
+          readCloud(stores.preimport, window.JRC_PREIMPORT_SUMMARY || {})
+        ]);
+        const safeReviewRows = Array.isArray(reviewRows) ? reviewRows : [];
+        const regularEntries = scheduleEntriesFromRegular(regularData);
+        const scheduleSessions = scheduleSessionsFromPreimport(preimportData);
+        renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
+        renderPreview({ regularEntries, scheduleSessions });
+      }
+
+      initPaikeDashboard();
+    </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623k"></script>
   </body>
 </html>

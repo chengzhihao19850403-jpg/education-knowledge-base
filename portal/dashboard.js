@@ -17,7 +17,7 @@
       owner: "刘大君",
       ownerUsername: "liudajun",
       href: "./finance.html",
-      guide: "使用逻辑：选择月份 → 查看老师结算入口 → 导入/核对工资与课时原表 → 查看差异 → 点名结算联动 → 导出月度汇总。\n试用重点：核对五月、六月数据是否能按老师、月份、排课行、工资行看清楚；老师结算结果和核对结果入口是否明显。\n联动重点：排课、点名、出门测、教学质量评级和招生实收只做候选草算，最终发薪仍由财务复核。"
+      guide: "使用逻辑：进入财务系统后先切月份 → 先看“本月核对台” → 再看“老师结算结果” → 有差异再进入“老师差异表/逐条明细” → 最后再做月结录入和复核确认。\n试用重点：1. 第一屏是否能看懂本月要核什么；2. 老师结算卡片是否能看清每位老师的工资/课时金额、工资行、排课人次、待核差异和高优先级；3. 财务老师是否能从差异表追到具体排课行和工资行；4. 手机和平板上是否方便查看。\n当前口径：系统结果只是和 Excel 对照的草算版，不直接作为最终发薪、分红和课销依据。人工表和系统表不一致时，先记录差异，再判断是原始 Excel 问题、导入解析问题，还是系统规则需要改。\n反馈要求：如果看不懂，请写清楚“哪个位置看不懂”；如果数字不对，请写清楚月份、老师、Excel 原值、系统显示值。"
     },
     {
       key: "curriculum",
@@ -33,7 +33,7 @@
       owner: "周珊",
       ownerUsername: "zhoushan",
       href: "./paike.html",
-      guide: "使用逻辑：导入/查看课表 → 核对老师、学生、教室、时间 → 处理冲突和缺教室 → 调课/停课/补课留痕 → 同步点名和财务候选。\n试用重点：按原 Excel 排课习惯核对六月课表，检查手机和平板查看课表、筛选老师、提交调课是否清楚。\n联动重点：排课是财务课时、学生点名、课销、教学质量问卷的基础数据源。"
+      guide: "使用逻辑：进入排课系统后先看“排课核对台” → 确认当前云端有没有读到六月/暑假排课数据 → 再按工作场景进入“上传总表、平时模式、暑假模式、点名课销”。\n试用重点：1. 周老师能不能一眼判断数据有没有进入系统；2. 平时模式和暑假模式入口是否清楚；3. 旧版熟悉界面是否能正常打开；4. 六月课表、暑假课表、老师筛选、学生明细是否方便核对；5. 如果显示空白，页面是否能告诉老师下一步该检查什么。\n联动重点：排课是点名、课销、老师课时费、教学质量问卷的基础数据源。排课数据不完整时，财务和学生服务后面都会跟着不准。\n反馈要求：如果数据没进去，请写清楚是“上传总表没有反应、平时模式没数据、暑假模式没数据、某位老师缺课、某个学生缺课、还是手机端不好操作”。"
     },
     {
       key: "student-service",
@@ -307,6 +307,16 @@
     `;
   }
 
+  function taskDetailText(task, dueText) {
+    if (!task?.moduleOwnerTask) return `${taskStatusText(task.status)}｜负责人 ${task.owner || "未分配"}｜${dueText}`;
+    return [
+      `负责人：${task.owner || "未分配"}｜${dueText}`,
+      task.content || "",
+      task.taskStandard ? `完成标准：${task.taskStandard}` : "",
+      task.subtasks ? `试用步骤：\n${task.subtasks}` : ""
+    ].filter(Boolean).join("\n\n");
+  }
+
   function isOpenTask(item) {
     return ["assigned", "doing"].includes(item?.status);
   }
@@ -470,8 +480,10 @@
       const level = taskDueLevel(task);
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
-      const detail = `${taskStatusText(task.status)}｜负责人 ${task.owner || "未分配"}｜${dueText}`;
-      return todoItem(level, title, detail, "./suggestions.html", "处理任务");
+      const detail = taskDetailText(task, dueText);
+      const href = task.moduleOwnerTask && task.moduleHref ? task.moduleHref : "./suggestions.html";
+      const actionText = task.moduleOwnerTask ? "打开系统" : "处理任务";
+      return todoItem(level, title, detail, href, actionText);
     }).join("") : todoItem(
       "正常",
       "暂无待办任务",
