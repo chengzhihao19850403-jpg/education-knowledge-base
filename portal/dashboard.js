@@ -294,13 +294,17 @@
   }
 
   function todoItem(level, title, detail, href, actionText) {
+    return todoItemHtml(level, title, `<p>${escapeHtml(detail)}</p>`, href, actionText);
+  }
+
+  function todoItemHtml(level, title, detailHtml, href, actionText) {
     const className = level === "紧急" ? "status-danger" : level === "提醒" ? "status-warn" : "status-ok";
     return `
       <div class="workbench-item">
         <span class="badge ${className}">${escapeHtml(level)}</span>
         <div>
           <strong>${escapeHtml(title)}</strong>
-          <p>${escapeHtml(detail)}</p>
+          ${detailHtml}
         </div>
         <a class="text-link" href="${escapeHtml(href)}">${escapeHtml(actionText)}</a>
       </div>
@@ -315,6 +319,44 @@
       task.taskStandard ? `完成标准：${task.taskStandard}` : "",
       task.subtasks ? `试用步骤：\n${task.subtasks}` : ""
     ].filter(Boolean).join("\n\n");
+  }
+
+  function splitGuideSections(text) {
+    const knownLabels = ["使用逻辑", "试用重点", "当前口径", "联动重点", "反馈要求", "试用闭环"];
+    return String(text || "")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^([^：:]{2,8})[：:](.*)$/);
+        if (!match || !knownLabels.includes(match[1])) {
+          return { label: "说明", value: line };
+        }
+        return { label: match[1], value: match[2].trim() };
+      });
+  }
+
+  function moduleTaskDetailHtml(task, dueText) {
+    const sections = [
+      { label: "负责人", value: `${task.owner || "未分配"}｜${dueText}` },
+      { label: "负责模块", value: task.moduleSystem || String(task.title || "").replace(/^【模块负责人】/, "").replace(/试用监管$/, "") }
+    ];
+    splitGuideSections(task.moduleGuide || task.content).forEach((section) => {
+      sections.push(section);
+    });
+    if (task.taskStandard) sections.push({ label: "完成标准", value: task.taskStandard });
+    if (task.subtasks) sections.push({ label: "试用步骤", value: task.subtasks });
+
+    return `
+      <div class="task-guide-card">
+        ${sections.filter((section) => section.value).map((section) => `
+          <section class="task-guide-block">
+            <span>${escapeHtml(section.label)}</span>
+            <p>${escapeHtml(section.value)}</p>
+          </section>
+        `).join("")}
+      </div>
+    `;
   }
 
   function isOpenTask(item) {
@@ -380,6 +422,8 @@
       comments: [{ author: "系统", text: "模块负责人任务已自动分派。", time: date }],
       moduleOwnerTask: true,
       moduleKey: task.key,
+      moduleSystem: task.system,
+      moduleGuide: task.guide,
       moduleHref: task.href
     };
   }
@@ -411,6 +455,8 @@
         decision: seed.decision,
         moduleOwnerTask: true,
         moduleKey: seed.moduleKey,
+        moduleSystem: seed.moduleSystem,
+        moduleGuide: seed.moduleGuide,
         moduleHref: seed.moduleHref,
         entryType: "task",
         status: ["review", "launched", "paused"].includes(current.status) ? current.status : (current.status || seed.status)
@@ -480,9 +526,12 @@
       const level = taskDueLevel(task);
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
-      const detail = taskDetailText(task, dueText);
       const href = task.moduleOwnerTask && task.moduleHref ? task.moduleHref : "./suggestions.html";
       const actionText = task.moduleOwnerTask ? "打开系统" : "处理任务";
+      if (task.moduleOwnerTask) {
+        return todoItemHtml(level, title, moduleTaskDetailHtml(task, dueText), href, actionText);
+      }
+      const detail = taskDetailText(task, dueText);
       return todoItem(level, title, detail, href, actionText);
     }).join("") : todoItem(
       "正常",
