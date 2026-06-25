@@ -150,6 +150,9 @@
               <button class="button secondary" id="copyResultButton" type="button">复制结果</button>
               <button class="button" id="saveDraftButton" type="button">保存草稿</button>
               <button class="button" id="saveStudentServiceButton" type="button">归档学生服务</button>
+              <button class="button" id="saveAdmissionsButton" type="button">归档招生系统</button>
+              <button class="button" id="saveCurriculumButton" type="button">归档教研课程</button>
+              <button class="button" id="saveFinanceReviewButton" type="button">送财务核对</button>
               <button class="button warn" id="saveTaskButton" type="button">转成建议/任务</button>
             </div>
           </div>
@@ -167,6 +170,9 @@
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
       const STUDENT_SERVICE_KEY = "jrc-student-service-v2";
+      const ADMISSIONS_STORE_KEY = "advice-system-stage-prototype";
+      const CURRICULUM_STORE_KEY = "jrc-curriculum-products-v2";
+      const FINANCE_PREIMPORT_KEY = "jrc-paike-finance-preimport-2026-06-22";
       const byId = (id) => document.getElementById(id);
       const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
       const currentName = currentEmployee.name || "员工";
@@ -709,6 +715,215 @@
         byId("aiMessage").textContent = result?.ok ? "已归档到学生服务系统，学管可在学生档案中查看并复制给家长。" : "已暂存在当前设备，云端恢复后会同步。";
       }
 
+      function structuredDataMap() {
+        return latestResult?.structuredData && typeof latestResult.structuredData === "object"
+          ? latestResult.structuredData
+          : {};
+      }
+
+      function structuredValue(...keys) {
+        const data = structuredDataMap();
+        for (const key of keys) {
+          const value = data[key];
+          if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+        }
+        return "";
+      }
+
+      function admissionStateBase(rawState) {
+        const state = rawState && typeof rawState === "object" ? { ...rawState } : {};
+        state.activeView = state.activeView || "dashboard";
+        state.activeLeadFilter = state.activeLeadFilter || "all";
+        state.leadSearchQuery = state.leadSearchQuery || "";
+        state.leadOwnerFilter = state.leadOwnerFilter || "";
+        state.leadChannelFilter = state.leadChannelFilter || "";
+        state.leadIntentFilter = state.leadIntentFilter || "";
+        state.selectedLeadName = state.selectedLeadName || "";
+        state.employees = Array.isArray(state.employees) ? state.employees : [];
+        state.auditLogs = Array.isArray(state.auditLogs) ? state.auditLogs : [];
+        state.importSummary = state.importSummary && typeof state.importSummary === "object"
+          ? state.importSummary
+          : { added: 0, duplicates: 0, missingOwner: 0, missingFields: 0, results: [] };
+        state.leads = Array.isArray(state.leads) ? state.leads : [];
+        state.followups = Array.isArray(state.followups) ? state.followups : [];
+        return state;
+      }
+
+      function buildLeadDraft(studentName) {
+        return {
+          studentName,
+          parentPhone: structuredValue("parentPhone", "phone") || "待补电话",
+          grade: structuredValue("grade") || "待补年级",
+          subject: structuredValue("subject") || "数学",
+          channel: structuredValue("channel") || "待补来源",
+          channelMeta: structuredValue("channelOwner", "referrerName") || "AI 助手归档",
+          owner: structuredValue("owner", "followupOwner") || currentName,
+          status: structuredValue("leadStage") || "持续跟进中",
+          trial: structuredValue("trialStatus") || "未预约",
+          intent: structuredValue("intent") || "B 中意向",
+          inGroup: structuredValue("inGroup") || "未进群",
+          lastFollowup: "刚刚归档",
+          note: latestResult?.summary || latestResult?.polishedText || "AI 招生整理",
+          nextAction: latestResult?.suggestedAction || structuredValue("ownerAction") || "待确认下一步",
+          parentNeed: structuredValue("parentConcerns", "parentConcern"),
+          studentPainPoint: structuredValue("studentPainPoint", "serviceRisk"),
+          objection: structuredValue("conversionRisk") || "暂无明确异议",
+          nextFollowupDate: structuredValue("nextContactTime", "followupDate"),
+          trialTeacher: structuredValue("trialTeacher"),
+          trialTime: structuredValue("trialTime"),
+          enrolledAmount: 0,
+          createdAt: new Date().toISOString()
+        };
+      }
+
+      function mergeAdmissionsState(rawState, studentName, recordText) {
+        const state = admissionStateBase(rawState);
+        let lead = state.leads.find((item) => item && item.studentName === studentName);
+        if (!lead) {
+          lead = buildLeadDraft(studentName);
+          state.leads.unshift(lead);
+        }
+        const parentNeed = structuredValue("parentConcerns", "parentConcern");
+        const painPoint = structuredValue("studentPainPoint", "serviceRisk");
+        const nextDate = structuredValue("nextContactTime", "followupDate");
+        const nextAction = latestResult?.suggestedAction || structuredValue("ownerAction") || lead.nextAction || "待确认";
+        const objection = structuredValue("conversionRisk") || lead.objection || "暂无明确异议";
+        lead.lastFollowup = "刚刚归档";
+        lead.note = recordText || lead.note;
+        lead.nextAction = nextAction;
+        if (nextDate) lead.nextFollowupDate = nextDate;
+        if (parentNeed) lead.parentNeed = parentNeed;
+        if (painPoint) lead.studentPainPoint = painPoint;
+        lead.objection = objection;
+        const leadStage = structuredValue("leadStage");
+        if (leadStage) lead.status = leadStage;
+        state.selectedLeadName = studentName;
+        state.followups.unshift({
+          followupId: `ai-follow-${Date.now()}`,
+          studentName,
+          time: new Date().toISOString(),
+          text: recordText,
+          method: "AI 整理",
+          parentNeed,
+          painPoint,
+          objection,
+          nextDate,
+          createdBy: currentName
+        });
+        state.auditLogs.unshift({
+          auditId: `ai-audit-${Date.now()}`,
+          time: new Date().toISOString(),
+          operator: currentName,
+          action: "AI招生归档",
+          studentName,
+          detail: latestResult?.summary || recordText.slice(0, 100) || "AI 招生整理"
+        });
+        return state;
+      }
+
+      async function saveToAdmissionsSystem() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        const studentName = studentNameFromTarget();
+        if (!studentName) {
+          byId("aiMessage").textContent = "请先填写线索学生或招生对象。";
+          return;
+        }
+        let state = admissionStateBase(safeParse(localStorage.getItem(ADMISSIONS_STORE_KEY), {}));
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(ADMISSIONS_STORE_KEY);
+          if (remote?.ok && remote.data?.found && remote.data?.payload && typeof remote.data.payload === "object") {
+            state = admissionStateBase(remote.data.payload);
+          }
+        } catch (_) {}
+        const nextState = mergeAdmissionsState(state, studentName, latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult));
+        localStorage.setItem(ADMISSIONS_STORE_KEY, JSON.stringify(nextState));
+        const result = await window.JRC_CLOUD?.writeModuleData?.(ADMISSIONS_STORE_KEY, "admissions", nextState, { replaceMode: "replace" });
+        byId("aiMessage").textContent = result?.ok ? `已归档到招生系统：${studentName}` : "已保存到当前设备，招生系统稍后同步。";
+      }
+
+      function curriculumRowDraft() {
+        const grade = structuredValue("grade") || byId("aiTargetInput").value.trim() || "待定年级";
+        const subject = structuredValue("subject") || "数学";
+        const lesson = structuredValue("topic", "lesson") || latestResult?.summary || "AI 整理资料";
+        return {
+          rowId: `curr-ai-${Date.now()}`,
+          name: latestResult?.title || `${grade}｜${subject}｜AI 资料`,
+          subject,
+          grade,
+          track: structuredValue("system", "track") || "课内体系",
+          type: structuredValue("materialType") || "备课资料",
+          classType: structuredValue("classType") || "平时班",
+          lesson,
+          status: "已录入",
+          version: structuredValue("version") || "AI-整理",
+          owner: currentName,
+          note: latestResult?.internalNote || latestResult?.polishedText || "由 AI 助手整理的资料说明",
+          fileName: "",
+          fileType: "",
+          fileSize: 0,
+          fileDataUrl: "",
+          fileUrl: "",
+          fileStorageKey: "",
+          storageKind: "ai-draft",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      async function saveToCurriculumSystem() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        let rows = safeParse(localStorage.getItem(CURRICULUM_STORE_KEY), []);
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(CURRICULUM_STORE_KEY);
+          if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+            rows = remote.data.payload;
+          }
+        } catch (_) {}
+        const nextRows = [curriculumRowDraft(), ...(Array.isArray(rows) ? rows : [])].slice(0, 500);
+        localStorage.setItem(CURRICULUM_STORE_KEY, JSON.stringify(nextRows));
+        const result = await window.JRC_CLOUD?.writeModuleData?.(CURRICULUM_STORE_KEY, "curriculum", nextRows, { replaceMode: "replace" });
+        byId("aiMessage").textContent = result?.ok ? "已归档到教研与课程产品系统。" : "已保存到当前设备，教研系统稍后同步。";
+      }
+
+      async function saveToFinanceReview() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        let bundle = safeParse(localStorage.getItem(FINANCE_PREIMPORT_KEY), window.JRC_PREIMPORT_BUNDLE || {});
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(FINANCE_PREIMPORT_KEY);
+          if (remote?.ok && remote.data?.found && remote.data?.payload && typeof remote.data.payload === "object") {
+            bundle = remote.data.payload;
+          }
+        } catch (_) {}
+        bundle = bundle && typeof bundle === "object" ? bundle : {};
+        bundle.reconciliationIssues = Array.isArray(bundle.reconciliationIssues) ? bundle.reconciliationIssues : [];
+        bundle.reconciliationIssues.unshift({
+          id: `ai-finance-${Date.now()}`,
+          period: structuredValue("period") || new Date().toISOString().slice(0, 7),
+          teacherName: structuredValue("teacher") || currentName,
+          title: latestResult?.title || "AI 财务核对草稿",
+          detail: latestResult?.internalNote || latestResult?.polishedText || latestResult?.summary || "",
+          amountClues: structuredValue("amountClues"),
+          hourClues: structuredValue("hourClues"),
+          missingFields: structuredValue("missingFields"),
+          riskPoints: structuredValue("riskPoints"),
+          status: "待复核",
+          source: "aiAssistant",
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem(FINANCE_PREIMPORT_KEY, JSON.stringify(bundle));
+        const result = await window.JRC_CLOUD?.writeModuleData?.(FINANCE_PREIMPORT_KEY, "finance-preimport", bundle, { replaceMode: "replace" });
+        byId("aiMessage").textContent = result?.ok ? "已送入财务核对草稿。" : "已保存到当前设备，财务核对草稿稍后同步。";
+      }
+
       function canArchiveToStudentService(mode) {
         return ["classFeedback", "feedback", "parentCommunication", "attendanceFollowup"].includes(mode);
       }
@@ -716,11 +931,17 @@
       function updateActionButtons() {
         const mode = byId("aiModeInput").value;
         const studentButton = byId("saveStudentServiceButton");
+        const admissionsButton = byId("saveAdmissionsButton");
+        const curriculumButton = byId("saveCurriculumButton");
+        const financeButton = byId("saveFinanceReviewButton");
         const taskButton = byId("saveTaskButton");
         if (studentButton) {
           studentButton.hidden = !canArchiveToStudentService(mode);
           studentButton.textContent = mode === "attendanceFollowup" ? "归档缺勤跟进" : "归档学生服务";
         }
+        if (admissionsButton) admissionsButton.hidden = mode !== "admissionsFollowup";
+        if (curriculumButton) curriculumButton.hidden = mode !== "curriculumArchive";
+        if (financeButton) financeButton.hidden = mode !== "financeCheck";
         if (taskButton) {
           taskButton.textContent = ["todo", "task", "admissionsFollowup", "attendanceFollowup", "financeCheck", "curriculumArchive"].includes(mode)
             ? "转成任务"
@@ -776,6 +997,9 @@
         byId("aiMessage").textContent = "已复制整理结果。";
       });
       byId("saveDraftButton").addEventListener("click", saveDraft);
+      byId("saveAdmissionsButton")?.addEventListener("click", saveToAdmissionsSystem);
+      byId("saveCurriculumButton")?.addEventListener("click", saveToCurriculumSystem);
+      byId("saveFinanceReviewButton")?.addEventListener("click", saveToFinanceReview);
       byId("saveTaskButton").addEventListener("click", saveToSuggestionTask);
       byId("saveStudentServiceButton")?.addEventListener("click", saveToStudentService);
 
