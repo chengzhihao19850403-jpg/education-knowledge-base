@@ -2,6 +2,88 @@
   const admissionsKey = "advice-system-stage-prototype";
   const auditKey = "jrc-business-audit-log-v1";
   const suggestionsKey = "jrc-suggestion-management-v2";
+  const moduleOwnerTasks = [
+    {
+      key: "admissions",
+      system: "招生管理系统",
+      owner: "颜雨涵",
+      ownerUsername: "yanyuhan",
+      href: "/jrcedu/advice-system/index.html",
+      guide: "使用逻辑：新线索录入 → 跟进记录 → 预约试听 → 试听反馈 → 报名建档 → 归属链锁定 → 导出和看板统计。\n试用重点：检查新增、搜索、筛选、导出 Excel、试听反馈、报名归属解锁、转介绍排序、顾问日周月年统计是否顺手。\n联动重点：报名数据要能进入学生服务和财务候选，试听课要能进入教学质量和家长反馈采集。"
+    },
+    {
+      key: "finance",
+      system: "财务系统",
+      owner: "刘大君",
+      ownerUsername: "liudajun",
+      href: "./finance.html",
+      guide: "使用逻辑：选择月份 → 查看老师结算入口 → 导入/核对工资与课时原表 → 查看差异 → 点名结算联动 → 导出月度汇总。\n试用重点：核对五月、六月数据是否能按老师、月份、排课行、工资行看清楚；老师结算结果和核对结果入口是否明显。\n联动重点：排课、点名、出门测、教学质量评级和招生实收只做候选草算，最终发薪仍由财务复核。"
+    },
+    {
+      key: "curriculum",
+      system: "教研与课程产品系统",
+      owner: "赵萱",
+      ownerUsername: "zhaoxuan",
+      href: "./curriculum-products.html",
+      guide: "使用逻辑：按年级权限进入 → 选择年级/体系/课次/资料类型 → 批量上传课件、PDF、Word、图片 → 搜索下载 → 重复资料自动更新版本。\n试用重点：检查一到六年级资料权限、批量上传、去重、版本更新、下载和手机/iPad 操作是否顺手。\n联动重点：资料要逐步沉淀成标准课件库，方便老师备课、打印、复用和新老师培训。"
+    },
+    {
+      key: "paike",
+      system: "排课系统",
+      owner: "周珊",
+      ownerUsername: "zhoushan",
+      href: "./paike.html",
+      guide: "使用逻辑：导入/查看课表 → 核对老师、学生、教室、时间 → 处理冲突和缺教室 → 调课/停课/补课留痕 → 同步点名和财务候选。\n试用重点：按原 Excel 排课习惯核对六月课表，检查手机和平板查看课表、筛选老师、提交调课是否清楚。\n联动重点：排课是财务课时、学生点名、课销、教学质量问卷的基础数据源。"
+    },
+    {
+      key: "student-service",
+      system: "学生与家长服务系统",
+      owner: "高芳燕",
+      ownerUsername: "gaofangyan",
+      href: "./student-service.html",
+      guide: "使用逻辑：学生档案 → 点名签到 → 出门测成绩 → 缺席追踪 → 课后反馈 → 家长沟通 → 续费风险。\n试用重点：检查 iPad 点名勾选、缺席处理、出门测录分、AI 课堂反馈归档、已归档反馈查看是否顺手。\n联动重点：点名影响老师课时费和家长课销；出门测和课堂反馈要进入学管沟通依据。"
+    },
+    {
+      key: "suggestions",
+      system: "建议与任务协同系统",
+      owner: "叶源泽",
+      ownerUsername: "yeyuanze",
+      href: "./suggestions.html",
+      guide: "使用逻辑：员工提交问题/建议 → 大家支持点赞 → 管理员派任务 → 负责人提交完成反馈 → 提出人复核是否解决。\n试用重点：检查建议列表是否清楚、派任务负责人下拉是否好用、完成反馈是否能闭环、提出人是否能看到整改状态。\n联动重点：这里是全站优化入口，所有模块问题都应该能沉淀、分派、完成、复核。"
+    },
+    {
+      key: "knowledge",
+      system: "学管知识库系统",
+      owner: "程志豪",
+      ownerUsername: "chengzhihao",
+      href: "./knowledge.html",
+      guide: "使用逻辑：输入关键词 → 查询标准答案/制度/话术 → 查看来源 → 用于学管培训和家长沟通。\n试用重点：检查搜索结果是否能回答学管常见问题，知识点是否准确，入口名称是否不会让授课老师误解。\n联动重点：后续可承接学管培训、标准话术、制度答疑和新人考试。"
+    },
+    {
+      key: "hr",
+      system: "人事与培训系统",
+      owner: "陈雨晴",
+      ownerUsername: "chenyuqing",
+      href: "./hr-training.html",
+      guide: "使用逻辑：员工档案 → 岗位权限 → 入职转正 → 培训记录 → 考核结果 → 提成档位。\n试用重点：检查员工名单、岗位、权限、负责年级、培训记录是否清楚；新增员工流程是否能看懂。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据。"
+    },
+    {
+      key: "ai",
+      system: "AI 助手",
+      owner: "李舒",
+      ownerUsername: "lishu",
+      href: "./ai-assistant.html",
+      guide: "使用逻辑：文字/语音输入 → 选择课堂反馈、招生跟进、任务说明等模式 → AI 整理 → 老师确认 → 归档学生服务或转成任务。\n试用重点：重点试课堂反馈模板、草稿库 50 条、已归档反馈查看、复制家长文案、失败提示是否清楚。\n联动重点：AI 不是直接替老师发消息，而是把老师口述整理成可编辑草稿，再归档到学生服务。"
+    },
+    {
+      key: "teaching-quality",
+      system: "教学质量系统",
+      owner: "郑嘉艺",
+      ownerUsername: "zhengjiayi",
+      href: "./teaching-quality.html",
+      guide: "使用逻辑：抽样巡课 → 学生/家长问卷 → 老师个人趋势 → 整改工单 → 复查闭环。\n试用重点：检查老师端是否只看本人趋势和建议，不公开排名；管理端是否能看整改、问卷和质控数据。\n联动重点：教学质量结果用于帮助改进和绩效候选，不适合公开排名刺激老师。"
+    }
+  ];
   const systemStores = [
     { key: "paike-summer-import-review-v1", label: "排课待确认", href: "./paike.html", type: "array" },
     { key: "advice-system-stage-prototype", label: "招生线索", href: "/jrcedu/advice-system/index.html", type: "admissions" },
@@ -249,6 +331,88 @@
     }[status] || "待处理";
   }
 
+  function buildModuleOwnerTask(task) {
+    const date = "2026-06-26";
+    return {
+      id: `module-owner-${task.key}`,
+      entryType: "task",
+      title: `【模块负责人】${task.system}试用监管`,
+      category: "技术工具",
+      impact: "high",
+      content: `责任人：${task.owner}\n负责模块：${task.system}\n\n${task.guide}\n\n试用闭环：发现问题请直接点右下角“反馈问题”；管理员处理后，要在“我的反馈问题”里复核，已解决就确认，没解决就继续补充反馈。`,
+      author: "系统分派",
+      authorUsername: "",
+      anonymous: false,
+      createdAt: date,
+      status: "assigned",
+      owner: task.owner,
+      ownerUsername: task.ownerUsername,
+      dueDate: "",
+      verifier: "程志豪",
+      taskId: `task-module-owner-${task.key}`,
+      taskStandard: `把${task.system}试到“老师能理解、能操作、能发现问题、能闭环整改”的程度。`,
+      subtasks: [
+        `1. 先按使用逻辑完整走一遍${task.system}。`,
+        "2. 记录看不懂、不顺手、数据不对、手机/iPad不好点的地方。",
+        "3. 把问题通过右下角“反馈问题”提交，不要只在群里口头说。",
+        "4. 管理员处理后，在“我的反馈问题”里复核是否真的解决。",
+        "5. 仍有问题就继续反馈，直到模块能稳定落地。"
+      ].join("\n"),
+      completionReport: "",
+      rewardLevel: "none",
+      rewardAmount: "",
+      rewardReason: "",
+      rewardStatus: "none",
+      votes: 0,
+      votedBy: [],
+      liked: false,
+      decision: `${task.owner}负责${task.system}试用监管、问题整理和整改复核。`,
+      comments: [{ author: "系统", text: "模块负责人任务已自动分派。", time: date }],
+      moduleOwnerTask: true,
+      moduleKey: task.key,
+      moduleHref: task.href
+    };
+  }
+
+  function mergeModuleOwnerTasks(rows) {
+    const list = Array.isArray(rows) ? [...rows] : [];
+    let changed = false;
+    const byId = new Map(list.map((item) => [String(item?.id || ""), item]));
+    moduleOwnerTasks.forEach((task) => {
+      const seed = buildModuleOwnerTask(task);
+      const current = byId.get(seed.id);
+      if (!current) {
+        list.unshift(seed);
+        changed = true;
+        return;
+      }
+      const updated = {
+        ...current,
+        title: seed.title,
+        category: seed.category,
+        impact: seed.impact,
+        content: seed.content,
+        owner: seed.owner,
+        ownerUsername: seed.ownerUsername,
+        verifier: seed.verifier,
+        taskId: current.taskId || seed.taskId,
+        taskStandard: seed.taskStandard,
+        subtasks: seed.subtasks,
+        decision: seed.decision,
+        moduleOwnerTask: true,
+        moduleKey: seed.moduleKey,
+        moduleHref: seed.moduleHref,
+        entryType: "task",
+        status: ["review", "launched", "paused"].includes(current.status) ? current.status : (current.status || seed.status)
+      };
+      if (JSON.stringify(updated) !== JSON.stringify(current)) {
+        Object.assign(current, updated);
+        changed = true;
+      }
+    });
+    return { rows: list, changed };
+  }
+
   function taskRelatedToCurrentUser(item) {
     const employee = currentEmployee();
     const name = employee?.name || "";
@@ -259,15 +423,27 @@
 
   async function readSuggestionTasks() {
     let rows = readStore(suggestionsKey, []);
+    let cloudHydrated = false;
     if (window.JRC_CLOUD?.readModuleData) {
       try {
         const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
         if (result?.ok && result.data?.found && Array.isArray(result.data.payload)) {
           rows = result.data.payload;
+          cloudHydrated = true;
           localStorage.setItem(suggestionsKey, JSON.stringify(rows));
         }
       } catch (error) {
         console.warn("Failed to read cloud suggestion tasks", error);
+      }
+    }
+    const merged = mergeModuleOwnerTasks(rows);
+    if (merged.changed) {
+      rows = merged.rows;
+      localStorage.setItem(suggestionsKey, JSON.stringify(rows));
+      if (window.JRC_CLOUD?.writeModuleData && (!window.JRC_CLOUD?.readModuleData || cloudHydrated)) {
+        window.JRC_CLOUD.writeModuleData(suggestionsKey, "suggestions", rows, { replaceMode: "replace" }).catch((error) => {
+          console.warn("Failed to sync module owner tasks", error);
+        });
       }
     }
     return Array.isArray(rows) ? rows : [];
