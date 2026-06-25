@@ -226,11 +226,11 @@
   }
 
   function isOpenTask(item) {
-    return ["assigned", "doing", "review"].includes(item?.status);
+    return ["assigned", "doing"].includes(item?.status);
   }
 
   function taskDueLevel(item) {
-    if (!item?.dueDate || ["launched", "paused"].includes(item.status)) return "正常";
+    if (!item?.dueDate || ["launched", "review", "paused"].includes(item.status)) return "正常";
     const due = new Date(`${item.dueDate}T00:00:00`);
     const now = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
     const diffDays = Math.ceil((due - now) / 86400000);
@@ -243,8 +243,8 @@
     return {
       assigned: "已转任务",
       doing: "执行中",
-      review: "待验收",
-      launched: "已落地",
+      review: "已完成",
+      launched: "已完成",
       paused: "暂缓"
     }[status] || "待处理";
   }
@@ -253,7 +253,7 @@
     const employee = currentEmployee();
     const name = employee?.name || "";
     if (!name) return false;
-    return [item.owner, item.verifier, item.author].some((value) => String(value || "") === name);
+    return String(item.owner || "") === name;
   }
 
   async function readSuggestionTasks() {
@@ -293,8 +293,8 @@
       const level = taskDueLevel(task);
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
-      const detail = `${taskStatusText(task.status)}｜负责人 ${task.owner || "未分配"}｜验收人 ${task.verifier || "未设置"}｜${dueText}`;
-      return todoItem(level, title, detail, "./suggestions.html", task.status === "review" ? "去验收" : "处理任务");
+      const detail = `${taskStatusText(task.status)}｜负责人 ${task.owner || "未分配"}｜${dueText}`;
+      return todoItem(level, title, detail, "./suggestions.html", "处理任务");
     }).join("") : todoItem(
       "正常",
       "暂无待办任务",
