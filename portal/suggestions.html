@@ -261,6 +261,10 @@
         color: var(--muted);
         font-size: 13px;
       }
+      .suggestion-meta strong,
+      .suggestion-content strong {
+        color: var(--ink);
+      }
       .suggestion-content {
         margin-top: 12px;
         color: var(--ink);
@@ -309,6 +313,16 @@
         color: var(--muted);
         font-size: 13px;
         line-height: 1.6;
+      }
+      .comment-details {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .comment-details summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: var(--ink);
       }
       .feedback-grid {
         display: grid;
@@ -570,11 +584,11 @@
               具体说明
               <textarea name="content" required placeholder="写清楚发现的问题、影响到哪里、你觉得可以怎么改。"></textarea>
             </label>
-            <label class="field">
+            <label class="field" data-manager-only-field>
               建议处理人
               <select name="owner" id="ownerSelect"></select>
             </label>
-            <label class="field">
+            <label class="field" data-manager-only-field>
               希望完成时间
               <input name="dueDate" type="date">
             </label>
@@ -681,6 +695,7 @@
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
+      const DELETED_STORAGE_KEY = "jrc-suggestion-deleted-v1";
       const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
       const statusMap = {
         new: "待处理",
@@ -775,11 +790,59 @@
         }
       }
 
+      function normalizeDeletedSuggestionIds(rows) {
+        return Array.from(new Set((Array.isArray(rows) ? rows : [])
+          .map((item) => typeof item === "string" ? item : item?.id)
+          .map((id) => String(id || "").trim())
+          .filter(Boolean)));
+      }
+
+      function readDeletedSuggestionIds() {
+        try {
+          return new Set(normalizeDeletedSuggestionIds(JSON.parse(localStorage.getItem(DELETED_STORAGE_KEY) || "[]")));
+        } catch (error) {
+          console.warn("Failed to read deleted suggestions", error);
+          return new Set();
+        }
+      }
+
+      function persistDeletedSuggestionIds(ids) {
+        const rows = normalizeDeletedSuggestionIds([...ids]);
+        localStorage.setItem(DELETED_STORAGE_KEY, JSON.stringify(rows));
+        window.JRC_CLOUD?.writeModuleData?.(DELETED_STORAGE_KEY, "suggestions", rows, { replaceMode: "replace" }).catch((error) => {
+          console.warn("Failed to sync deleted suggestions to cloud", error);
+        });
+        return new Set(rows);
+      }
+
+      async function hydrateDeletedSuggestionIds() {
+        const localIds = readDeletedSuggestionIds();
+        if (!window.JRC_CLOUD?.readModuleData) return localIds;
+        try {
+          const result = await window.JRC_CLOUD.readModuleData(DELETED_STORAGE_KEY);
+          const cloudIds = result?.ok && Array.isArray(result.data?.payload)
+            ? normalizeDeletedSuggestionIds(result.data.payload)
+            : [];
+          const merged = new Set([...localIds, ...cloudIds]);
+          if (merged.size !== localIds.size || cloudIds.length !== merged.size) return persistDeletedSuggestionIds(merged);
+          return merged;
+        } catch (error) {
+          console.warn("Failed to hydrate deleted suggestions", error);
+          return localIds;
+        }
+      }
+
+      function markSuggestionDeleted(id) {
+        const deletedIds = readDeletedSuggestionIds();
+        deletedIds.add(String(id || "").trim());
+        return persistDeletedSuggestionIds(deletedIds);
+      }
+
       function readSuggestions() {
         try {
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
           if (Array.isArray(parsed)) {
-            const normalized = normalizeSuggestionRows(parsed);
+            const normalized = mergeSuggestionsById(parsed, readDeletedSuggestionIds());
             if (JSON.stringify(normalized) !== JSON.stringify(parsed)) {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
             }
@@ -791,13 +854,13 @@
         return defaultSuggestions();
       }
 
-      function mergeSuggestionsById(rows) {
+      function mergeSuggestionsById(rows, deletedIds = readDeletedSuggestionIds()) {
         const map = new Map();
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || typeof row !== "object") return;
           const normalized = normalizeSuggestion(row);
           const id = String(normalized.id || "").trim();
-          if (!id) return;
+          if (!id || deletedIds.has(id)) return;
           const existing = map.get(id) || {};
           map.set(id, { ...existing, ...normalized, id });
         });
@@ -808,20 +871,26 @@
         });
       }
 
-      function writeSuggestions() {
+      function writeSuggestions(options = {}) {
         suggestions = mergeSuggestionsById(suggestions);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
-        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+        const context = options.replaceMode ? { replaceMode: options.replaceMode } : {};
+        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions, context).catch((error) => {
           console.warn("Failed to sync suggestions to cloud", error);
         });
       }
 
       async function hydrateCloudSuggestions() {
-        if (!window.JRC_CLOUD?.readModuleData) return;
+        const deletedIds = await hydrateDeletedSuggestionIds();
+        if (!window.JRC_CLOUD?.readModuleData) {
+          suggestions = mergeSuggestionsById(suggestions, deletedIds);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          return;
+        }
         try {
           const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
           if (!result?.ok) return;
-          const localSuggestions = mergeSuggestionsById(suggestions);
+          const localSuggestions = mergeSuggestionsById(suggestions, deletedIds);
           if (!result.data?.found) {
             suggestions = localSuggestions;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
@@ -833,14 +902,16 @@
             return;
           }
           if (!Array.isArray(result.data.payload)) return;
-          const cloudSuggestions = normalizeSuggestionRows(result.data.payload);
-          suggestions = mergeSuggestionsById([...cloudSuggestions, ...localSuggestions]);
+          const cloudSuggestions = mergeSuggestionsById(result.data.payload, deletedIds);
+          suggestions = mergeSuggestionsById([...cloudSuggestions, ...localSuggestions], deletedIds);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          const cloudHadDeletedRows = result.data.payload.length !== cloudSuggestions.length;
           const cloudChanged =
             JSON.stringify(suggestions) !== JSON.stringify(cloudSuggestions) ||
-            JSON.stringify(localSuggestions) !== JSON.stringify(suggestions);
-          if (cloudChanged && suggestions.length) {
-            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
+            JSON.stringify(localSuggestions) !== JSON.stringify(suggestions) ||
+            cloudHadDeletedRows;
+          if (cloudChanged) {
+            window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions, { replaceMode: "replace" }).catch((error) => {
               console.warn("Failed to merge suggestions to cloud", error);
             });
           }
@@ -852,6 +923,7 @@
       let suggestions = readSuggestions();
       let siteFeedbackRows = readRowsFromStorage(FEEDBACK_STORAGE_KEY, []);
       let pendingAssignment = null;
+      let activeManagementId = "";
 
       function normalizeFeedback(row) {
         const normalized = { ...(row || {}) };
@@ -947,8 +1019,12 @@
             (!category || item.category === category) &&
             matchesTaskView(item, taskView);
         }).sort((left, right) => {
+          const voteDiff = Number(right.votes || 0) - Number(left.votes || 0);
+          if (voteDiff !== 0) return voteDiff;
           if (isOverdue(left) !== isOverdue(right)) return isOverdue(left) ? -1 : 1;
-          return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
+          const rightDate = String(right.updatedAt || right.createdAt || "");
+          const leftDate = String(left.updatedAt || left.createdAt || "");
+          return rightDate.localeCompare(leftDate);
         });
       }
 
@@ -1080,13 +1156,17 @@
 
       function renderList() {
         const list = filteredSuggestions();
-        byId("suggestionList").innerHTML = list.length ? list.map((item) => `
+        byId("suggestionList").innerHTML = list.length ? list.map((item) => {
+          const authorLabel = item.anonymous ? "匿名" : item.author || "未记录";
+          const noteCount = (item.comments || []).length + (item.decision ? 1 : 0) + (item.completionReport ? 1 : 0);
+          const managerOpen = canManage && activeManagementId === item.id;
+          return `
           <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""}" data-id="${escapeHtml(item.id)}">
             <div class="suggestion-head">
               <div>
                 <div class="suggestion-title">${escapeHtml(item.title)}</div>
                 <div class="suggestion-meta">
-                  ${escapeHtml(item.category)}｜${escapeHtml(item.anonymous ? "匿名" : item.author)}｜${escapeHtml(item.createdAt)}
+                  <strong>建议人：</strong>${escapeHtml(authorLabel)}｜${escapeHtml(item.category)}｜${escapeHtml(item.createdAt)}
                   ${item.entryType === "task" ? "｜直接任务" : "｜建议"}
                   ${item.owner ? `｜负责人 ${escapeHtml(item.owner)}` : "｜未分配负责人"}
                   ${item.dueDate ? `｜截止 ${escapeHtml(item.dueDate)}` : ""}
@@ -1098,22 +1178,28 @@
                 <span class="priority-pill ${escapeHtml(item.impact)}">${escapeHtml(impactMap[item.impact] || "中影响")}</span>
               </div>
             </div>
-            <p class="suggestion-content">${escapeHtml(item.content)}</p>
+            <p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>
             <div class="card-tools">
               <button class="button secondary" type="button" data-action="vote">${(item.votedBy || []).includes(currentUsername) ? "已支持" : "支持"} ${Number(item.votes || 0)}</button>
               <button class="button secondary" type="button" data-action="comment">添加跟进</button>
               ${["assigned", "doing"].includes(item.status) ? `<button class="button secondary" type="button" data-action="complete-report">提交完成反馈</button>` : ""}
               ${canManage && item.status === "new" ? `<button class="button" type="button" data-action="convert-task">派任务</button>` : ""}
+              ${canManage ? `<button class="button secondary" type="button" data-action="toggle-management">${managerOpen ? "收起处理" : "处理设置"}</button>` : ""}
               ${canManage ? `<button class="button danger" type="button" data-action="delete">删除</button>` : ""}
             </div>
-            ${item.completionReport ? `<div class="comment-item"><strong>完成反馈：</strong>${escapeHtml(item.completionReport)}</div>` : ""}
-            ${item.decision ? `<div class="comment-item"><strong>处理说明：</strong>${escapeHtml(item.decision)}</div>` : ""}
-            <div class="comment-list">
-              ${(item.comments || []).map((comment) => `
-                <div class="comment-item"><strong>${escapeHtml(comment.author)}：</strong>${escapeHtml(comment.text)} <span class="muted">${escapeHtml(comment.time || "")}</span></div>
-              `).join("")}
-            </div>
-            ${canManage ? `
+            ${noteCount ? `
+              <details class="comment-details">
+                <summary>跟进记录 ${noteCount}</summary>
+                <div class="comment-list">
+                  ${item.completionReport ? `<div class="comment-item"><strong>完成反馈：</strong>${escapeHtml(item.completionReport)}</div>` : ""}
+                  ${item.decision ? `<div class="comment-item"><strong>处理说明：</strong>${escapeHtml(item.decision)}</div>` : ""}
+                  ${(item.comments || []).map((comment) => `
+                    <div class="comment-item"><strong>${escapeHtml(comment.author)}：</strong>${escapeHtml(comment.text)} <span class="muted">${escapeHtml(comment.time || "")}</span></div>
+                  `).join("")}
+                </div>
+              </details>
+            ` : ""}
+            ${managerOpen ? `
               <div class="manager-panel">
                 <label class="field">
                   状态
@@ -1139,7 +1225,8 @@
               </div>
             ` : ""}
           </article>
-        `).join("") : `<div class="empty">没有符合筛选条件的建议。</div>`;
+        `;
+        }).join("") : `<div class="empty">没有符合筛选条件的建议。</div>`;
       }
 
       function renderAll() {
@@ -1226,6 +1313,8 @@
         if (["assigned", "doing", "review", "launched"].includes(item.status) && !item.taskId) {
           item.taskId = `task-${Date.now()}`;
         }
+        item.updatedAt = new Date().toISOString();
+        activeManagementId = "";
         writeSuggestions();
         renderAll();
       }
@@ -1459,7 +1548,20 @@
           submitCompletion(item);
           return;
         }
-        if (action === "delete" && canManage) suggestions = suggestions.filter((candidate) => candidate.id !== item.id);
+        if (action === "toggle-management" && canManage) {
+          activeManagementId = activeManagementId === item.id ? "" : item.id;
+          renderAll();
+          return;
+        }
+        if (action === "delete" && canManage) {
+          const title = item.title || "这条建议";
+          if (!confirm(`确定删除「${title}」吗？删除后刷新页面也不会恢复。`)) return;
+          markSuggestionDeleted(item.id);
+          suggestions = suggestions.filter((candidate) => candidate.id !== item.id);
+          writeSuggestions({ replaceMode: "replace" });
+          renderAll();
+          return;
+        }
         if (action === "save-management" && canManage) {
           saveManagement(actionButton);
           return;
