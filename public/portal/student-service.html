@@ -72,6 +72,9 @@
       th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
       th { background: rgba(13,148,136,0.05); color: var(--ink); font-weight: 800; }
       tr:last-child td { border-bottom: 0; }
+      .feedback-preview { margin: 0; max-width: 560px; white-space: pre-wrap; color: var(--ink); font: inherit; line-height: 1.7; }
+      .feedback-details summary { cursor: pointer; color: var(--brand-dark); font-weight: 800; }
+      .feedback-details[open] summary { margin-bottom: 8px; }
       .attendance-touch-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 260px; }
       .attendance-touch-actions .button { min-width: 68px; padding: 0 12px; }
       .attendance-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
@@ -262,6 +265,29 @@
             <tbody id="studentProfileSummaryBody"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>课堂反馈时间轴</h2>
+            <p>AI 助手归档后的课堂反馈集中查看。</p>
+          </div>
+          <span class="status-chip">按账号过滤</span>
+        </div>
+        <div class="actions" style="margin:0 0 14px;">
+          <input id="studentFeedbackTimelineSearchInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索学生 / 班级 / 老师 / 反馈内容">
+          <button class="button secondary" id="studentFeedbackTimelineRefreshButton" type="button">刷新</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>学生 / 课次</th><th>老师 / 班级</th><th>归档时间</th><th>课堂反馈</th><th>操作</th></tr>
+            </thead>
+            <tbody id="studentFeedbackTimelineBody"></tbody>
+          </table>
+        </div>
+        <div class="notice" id="studentFeedbackTimelineMessage">普通老师只看本人归档反馈；学管、教务和管理员可查看全量。</div>
       </section>
 
       <section class="grid">
@@ -1647,6 +1673,190 @@
         renderAll();
         hydrateCloudRows();
         hydrateScheduleSources();
+      })();
+    </script>
+    <script>
+      (function () {
+        const STORE_KEY = "jrc-student-service-v2";
+        const body = document.getElementById("studentFeedbackTimelineBody");
+        const searchInput = document.getElementById("studentFeedbackTimelineSearchInput");
+        const refreshButton = document.getElementById("studentFeedbackTimelineRefreshButton");
+        const message = document.getElementById("studentFeedbackTimelineMessage");
+        if (!body) return;
+
+        let rows = [];
+
+        const escapeHtml = (value) => String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        const normalize = (value) => String(value || "").trim();
+        const compact = (value) => normalize(value).replace(/\s+/g, "");
+        const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
+        const canViewAll = () => {
+          const employee = currentEmployee();
+          const profile = [employee?.role, employee?.scope, employee?.position, employee?.title].filter(Boolean).join(" ");
+          return window.jrcHasPermission?.("studentService.edit", employee)
+            || window.jrcHasPermission?.("admin.access", employee)
+            || /(管理员|总管|校长|教务|学管)/.test(profile);
+        };
+        const belongsToCurrentUser = (row) => {
+          if (canViewAll()) return true;
+          const employee = currentEmployee();
+          if (!employee) return false;
+          const username = compact(employee.username);
+          const name = compact(employee.name);
+          const usernames = [
+            row.teacherUsername,
+            row.createdByUsername,
+            row.ownerUsername,
+            row.operatorUsername,
+            row.username
+          ].map(compact).filter(Boolean);
+          const names = [
+            row.teacher,
+            row.createdBy,
+            row.owner,
+            row.operatorName,
+            row.author
+          ].map(compact).filter(Boolean);
+          return (username && usernames.includes(username)) || (name && names.includes(name));
+        };
+        const rowId = (row) => {
+          const existing = normalize(row?.id || row?.rowId);
+          if (existing) return existing;
+          return [
+            row?.student,
+            row?.teacher,
+            row?.createdAt,
+            row?.parentMessage,
+            row?.content
+          ].map(compact).join("|");
+        };
+        const mergeRows = (...groups) => {
+          const map = new Map();
+          groups.flat().forEach((row) => {
+            if (!row || typeof row !== "object") return;
+            const id = rowId(row);
+            if (!id) return;
+            map.set(id, { ...(map.get(id) || {}), ...row });
+          });
+          return [...map.values()].sort((left, right) => {
+            const rightDate = normalize(right.updatedAt || right.createdAt);
+            const leftDate = normalize(left.updatedAt || left.createdAt);
+            return rightDate.localeCompare(leftDate);
+          });
+        };
+        const readLocalRows = () => {
+          try {
+            const parsed = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        };
+        const isClassFeedback = (row) => {
+          const source = normalize(row.sourceModule);
+          const type = normalize(row.type);
+          return source === "aiAssistant" || Boolean(normalize(row.parentMessage)) || type === "课后反馈";
+        };
+        const feedbackText = (row) => normalize(row.parentMessage || row.polishedText || row.content || row.sourceText);
+        const formatDate = (value) => {
+          const text = normalize(value);
+          if (!text) return "-";
+          const date = new Date(text);
+          if (Number.isNaN(date.getTime())) return text;
+          return date.toLocaleString("zh-CN", { hour12: false });
+        };
+        const previewText = (value) => {
+          const text = normalize(value);
+          if (text.length <= 88) return text;
+          return `${text.slice(0, 88)}...`;
+        };
+        const matchKeyword = (row, keyword) => {
+          if (!keyword) return true;
+          return [
+            row.student,
+            row.className,
+            row.teacher,
+            row.createdBy,
+            row.type,
+            row.lessonSeason,
+            row.lessonNumber,
+            row.content,
+            row.parentMessage,
+            row.sourceText
+          ].some((value) => normalize(value).toLowerCase().includes(keyword));
+        };
+        const visibleRows = () => {
+          const keyword = normalize(searchInput?.value).toLowerCase();
+          return rows
+            .filter(isClassFeedback)
+            .filter(belongsToCurrentUser)
+            .filter((row) => matchKeyword(row, keyword))
+            .slice(0, 50);
+        };
+        const render = () => {
+          const list = visibleRows();
+          body.innerHTML = list.length ? list.map((row, index) => {
+            const text = feedbackText(row);
+            const lesson = [row.lessonSeason, row.lessonNumber ? `第${row.lessonNumber}次` : ""].filter(Boolean).join(" ");
+            return `
+              <tr>
+                <td><strong>${escapeHtml(row.student || "-")}</strong><br>${escapeHtml(lesson || row.type || "课堂反馈")}</td>
+                <td>${escapeHtml(row.teacher || row.createdBy || "-")}<br>${escapeHtml(row.className || "-")}</td>
+                <td>${escapeHtml(formatDate(row.createdAt || row.updatedAt))}</td>
+                <td>
+                  <details class="feedback-details">
+                    <summary>${escapeHtml(previewText(text) || "查看反馈内容")}</summary>
+                    <pre class="feedback-preview">${escapeHtml(text || "-")}</pre>
+                  </details>
+                </td>
+                <td><button class="button secondary" type="button" data-copy-feedback="${index}">复制</button></td>
+              </tr>
+            `;
+          }).join("") : `<tr><td colspan="5">暂无可查看的课堂反馈。老师在 AI 助手生成并归档后，会自动进入这里。</td></tr>`;
+          if (message) {
+            const total = rows.filter(isClassFeedback).filter(belongsToCurrentUser).length;
+            message.textContent = canViewAll()
+              ? `已读取 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`
+              : `已读取本人 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`;
+          }
+        };
+        const hydrate = async () => {
+          rows = mergeRows(readLocalRows());
+          render();
+          try {
+            const result = await window.JRC_CLOUD?.readModuleData?.(STORE_KEY);
+            const remoteRows = Array.isArray(result?.data?.payload) ? result.data.payload : [];
+            rows = mergeRows(rows, remoteRows);
+            localStorage.setItem(STORE_KEY, JSON.stringify(rows));
+            render();
+          } catch (error) {
+            console.warn("课堂反馈云端读取失败", error);
+          }
+        };
+
+        searchInput?.addEventListener("input", render);
+        refreshButton?.addEventListener("click", hydrate);
+        body.addEventListener("click", async (event) => {
+          const button = event.target.closest("[data-copy-feedback]");
+          if (!button) return;
+          const row = visibleRows()[Number(button.getAttribute("data-copy-feedback"))];
+          const text = feedbackText(row);
+          if (!text) return;
+          try {
+            await navigator.clipboard?.writeText(text);
+            button.textContent = "已复制";
+            setTimeout(() => { button.textContent = "复制"; }, 1200);
+          } catch {
+            if (message) message.textContent = "复制失败，可以展开后手动复制。";
+          }
+        });
+        window.addEventListener("jrc-student-service-linked", hydrate);
+        hydrate();
       })();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
