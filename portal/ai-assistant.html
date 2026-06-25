@@ -61,6 +61,12 @@
       .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
       .draft-item strong { display: block; }
       .draft-item span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+      .history-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+      .history-tools input { flex: 1 1 180px; min-height: 38px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+      .history-item details { margin-top: 8px; }
+      .history-item summary { cursor: pointer; color: var(--brand-dark); font-weight: 800; }
+      .history-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .history-actions .button { min-height: 32px; padding: 0 10px; font-size: 12px; }
       @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .topbar { flex-direction: column; align-items: flex-start; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .button, .nav-link { width: 100%; min-height: 46px; } }
     </style>
@@ -125,6 +131,20 @@
               关联对象
               <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称，可不填">
             </label>
+            <label class="field" id="feedbackSeasonField">
+              课程阶段
+              <select id="feedbackSeasonInput">
+                <option value="">自动识别</option>
+                <option value="春季">春季</option>
+                <option value="暑假">暑假</option>
+                <option value="秋季">秋季</option>
+                <option value="寒假">寒假</option>
+              </select>
+            </label>
+            <label class="field" id="feedbackLessonNumberField">
+              第几次课
+              <input id="feedbackLessonNumberInput" inputmode="numeric" placeholder="自动按归档记录计算">
+            </label>
             <label class="field span-2">
               语音转文字 / 原始内容
               <textarea id="aiInputText" placeholder="可以直接打字，也可以点开始语音后说话。"></textarea>
@@ -157,8 +177,18 @@
             </div>
           </div>
           <div class="result-panel">
-            <h3>最近草稿</h3>
+            <h3>课堂反馈草稿库</h3>
+            <p style="margin-top:6px;">保留最近 50 条，方便老师回看和继续编辑。</p>
             <div class="draft-list" id="aiDraftList"></div>
+          </div>
+          <div class="result-panel">
+            <h3>已归档课堂反馈</h3>
+            <p style="margin-top:6px;">从学生服务系统读取已归档内容，方便查看上一次或前几次讲了什么。</p>
+            <div class="history-tools">
+              <input id="archivedFeedbackSearchInput" type="search" placeholder="搜索学生 / 课程 / 内容">
+              <button class="button secondary" id="refreshArchivedFeedbackButton" type="button">刷新归档</button>
+            </div>
+            <div class="draft-list" id="archivedFeedbackList"></div>
           </div>
         </article>
       </section>
@@ -222,14 +252,116 @@
         window.JRC_CLOUD?.writeModuleData?.(DRAFT_KEY, "ai", rows.slice(0, 80)).catch(() => {});
       }
 
-      function renderDrafts() {
-        const rows = readDrafts().slice(0, 5);
+      function visibleDraftRows(rows) {
+        const username = String(currentEmployee.username || "");
+        return (Array.isArray(rows) ? rows : [])
+          .filter((row) => row && typeof row === "object")
+          .filter((row) => {
+            const owner = String(row.createdBy || row.operatorName || "");
+            const ownerUsername = String(row.createdByUsername || row.operatorUsername || "");
+            return !owner || owner === currentName || ownerUsername === username;
+          });
+      }
+
+      function draftDisplayText(row) {
+        return row?.result?.parentMessage || row?.result?.polishedText || row?.sourceText || resultToText(row?.result) || "";
+      }
+
+      function renderDrafts(rows = readDrafts()) {
+        rows = visibleDraftRows(rows).slice(0, 50);
         byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
-          <div class="draft-item">
+          <div class="draft-item history-item">
             <strong>${escapeHtml(row.title || row.modeLabel || "AI 草稿")}</strong>
             <span>${escapeHtml(row.modeLabel || "-")}｜${escapeHtml(row.target || "-")}｜${escapeHtml(row.createdAt || "")}</span>
+            <details>
+              <summary>查看草稿内容</summary>
+              <pre class="result-text">${escapeHtml(draftDisplayText(row) || "暂无内容")}</pre>
+              <div class="history-actions">
+                <button class="button secondary" type="button" data-draft-action="copy" data-draft-id="${escapeHtml(row.id || "")}">复制草稿</button>
+                <button class="button secondary" type="button" data-draft-action="reuse" data-draft-id="${escapeHtml(row.id || "")}">继续编辑</button>
+              </div>
+            </details>
           </div>
-        `).join("") : `<div class="draft-item"><strong>暂无草稿</strong><span>保存后会显示最近 5 条。</span></div>`;
+        `).join("") : `<div class="draft-item"><strong>暂无草稿</strong><span>保存后会显示最近 50 条。</span></div>`;
+      }
+
+      async function hydrateDrafts() {
+        renderDrafts();
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
+          if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+            const localRows = safeParse(localStorage.getItem(DRAFT_KEY), []);
+            const mergedRows = mergeRowsById([...remote.data.payload, ...(Array.isArray(localRows) ? localRows : [])]);
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(mergedRows.slice(0, 120)));
+            renderDrafts(mergedRows);
+          }
+        } catch (_) {}
+      }
+
+      function findDraftById(id) {
+        return visibleDraftRows(readDrafts()).find((row) => String(row.id || row.rowId || "") === String(id));
+      }
+
+      function archivedFeedbackRowsFrom(rows) {
+        const currentRole = String(currentEmployee.role || "");
+        const isTeacher = currentRole.includes("授课老师") || currentRole.includes("老师");
+        return (Array.isArray(rows) ? rows : [])
+          .filter((row) => row && typeof row === "object")
+          .filter((row) => String(row.type || "").includes("课后反馈") || row.parentMessage)
+          .filter((row) => String(row.sourceModule || "") === "aiAssistant" || row.parentMessage)
+          .filter((row) => {
+            if (!isTeacher) return true;
+            return [row.teacher, row.createdBy, row.owner].map((value) => String(value || "")).includes(currentName);
+          })
+          .sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
+      }
+
+      function readArchivedFeedbackRows() {
+        return archivedFeedbackRowsFrom(safeParse(localStorage.getItem(STUDENT_SERVICE_KEY), []));
+      }
+
+      function archivedFeedbackText(row) {
+        return row?.parentMessage || row?.content || "";
+      }
+
+      function renderArchivedFeedbacks(rows = readArchivedFeedbackRows()) {
+        const list = byId("archivedFeedbackList");
+        if (!list) return;
+        const keyword = byId("archivedFeedbackSearchInput")?.value.trim().toLowerCase() || "";
+        const filtered = rows
+          .filter((row) => !keyword || Object.values(row).some((value) => String(value || "").toLowerCase().includes(keyword)))
+          .slice(0, 50);
+        list.innerHTML = filtered.length ? filtered.map((row) => `
+          <div class="draft-item history-item">
+            <strong>${escapeHtml(row.student || "未填学生")}｜${escapeHtml(row.className || "课堂反馈")}</strong>
+            <span>${escapeHtml(row.teacher || row.createdBy || "-")}｜${escapeHtml(row.createdAt || row.updatedAt || "")}</span>
+            <details>
+              <summary>查看已归档反馈</summary>
+              <pre class="result-text">${escapeHtml(archivedFeedbackText(row) || "暂无内容")}</pre>
+              <div class="history-actions">
+                <button class="button secondary" type="button" data-archive-action="copy" data-archive-id="${escapeHtml(row.id || row.rowId || "")}">复制反馈</button>
+                <button class="button secondary" type="button" data-archive-action="reuse" data-archive-id="${escapeHtml(row.id || row.rowId || "")}">带入编辑</button>
+              </div>
+            </details>
+          </div>
+        `).join("") : `<div class="draft-item"><strong>暂无归档课堂反馈</strong><span>老师在 AI 助手生成课堂反馈并归档学生服务后，会显示在这里。</span></div>`;
+      }
+
+      async function hydrateArchivedFeedbacks() {
+        renderArchivedFeedbacks();
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(STUDENT_SERVICE_KEY);
+          if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+            const localRows = safeParse(localStorage.getItem(STUDENT_SERVICE_KEY), []);
+            const mergedRows = mergeRowsById([...remote.data.payload, ...(Array.isArray(localRows) ? localRows : [])]);
+            localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(mergedRows));
+            renderArchivedFeedbacks(archivedFeedbackRowsFrom(mergedRows));
+          }
+        } catch (_) {}
+      }
+
+      function findArchivedFeedbackById(id) {
+        return readArchivedFeedbackRows().find((row) => String(row.id || row.rowId || "") === String(id));
       }
 
       function modeLabel(mode) {
@@ -312,6 +444,65 @@
         return /(下节课|下次课|后续|接下来|下一步|以后|继续|安排|计划|预习|巩固)/.test(String(text || ""));
       }
 
+      function chineseNumberToInt(value) {
+        const raw = String(value || "").trim();
+        if (/^\d+$/.test(raw)) return Number(raw);
+        const map = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+        if (raw === "十") return 10;
+        const tenIndex = raw.indexOf("十");
+        if (tenIndex >= 0) {
+          const left = raw.slice(0, tenIndex);
+          const right = raw.slice(tenIndex + 1);
+          return (left ? map[left] || 0 : 1) * 10 + (right ? map[right] || 0 : 0);
+        }
+        return map[raw] || 0;
+      }
+
+      function extractLessonNumberFromText(rawText) {
+        const text = String(rawText || "");
+        const match = text.match(/第\s*([0-9一二两三四五六七八九十]{1,4})\s*(?:次|节|讲|课)/);
+        const value = chineseNumberToInt(match?.[1] || "");
+        return value > 0 ? value : "";
+      }
+
+      function extractFeedbackSeason(rawText) {
+        const manual = byId("feedbackSeasonInput")?.value || "";
+        if (manual) return manual;
+        const text = String(rawText || "");
+        if (/(暑假|暑期|夏季)/.test(text)) return "暑假";
+        if (/(寒假|寒期|冬季)/.test(text)) return "寒假";
+        if (/(秋季|秋期)/.test(text)) return "秋季";
+        if (/(春季|春期)/.test(text)) return "春季";
+        const month = new Date().getMonth() + 1;
+        if (month >= 7 && month <= 8) return "暑假";
+        if (month <= 2) return "寒假";
+        if (month >= 9) return "秋季";
+        return "春季";
+      }
+
+      function nextLessonNumberForStudent(student) {
+        const name = String(student || "").trim();
+        if (!name) return "";
+        return readArchivedFeedbackRows().filter((row) => String(row.student || "").trim() === name).length + 1;
+      }
+
+      function resolveFeedbackLessonNumber(target, rawText) {
+        const manual = byId("feedbackLessonNumberInput")?.value.trim() || "";
+        const manualNumber = chineseNumberToInt(manual);
+        if (manualNumber > 0) return manualNumber;
+        const oralNumber = extractLessonNumberFromText(rawText);
+        if (oralNumber) return oralNumber;
+        const name = String(target || "").split(/[，,、\s/｜|]+/).filter(Boolean)[0] || "";
+        return nextLessonNumberForStudent(name) || "__";
+      }
+
+      function feedbackMeta(target, rawText, meta = {}) {
+        return {
+          lessonSeason: meta.lessonSeason || extractFeedbackSeason(rawText),
+          lessonNumber: meta.lessonNumber || resolveFeedbackLessonNumber(target, rawText)
+        };
+      }
+
       function polishStateText(parts) {
         if (!parts.length) return "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。";
         const text = parts.join("；")
@@ -363,22 +554,21 @@
       }
 
       function classFeedbackNeedsRebuild(parentMessage) {
-        const courseSection = extractTemplateSection(parentMessage, "本次课上课内容：", ["知识点要点：", "学习情况反馈："]);
-        const knowledgeSection = extractTemplateSection(parentMessage, "知识点要点：", ["学习情况反馈："]);
-        return hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+        const text = String(parentMessage || "");
+        const courseSection = extractTemplateSection(text, "本次课上课内容：", ["二、知识点要点：", "知识点要点：", "三、学习掌握情况：", "学习情况反馈："]);
+        const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["三、学习掌握情况：", "学习情况反馈：", "四、课后作业："]);
+        return !text.includes("三、学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
       }
 
       function formatClassFeedbackText(value, target = "") {
         const greeting = normalizeFeedbackRecipient(target);
         let text = String(value || "")
           .replace(/^.{0,16}(妈妈|爸爸|父母|家长)[，,：:\s]*您好?[，,：:\s]*/, `${greeting}，`)
-          .replace(/(上课状态：)/g, "\n\n$1\n")
-          .replace(/(课后作业：)/g, "\n\n$1\n")
+          .replace(/(一、上课状态：|上课状态：)/g, "\n\n$1\n")
           .replace(/(本次课上课内容：)/g, "\n\n$1\n")
-          .replace(/(知识点要点：)/g, "\n\n$1\n")
-          .replace(/(学习情况反馈：)/g, "\n\n$1\n")
-          .replace(/(💡\s*小技巧：)/g, "\n\n$1\n")
-          .replace(/([23]\.\s*[^：\n]+表现|3\.\s*后续学习计划)/g, "\n\n$1")
+          .replace(/(二、知识点要点：|知识点要点：)/g, "\n\n$1\n")
+          .replace(/(三、学习掌握情况：|学习掌握情况：|学习情况反馈：)/g, "\n\n$1\n")
+          .replace(/(四、课后作业：|课后作业：)/g, "\n\n$1\n")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
         if (text && !text.startsWith(greeting)) text = `${greeting}，\n\n${text}`;
@@ -390,18 +580,21 @@
         const target = payload.target ?? byId("aiTargetInput")?.value ?? "";
         const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
         const parentMessage = String(result.parentMessage || "");
-        const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈") && parentMessage.includes("知识点要点");
+        const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("三、学习掌握情况") && parentMessage.includes("四、课后作业");
         if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
           const formatted = formatClassFeedbackText(parentMessage, target);
           return { ...result, parentMessage: formatted, polishedText: result.polishedText === parentMessage ? formatted : result.polishedText };
         }
-        const template = buildClassFeedbackTemplate(target, sourceText);
+        const meta = feedbackMeta(target, sourceText, payload);
+        const template = buildClassFeedbackTemplate(target, sourceText, meta);
         return {
           ...result,
           title: result.title || `${target || "学生"}｜课堂反馈`,
           summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
           parentMessage: template,
           polishedText: template,
+          lessonSeason: meta.lessonSeason,
+          lessonNumber: meta.lessonNumber,
           internalNote: result.internalNote || "模型未完整返回模板，系统已自动套用统一课堂反馈模板。请确认第几次课程、作业名称、具体知识点和下节课计划。"
         };
       }
@@ -440,7 +633,25 @@
         return parseClassFeedbackInput(rawText).courseContent;
       }
 
-      function buildKnowledgePoints(rawText) {
+      function courseContentItems(rawText) {
+        const content = extractCourseContent(rawText);
+        if (!content || content === "本节课上课内容待老师补充") return ["本节课上课内容待老师补充"];
+        const items = content
+          .split(/[；;\n]/)
+          .map((item) => cleanExtractedText(item.replace(/^(今天|本节课|这节课|学习了|学了|讲了|复习了|主要讲了)/, "")))
+          .filter(Boolean);
+        return [...new Set(items)].slice(0, 4);
+      }
+
+      function numberedLines(items) {
+        return (Array.isArray(items) ? items : [])
+          .filter(Boolean)
+          .slice(0, 4)
+          .map((item, index) => `${index + 1}. ${item}`)
+          .join("\n");
+      }
+
+      function buildKnowledgePointItems(rawText) {
         const content = extractCourseContent(rawText);
         const compact = content.replace(/\s+/g, "");
         const points = [];
@@ -462,43 +673,48 @@
         if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
         if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
         if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
-        return points.map((point, index) => `${index + 1}. ${point}`).join("\n");
+        return points.slice(0, 4);
       }
 
-      function buildClassFeedbackTemplate(target, rawText) {
+      function buildKnowledgePoints(rawText) {
+        return numberedLines(buildKnowledgePointItems(rawText));
+      }
+
+      function buildMasteryItems(rawText) {
+        const courseItems = courseContentItems(rawText);
+        if (courseItems[0] === "本节课上课内容待老师补充") {
+          return ["本节课具体学习内容待老师补充；请老师确认后，再补充孩子对应知识点的掌握情况。"];
+        }
+        const state = parseClassFeedbackInput(rawText).stateText;
+        return courseItems.map((item) => `围绕“${item}”，孩子能够跟随老师完成课堂梳理和练习，基础理解整体在推进中。${hasStateSignal(state) ? "结合课堂状态来看，后续建议继续保持专注，并通过课后练习巩固细节。" : "后续建议课后再通过同类题训练巩固易错点。"}`);
+      }
+
+      function buildClassFeedbackTemplate(target, rawText, meta = {}) {
         const greeting = normalizeFeedbackRecipient(target);
         const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
         const parsed = parseClassFeedbackInput(raw);
         const homework = parsed.homework;
-        const courseContent = parsed.courseContent;
-        const knowledgePoints = buildKnowledgePoints(raw);
+        const courseItems = courseContentItems(raw);
+        const knowledgeItems = buildKnowledgePointItems(raw);
+        const masteryItems = buildMasteryItems(raw);
+        const resolvedMeta = feedbackMeta(target, raw, meta);
         return [
-          `${greeting}，这是春季小课第__次课程反馈：`,
+          `${greeting}，这是${resolvedMeta.lessonSeason || "春季"}小课第${resolvedMeta.lessonNumber || "__"}次课程反馈：`,
           "",
-          "上课状态：",
+          "一、上课状态：",
           parsed.stateText,
           "",
-          "课后作业：",
-          `《${homework}》做完`,
-          "",
           "本次课上课内容：",
-          courseContent,
+          numberedLines(courseItems),
           "",
-          "知识点要点：",
-          knowledgePoints,
+          "二、知识点要点：",
+          numberedLines(knowledgeItems),
           "",
-          "学习情况反馈：",
-          "1. 知识点掌握情况",
-          `本节课我们重点围绕“${courseContent}”进行了复习和训练。从课堂整体表现来看，孩子对主要知识点已有一定理解，基础题型能够跟上；个别细节和易错点还需要课后继续练习巩固。`,
+          "三、学习掌握情况：",
+          numberedLines(masteryItems),
           "",
-          "💡 小技巧：",
-          "课后建议先回顾课堂例题，再独立完成同类练习，遇到错题及时整理原因。",
-          "",
-          "2. 学习能力表现",
-          "孩子学习态度比较认真，能够在老师引导下思考问题。如果后续能继续保持专注，并加强错题复盘，学习效果会更稳定✨",
-          "",
-          "3. 后续学习计划",
-          parsed.planText
+          "四、课后作业：",
+          `《${homework}》做完`
         ].join("\n");
       }
 
@@ -510,7 +726,7 @@
           polishedText: payload.text,
           todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
           parentMessage: payload.mode === "classFeedback"
-            ? buildClassFeedbackTemplate(payload.target, payload.text)
+            ? buildClassFeedbackTemplate(payload.target, payload.text, payload)
             : payload.mode === "feedback"
               ? `家长您好，${payload.text}。以上为本节课学习反馈，老师会继续跟进孩子的掌握情况。`
               : "",
@@ -536,12 +752,17 @@
           byId("aiMessage").textContent = "请先输入文字或使用语音转文字。";
           return;
         }
+        const target = byId("aiTargetInput").value.trim();
+        const meta = feedbackMeta(target, text);
         const payload = {
           mode: byId("aiModeInput").value,
           modeLabel: modeLabel(byId("aiModeInput").value),
-          target: byId("aiTargetInput").value.trim(),
+          target,
           text,
+          lessonSeason: meta.lessonSeason,
+          lessonNumber: meta.lessonNumber,
           operatorName: currentName,
+          operatorUsername: currentEmployee.username || "",
           operatorRole: currentEmployee.role || ""
         };
         byId("aiRunButton").disabled = true;
@@ -594,6 +815,7 @@
           sourceText: byId("aiInputText").value.trim(),
           result: latestResult,
           createdBy: currentName,
+          createdByUsername: currentEmployee.username || "",
           createdAt: new Date().toISOString()
         };
         writeDrafts([row, ...readDrafts()]);
@@ -698,6 +920,8 @@
           next: latestResult.suggestedAction || (Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("；") : "") || "学管跟进家长反馈",
           sourceModule: "aiAssistant",
           sourceText: byId("aiInputText").value.trim(),
+          lessonSeason: latestResult.lessonSeason || feedbackMeta(student, byId("aiInputText").value.trim()).lessonSeason,
+          lessonNumber: latestResult.lessonNumber || feedbackMeta(student, byId("aiInputText").value.trim()).lessonNumber,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           createdBy: currentName
@@ -715,6 +939,7 @@
         byId("aiMessage").textContent = result?.ok
           ? `已归档到学生服务系统：${student}。进入学生服务台账搜索学生姓名，可直接复制家长版反馈。`
           : `已先保存到当前设备：${student}。云端恢复后会同步到学生服务台账。`;
+        hydrateArchivedFeedbacks();
       }
 
       function structuredDataMap() {
@@ -955,6 +1180,8 @@
             ? "转成任务"
             : "转成建议";
         }
+        byId("feedbackSeasonField").hidden = mode !== "classFeedback";
+        byId("feedbackLessonNumberField").hidden = mode !== "classFeedback";
       }
 
       function setupVoice() {
@@ -1004,6 +1231,60 @@
         await navigator.clipboard?.writeText(resultToText(latestResult));
         byId("aiMessage").textContent = "已复制整理结果。";
       });
+      byId("aiDraftList")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-draft-action]");
+        if (!button) return;
+        const row = findDraftById(button.dataset.draftId);
+        if (!row) {
+          byId("aiMessage").textContent = "没有找到这条草稿。";
+          return;
+        }
+        const text = draftDisplayText(row);
+        if (button.dataset.draftAction === "copy") {
+          await navigator.clipboard?.writeText(text);
+          byId("aiMessage").textContent = "已复制草稿内容。";
+          return;
+        }
+        byId("aiModeInput").value = row.mode || "classFeedback";
+        byId("aiTargetInput").value = row.target || "";
+        byId("aiInputText").value = row.sourceText || text;
+        latestResult = row.result || null;
+        if (latestResult) renderResult(latestResult);
+        updateActionButtons();
+        byId("aiMessage").textContent = "已带入草稿，可以继续修改或重新 AI 整理。";
+      });
+      byId("archivedFeedbackList")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-archive-action]");
+        if (!button) return;
+        const row = findArchivedFeedbackById(button.dataset.archiveId);
+        if (!row) {
+          byId("aiMessage").textContent = "没有找到这条已归档反馈。";
+          return;
+        }
+        const text = archivedFeedbackText(row);
+        if (button.dataset.archiveAction === "copy") {
+          await navigator.clipboard?.writeText(text);
+          byId("aiMessage").textContent = "已复制已归档反馈。";
+          return;
+        }
+        byId("aiModeInput").value = "classFeedback";
+        byId("aiTargetInput").value = row.student || "";
+        byId("aiInputText").value = row.sourceText || text;
+        latestResult = {
+          title: `${row.student || "学生"}｜课堂反馈`,
+          summary: "已带入已归档课堂反馈，方便参考上一节内容。",
+          parentMessage: text,
+          polishedText: text,
+          internalNote: row.content || "",
+          lessonSeason: row.lessonSeason || "",
+          lessonNumber: row.lessonNumber || ""
+        };
+        renderResult(latestResult);
+        updateActionButtons();
+        byId("aiMessage").textContent = "已带入已归档反馈，可以参考上一节内容继续整理。";
+      });
+      byId("archivedFeedbackSearchInput")?.addEventListener("input", () => renderArchivedFeedbacks());
+      byId("refreshArchivedFeedbackButton")?.addEventListener("click", hydrateArchivedFeedbacks);
       byId("saveDraftButton").addEventListener("click", saveDraft);
       byId("saveAdmissionsButton")?.addEventListener("click", saveToAdmissionsSystem);
       byId("saveCurriculumButton")?.addEventListener("click", saveToCurriculumSystem);
@@ -1013,7 +1294,8 @@
 
       setupVoice();
       updateActionButtons();
-      renderDrafts();
+      hydrateDrafts();
+      hydrateArchivedFeedbacks();
       window.JRC_CLOUD?.aiAssistant?.({ mode: "health", text: "ping" }).then((result) => {
         byId("aiConfigNotice").textContent = result?.ok && result.data?.provider === "minimax"
           ? "AI 接口已接入 MiniMax。"

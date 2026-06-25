@@ -957,7 +957,7 @@ function localAiDraft(body) {
   const mode = String(body.mode || "feedback");
   const label = aiModeLabel(mode);
   const parentMessage = mode === "classFeedback"
-    ? buildClassFeedbackTemplate(body.target || "家长", text)
+    ? buildClassFeedbackTemplate(body.target || "家长", text, body)
     : mode === "feedback"
       ? "建议老师确认后再发送给家长。"
       : "";
@@ -1070,62 +1070,160 @@ function extractTemplateSection(text, label, nextLabels = []) {
 }
 
 function classFeedbackNeedsRebuild(parentMessage) {
-  const courseSection = extractTemplateSection(parentMessage, "本次课上课内容：", ["知识点要点：", "学习情况反馈："]);
-  const knowledgeSection = extractTemplateSection(parentMessage, "知识点要点：", ["学习情况反馈："]);
-  return hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+  const text = String(parentMessage || "");
+  const courseSection = extractTemplateSection(text, "本次课上课内容：", ["二、知识点要点：", "知识点要点：", "三、学习掌握情况：", "学习情况反馈："]);
+  const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["三、学习掌握情况：", "学习情况反馈：", "四、课后作业："]);
+  return !text.includes("三、学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
 }
 
 function formatClassFeedbackText(value, target = "") {
   const greeting = normalizeFeedbackRecipient(target);
   let text = String(value || "")
     .replace(/^.{0,16}(妈妈|爸爸|父母|家长)[，,：:\s]*您好?[，,：:\s]*/, `${greeting}，`)
-    .replace(/(上课状态：)/g, "\n\n$1\n")
-    .replace(/(课后作业：)/g, "\n\n$1\n")
+    .replace(/(一、上课状态：|上课状态：)/g, "\n\n$1\n")
     .replace(/(本次课上课内容：)/g, "\n\n$1\n")
-    .replace(/(知识点要点：)/g, "\n\n$1\n")
-    .replace(/(学习情况反馈：)/g, "\n\n$1\n")
-    .replace(/(💡\s*小技巧：)/g, "\n\n$1\n")
-    .replace(/([23]\.\s*[^：\n]+表现|3\.\s*后续学习计划)/g, "\n\n$1")
+    .replace(/(二、知识点要点：|知识点要点：)/g, "\n\n$1\n")
+    .replace(/(三、学习掌握情况：|学习掌握情况：|学习情况反馈：)/g, "\n\n$1\n")
+    .replace(/(四、课后作业：|课后作业：)/g, "\n\n$1\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (text && !text.startsWith(greeting)) text = `${greeting}，\n\n${text}`;
   return text;
 }
 
-function buildClassFeedbackTemplate(target, rawText) {
+function chineseNumberToInt(value) {
+  const raw = String(value || "").trim();
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const map = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (raw === "十") return 10;
+  const tenIndex = raw.indexOf("十");
+  if (tenIndex >= 0) {
+    const left = raw.slice(0, tenIndex);
+    const right = raw.slice(tenIndex + 1);
+    return (left ? map[left] || 0 : 1) * 10 + (right ? map[right] || 0 : 0);
+  }
+  return map[raw] || 0;
+}
+
+function extractLessonNumberFromText(rawText) {
+  const text = String(rawText || "");
+  const match = text.match(/第\s*([0-9一二两三四五六七八九十]{1,4})\s*(?:次|节|讲|课)/);
+  const value = chineseNumberToInt(match?.[1] || "");
+  return value > 0 ? value : "";
+}
+
+function extractFeedbackSeason(rawText) {
+  const text = String(rawText || "");
+  if (/(暑假|暑期|夏季)/.test(text)) return "暑假";
+  if (/(寒假|寒期|冬季)/.test(text)) return "寒假";
+  if (/(秋季|秋期)/.test(text)) return "秋季";
+  if (/(春季|春期)/.test(text)) return "春季";
+  const month = new Date().getMonth() + 1;
+  if (month >= 7 && month <= 8) return "暑假";
+  if (month <= 2) return "寒假";
+  if (month >= 9) return "秋季";
+  return "春季";
+}
+
+function resolveFeedbackLessonNumber(target, rawText, meta = {}) {
+  const manual = String(meta.lessonNumber || "").trim();
+  const manualNumber = chineseNumberToInt(manual);
+  if (manualNumber > 0) return manualNumber;
+  const oralNumber = extractLessonNumberFromText(rawText);
+  if (oralNumber) return oralNumber;
+  const name = String(target || "").split(/[，,、\s/｜|]+/).filter(Boolean)[0] || "";
+  return name ? "__" : "__";
+}
+
+function feedbackMeta(target, rawText, meta = {}) {
+  return {
+    lessonSeason: meta.lessonSeason || extractFeedbackSeason(rawText),
+    lessonNumber: meta.lessonNumber || resolveFeedbackLessonNumber(target, rawText, meta)
+  };
+}
+
+function courseContentItems(rawText) {
+  const content = extractCourseContent(rawText);
+  if (!content || content === "本节课上课内容待老师补充") return ["本节课上课内容待老师补充"];
+  const items = content
+    .split(/[；;\n]/)
+    .map((item) => cleanExtractedText(item.replace(/^(今天|本节课|这节课|学习了|学了|讲了|复习了|主要讲了)/, "")))
+    .filter(Boolean);
+  return [...new Set(items)].slice(0, 4);
+}
+
+function numberedLines(items) {
+  return (Array.isArray(items) ? items : [])
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((item, index) => `${index + 1}. ${item}`)
+    .join("\n");
+}
+
+function buildKnowledgePointItems(rawText) {
+  const content = extractCourseContent(rawText);
+  const compact = content.replace(/\s+/g, "");
+  const points = [];
+  if (/平行四边形/.test(compact)) {
+    points.push("平行四边形定义：两组对边分别平行的四边形叫平行四边形。");
+    points.push("平行四边形性质：对边平行且相等，对角相等，邻角互补，对角线互相平分。");
+    points.push("平行四边形判定：两组对边分别平行、两组对边分别相等、一组对边平行且相等、两组对角分别相等、对角线互相平分，都可判定为平行四边形。");
+    if (/面积|底|高/.test(compact)) points.push("平行四边形面积：S = 底 × 高，底和高必须对应。");
+  }
+  if (/矩形/.test(compact)) points.push("矩形要点：矩形是有一个角为直角的平行四边形，四个角都是直角，对角线相等且互相平分。");
+  if (/菱形/.test(compact)) points.push("菱形要点：菱形是四条边都相等的平行四边形，对角线互相垂直平分，并分别平分一组对角。");
+  if (/分数|应用题/.test(compact)) points.push("分数应用题：先找准单位“1”和对应分率，常用关系是单位量 × 对应分率 = 对应量。");
+  if (/百分数|利润|折扣|浓度/.test(compact)) points.push("百分数问题：百分率 = 比较量 ÷ 标准量 × 100%，增长率、折扣、利润率都要先确定比较基准。");
+  if (/比例|正比例|反比例/.test(compact)) points.push("比例关系：比例式 a:b = c:d 中内项积等于外项积；正比例关注 y/x 为定值，反比例关注 xy 为定值。");
+  if (/方程|等式/.test(compact)) points.push("方程思想：用未知数表示关键信息，根据等量关系建立方程，再检验结果是否符合题意。");
+  if (/圆/.test(compact)) points.push("圆的公式：周长 C = 2πr = πd，面积 S = πr²，题目中要区分半径和直径。");
+  if (/三角形/.test(compact)) points.push("三角形面积：S = 底 × 高 ÷ 2，解题时重点找到对应的底和高。");
+  if (/长方形|正方形|几何|面积|周长|体积/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
+  if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
+  if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
+  if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
+  return points.slice(0, 4);
+}
+
+function buildKnowledgePoints(rawText) {
+  return numberedLines(buildKnowledgePointItems(rawText));
+}
+
+function buildMasteryItems(rawText) {
+  const courseItems = courseContentItems(rawText);
+  if (courseItems[0] === "本节课上课内容待老师补充") {
+    return ["本节课具体学习内容待老师补充；请老师确认后，再补充孩子对应知识点的掌握情况。"];
+  }
+  const state = parseClassFeedbackInput(rawText).stateText;
+  return courseItems.map((item) => `围绕“${item}”，孩子能够跟随老师完成课堂梳理和练习，基础理解整体在推进中。${hasStateSignal(state) ? "结合课堂状态来看，后续建议继续保持专注，并通过课后练习巩固细节。" : "后续建议课后再通过同类题训练巩固易错点。"}`);
+}
+
+function buildClassFeedbackTemplate(target, rawText, meta = {}) {
   const greeting = normalizeFeedbackRecipient(target);
   const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
   const parsed = parseClassFeedbackInput(raw);
   const homework = parsed.homework;
-  const courseContent = parsed.courseContent;
-  const knowledgePoints = buildKnowledgePoints(raw);
+  const courseItems = courseContentItems(raw);
+  const knowledgeItems = buildKnowledgePointItems(raw);
+  const masteryItems = buildMasteryItems(raw);
+  const resolvedMeta = feedbackMeta(target, raw, meta);
   return [
-    `${greeting}，这是春季小课第__次课程反馈：`,
+    `${greeting}，这是${resolvedMeta.lessonSeason || "春季"}小课第${resolvedMeta.lessonNumber || "__"}次课程反馈：`,
     "",
-    "上课状态：",
+    "一、上课状态：",
     parsed.stateText,
     "",
-    "课后作业：",
-    `《${homework}》做完`,
-    "",
     "本次课上课内容：",
-    courseContent,
+    numberedLines(courseItems),
     "",
-    "知识点要点：",
-    knowledgePoints,
+    "二、知识点要点：",
+    numberedLines(knowledgeItems),
     "",
-    "学习情况反馈：",
-    "1. 知识点掌握情况",
-    `本节课我们重点围绕“${courseContent}”进行了复习和训练。从课堂整体表现来看，孩子对主要知识点已有一定理解，基础题型能够跟上；个别细节和易错点还需要课后继续练习巩固。`,
+    "三、学习掌握情况：",
+    numberedLines(masteryItems),
     "",
-    "💡 小技巧：",
-    "课后建议先回顾课堂例题，再独立完成同类练习，遇到错题及时整理原因。",
-    "",
-    "2. 学习能力表现",
-    "孩子学习态度比较认真，能够在老师引导下思考问题。如果后续能继续保持专注，并加强错题复盘，学习效果会更稳定✨",
-    "",
-    "3. 后续学习计划",
-    parsed.planText
+    "四、课后作业：",
+    `《${homework}》做完`
   ].join("\n");
 }
 
@@ -1182,6 +1280,9 @@ function aiSystemPrompt() {
     "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
     "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；每个栏目之间必须空一行，方便老师复制到微信。",
     "课堂反馈称呼统一用“某某的家长您好”，不要默认写妈妈或爸爸；原始描述里的作业要提取到课后作业；原始描述里的上课主要内容要提取到本次课上课内容。",
+    "课堂反馈模板必须使用这套结构：标题行 + 一、上课状态 + 本次课上课内容 + 二、知识点要点 + 三、学习掌握情况 + 四、课后作业。",
+    "标题里的季节优先使用传入的 lessonSeason，没有则从原文识别春季/秋季/暑假/寒假；标题里的第几次优先使用传入的 lessonNumber，没有则识别原文，否则保留 __。",
+    "本次课上课内容必须用 1-4 条编号列出知识主题；知识点要点必须用 1-4 条编号列出核心定义、公式、定理或方法；学习掌握情况必须与前面的编号主题对应。",
     "生成课堂反馈前必须先做语义分类：孩子表现、注意力、讲话、提醒、制止、互动、状态、纪律等只属于“上课状态”；作业只属于“课后作业”；具体学习主题、章节、题型、知识点才属于“本次课上课内容”。",
     "严禁把“表现不错、偶尔讲话、已提醒/已制止、注意力、专注度”等课堂状态内容写进“本次课上课内容”或“知识点要点”。",
     "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
@@ -1198,6 +1299,8 @@ function buildAiUserPrompt(body) {
   return [
     `整理类型：${aiModeLabel(mode)}`,
     `关联对象：${body.target || "未填写"}`,
+    `课程阶段：${body.lessonSeason || "未填写"}`,
+    `课次：${body.lessonNumber || "未填写"}`,
     `提交人：${body.operatorName || "-"}｜${body.operatorRole || "-"}`,
     "原始内容：",
     String(body.text || "").trim(),
@@ -1206,6 +1309,7 @@ function buildAiUserPrompt(body) {
     mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
     mode === "classFeedback" ? [
       "根据老师原始描述，匹配并填写以下统一课堂反馈模板；根据实际情况适当改写，不要生硬套话；parentMessage 必须是一段可直接微信发给家长的完整文字；每个栏目之间必须保留空行：",
+      "标题行中的季节优先使用课程阶段字段；第几次优先使用课次字段；如果字段为空，再从原始内容中识别，否则保留 __。",
       "填写前先把原始内容分类：",
       "A. 上课状态：孩子表现、注意力、讲话、纪律、互动、提醒、制止、状态、态度。",
       "B. 课后作业：老师提到的作业、练习、讲义、订正、完成内容。",
@@ -1214,23 +1318,18 @@ function buildAiUserPrompt(body) {
       "如果老师只说了孩子状态，没有说具体学习内容，本次课上课内容写“本节课上课内容待老师补充”，知识点要点写“知识点待老师补充”。",
       "如果 C 包含平行四边形，知识点要点必须写：定义、性质、判定；如果涉及面积，再写 S = 底 × 高。",
       "某某的家长您好，这是春季小课第__次课程反馈：",
-      "上课状态：",
-      "今天孩子上课状态非常棒！精神饱满，注意力集中，全程紧跟老师节奏。做题反应迅速，思考积极，课堂互动活跃，表现出很强的学习热情和主动性。",
-      "课后作业：",
-      "《从老师原始描述中提取作业；没有则填 __》做完",
+      "一、上课状态：",
+      "根据老师原始描述如实整理课堂表现、专注度、互动、纪律、提醒情况。",
       "本次课上课内容：",
-      "从老师原始描述中提取主要上课内容，分 1-3 行写清楚。",
-      "知识点要点：",
+      "1. 从老师原始描述中提取主要上课内容",
+      "2. 最多 4 条",
+      "二、知识点要点：",
       "请根据老师提到的上课主要内容，补充家长可查询、可询问孩子的核心定义、公式、定理、解题思路或知识要点；数学要尽量写清公式/方法，科学要尽量写清概念/现象/结论。",
-      "学习情况反馈：",
-      "1. 知识点掌握情况",
-      "本节课我们重点带孩子复习了__。从课堂整体表现来看，孩子对__解题思路清晰明了，__内容也能灵活运用，__核心知识点掌握得较为扎实。不过__方面还有进步空间，建议课后多练习，逐步提升。",
-      "💡 小技巧：",
-      "__",
-      "2. 学习能力表现",
-      "孩子头脑比较灵活，学习悟性也比较高，能够很快抓住知识点核心，反应也比较快，学习效率很不错✨",
-      "3. 后续学习计划",
-      "下节课我们会继续进行__，同时穿插__重点内容预习和奥数思维训练，帮孩子全面巩固提升，学习效果更上一层楼✨",
+      "三、学习掌握情况：",
+      "1. 对应上课内容第 1 条写孩子掌握情况",
+      "2. 对应上课内容第 2 条写孩子掌握情况",
+      "四、课后作业：",
+      "《从老师原始描述中提取作业；没有则填 __》做完",
       "如果原始描述中孩子状态一般或偏弱，要温和改写对应模块，不要强行写“非常棒”；如果信息缺失，用 __ 保留待老师确认。",
       "internalNote 写给学管，包含：本次反馈依据、需要老师确认的空缺字段、是否需要后续跟进、风险等级和下一步。"
     ].join("\n") : "",
@@ -1341,12 +1440,14 @@ function requireAiJson(text) {
 function ensureClassFeedbackResult(result, body) {
   if (String(body?.mode || "") !== "classFeedback") return result;
   const parentMessage = String(result?.parentMessage || "");
-  const hasTemplate = parentMessage.includes("春季小课第") && parentMessage.includes("上课状态") && parentMessage.includes("学习情况反馈") && parentMessage.includes("知识点要点");
+  const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("三、学习掌握情况") && parentMessage.includes("四、课后作业");
   if (hasTemplate) {
     const formatted = formatClassFeedbackText(parentMessage, body?.target || "");
     return {
       ...result,
       parentMessage: formatted,
+      lessonSeason: result?.lessonSeason || body?.lessonSeason || extractFeedbackSeason(body?.text || ""),
+      lessonNumber: result?.lessonNumber || body?.lessonNumber || resolveFeedbackLessonNumber(body?.target || "", body?.text || "", body),
       polishedText: result?.polishedText === parentMessage ? formatted : result?.polishedText
     };
   }
