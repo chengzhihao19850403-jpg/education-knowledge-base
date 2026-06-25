@@ -664,6 +664,7 @@
                 <th>风险点</th>
                 <th>状态</th>
                 <th>来源时间</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody id="financeReconciliationBody"></tbody>
@@ -1303,6 +1304,7 @@
       function writePreimportBundle(nextBundle) {
         financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, nextBundle);
         window.JRC_PREIMPORT_BUNDLE = financePreimportBundle;
+        localStorage.setItem(PREIMPORT_STORE_KEY, JSON.stringify(financePreimportBundle));
         return window.JRC_CLOUD?.writeModuleData
           ? window.JRC_CLOUD.writeModuleData(PREIMPORT_STORE_KEY, "finance-preimport", financePreimportBundle).catch((error) => {
               console.warn("财务预导入数据云端保存失败", error);
@@ -2017,12 +2019,14 @@
         }
         if (!body) return;
         if (!currentRows.length) {
-          body.innerHTML = `<tr><td colspan="9" class="muted">当前还没有 AI 财务核对草稿。</td></tr>`;
+          body.innerHTML = `<tr><td colspan="10" class="muted">当前还没有 AI 财务核对草稿。</td></tr>`;
           return;
         }
         body.innerHTML = currentRows.map((row) => {
+          const rowId = reconciliationIssueId(row);
           const detail = String(row.detail || "").trim();
           const riskPoints = String(row.riskPoints || "").trim();
+          const isDone = String(row.status || "").includes("已处理");
           return `
             <tr>
               <td>${escapeHtml(row.period || currentPeriod)}</td>
@@ -2034,9 +2038,58 @@
               <td>${escapeHtml(riskPoints || detail.slice(0, 70) || "-")}</td>
               <td><span class="status-pill ${String(row.status || "").includes("待") ? "pending" : ""}">${escapeHtml(row.status || "待复核")}</span></td>
               <td>${escapeHtml(String(row.createdAt || "").slice(0, 16).replace("T", " "))}</td>
+              <td>
+                <button class="button secondary" type="button" data-reconciliation-action="${isDone ? "reopen" : "done"}" data-reconciliation-id="${escapeHtml(rowId)}">${isDone ? "重新打开" : "标记已处理"}</button>
+                <button class="button secondary" type="button" data-reconciliation-action="delete" data-reconciliation-id="${escapeHtml(rowId)}">删除</button>
+              </td>
             </tr>
           `;
         }).join("");
+      }
+
+      function reconciliationIssueId(row) {
+        const existing = String(row?.id || "").trim();
+        if (existing) return existing;
+        return buildFinanceHash([
+          row?.period,
+          row?.teacherName,
+          row?.title,
+          row?.createdAt,
+          row?.detail
+        ].join("|"), "ai-finance");
+      }
+
+      function updateFinanceReconciliationIssue(issueId, action) {
+        const bundle = readPreimportBundle();
+        const rows = Array.isArray(bundle.reconciliationIssues) ? bundle.reconciliationIssues : [];
+        let changed = false;
+        const nextRows = rows.reduce((acc, row) => {
+          const rowKey = reconciliationIssueId(row);
+          if (rowKey !== issueId) {
+            acc.push(row);
+            return acc;
+          }
+          changed = true;
+          if (action === "delete") return acc;
+          acc.push({
+            ...row,
+            id: row.id || rowKey,
+            status: action === "reopen" ? "待复核" : "已处理",
+            handledBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录",
+            handledAt: new Date().toISOString()
+          });
+          return acc;
+        }, []);
+        if (!changed) return;
+        writePreimportBundle({
+          ...bundle,
+          reconciliationIssues: nextRows
+        }).then((result) => {
+          setFinanceImportMessage(result?.ok
+            ? "AI 财务核对草稿已同步到云端。"
+            : "AI 财务核对草稿已先保存在当前设备，云端稍后同步。");
+        });
+        render();
       }
 
       function applyFinanceAutofill() {
@@ -2473,6 +2526,12 @@
         if (event.key === FINANCE_STORAGE_KEY) {
           hydrateCloudFinance();
         }
+      });
+
+      byId("financeReconciliationBody")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-reconciliation-action]");
+        if (!button) return;
+        updateFinanceReconciliationIssue(button.dataset.reconciliationId || "", button.dataset.reconciliationAction || "");
       });
 
       async function importFinanceSheets() {

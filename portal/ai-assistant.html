@@ -841,7 +841,9 @@
         const nextState = mergeAdmissionsState(state, studentName, latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult));
         localStorage.setItem(ADMISSIONS_STORE_KEY, JSON.stringify(nextState));
         const result = await window.JRC_CLOUD?.writeModuleData?.(ADMISSIONS_STORE_KEY, "admissions", nextState, { replaceMode: "replace" });
-        byId("aiMessage").textContent = result?.ok ? `已归档到招生系统：${studentName}` : "已保存到当前设备，招生系统稍后同步。";
+        byId("aiMessage").textContent = result?.ok
+          ? `已归档到招生系统：${studentName}。进入招生管理系统搜索学生姓名，可查看线索和跟进记录。`
+          : `已先保存到当前设备：${studentName}。网络恢复后会同步到招生系统。`;
       }
 
       function curriculumRowDraft() {
@@ -888,7 +890,9 @@
         const nextRows = [curriculumRowDraft(), ...(Array.isArray(rows) ? rows : [])].slice(0, 500);
         localStorage.setItem(CURRICULUM_STORE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(CURRICULUM_STORE_KEY, "curriculum", nextRows, { replaceMode: "replace" });
-        byId("aiMessage").textContent = result?.ok ? "已归档到教研与课程产品系统。" : "已保存到当前设备，教研系统稍后同步。";
+        byId("aiMessage").textContent = result?.ok
+          ? "已归档到教研与课程产品系统。进入资料台账可按年级、学科或标题查询。"
+          : "已先保存到当前设备。网络恢复后会同步到教研与课程产品系统。";
       }
 
       async function saveToFinanceReview() {
@@ -921,7 +925,9 @@
         });
         localStorage.setItem(FINANCE_PREIMPORT_KEY, JSON.stringify(bundle));
         const result = await window.JRC_CLOUD?.writeModuleData?.(FINANCE_PREIMPORT_KEY, "finance-preimport", bundle, { replaceMode: "replace" });
-        byId("aiMessage").textContent = result?.ok ? "已送入财务核对草稿。" : "已保存到当前设备，财务核对草稿稍后同步。";
+        byId("aiMessage").textContent = result?.ok
+          ? "已送入财务系统的 AI 财务核对草稿。财务老师可在草稿区标记已处理或删除。"
+          : "已先保存到当前设备。网络恢复后会同步到财务核对草稿。";
       }
 
       function canArchiveToStudentService(mode) {
