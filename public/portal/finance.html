@@ -514,7 +514,7 @@
             <a class="button secondary" href="#excelReconciliationSection">Excel 对账</a>
           </div>
           <div class="pilot-banner">
-            当前财务页按“系统先全量算一版，老师再和原 Excel 结果比对”运行。2026年6月、7月、8月先作为试运行核算，不直接作为最终发薪、分红和课销唯一依据。
+            当前结果用于和 Excel 月结表对照；发薪、分红和课销以财务复核为准。
           </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
@@ -555,9 +555,9 @@
       </section>
 
       <section class="card" id="trialCompareSection">
-        <p class="eyebrow">试运行</p>
-        <h2>系统结果与 Excel 人工结果差异总览</h2>
-        <p style="margin-top: 8px;">先全量导入，再集中看差异。老师只需要核对差异项，不需要先逐条人工审核后再录系统。</p>
+        <p class="eyebrow">对账</p>
+        <h2>系统结果与 Excel 差异</h2>
+        <p style="margin-top: 8px;">集中查看差异项，优先处理高影响问题。</p>
         <div class="compare-grid" id="trialCompareGrid"></div>
       </section>
 
@@ -571,7 +571,7 @@
       <section class="card" id="financeImportSection">
         <p class="eyebrow">导入</p>
         <h2>财务原始表导入</h2>
-        <p style="margin-top: 8px;">支持导入工资表、支出报销表、成本表。系统会先归到试运行草算数据里，保留原文件名，方便和老师手工版逐项比对。</p>
+        <p style="margin-top: 8px;">导入工资、支出、成本表，保留来源文件，便于逐项对账。</p>
         <div class="actions">
           <input id="financeImportInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
           <button class="button" type="button" id="financeImportButton">导入原始表</button>
