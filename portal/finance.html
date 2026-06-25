@@ -242,6 +242,95 @@
         min-height: 46px;
         border-radius: 14px;
       }
+      .finance-path-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .finance-path-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255,255,255,0.78);
+      }
+      .finance-path-card span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .finance-path-card strong {
+        display: block;
+        margin-top: 10px;
+        color: var(--ink);
+      }
+      .finance-path-card p {
+        margin-top: 6px;
+        font-size: 13px;
+      }
+      .workbench-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .workbench-strip-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.78);
+      }
+      .workbench-strip-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .workbench-strip-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+        color: var(--ink);
+      }
+      .workbench-strip-card em {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        line-height: 1.45;
+      }
+      .teacher-settlement-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .teacher-settlement-card {
+        display: grid;
+        grid-template-columns: minmax(120px, 0.8fr) repeat(4, minmax(90px, 1fr)) minmax(120px, 1fr);
+        gap: 10px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.78);
+      }
+      .teacher-settlement-card strong {
+        color: var(--ink);
+      }
+      .teacher-settlement-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .section-muted {
+        opacity: 0.88;
+      }
       .button {
         display: inline-flex;
         align-items: center;
@@ -458,6 +547,13 @@
         .compare-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .finance-path-grid,
+        .workbench-strip {
+          grid-template-columns: 1fr;
+        }
+        .teacher-settlement-card {
+          grid-template-columns: 1fr 1fr;
+        }
         .settlement-summary-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -474,6 +570,9 @@
         .compare-grid,
         .form-grid,
         .settlement-summary-grid {
+          grid-template-columns: 1fr;
+        }
+        .teacher-settlement-card {
           grid-template-columns: 1fr;
         }
         .span-2,
@@ -503,22 +602,21 @@
         <article class="card">
           <p class="eyebrow">财务</p>
           <h1>财务系统</h1>
-          <p class="hero-text">课时收入、老师结算、日常支出、毛利润和分红测算。</p>
+          <p class="hero-text">先看老师结算，再查差异，最后做月结确认。这里是试运行核对台，不替代最终人工发薪复核。</p>
           <div class="tag-row">
-            <span class="tag">日常支出/报销</span>
-            <span class="tag">成本与毛利润</span>
-            <span class="tag">分红测算</span>
+            <span class="tag">老师结算</span>
+            <span class="tag">差异核对</span>
+            <span class="tag">点名课销</span>
             <span class="tag warn">待审核数据不入账</span>
           </div>
           <div class="quick-actions">
+            <a class="button secondary" href="#financeWorkbenchSection">本月核对台</a>
             <a class="button secondary" href="#teacherSettlementEntry">老师结算</a>
+            <a class="button secondary" href="#teacherDiffSection">差异核对</a>
             <a class="button secondary" href="#monthlySection">月结录入</a>
-            <a class="button secondary" href="#expenseSection">支出报销</a>
-            <a class="button secondary" href="#attendanceFinanceSection">点名结算</a>
-            <a class="button secondary" href="#excelReconciliationSection">Excel 对账</a>
           </div>
           <div class="pilot-banner">
-            当前结果用于和 Excel 月结表对照；发薪、分红和课销以财务复核为准。
+            当前系统用于和 Excel 月结表对照：系统算一版，人工算一版，不一致就查差异。确认前不作为最终发薪、分红和课销依据。
           </div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
@@ -531,8 +629,31 @@
             选择月份
             <input id="periodInput" type="month" value="2026-06">
           </label>
-          <p>选择月份后录入收入、成本、支出和分红比例。</p>
+          <p>先切月份，再看下方“本月核对台”。如果看不到数据，通常是月份没切对或原始表还没导入。</p>
         </aside>
+      </section>
+
+      <section class="card" id="financeWorkbenchSection">
+        <p class="eyebrow">本月核对台</p>
+        <h2>财务先看这里</h2>
+        <div class="finance-path-grid">
+          <div class="finance-path-card">
+            <span>1</span>
+            <strong>看老师结算</strong>
+            <p>先确认每位老师本月有没有结算草算、工资行和排课行。</p>
+          </div>
+          <div class="finance-path-card">
+            <span>2</span>
+            <strong>查差异</strong>
+            <p>有高优先级差异时，不急着确认工资，先逐老师、逐行核对。</p>
+          </div>
+          <div class="finance-path-card">
+            <span>3</span>
+            <strong>确认月结</strong>
+            <p>课时、点名、支出都核过后，再确认本月复核并导出汇总。</p>
+          </div>
+        </div>
+        <div class="workbench-strip" id="financeWorkbenchCards"></div>
       </section>
 
       <section class="summary-grid" aria-label="财务汇总">
@@ -560,28 +681,14 @@
 
       <section class="card" id="teacherSettlementEntry">
         <p class="eyebrow">老师结算</p>
-        <h2>老师结算结果 / 核对结果</h2>
-        <div class="compare-grid">
-          <a class="compare-card" href="#preimportSection">
-            <span>结算草算结果</span>
-            <strong>老师月度结算</strong>
-            <em>查看排课、质量、招生联动后的老师结算候选项</em>
-          </a>
-          <a class="compare-card" href="#teacherDiffSection">
-            <span>核对结果</span>
-            <strong>老师差异核对</strong>
-            <em>按老师看系统试算和 Excel 差异</em>
-          </a>
-          <a class="compare-card" href="#rowDiffSection">
-            <span>逐条核对</span>
-            <strong>排课行 / 工资行</strong>
-            <em>查具体哪节课、哪一行金额有差异</em>
-          </a>
-          <a class="compare-card" href="#attendanceFinanceSection">
-            <span>点名联动</span>
-            <strong>到课课时费 / 课销</strong>
-            <em>从点名和出门测生成结算依据</em>
-          </a>
+        <h2>老师结算结果</h2>
+        <p style="margin-top: 8px;">先按老师看本月有没有工资行、排课行和待核差异；需要追查时再点下面的差异核对或逐条明细。</p>
+        <div class="teacher-settlement-list" id="teacherSettlementList"></div>
+        <div class="quick-actions">
+          <a class="button secondary" href="#teacherDiffSection">查看老师差异表</a>
+          <a class="button secondary" href="#rowDiffSection">查看逐条明细</a>
+          <a class="button secondary" href="#attendanceFinanceSection">查看点名课销</a>
+          <a class="button secondary" href="#monthlySection">进入月结录入</a>
         </div>
       </section>
 
@@ -599,7 +706,7 @@
         <div class="month-status-grid" id="monthStatusGrid"></div>
       </section>
 
-      <section class="card" id="financeImportSection">
+      <section class="card section-muted" id="financeImportSection">
         <p class="eyebrow">导入</p>
         <h2>财务原始表导入</h2>
         <p style="margin-top: 8px;">导入工资、支出、成本表，保留来源文件，便于逐项对账。</p>
@@ -644,7 +751,7 @@
         </div>
       </section>
 
-      <section class="card" id="financeAutofillSection">
+      <section class="card section-muted" id="financeAutofillSection">
         <p class="eyebrow">回填</p>
         <h2>原始表自动回填建议</h2>
         <p style="margin-top: 8px;">工资/课时原始表会先统一归到“其他老师结算成本”草算字段；支出原始表会带入当月支出台账，状态保持“待复核”。</p>
@@ -655,7 +762,7 @@
         <div class="auth-note" id="financeAutofillMessage">当前还没有可带入的原始表汇总。</div>
       </section>
 
-      <section class="card" id="preimportSection">
+      <section class="card section-muted" id="preimportSection">
         <p class="eyebrow">联动</p>
         <h2>老师月度结算草算预览</h2>
         <div class="table-wrap" style="margin-top: 16px;">
@@ -1736,6 +1843,134 @@
         byId("retainedProfit").textContent = `留存 ${money(totals.retainedProfit)}｜待审核支出 ${money(totals.pendingExpenseTotal)}`;
       }
 
+      function teacherSettlementRows() {
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const precheckRows = (derived?.preimport?.teacherMonthPrecheck || []).filter((row) => row.period === currentPeriod);
+        const salaryRows = (readPreimportBundle().salaryAttendance || []).filter((row) => {
+          return row.period === currentPeriod && !row.excludeFromTeacherDiff && row.financeRoleType !== "nonTeaching";
+        });
+        const salaryByTeacher = new Map();
+        salaryRows.forEach((row) => {
+          const teacher = String(row.teacherName || row.teacher || "未匹配老师").trim() || "未匹配老师";
+          if (!salaryByTeacher.has(teacher)) salaryByTeacher.set(teacher, { rowCount: 0, amount: 0 });
+          const group = salaryByTeacher.get(teacher);
+          group.rowCount += 1;
+          group.amount += salaryRowAmount(row);
+        });
+        const teacherNames = new Set([
+          ...precheckRows.map((row) => row.teacherName).filter(Boolean),
+          ...Array.from(salaryByTeacher.keys())
+        ]);
+        return Array.from(teacherNames).map((teacherName) => {
+          const precheck = precheckRows.find((row) => row.teacherName === teacherName) || {};
+          const salary = salaryByTeacher.get(teacherName) || { rowCount: 0, amount: 0 };
+          const issueCount = toNumber(precheck.scheduleOnly) + toNumber(precheck.salaryOnly);
+          const highPriority = toNumber(precheck.highPriorityDifferences);
+          const scheduleCount = toNumber(precheck.scheduleStudentSessions);
+          const status = highPriority
+            ? "先查高优先级"
+            : issueCount
+              ? "有差异待核"
+              : salary.rowCount || scheduleCount
+                ? "可进入复核"
+                : "待补数据";
+          return {
+            teacherName,
+            salaryRows: salary.rowCount,
+            salaryAmount: salary.amount,
+            scheduleCount,
+            scheduleHours: toNumber(precheck.scheduleHours),
+            issueCount,
+            highPriority,
+            status
+          };
+        }).sort((left, right) => {
+          if (left.highPriority !== right.highPriority) return right.highPriority - left.highPriority;
+          if (left.issueCount !== right.issueCount) return right.issueCount - left.issueCount;
+          return left.teacherName.localeCompare(right.teacherName, "zh-CN");
+        });
+      }
+
+      function attendanceTotalsForCurrentPeriod() {
+        return deriveAttendanceSettlementRows().reduce((acc, row) => {
+          acc.lessons += row.lessons;
+          acc.financePresent += row.financePresent;
+          acc.specialPresent += row.specialPresent;
+          acc.followupCount += row.followupCount;
+          return acc;
+        }, { lessons: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
+      }
+
+      function renderFinanceWorkbench(period) {
+        const holder = byId("financeWorkbenchCards");
+        if (!holder) return;
+        const rows = teacherSettlementRows();
+        const issueTotal = rows.reduce((sum, row) => sum + row.issueCount, 0);
+        const highPriorityTotal = rows.reduce((sum, row) => sum + row.highPriority, 0);
+        const salaryAmount = rows.reduce((sum, row) => sum + row.salaryAmount, 0);
+        const attendanceTotals = attendanceTotalsForCurrentPeriod();
+        holder.innerHTML = `
+          <a class="workbench-strip-card" href="#teacherSettlementEntry">
+            <span>老师结算</span>
+            <strong>${rows.length} 位</strong>
+            <em>工资/课时行合计 ${money(salaryAmount)}</em>
+          </a>
+          <a class="workbench-strip-card" href="#teacherDiffSection">
+            <span>待核差异</span>
+            <strong>${issueTotal}</strong>
+            <em>${highPriorityTotal ? `高优先级 ${highPriorityTotal} 条，先查` : "无高优先级差异"}</em>
+          </a>
+          <a class="workbench-strip-card" href="#attendanceFinanceSection">
+            <span>点名课销</span>
+            <strong>${attendanceTotals.lessons} 节</strong>
+            <em>普通财务 ${attendanceTotals.financePresent} 人次，待追踪 ${attendanceTotals.followupCount}</em>
+          </a>
+          <a class="workbench-strip-card" href="#monthlySection">
+            <span>月结状态</span>
+            <strong>${escapeHtml(period.reviewStatus || "草稿")}</strong>
+            <em>${period.reviewStatus === "已确认" ? "本月已确认复核" : "确认前不作为最终发薪依据"}</em>
+          </a>
+        `;
+      }
+
+      function renderTeacherSettlementList() {
+        const holder = byId("teacherSettlementList");
+        if (!holder) return;
+        const rows = teacherSettlementRows();
+        if (!rows.length) {
+          holder.innerHTML = `<div class="empty">当前月份还没有老师结算数据。请先确认月份是否切对，或继续导入工资表、排课表。</div>`;
+          return;
+        }
+        holder.innerHTML = rows.map((row) => `
+          <article class="teacher-settlement-card">
+            <div>
+              <strong>${escapeHtml(row.teacherName)}</strong>
+              <span>${escapeHtml(row.status)}</span>
+            </div>
+            <div>
+              <strong>${money(row.salaryAmount)}</strong>
+              <span>工资/课时金额</span>
+            </div>
+            <div>
+              <strong>${row.salaryRows}</strong>
+              <span>工资/课时行</span>
+            </div>
+            <div>
+              <strong>${row.scheduleCount}</strong>
+              <span>排课学生人次</span>
+            </div>
+            <div>
+              <strong>${row.issueCount}</strong>
+              <span>待核差异</span>
+            </div>
+            <div>
+              <strong>${row.highPriority ? `${row.highPriority} 条` : "无"}</strong>
+              <span>高优先级</span>
+            </div>
+          </article>
+        `).join("");
+      }
+
       function renderExpenses(period) {
         const body = byId("expenseTableBody");
         const expenses = [...(period.expenses || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -2293,62 +2528,17 @@
       function renderTeacherDiffPreview() {
         const body = byId("teacherDiffBody");
         if (!body) return;
-        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
-        const precheckRows = derived?.preimport?.teacherMonthPrecheck || [];
-        const salaryRows = (readPreimportBundle().salaryAttendance || []).filter((row) => {
-          return row.period === currentPeriod && !row.excludeFromTeacherDiff && row.financeRoleType !== "nonTeaching";
-        });
-        const salaryByTeacher = new Map();
-        salaryRows.forEach((row) => {
-          const teacher = String(row.teacherName || row.teacher || "未匹配老师").trim() || "未匹配老师";
-          if (!salaryByTeacher.has(teacher)) {
-            salaryByTeacher.set(teacher, { rowCount: 0, amount: 0 });
-          }
-          const group = salaryByTeacher.get(teacher);
-          group.rowCount += 1;
-          group.amount += salaryRowAmount(row);
-        });
-
-        const teacherNames = new Set([
-          ...precheckRows.filter((row) => row.period === currentPeriod).map((row) => row.teacherName),
-          ...Array.from(salaryByTeacher.keys())
-        ]);
-
-        if (!teacherNames.size) {
+        const rows = teacherSettlementRows();
+        if (!rows.length) {
           body.innerHTML = `<tr><td colspan="9" class="muted">当前月份还没有老师级试算明细。请先切换月份或继续导入完整工资/排课数据。</td></tr>`;
           return;
         }
 
-        const rows = Array.from(teacherNames).map((teacherName) => {
-          const precheck = precheckRows.find((row) => row.period === currentPeriod && row.teacherName === teacherName) || {};
-          const salary = salaryByTeacher.get(teacherName) || { rowCount: 0, amount: 0 };
-          const issueCount = toNumber(precheck.scheduleOnly) + toNumber(precheck.salaryOnly);
-          const highPriority = toNumber(precheck.highPriorityDifferences);
-          const status = highPriority
-            ? "先查高优先级差异"
-            : issueCount
-              ? "继续逐条核对"
-              : salary.rowCount || toNumber(precheck.scheduleStudentSessions)
-                ? "当前已形成试算"
-                : "待补数据";
-          return {
-            teacherName,
-            period: currentPeriod,
-            scheduleStudentSessions: toNumber(precheck.scheduleStudentSessions),
-            scheduleHours: toNumber(precheck.scheduleHours),
-            salaryRows: salary.rowCount,
-            salaryAmount: salary.amount,
-            issueCount,
-            highPriority,
-            status
-          };
-        }).sort((a, b) => a.teacherName.localeCompare(b.teacherName, "zh-CN"));
-
         body.innerHTML = rows.map((row) => `
           <tr>
-            <td>${escapeHtml(row.period)}</td>
+            <td>${escapeHtml(currentPeriod)}</td>
             <td>${escapeHtml(row.teacherName)}</td>
-            <td>${row.scheduleStudentSessions}</td>
+            <td>${row.scheduleCount}</td>
             <td>${row.scheduleHours}</td>
             <td>${row.salaryRows}</td>
             <td class="money-cell">${money(row.salaryAmount)}</td>
@@ -2631,6 +2821,8 @@
         const reviewNode = byId("periodReviewStatus");
         if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
+        renderFinanceWorkbench(period);
+        renderTeacherSettlementList();
         renderExpenses(period);
         renderTrialCompareSummary();
         renderMonthStatusSummary();
