@@ -19,6 +19,22 @@
     return Array.isArray(rows) ? rows : [];
   }
 
+  function rowBelongsToCurrentUser(row) {
+    const employee = currentEmployee();
+    if (!employee) return false;
+    const currentName = String(employee.name || "").trim();
+    const currentUsername = String(employee.username || "").trim().toLowerCase();
+    const rowName = String(row?.userName || row?.name || "").trim();
+    const rowUsername = String(row?.username || "").trim().toLowerCase();
+    return Boolean((currentName && rowName === currentName) || (currentUsername && rowUsername === currentUsername));
+  }
+
+  function statusTone(status) {
+    if (["已确认解决", "已处理", "已转任务"].includes(status)) return "done";
+    if (status === "继续反馈") return "warn";
+    return "open";
+  }
+
   function writeFeedbackRows(rows) {
     localStorage.setItem(feedbackStoreKey, JSON.stringify(rows.slice(0, 300)));
   }
@@ -187,7 +203,14 @@
           <textarea class="jrc-feedback-content" placeholder="请写清楚在哪个页面、点了什么、希望怎么改。"></textarea>
         </label>
         <button class="jrc-feedback-submit" type="button">提交反馈</button>
-        <p class="jrc-feedback-message">提交后管理员会在后台统一整理。</p>
+        <p class="jrc-feedback-message">提交后可在这里查看状态，也可进入建议与任务系统复核。</p>
+        <div class="jrc-feedback-history">
+          <div class="jrc-feedback-history__head">
+            <strong>我的反馈</strong>
+            <a href="/jrcedu/portal/suggestions.html">查看全部</a>
+          </div>
+          <div class="jrc-feedback-history__list"></div>
+        </div>
       </div>
     `;
     document.body.appendChild(dock);
@@ -200,10 +223,50 @@
     const content = dock.querySelector(".jrc-feedback-content");
     const type = dock.querySelector(".jrc-feedback-type");
     const severity = dock.querySelector(".jrc-feedback-severity");
+    const historyList = dock.querySelector(".jrc-feedback-history__list");
+
+    function renderMyFeedbackHistory() {
+      if (!historyList) return;
+      const mine = readFeedbackRows()
+        .filter(rowBelongsToCurrentUser)
+        .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
+        .slice(0, 5);
+      historyList.innerHTML = mine.length ? mine.map((row) => {
+        const status = row.status || "待处理";
+        const createdAt = String(row.createdAt || "").replace("T", " ").slice(0, 16);
+        const contentText = String(row.content || "").slice(0, 44);
+        return `
+          <div class="jrc-feedback-history__item">
+            <span class="jrc-feedback-history__status ${statusTone(status)}">${status}</span>
+            <strong>${row.type || "试用反馈"}｜${row.system || "未知页面"}</strong>
+            <p>${contentText}${String(row.content || "").length > 44 ? "..." : ""}</p>
+            <small>${createdAt || "刚刚"}</small>
+          </div>
+        `;
+      }).join("") : `<p class="jrc-feedback-history__empty">你还没有提交过反馈。</p>`;
+    }
+
+    async function hydrateFeedbackHistory() {
+      if (!window.JRC_CLOUD?.readModuleData) {
+        renderMyFeedbackHistory();
+        return;
+      }
+      try {
+        const remote = await window.JRC_CLOUD.readModuleData(feedbackStoreKey);
+        const remoteRows = Array.isArray(remote?.data?.payload) ? remote.data.payload : [];
+        if (remoteRows.length) writeFeedbackRows(mergeFeedbackRows(readFeedbackRows(), remoteRows));
+      } catch {
+        // The local list is still useful if cloud history is temporarily unavailable.
+      }
+      renderMyFeedbackHistory();
+    }
 
     openButton.addEventListener("click", () => {
       panel.hidden = !panel.hidden;
-      if (!panel.hidden) content.focus();
+      if (!panel.hidden) {
+        hydrateFeedbackHistory();
+        content.focus();
+      }
     });
     closeButton.addEventListener("click", () => {
       panel.hidden = true;
@@ -234,12 +297,15 @@
       const result = await saveFeedback(row);
       content.value = "";
       submitButton.disabled = false;
-      message.textContent = result.ok ? "已提交到云端，管理员会统一查看。" : "已暂存在当前设备，云端连接恢复后可再同步。";
+      renderMyFeedbackHistory();
+      message.textContent = result.ok ? "已提交到云端，可在“我的反馈”查看处理状态。" : "已暂存在当前设备，云端连接恢复后可再同步。";
       window.setTimeout(() => {
         panel.hidden = true;
-        message.textContent = "提交后管理员会在后台统一整理。";
+        message.textContent = "提交后可在这里查看状态，也可进入建议与任务系统复核。";
       }, 1400);
     });
+
+    renderMyFeedbackHistory();
   }
 
   function init() {

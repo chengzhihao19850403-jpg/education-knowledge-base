@@ -339,6 +339,9 @@
       .feedback-card.is-done {
         opacity: 0.72;
       }
+      .feedback-card.is-mine {
+        border-color: rgba(13, 148, 136, 0.24);
+      }
       .feedback-meta {
         margin-top: 8px;
         color: var(--muted);
@@ -349,6 +352,18 @@
         margin-top: 10px;
         color: var(--ink);
         line-height: 1.7;
+      }
+      .module-guide {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(13, 148, 136, 0.06);
+        color: var(--ink);
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+      .module-owner-link {
+        margin-top: 12px;
       }
       .feedback-summary {
         display: grid;
@@ -648,7 +663,7 @@
 
       <section class="card" id="siteFeedbackSection" hidden>
         <p class="eyebrow">试用反馈</p>
-        <h2>全站反馈问题</h2>
+        <h2 id="siteFeedbackTitle">我的反馈问题</h2>
         <div class="feedback-summary" id="siteFeedbackSummary"></div>
         <div class="feedback-rank-grid" id="siteFeedbackRanks"></div>
         <div class="feedback-toolbar">
@@ -658,6 +673,8 @@
             <option value="待处理">待处理</option>
             <option value="已转任务">已转任务</option>
             <option value="已处理">已处理</option>
+            <option value="已确认解决">已确认解决</option>
+            <option value="继续反馈">继续反馈</option>
           </select>
           <select id="siteFeedbackSeverityFilter">
             <option value="">全部紧急度</option>
@@ -721,12 +738,102 @@
       const currentUsername = currentEmployee?.username || currentName;
       const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
       const sampleSuggestionIds = new Set(["s1", "s2", "s3"]);
+      const MODULE_OWNER_TASKS = [
+        {
+          key: "admissions",
+          system: "招生管理系统",
+          owner: "颜雨涵",
+          ownerUsername: "yanyuhan",
+          href: "/jrcedu/advice-system/index.html",
+          guide: "使用逻辑：新线索录入 → 跟进记录 → 预约试听 → 试听反馈 → 报名建档 → 归属链锁定 → 导出和看板统计。\n试用重点：检查新增、搜索、筛选、导出 Excel、试听反馈、报名归属解锁、转介绍排序、顾问日周月年统计是否顺手。\n联动重点：报名数据要能进入学生服务和财务候选，试听课要能进入教学质量和家长反馈采集。"
+        },
+        {
+          key: "finance",
+          system: "财务系统",
+          owner: "刘大君",
+          ownerUsername: "liudajun",
+          href: "./finance.html",
+          guide: "使用逻辑：选择月份 → 查看老师结算入口 → 导入/核对工资与课时原表 → 查看差异 → 点名结算联动 → 导出月度汇总。\n试用重点：核对五月、六月数据是否能按老师、月份、排课行、工资行看清楚；老师结算结果和核对结果入口是否明显。\n联动重点：排课、点名、出门测、教学质量评级和招生实收只做候选草算，最终发薪仍由财务复核。"
+        },
+        {
+          key: "curriculum",
+          system: "教研与课程产品系统",
+          owner: "赵萱",
+          ownerUsername: "zhaoxuan",
+          href: "./curriculum-products.html",
+          guide: "使用逻辑：按年级权限进入 → 选择年级/体系/课次/资料类型 → 批量上传课件、PDF、Word、图片 → 搜索下载 → 重复资料自动更新版本。\n试用重点：检查一到六年级资料权限、批量上传、去重、版本更新、下载和手机/iPad 操作是否顺手。\n联动重点：资料要逐步沉淀成标准课件库，方便老师备课、打印、复用和新老师培训。"
+        },
+        {
+          key: "paike",
+          system: "排课系统",
+          owner: "周珊",
+          ownerUsername: "zhoushan",
+          href: "./paike.html",
+          guide: "使用逻辑：导入/查看课表 → 核对老师、学生、教室、时间 → 处理冲突和缺教室 → 调课/停课/补课留痕 → 同步点名和财务候选。\n试用重点：按原 Excel 排课习惯核对六月课表，检查手机和平板查看课表、筛选老师、提交调课是否清楚。\n联动重点：排课是财务课时、学生点名、课销、教学质量问卷的基础数据源。"
+        },
+        {
+          key: "student-service",
+          system: "学生与家长服务系统",
+          owner: "高芳燕",
+          ownerUsername: "gaofangyan",
+          href: "./student-service.html",
+          guide: "使用逻辑：学生档案 → 点名签到 → 出门测成绩 → 缺席追踪 → 课后反馈 → 家长沟通 → 续费风险。\n试用重点：检查 iPad 点名勾选、缺席处理、出门测录分、AI 课堂反馈归档、已归档反馈查看是否顺手。\n联动重点：点名影响老师课时费和家长课销；出门测和课堂反馈要进入学管沟通依据。"
+        },
+        {
+          key: "suggestions",
+          system: "建议与任务协同系统",
+          owner: "叶源泽",
+          ownerUsername: "yeyuanze",
+          href: "./suggestions.html",
+          guide: "使用逻辑：员工提交问题/建议 → 大家支持点赞 → 管理员派任务 → 负责人提交完成反馈 → 提出人复核是否解决。\n试用重点：检查建议列表是否清楚、派任务负责人下拉是否好用、完成反馈是否能闭环、提出人是否能看到整改状态。\n联动重点：这里是全站优化入口，所有模块问题都应该能沉淀、分派、完成、复核。"
+        },
+        {
+          key: "knowledge",
+          system: "学管知识库系统",
+          owner: "程志豪",
+          ownerUsername: "chengzhihao",
+          href: "./knowledge.html",
+          guide: "使用逻辑：输入关键词 → 查询标准答案/制度/话术 → 查看来源 → 用于学管培训和家长沟通。\n试用重点：检查搜索结果是否能回答学管常见问题，知识点是否准确，入口名称是否不会让授课老师误解。\n联动重点：后续可承接学管培训、标准话术、制度答疑和新人考试。"
+        },
+        {
+          key: "hr",
+          system: "人事与培训系统",
+          owner: "陈雨晴",
+          ownerUsername: "chenyuqing",
+          href: "./hr-training.html",
+          guide: "使用逻辑：员工档案 → 岗位权限 → 入职转正 → 培训记录 → 考核结果 → 提成档位。\n试用重点：检查员工名单、岗位、权限、负责年级、培训记录是否清楚；新增员工流程是否能看懂。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据。"
+        },
+        {
+          key: "ai",
+          system: "AI 助手",
+          owner: "李舒",
+          ownerUsername: "lishu",
+          href: "./ai-assistant.html",
+          guide: "使用逻辑：文字/语音输入 → 选择课堂反馈、招生跟进、任务说明等模式 → AI 整理 → 老师确认 → 归档学生服务或转成任务。\n试用重点：重点试课堂反馈模板、草稿库 50 条、已归档反馈查看、复制家长文案、失败提示是否清楚。\n联动重点：AI 不是直接替老师发消息，而是把老师口述整理成可编辑草稿，再归档到学生服务。"
+        },
+        {
+          key: "teaching-quality",
+          system: "教学质量系统",
+          owner: "郑嘉艺",
+          ownerUsername: "zhengjiayi",
+          href: "./teaching-quality.html",
+          guide: "使用逻辑：抽样巡课 → 学生/家长问卷 → 老师个人趋势 → 整改工单 → 复查闭环。\n试用重点：检查老师端是否只看本人趋势和建议，不公开排名；管理端是否能看整改、问卷和质控数据。\n联动重点：教学质量结果用于帮助改进和绩效候选，不适合公开排名刺激老师。"
+        }
+      ];
       const assignableNames = () => {
         const names = (Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [])
           .map((employee) => String(employee?.name || "").trim())
           .filter(Boolean);
-        return Array.from(new Set([currentName, ...names])).filter(Boolean);
+        return Array.from(new Set([currentName, ...names, ...MODULE_OWNER_TASKS.map((item) => item.owner)])).filter(Boolean);
       };
+
+      function usernameForName(name) {
+        const targetName = String(name || "").trim();
+        if (!targetName) return "";
+        const employee = (Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [])
+          .find((item) => String(item?.name || "").trim() === targetName);
+        return employee?.username || MODULE_OWNER_TASKS.find((item) => item.owner === targetName)?.ownerUsername || "";
+      }
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -777,6 +884,10 @@
         normalized.rewardReason = normalized.rewardReason || "";
         normalized.rewardStatus = normalized.rewardStatus || "none";
         normalized.votedBy = Array.isArray(normalized.votedBy) ? normalized.votedBy : [];
+        normalized.ownerUsername = normalized.ownerUsername || "";
+        normalized.moduleOwnerTask = Boolean(normalized.moduleOwnerTask);
+        normalized.moduleKey = normalized.moduleKey || "";
+        normalized.moduleHref = normalized.moduleHref || "";
         return normalized;
       }
 
@@ -874,17 +985,102 @@
       function writeSuggestions(options = {}) {
         suggestions = mergeSuggestionsById(suggestions);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+        if (options.replaceMode && !suggestionsCloudHydrated && window.JRC_CLOUD?.readModuleData) {
+          console.warn("Skipped cloud replace before suggestions were hydrated from cloud.");
+          return;
+        }
         const context = options.replaceMode ? { replaceMode: options.replaceMode } : {};
         window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions, context).catch((error) => {
           console.warn("Failed to sync suggestions to cloud", error);
         });
       }
 
+      function buildModuleOwnerTask(task) {
+        const date = "2026-06-26";
+        return {
+          id: `module-owner-${task.key}`,
+          entryType: "task",
+          title: `【模块负责人】${task.system}试用监管`,
+          category: "技术工具",
+          impact: "high",
+          content: `责任人：${task.owner}\n负责模块：${task.system}\n\n${task.guide}\n\n试用闭环：发现问题请直接点右下角“反馈问题”；管理员处理后，你要在“我的反馈问题”里复核，已解决就确认，没解决就继续补充反馈。`,
+          author: "系统分派",
+          anonymous: false,
+          createdAt: date,
+          status: "assigned",
+          owner: task.owner,
+          ownerUsername: task.ownerUsername || "",
+          dueDate: "",
+          verifier: "程志豪",
+          taskId: `task-module-owner-${task.key}`,
+          taskStandard: `把${task.system}试到“老师能理解、能操作、能发现问题、能闭环整改”的程度。`,
+          subtasks: [
+            `1. 先按使用逻辑完整走一遍${task.system}。`,
+            "2. 记录看不懂、不顺手、数据不对、手机/iPad不好点的地方。",
+            "3. 把问题通过右下角“反馈问题”提交，不要只在群里口头说。",
+            "4. 管理员处理后，在“我的反馈问题”里复核是否真的解决。",
+            "5. 仍有问题就继续反馈，直到模块能稳定落地。"
+          ].join("\n"),
+          completionReport: "",
+          rewardLevel: "none",
+          rewardAmount: "",
+          rewardReason: "",
+          rewardStatus: "none",
+          votes: 0,
+          liked: false,
+          decision: `${task.owner}负责${task.system}试用监管、问题整理和整改复核。`,
+          comments: [{ author: "系统", text: "模块负责人任务已自动分派。", time: date }],
+          moduleOwnerTask: true,
+          moduleKey: task.key,
+          moduleHref: task.href
+        };
+      }
+
+      function ensureModuleOwnerTasks() {
+        let changed = false;
+        const existing = new Map(suggestions.map((item) => [String(item.id || ""), item]));
+        MODULE_OWNER_TASKS.forEach((task) => {
+          const seed = buildModuleOwnerTask(task);
+          const current = existing.get(seed.id);
+          if (!current) {
+            suggestions.unshift(seed);
+            changed = true;
+            return;
+          }
+          const merged = {
+            ...current,
+            title: seed.title,
+            category: seed.category,
+            impact: seed.impact,
+            content: seed.content,
+            owner: seed.owner,
+            ownerUsername: seed.ownerUsername,
+            verifier: seed.verifier,
+            taskId: current.taskId || seed.taskId,
+            taskStandard: seed.taskStandard,
+            subtasks: seed.subtasks,
+            decision: seed.decision,
+            moduleOwnerTask: true,
+            moduleKey: seed.moduleKey,
+            moduleHref: seed.moduleHref,
+            entryType: "task"
+          };
+          if (JSON.stringify(merged) !== JSON.stringify(current)) {
+            Object.assign(current, merged);
+            changed = true;
+          }
+        });
+        if (changed) writeSuggestions({ replaceMode: "replace" });
+        return changed;
+      }
+
       async function hydrateCloudSuggestions() {
+        suggestionsCloudHydrated = false;
         const deletedIds = await hydrateDeletedSuggestionIds();
         if (!window.JRC_CLOUD?.readModuleData) {
           suggestions = mergeSuggestionsById(suggestions, deletedIds);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          suggestionsCloudHydrated = true;
           return;
         }
         try {
@@ -894,6 +1090,7 @@
           if (!result.data?.found) {
             suggestions = localSuggestions;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+            suggestionsCloudHydrated = true;
             if (suggestions.length) {
               window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions).catch((error) => {
                 console.warn("Failed to seed suggestions to cloud", error);
@@ -905,6 +1102,7 @@
           const cloudSuggestions = mergeSuggestionsById(result.data.payload, deletedIds);
           suggestions = mergeSuggestionsById([...cloudSuggestions, ...localSuggestions], deletedIds);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          suggestionsCloudHydrated = true;
           const cloudHadDeletedRows = result.data.payload.length !== cloudSuggestions.length;
           const cloudChanged =
             JSON.stringify(suggestions) !== JSON.stringify(cloudSuggestions) ||
@@ -921,9 +1119,22 @@
       }
 
       let suggestions = readSuggestions();
+      let suggestionsCloudHydrated = false;
       let siteFeedbackRows = readRowsFromStorage(FEEDBACK_STORAGE_KEY, []);
       let pendingAssignment = null;
       let activeManagementId = "";
+
+      function personMatchesNameOrUsername(row) {
+        const name = String(currentName || "").trim();
+        const username = String(currentUsername || "").trim().toLowerCase();
+        const rowNames = [row.userName, row.name, row.author, row.owner]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        const rowUsernames = [row.username, row.ownerUsername, row.authorUsername]
+          .map((value) => String(value || "").trim().toLowerCase())
+          .filter(Boolean);
+        return Boolean((name && rowNames.includes(name)) || (username && rowUsernames.includes(username)));
+      }
 
       function normalizeFeedback(row) {
         const normalized = { ...(row || {}) };
@@ -940,6 +1151,12 @@
         normalized.url = normalized.url || "";
         normalized.createdAt = normalized.createdAt || new Date().toISOString();
         normalized.feedbackCategory = normalized.feedbackCategory || (type === "功能建议" ? "功能建议" : type === "数据不对" ? "数据错误" : type === "手机显示问题" ? "手机端问题" : "使用问题");
+        normalized.reviewNotes = Array.isArray(normalized.reviewNotes) ? normalized.reviewNotes : [];
+        normalized.owner = normalized.owner || "";
+        normalized.taskId = normalized.taskId || "";
+        normalized.processedBy = normalized.processedBy || "";
+        normalized.processedAt = normalized.processedAt || "";
+        normalized.resolution = normalized.resolution || "";
         return normalized;
       }
 
@@ -966,7 +1183,6 @@
       }
 
       async function hydrateSiteFeedback() {
-        if (!canManage) return;
         if (!window.JRC_CLOUD?.readModuleData) return;
         try {
           const result = await window.JRC_CLOUD.readModuleData(FEEDBACK_STORAGE_KEY);
@@ -999,9 +1215,11 @@
 
       function matchesTaskView(item, view) {
         if (!view) return true;
-        if (view === "my") return [item.owner, item.author].some((value) => String(value || "") === currentName);
-        if (view === "owner") return String(item.owner || "") === currentName;
-        if (view === "author") return String(item.author || "") === currentName;
+        const mineByName = [item.owner, item.author].some((value) => String(value || "") === currentName);
+        const mineByUsername = [item.ownerUsername, item.authorUsername].some((value) => String(value || "").toLowerCase() === String(currentUsername || "").toLowerCase());
+        if (view === "my") return mineByName || mineByUsername;
+        if (view === "owner") return String(item.owner || "") === currentName || String(item.ownerUsername || "").toLowerCase() === String(currentUsername || "").toLowerCase();
+        if (view === "author") return String(item.author || "") === currentName || String(item.authorUsername || "").toLowerCase() === String(currentUsername || "").toLowerCase();
         if (view === "open") return isOpenTask(item);
         if (view === "overdue") return isOverdue(item);
         return true;
@@ -1041,21 +1259,26 @@
         const section = byId("siteFeedbackSection");
         const list = byId("siteFeedbackList");
         if (!section || !list) return;
-        section.hidden = !canManage;
-        if (!canManage) return;
+        section.hidden = false;
         const keyword = String(byId("siteFeedbackSearch")?.value || "").trim().toLowerCase();
         const statusFilter = String(byId("siteFeedbackStatusFilter")?.value || "");
         const severityFilter = String(byId("siteFeedbackSeverityFilter")?.value || "");
         const summaryNode = byId("siteFeedbackSummary");
         const ranksNode = byId("siteFeedbackRanks");
-        const pendingRows = siteFeedbackRows.filter((row) => !["已处理", "已转任务"].includes(row.status));
-        const taskRows = siteFeedbackRows.filter((row) => row.status === "已转任务");
-        const urgentRows = siteFeedbackRows.filter((row) => row.severity === "紧急" && !["已处理", "已转任务"].includes(row.status));
-        const teacherNames = new Set(siteFeedbackRows.map((row) => row.userName || "未登录"));
-        const systemNames = new Set(siteFeedbackRows.map((row) => row.system || "未知页面"));
+        const feedbackTitle = byId("siteFeedbackTitle");
+        const visibleBaseRows = canManage ? siteFeedbackRows : siteFeedbackRows.filter(personMatchesNameOrUsername);
+        const closedStatuses = ["已处理", "已转任务", "已确认解决"];
+        if (feedbackTitle) feedbackTitle.textContent = canManage ? "全站反馈问题" : "我的反馈问题";
+        const exportButton = byId("exportFeedbackButton");
+        if (exportButton) exportButton.hidden = !canManage;
+        const pendingRows = visibleBaseRows.filter((row) => !closedStatuses.includes(row.status));
+        const taskRows = visibleBaseRows.filter((row) => row.status === "已转任务");
+        const urgentRows = visibleBaseRows.filter((row) => row.severity === "紧急" && !closedStatuses.includes(row.status));
+        const teacherNames = new Set(visibleBaseRows.map((row) => row.userName || "未登录"));
+        const systemNames = new Set(visibleBaseRows.map((row) => row.system || "未知页面"));
         const countBy = (field) => {
           const map = new Map();
-          siteFeedbackRows.forEach((row) => {
+          visibleBaseRows.forEach((row) => {
             const key = String(row[field] || (field === "userName" ? "未登录" : "未知页面"));
             map.set(key, (map.get(key) || 0) + 1);
           });
@@ -1063,17 +1286,18 @@
         };
         if (summaryNode) {
           summaryNode.innerHTML = [
-            ["试用反馈", siteFeedbackRows.length],
+            [canManage ? "试用反馈" : "我的反馈", visibleBaseRows.length],
             ["紧急", urgentRows.length],
             ["待处理", pendingRows.length],
             ["已转任务", taskRows.length],
-            ["参与老师", teacherNames.size],
+            [canManage ? "参与老师" : "我的账号", teacherNames.size],
             ["涉及系统", systemNames.size]
           ].map(([label, value]) => `
             <div class="feedback-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
           `).join("");
         }
         if (ranksNode) {
+          ranksNode.hidden = !canManage;
           const teacherRows = countBy("userName");
           const systemRows = countBy("system");
           const renderRank = (title, rows) => `
@@ -1088,33 +1312,34 @@
           `;
           ranksNode.innerHTML = renderRank("试用贡献记录", teacherRows) + renderRank("系统反馈分布", systemRows);
         }
-        const rows = [...siteFeedbackRows]
+        const rows = [...visibleBaseRows]
           .filter((row) => {
             const status = row.status || "待处理";
-            const haystack = [row.userName, row.username, row.role, row.system, row.type, row.content, row.url]
+            const haystack = [row.userName, row.username, row.role, row.system, row.type, row.content, row.url, row.resolution]
               .join(" ")
               .toLowerCase();
             return (!statusFilter || status === statusFilter) && (!keyword || haystack.includes(keyword));
           })
-          .filter((row) => {
-            return !severityFilter || row.severity === severityFilter;
-          })
+          .filter((row) => !severityFilter || row.severity === severityFilter)
           .sort((left, right) => {
-            const leftDone = ["已处理", "已转任务"].includes(left.status);
-            const rightDone = ["已处理", "已转任务"].includes(right.status);
+            const leftDone = closedStatuses.includes(left.status);
+            const rightDone = closedStatuses.includes(right.status);
             if (leftDone !== rightDone) return leftDone ? 1 : -1;
             if (left.severity !== right.severity) return left.severity === "紧急" ? -1 : right.severity === "紧急" ? 1 : 0;
             return String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
           })
-          .slice(0, 20);
+          .slice(0, 40);
         if (!rows.length) {
-          list.innerHTML = `<div class="empty">暂无符合条件的反馈。</div>`;
+          list.innerHTML = `<div class="empty">${canManage ? "暂无符合条件的反馈。" : "你还没有提交过反馈；在任意模块右下角点“反馈问题”即可提交。"}</div>`;
           return;
         }
         list.innerHTML = rows.map((row) => {
-          const done = ["已处理", "已转任务"].includes(row.status);
+          const mine = personMatchesNameOrUsername(row);
+          const done = closedStatuses.includes(row.status);
+          const canVerify = mine && ["已处理", "已转任务"].includes(row.status || "");
+          const reviewNotes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
           return `
-            <article class="feedback-card ${done ? "is-done" : ""}" data-feedback-id="${escapeHtml(row.id)}">
+            <article class="feedback-card ${done ? "is-done" : ""} ${mine ? "is-mine" : ""}" data-feedback-id="${escapeHtml(row.id)}">
               <div class="suggestion-head">
                 <div>
                   <div class="suggestion-title">${escapeHtml(row.type || "试用反馈")}</div>
@@ -1127,10 +1352,14 @@
                 <span class="status-pill ${done ? "launched" : "new"}">${escapeHtml(row.status || "待处理")}</span>
               </div>
               <p class="feedback-content">${escapeHtml(row.content || "")}</p>
+              ${row.resolution ? `<div class="comment-item"><strong>处理结果：</strong>${escapeHtml(row.resolution)}</div>` : ""}
+              ${reviewNotes.length ? `<details class="comment-details"><summary>复核记录 ${reviewNotes.length}</summary><div class="comment-list">${reviewNotes.map((note) => `<div class="comment-item"><strong>${escapeHtml(note.author || "反馈人")}：</strong>${escapeHtml(note.text || "")} <span class="muted">${escapeHtml(note.time || "")}</span></div>`).join("")}</div></details>` : ""}
               <div class="card-tools">
                 <a class="button secondary" href="${escapeHtml(row.url || "#")}" target="_blank" rel="noreferrer">打开页面</a>
-                ${!done ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
-                ${row.status !== "已处理" ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
+                ${canManage && !done ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
+                ${canManage && !["已处理", "已确认解决"].includes(row.status || "") ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
+                ${canVerify ? `<button class="button" type="button" data-feedback-action="confirm">确认已解决</button>` : ""}
+                ${canVerify ? `<button class="button secondary" type="button" data-feedback-action="reopen">仍有问题</button>` : ""}
               </div>
             </article>
           `;
@@ -1160,6 +1389,9 @@
           const authorLabel = item.anonymous ? "匿名" : item.author || "未记录";
           const noteCount = (item.comments || []).length + (item.decision ? 1 : 0) + (item.completionReport ? 1 : 0);
           const managerOpen = canManage && activeManagementId === item.id;
+          const contentHtml = item.moduleOwnerTask
+            ? `<div class="module-guide">${escapeHtml(item.content)}</div>`
+            : `<p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>`;
           return `
           <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""}" data-id="${escapeHtml(item.id)}">
             <div class="suggestion-head">
@@ -1178,7 +1410,8 @@
                 <span class="priority-pill ${escapeHtml(item.impact)}">${escapeHtml(impactMap[item.impact] || "中影响")}</span>
               </div>
             </div>
-            <p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>
+            ${contentHtml}
+            ${item.moduleOwnerTask && item.moduleHref ? `<div class="module-owner-link"><a class="button secondary" href="${escapeHtml(item.moduleHref)}">进入负责模块</a></div>` : ""}
             <div class="card-tools">
               <button class="button secondary" type="button" data-action="vote">${(item.votedBy || []).includes(currentUsername) ? "已支持" : "支持"} ${Number(item.votes || 0)}</button>
               <button class="button secondary" type="button" data-action="comment">添加跟进</button>
@@ -1272,10 +1505,12 @@
           impact: String(data.get("impact") || "medium"),
           content,
           author: anonymous ? "匿名" : currentName,
+          authorUsername: anonymous ? "" : currentUsername,
           anonymous,
           createdAt: today(),
           status: isDirectTask ? "assigned" : "new",
           owner,
+          ownerUsername: usernameForName(owner),
           dueDate: String(data.get("dueDate") || "").trim(),
           verifier: "",
           taskId: isDirectTask ? `task-${Date.now()}` : "",
@@ -1310,6 +1545,7 @@
           item[field.getAttribute("data-manager-field")] = field.value;
         });
         if (!item.owner && item.status !== "new") item.owner = currentName;
+        item.ownerUsername = usernameForName(item.owner);
         if (["assigned", "doing", "review", "launched"].includes(item.status) && !item.taskId) {
           item.taskId = `task-${Date.now()}`;
         }
@@ -1327,6 +1563,7 @@
         item.status = "assigned";
         item.taskId = item.taskId || `task-${Date.now()}`;
         item.owner = owner.trim();
+        item.ownerUsername = usernameForName(item.owner);
         if (dueDate) item.dueDate = dueDate;
         item.decision = item.decision || `已派给 ${item.owner} 执行。`;
         item.comments = item.comments || [];
@@ -1394,10 +1631,12 @@
           impact: highImpact ? "high" : "medium",
           content: `${feedback.content || ""}\n\n严重程度：${feedback.severity || "普通"}\n问题分类：${feedback.feedbackCategory || "使用问题"}\n来源页面：${feedback.system || "-"}\n反馈人：${feedback.userName || "未登录"}\n页面链接：${feedback.url || "-"}`,
           author: feedback.userName || "系统反馈",
+          authorUsername: feedback.username || "",
           anonymous: false,
           createdAt: createdDate,
           status: "assigned",
           owner: owner.trim(),
+          ownerUsername: usernameForName(owner),
           dueDate: dueDate || createdDate,
           verifier: "",
           taskId: `task-feedback-${Date.now()}`,
@@ -1416,8 +1655,13 @@
         });
         feedback.status = "已转任务";
         feedback.taskId = suggestions[0].taskId;
+        feedback.owner = owner.trim();
+        feedback.ownerUsername = usernameForName(owner);
+        feedback.resolution = `已转为任务，负责人：${owner.trim()}。请提交人后续在“我的反馈问题”里复核处理效果。`;
         feedback.processedAt = new Date().toISOString();
         feedback.processedBy = currentName;
+        feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+        feedback.reviewNotes.push({ author: currentName, text: feedback.resolution, time: today() });
         writeSiteFeedbackRows();
         return true;
       }
@@ -1571,26 +1815,58 @@
       });
       byId("siteFeedbackList")?.addEventListener("click", (event) => {
         const actionButton = event.target.closest("[data-feedback-action]");
-        if (!actionButton || !canManage) return;
+        if (!actionButton) return;
         const feedback = findFeedback(actionButton);
         if (!feedback) return;
         const action = actionButton.getAttribute("data-feedback-action");
         if (action === "task") {
+          if (!canManage) return;
           openAssignModal({ feedback });
           return;
         }
         if (action === "done") {
+          if (!canManage) return;
+          const resolution = prompt("请填写处理结果，提交人会看到这段说明并复核是否真的解决：", feedback.resolution || "");
+          if (resolution === null) return;
           feedback.status = "已处理";
+          feedback.resolution = String(resolution || "").trim() || "管理员已处理，请提交人复核。";
           feedback.processedAt = new Date().toISOString();
           feedback.processedBy = currentName;
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName, text: `标记已处理：${feedback.resolution}`, time: today() });
           writeSiteFeedbackRows();
           renderAll();
+          return;
+        }
+        if (action === "confirm") {
+          if (!personMatchesNameOrUsername(feedback)) return;
+          feedback.status = "已确认解决";
+          feedback.confirmedAt = new Date().toISOString();
+          feedback.confirmedBy = currentName;
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName, text: "提交人已确认解决。", time: today() });
+          writeSiteFeedbackRows();
+          renderAll();
+          return;
+        }
+        if (action === "reopen") {
+          if (!personMatchesNameOrUsername(feedback)) return;
+          const text = prompt("请补充说明哪里还没解决，或者现在看到的新问题：");
+          if (!text || !text.trim()) return;
+          feedback.status = "继续反馈";
+          feedback.reopenedAt = new Date().toISOString();
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName, text: `仍有问题：${text.trim()}`, time: today() });
+          writeSiteFeedbackRows();
+          renderAll();
+          return;
         }
       });
 
       (async () => {
         applyFormPermission();
         await hydrateCloudSuggestions();
+        ensureModuleOwnerTasks();
         await hydrateSiteFeedback();
         renderAll();
       })();

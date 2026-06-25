@@ -252,8 +252,9 @@
   function taskRelatedToCurrentUser(item) {
     const employee = currentEmployee();
     const name = employee?.name || "";
-    if (!name) return false;
-    return String(item.owner || "") === name;
+    const username = String(employee?.username || "").trim().toLowerCase();
+    if (!name && !username) return false;
+    return String(item.owner || "") === name || String(item.ownerUsername || "").trim().toLowerCase() === username;
   }
 
   async function readSuggestionTasks() {
