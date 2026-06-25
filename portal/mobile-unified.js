@@ -92,6 +92,55 @@
     document.body.appendChild(link);
   }
 
+  function slugifyHeading(text, fallback) {
+    const base = String(text || "").trim().replace(/\s+/g, "-").replace(/[^\w\u4e00-\u9fa5-]/g, "");
+    return base || fallback;
+  }
+
+  function ensureSectionDock() {
+    if (document.querySelector(".jrc-section-dock")) return;
+    const sections = [...document.querySelectorAll("main > section[id], main > article[id]")]
+      .map((section, index) => {
+        const heading = section.querySelector("h2, h1");
+        const title = heading?.textContent?.trim();
+        if (!title) return null;
+        if (!section.id) section.id = slugifyHeading(title, `section-${index + 1}`);
+        return { id: section.id, title, node: section };
+      })
+      .filter(Boolean);
+    if (sections.length < 4) return;
+
+    const shell = document.querySelector("main .shell") || document.querySelector("main");
+    const topbar = document.querySelector(".topbar");
+    if (!shell || !topbar) return;
+
+    const dock = document.createElement("nav");
+    dock.className = "jrc-section-dock";
+    dock.setAttribute("aria-label", "页面分段导航");
+    dock.innerHTML = `
+      <strong>快速跳转</strong>
+      <div class="jrc-section-dock__scroll">
+        ${sections.map((section) => `<a class="jrc-section-dock__link" href="#${section.id}">${section.title}</a>`).join("")}
+      </div>
+    `;
+    topbar.insertAdjacentElement("afterend", dock);
+
+    const links = [...dock.querySelectorAll(".jrc-section-dock__link")];
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      const activeId = visible.target.id;
+      links.forEach((link) => link.classList.toggle("is-active", link.getAttribute("href") === `#${activeId}`));
+    }, {
+      rootMargin: "-20% 0px -55% 0px",
+      threshold: [0.1, 0.25, 0.5]
+    });
+
+    sections.forEach((section) => observer.observe(section.node));
+  }
+
   function enhanceFormFocus() {
     if (!window.matchMedia?.("(max-width: 760px)")?.matches) return;
     document.querySelectorAll("input, select, textarea").forEach((node) => {
@@ -197,6 +246,7 @@
     enhanceTables();
     enhanceActionGroups();
     ensureFloatingHome();
+    ensureSectionDock();
     ensureFeedbackDock();
     enhanceFormFocus();
   }

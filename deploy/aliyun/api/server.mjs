@@ -1242,31 +1242,6 @@ function extractCourseContent(rawText) {
   return parseClassFeedbackInput(rawText).courseContent;
 }
 
-function buildKnowledgePoints(rawText) {
-  const content = extractCourseContent(rawText);
-  const compact = content.replace(/\s+/g, "");
-  const points = [];
-  if (/平行四边形/.test(compact)) {
-    points.push("平行四边形定义：两组对边分别平行的四边形叫平行四边形。");
-    points.push("平行四边形性质：对边平行且相等，对角相等，邻角互补，对角线互相平分。");
-    points.push("平行四边形判定：两组对边分别平行、两组对边分别相等、一组对边平行且相等、两组对角分别相等、对角线互相平分，都可判定为平行四边形。");
-    if (/面积|底|高/.test(compact)) points.push("平行四边形面积：S = 底 × 高，底和高必须对应。");
-  }
-  if (/矩形/.test(compact)) points.push("矩形要点：矩形是有一个角为直角的平行四边形，四个角都是直角，对角线相等且互相平分。");
-  if (/菱形/.test(compact)) points.push("菱形要点：菱形是四条边都相等的平行四边形，对角线互相垂直平分，并分别平分一组对角。");
-  if (/分数|应用题/.test(compact)) points.push("分数应用题：先找准单位“1”和对应分率，常用关系是单位量 × 对应分率 = 对应量。");
-  if (/百分数|利润|折扣|浓度/.test(compact)) points.push("百分数问题：百分率 = 比较量 ÷ 标准量 × 100%，增长率、折扣、利润率都要先确定比较基准。");
-  if (/比例|正比例|反比例/.test(compact)) points.push("比例关系：比例式 a:b = c:d 中内项积等于外项积；正比例关注 y/x 为定值，反比例关注 xy 为定值。");
-  if (/方程|等式/.test(compact)) points.push("方程思想：用未知数表示关键信息，根据等量关系建立方程，再检验结果是否符合题意。");
-  if (/圆/.test(compact)) points.push("圆的公式：周长 C = 2πr = πd，面积 S = πr²，题目中要区分半径和直径。");
-  if (/三角形/.test(compact)) points.push("三角形面积：S = 底 × 高 ÷ 2，解题时重点找到对应的底和高。");
-  if (/长方形|正方形|几何|面积|周长|体积/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
-  if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
-  if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
-  if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
-  return points.map((point, index) => `${index + 1}. ${point}`).join("\n");
-}
-
 function aiSystemPrompt() {
   return [
     "你是匠人程教育工作台的内部 AI 助手。",
@@ -1431,17 +1406,23 @@ function requireAiJson(text) {
       // Try next candidate.
     }
   }
-  const error = new Error(`MiniMax 没有返回可解析 JSON：${raw.slice(0, 240)}`);
-  error.statusCode = 502;
-  error.code = "minimax_non_json_response";
-  throw error;
+  return {
+    title: "课堂反馈",
+    summary: "MiniMax 已返回内容，系统已按校区统一模板补齐格式。",
+    polishedText: raw,
+    parentMessage: raw,
+    todoItems: [],
+    internalNote: `MiniMax 返回了非 JSON 内容，系统已保留模型文字并继续套用课堂反馈模板。原始片段：${raw.slice(0, 240)}`,
+    _rawAiText: raw
+  };
 }
 
 function ensureClassFeedbackResult(result, body) {
   if (String(body?.mode || "") !== "classFeedback") return result;
-  const parentMessage = String(result?.parentMessage || "");
+  const rawAiText = String(result?._rawAiText || result?.polishedText || result?.parentMessage || "");
+  const parentMessage = String(result?.parentMessage || rawAiText || "");
   const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("三、学习掌握情况") && parentMessage.includes("四、课后作业");
-  if (hasTemplate) {
+  if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
     const formatted = formatClassFeedbackText(parentMessage, body?.target || "");
     return {
       ...result,
@@ -1451,10 +1432,26 @@ function ensureClassFeedbackResult(result, body) {
       polishedText: result?.polishedText === parentMessage ? formatted : result?.polishedText
     };
   }
-  const error = new Error("MiniMax 没有返回完整课堂反馈模板。");
-  error.statusCode = 502;
-  error.code = "minimax_incomplete_class_feedback";
-  throw error;
+  const meta = feedbackMeta(body?.target || "", body?.text || "", body || {});
+  const template = buildClassFeedbackTemplate(body?.target || "", body?.text || "", meta);
+  const noteParts = [
+    result?.internalNote,
+    hasTemplate
+      ? "MiniMax 返回的模板中存在状态/内容混放，系统已按原始口述重新归类到统一模板。"
+      : "MiniMax 未完整返回课堂反馈模板，系统已按原始口述补齐统一模板。",
+    rawAiText ? `MiniMax 原始整理已保留在“整理正文”中，老师可对照确认。` : ""
+  ].filter(Boolean);
+  return {
+    ...result,
+    title: result?.title || `${body?.target || "学生"}｜课堂反馈`,
+    summary: result?.summary || "MiniMax 已返回内容，系统已按校区统一课堂反馈模板生成，请老师确认后归档。",
+    polishedText: rawAiText || result?.polishedText || template,
+    parentMessage: template,
+    lessonSeason: result?.lessonSeason || body?.lessonSeason || meta.lessonSeason,
+    lessonNumber: result?.lessonNumber || body?.lessonNumber || meta.lessonNumber,
+    todoItems: Array.isArray(result?.todoItems) ? result.todoItems : [],
+    internalNote: noteParts.join("\n")
+  };
 }
 
 async function callMinimaxChat(body) {
