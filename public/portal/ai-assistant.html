@@ -82,12 +82,13 @@
         <article class="card">
           <p class="eyebrow">AI Assistant</p>
           <h1>我的 AI 助手</h1>
-          <p class="hero-text">把课后反馈、待办、建议和系统使用问题先说出来，再由 AI 整理成可保存的文字草稿。</p>
+          <p class="hero-text">把老师临时说出来的课堂反馈、招生跟进、学管沟通和工作待办，整理成能保存、能复制、能继续流转的文字草稿。</p>
           <div class="tag-row">
-            <span class="tag">课后反馈</span>
-            <span class="tag">待办整理</span>
-            <span class="tag">建议任务</span>
-            <span class="tag">工作台问答</span>
+            <span class="tag">课堂反馈</span>
+            <span class="tag">招生跟进</span>
+            <span class="tag">学管沟通</span>
+            <span class="tag">资料归档</span>
+            <span class="tag">财务核对</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
@@ -109,6 +110,11 @@
               <select id="aiModeInput">
                 <option value="classFeedback">课堂反馈（发家长）</option>
                 <option value="feedback">课后反馈</option>
+                <option value="parentCommunication">学管沟通</option>
+                <option value="attendanceFollowup">点名缺勤跟进</option>
+                <option value="admissionsFollowup">招生跟进</option>
+                <option value="curriculumArchive">课件资料归档</option>
+                <option value="financeCheck">财务核对</option>
                 <option value="todo">待办事项</option>
                 <option value="suggestion">员工建议</option>
                 <option value="task">任务说明</option>
@@ -224,6 +230,11 @@
         return {
           feedback: "课后反馈",
           classFeedback: "课堂反馈",
+          admissionsFollowup: "招生跟进",
+          parentCommunication: "学管沟通",
+          attendanceFollowup: "点名缺勤跟进",
+          curriculumArchive: "课件资料归档",
+          financeCheck: "财务核对",
           todo: "待办事项",
           suggestion: "员工建议",
           task: "任务说明",
@@ -240,6 +251,8 @@
           ["整理正文", result.polishedText],
           ["建议动作", result.suggestedAction],
           ["待办", Array.isArray(result.todoItems) ? result.todoItems.map((item) => `- ${item}`).join("\n") : ""],
+          ["标签", Array.isArray(result.quickTags) ? result.quickTags.join("、") : ""],
+          ["结构化信息", result.structuredData && typeof result.structuredData === "object" ? JSON.stringify(result.structuredData, null, 2) : ""],
           ["内部备注", result.internalNote]
         ].filter(([, value]) => value);
         return sections.map(([label, value]) => `${label}：\n${Array.isArray(value) ? value.join("\n") : value}`).join("\n\n");
@@ -391,14 +404,19 @@
         result = ensureClassFeedbackTemplate(result);
         latestResult = result;
         const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
+        const tags = Array.isArray(result.quickTags) ? result.quickTags : [];
+        const structuredText = result.structuredData && typeof result.structuredData === "object" ? JSON.stringify(result.structuredData, null, 2) : "";
         const classFeedback = isClassFeedbackMode();
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
           ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong><pre class="result-text">${escapeHtml(result.parentMessage)}</pre></div>` : ""}
           ${result.polishedText && (!classFeedback || result.polishedText !== result.parentMessage) ? `<div class="result-item"><strong>整理正文</strong><pre class="result-text">${escapeHtml(result.polishedText)}</pre></div>` : ""}
           ${todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
+          ${tags.length ? `<div class="result-item"><strong>标签</strong><p>${tags.map((item) => escapeHtml(item)).join("、")}</p></div>` : ""}
+          ${structuredText ? `<div class="result-item"><strong>结构化信息</strong><pre class="result-text">${escapeHtml(structuredText)}</pre></div>` : ""}
           ${result.internalNote ? `<div class="result-item"><strong>内部备注</strong><pre class="result-text">${escapeHtml(result.internalNote)}</pre></div>` : ""}
         `;
+        updateActionButtons();
       }
 
       function extractHomeworkFromText(rawText) {
@@ -584,12 +602,22 @@
         }
         const mode = byId("aiModeInput").value;
         let rows = safeParse(localStorage.getItem(SUGGESTION_KEY), []);
-        const isTask = mode === "todo" || mode === "task";
+        const isTask = ["todo", "task", "admissionsFollowup", "attendanceFollowup", "financeCheck", "curriculumArchive"].includes(mode);
+        const categoryMap = {
+          feedback: "家长服务",
+          classFeedback: "家长服务",
+          parentCommunication: "家长服务",
+          attendanceFollowup: "学生跟进",
+          admissionsFollowup: "招生转化",
+          curriculumArchive: "教研资料",
+          financeCheck: "财务核对",
+          help: "技术工具"
+        };
         const item = {
           id: `${isTask ? "t" : "s"}-${Date.now()}`,
           entryType: isTask ? "task" : "suggestion",
           title: latestResult.title || modeLabel(mode),
-          category: mode === "feedback" ? "家长服务" : mode === "help" ? "技术工具" : "流程优化",
+          category: categoryMap[mode] || "流程优化",
           impact: "medium",
           content: resultToText(latestResult),
           author: currentName,
@@ -657,7 +685,7 @@
           student,
           className: latestResult.className || latestResult.courseName || "-",
           teacher: currentName,
-          type: ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : "学习跟踪",
+          type: mode === "attendanceFollowup" ? "缺勤跟进" : ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : mode === "parentCommunication" ? "家长沟通" : "学习跟踪",
           risk: latestResult.riskLevel || "正常",
           content: latestResult.internalNote || latestResult.polishedText || resultToText(latestResult),
           parentMessage: latestResult.parentMessage || "",
@@ -679,6 +707,25 @@
         localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
         byId("aiMessage").textContent = result?.ok ? "已归档到学生服务系统，学管可在学生档案中查看并复制给家长。" : "已暂存在当前设备，云端恢复后会同步。";
+      }
+
+      function canArchiveToStudentService(mode) {
+        return ["classFeedback", "feedback", "parentCommunication", "attendanceFollowup"].includes(mode);
+      }
+
+      function updateActionButtons() {
+        const mode = byId("aiModeInput").value;
+        const studentButton = byId("saveStudentServiceButton");
+        const taskButton = byId("saveTaskButton");
+        if (studentButton) {
+          studentButton.hidden = !canArchiveToStudentService(mode);
+          studentButton.textContent = mode === "attendanceFollowup" ? "归档缺勤跟进" : "归档学生服务";
+        }
+        if (taskButton) {
+          taskButton.textContent = ["todo", "task", "admissionsFollowup", "attendanceFollowup", "financeCheck", "curriculumArchive"].includes(mode)
+            ? "转成任务"
+            : "转成建议";
+        }
       }
 
       function setupVoice() {
@@ -717,6 +764,7 @@
 
       byId("voiceStartButton").addEventListener("click", () => recognition?.start());
       byId("voiceStopButton").addEventListener("click", () => recognition?.stop());
+      byId("aiModeInput").addEventListener("change", updateActionButtons);
       byId("aiRunButton").addEventListener("click", runAi);
       byId("aiClearButton").addEventListener("click", () => {
         byId("aiInputText").value = "";
@@ -732,6 +780,7 @@
       byId("saveStudentServiceButton")?.addEventListener("click", saveToStudentService);
 
       setupVoice();
+      updateActionButtons();
       renderDrafts();
       window.JRC_CLOUD?.aiAssistant?.({ mode: "health", text: "ping" }).then((result) => {
         byId("aiConfigNotice").textContent = result?.ok && result.data?.provider === "minimax"
