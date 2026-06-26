@@ -848,13 +848,13 @@
     const rows = (Array.isArray(events) ? events : [])
       .filter((row) => row && typeof row === "object")
       .sort((left, right) => String(right.at || "").localeCompare(String(left.at || "")))
-      .slice(0, 3);
+      .slice(0, 5);
     return `
       <div class="data-state-card link-health-priority">
         <strong>最近自动联动</strong>
         <span class="badge ${rows.length ? "status-ok" : "status-warn"}">${rows.length ? `${rows.length} 条` : "暂无记录"}</span>
         ${rows.length ? rows.map((row) => `
-          <p><strong style="font-size:12px;">${escapeHtml(row.source || "-")} → ${escapeHtml(row.target || "-")}</strong><br>${escapeHtml(row.action || "自动联动")}：${escapeHtml(row.count || 0)} 条${Array.isArray(row.samples) && row.samples.length ? `；${escapeHtml(row.samples.join("、"))}` : ""}<br>${escapeHtml(formatLinkEventTime(row.at))}</p>
+          <p><strong style="font-size:12px;">${escapeHtml(row.source || "-")} → ${escapeHtml(row.target || "-")}</strong><br>${escapeHtml(row.action || "自动联动")}：${escapeHtml(row.count || 0)} 条${Array.isArray(row.samples) && row.samples.length ? `；${escapeHtml(row.samples.join("、"))}` : ""}<br>${escapeHtml(row.operatorName || "-")}｜${escapeHtml(formatLinkEventTime(row.at))}</p>
         `).join("") : "<p>后续点名沉淀学生服务、招生报名转学生档案、AI课堂反馈归档后，这里会显示最近联动。</p>"}
       </div>
     `;

@@ -95,6 +95,25 @@
     }
   }
 
+  function mergeLinkEvents(...groups) {
+    const map = new Map();
+    groups.flat().forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const id = String(row.id || [
+        row.source,
+        row.target,
+        row.action,
+        row.count,
+        row.at
+      ].join("|")).trim();
+      if (!id) return;
+      map.set(id, { ...(map.get(id) || {}), ...row, id });
+    });
+    return [...map.values()]
+      .sort((left, right) => String(right.at || "").localeCompare(String(left.at || "")))
+      .slice(0, 200);
+  }
+
   function linkSample(rows, formatter = (row) => row?.student || row?.studentName || row?.title || "") {
     return (Array.isArray(rows) ? rows : [])
       .slice(0, 3)
@@ -137,11 +156,25 @@
       operatorUsername: currentOperator().username || "-",
       at: new Date().toISOString()
     };
-    const rows = [event, ...existingRows].slice(0, 200);
+    const rows = mergeLinkEvents([event], existingRows);
     localStorage.setItem(linkEventKey, JSON.stringify(rows));
-    window.JRC_CLOUD?.writeModuleData?.(linkEventKey, "systemLinks", rows).catch((error) => {
-      console.warn("系统联动日志云端保存失败", error);
-    });
+    if (window.JRC_CLOUD?.writeModuleData) {
+      const writeMerged = (remoteRows = []) => {
+        const nextRows = mergeLinkEvents([event], existingRows, remoteRows);
+        localStorage.setItem(linkEventKey, JSON.stringify(nextRows));
+        return window.JRC_CLOUD.writeModuleData(linkEventKey, "systemLinks", nextRows).catch((error) => {
+          console.warn("系统联动日志云端保存失败", error);
+          return { ok: false, error };
+        });
+      };
+      if (window.JRC_CLOUD.readModuleData) {
+        window.JRC_CLOUD.readModuleData(linkEventKey)
+          .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+          .catch(() => writeMerged([]));
+      } else {
+        writeMerged([]);
+      }
+    }
     window.dispatchEvent(new CustomEvent("jrc-system-link-event", { detail: event }));
     return event;
   }
