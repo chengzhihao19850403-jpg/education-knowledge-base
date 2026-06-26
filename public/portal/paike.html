@@ -122,6 +122,7 @@
       .quick-grid,
       .status-grid,
       .workbench-grid,
+      .command-grid,
       .filter-grid,
       .path-grid {
         display: grid;
@@ -131,15 +132,44 @@
       .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .workbench-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .command-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .status-card,
       .workbench-card,
+      .command-card,
       .path-card {
         padding: 16px;
         border: 1px solid var(--line);
         border-radius: 18px;
         background: rgba(255,255,255,0.78);
+      }
+      .command-card {
+        display: grid;
+        gap: 8px;
+        min-height: 142px;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .command-card.primary {
+        border-color: rgba(13,148,136,0.34);
+        background: rgba(13,148,136,0.08);
+      }
+      .command-card.warn {
+        border-color: rgba(180,83,9,0.28);
+        background: rgba(180,83,9,0.06);
+      }
+      .command-card strong {
+        color: var(--ink);
+        font-size: 24px;
+        line-height: 1.05;
+      }
+      .command-card em {
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        line-height: 1.5;
       }
       .workbench-card {
         min-height: 118px;
@@ -268,6 +298,7 @@
         .quick-grid,
         .status-grid,
         .workbench-grid,
+        .command-grid,
         .filter-grid,
         .maintenance-actions,
         .path-grid,
@@ -330,6 +361,14 @@
             <div class="path-card"><span>3</span><strong>处理异常</strong><p>未点名、待核对、影响财务的课优先处理。</p></div>
           </div>
         </aside>
+      </section>
+
+      <section class="card" id="paikeCommandSection">
+        <p class="eyebrow">先看这里</p>
+        <h2>排课老师今日指挥台</h2>
+        <p class="hero-text">日常核对按这个顺序走：先看今天，再看本周，再处理异常；如果没有数据，再去导入和旧版入口确认。</p>
+        <div class="command-grid" id="paikeCommandGrid"></div>
+        <div class="notice" id="paikeCommandTip">正在读取排课数据。</div>
       </section>
 
       <section class="card">
@@ -776,6 +815,82 @@
         }).join("");
       }
 
+      function activatePaikeView(view, options = {}) {
+        activePaikeView = view || "week";
+        document.querySelectorAll("[data-paike-view]").forEach((node) => {
+          node.classList.toggle("active", node.getAttribute("data-paike-view") === activePaikeView);
+        });
+        const range = byId("paikeRangeFilter");
+        if (range && options.range) range.value = options.range;
+        if (options.clearFilters) {
+          if (byId("paikeTeacherFilter")) byId("paikeTeacherFilter").value = "";
+          if (byId("paikeClassFilter")) byId("paikeClassFilter").value = "";
+          if (byId("paikeKeywordFilter")) byId("paikeKeywordFilter").value = "";
+        }
+        if (activePaikeView === "issues" && range && !options.range) range.value = "all";
+        renderWorkbench();
+        if (options.scroll !== false) byId("paikeViewTitle")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+
+      function renderCommandCenter() {
+        const holder = byId("paikeCommandGrid");
+        const tip = byId("paikeCommandTip");
+        if (!holder) return;
+        const todayRows = paikeRows.filter((row) => isInRange(row, "today"));
+        const weekRows = paikeRows.filter((row) => isInRange(row, "week"));
+        const issueRows = paikeRows.filter((row) => /待|缺勤|异常|核对|未/.test(scheduleStatus(row).label + row.status));
+        const teacherCount = new Set(paikeRows.map((row) => row.teacher).filter(Boolean)).size;
+        const cards = [
+          {
+            action: "today",
+            tone: "primary",
+            label: "第一步",
+            value: todayRows.length,
+            title: "看今天课程",
+            detail: todayRows.length ? "先核对今天上课时间、老师、班级是否完整。" : "今天暂未读到课程，可切本周确认。"
+          },
+          {
+            action: "week",
+            tone: "",
+            label: "第二步",
+            value: weekRows.length,
+            title: "看本周课表",
+            detail: "检查本周是否有漏课、重课、老师或班级名称不一致。"
+          },
+          {
+            action: "issues",
+            tone: issueRows.length || paikeReviewRows.length ? "warn" : "",
+            label: "第三步",
+            value: issueRows.length + paikeReviewRows.length,
+            title: "处理异常",
+            detail: "优先看待点名、缺勤待处理、导入待确认和影响财务的课程。"
+          },
+          {
+            action: "data",
+            tone: paikeRows.length ? "" : "warn",
+            label: "数据",
+            value: teacherCount,
+            title: "确认数据来源",
+            detail: paikeRows.length ? `已读到 ${paikeRows.length} 条排课，涉及 ${teacherCount} 位老师。` : "未读到排课，先去上传总表或检查旧版入口。"
+          }
+        ];
+        holder.innerHTML = cards.map((card) => `
+          <button class="command-card ${escapeHtml(card.tone)}" type="button" data-paike-command="${escapeHtml(card.action)}">
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <b>${escapeHtml(card.title)}</b>
+            <em>${escapeHtml(card.detail)}</em>
+          </button>
+        `).join("");
+        if (tip) {
+          tip.textContent = issueRows.length || paikeReviewRows.length
+            ? "建议今天先处理异常，再核对本周课表。异常处理完，点名和财务结算才更稳。"
+            : paikeRows.length
+              ? "当前排课数据已读到。日常使用先点“看今天课程”，再按老师或班级查具体问题。"
+              : "当前没有读到排课数据。请先检查上传总表、平时模式旧版、暑假模式旧版。";
+        }
+      }
+
       function renderStatus({ reviewRows, regularEntries, scheduleSessions }) {
         const grid = byId("paikeStatusGrid");
         const juneRows = scheduleSessions.filter((row) => row.period === "2026-06").length + regularEntries.length;
@@ -833,6 +948,7 @@
         paikeRows = normalizedScheduleRows({ regularEntries, scheduleSessions });
         renderWorkbenchFilters();
         renderWorkbench();
+        renderCommandCenter();
         renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
         renderMyPaike({ regularEntries, scheduleSessions });
         renderPreview({ regularEntries, scheduleSessions });
@@ -850,6 +966,15 @@
           }
           renderWorkbench();
         });
+      });
+      byId("paikeCommandGrid")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-paike-command]");
+        if (!button) return;
+        const action = button.getAttribute("data-paike-command");
+        if (action === "today") activatePaikeView("week", { range: "today", clearFilters: true });
+        if (action === "week") activatePaikeView("week", { range: "week", clearFilters: true });
+        if (action === "issues") activatePaikeView("issues", { range: "all", clearFilters: true });
+        if (action === "data") byId(paikeRows.length ? "paikeStatusGrid" : "paikePreviewBody")?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
       ["paikeRangeFilter", "paikeTeacherFilter", "paikeClassFilter", "paikeKeywordFilter"].forEach((id) => {
         byId(id)?.addEventListener("input", renderWorkbench);

@@ -281,6 +281,47 @@
         gap: 12px;
         margin-top: 16px;
       }
+      .finance-command-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .finance-command-card {
+        display: grid;
+        gap: 8px;
+        min-height: 146px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.78);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .finance-command-card.primary {
+        border-color: rgba(13, 148, 136, 0.34);
+        background: rgba(13, 148, 136, 0.08);
+      }
+      .finance-command-card.warn {
+        border-color: rgba(180, 83, 9, 0.28);
+        background: rgba(180, 83, 9, 0.07);
+      }
+      .finance-command-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .finance-command-card strong {
+        color: var(--ink);
+        font-size: 24px;
+        line-height: 1.05;
+      }
+      .finance-command-card em {
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        line-height: 1.5;
+      }
       .workbench-strip-card {
         padding: 16px;
         border: 1px solid var(--line);
@@ -598,7 +639,8 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .finance-path-grid,
-        .workbench-strip {
+        .workbench-strip,
+        .finance-command-grid {
           grid-template-columns: 1fr;
         }
         .my-settlement-grid {
@@ -690,6 +732,9 @@
       <section class="card" id="financeWorkbenchSection">
         <p class="eyebrow">本月核对台</p>
         <h2>财务先看这里</h2>
+        <p style="margin-top: 8px;">财务老师进来先看这四张卡：有没有数据、老师结算是否出来、差异是否要优先处理、点名课销是否已经流入。</p>
+        <div class="finance-command-grid" id="financeCommandGrid"></div>
+        <div class="pilot-banner" id="financeCommandTip">正在读取当前月份财务数据。</div>
         <div class="finance-path-grid">
           <div class="finance-path-card">
             <span>1</span>
@@ -2146,6 +2191,69 @@
         `;
       }
 
+      function renderFinanceCommandCenter(period) {
+        const holder = byId("financeCommandGrid");
+        const tip = byId("financeCommandTip");
+        if (!holder) return;
+        const rows = teacherSettlementRows();
+        const bundle = readPreimportBundle();
+        const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
+        const expenseRows = (bundle.expenseRows || []).filter((row) => row.period === currentPeriod);
+        const issueTotal = rows.reduce((sum, row) => sum + row.issueCount, 0);
+        const highPriorityTotal = rows.reduce((sum, row) => sum + row.highPriority, 0);
+        const readyTeachers = rows.filter((row) => !row.departed && (row.salaryRows || row.scheduleCount)).length;
+        const attendanceTotals = attendanceTotalsForCurrentPeriod();
+        const cards = [
+          {
+            action: "period",
+            tone: period.reviewStatus === "已确认" ? "" : "primary",
+            label: "第一步",
+            value: currentPeriod,
+            title: "先确认月份",
+            detail: period.reviewStatus === "已确认" ? "本月已经确认复核，可继续查看导出。" : "月份错了，下面所有老师结算都会看错。"
+          },
+          {
+            action: "settlement",
+            tone: readyTeachers ? "primary" : "warn",
+            label: "第二步",
+            value: readyTeachers,
+            title: "看老师结算",
+            detail: readyTeachers ? `已有 ${readyTeachers} 位老师可核对。` : "当前月份没有老师结算草算，先看导入。"
+          },
+          {
+            action: "diff",
+            tone: highPriorityTotal || issueTotal ? "warn" : "",
+            label: "第三步",
+            value: issueTotal,
+            title: "查待核差异",
+            detail: highPriorityTotal ? `高优先级 ${highPriorityTotal} 条，先不要确认月结。` : issueTotal ? "有差异待核，请逐老师查看。" : "当前无待核差异。"
+          },
+          {
+            action: salaryRows.length || expenseRows.length ? "attendance" : "import",
+            tone: salaryRows.length || expenseRows.length || attendanceTotals.lessons ? "" : "warn",
+            label: "数据",
+            value: salaryRows.length + expenseRows.length,
+            title: "原始表/点名流入",
+            detail: attendanceTotals.lessons ? `点名 ${attendanceTotals.lessons} 节已流入，原始表 ${salaryRows.length + expenseRows.length} 行。` : "若老师结算为空，先导入工资表、排课表或等待点名流入。"
+          }
+        ];
+        holder.innerHTML = cards.map((card) => `
+          <button class="finance-command-card ${escapeHtml(card.tone)}" type="button" data-finance-command="${escapeHtml(card.action)}">
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <b>${escapeHtml(card.title)}</b>
+            <em>${escapeHtml(card.detail)}</em>
+          </button>
+        `).join("");
+        if (tip) {
+          tip.textContent = highPriorityTotal
+            ? `当前 ${currentPeriod} 有 ${highPriorityTotal} 条高优先级差异，建议先点“查待核差异”，不要直接确认月结。`
+            : readyTeachers
+              ? `当前 ${currentPeriod} 已经有老师结算草算，先按老师核对，再看逐条差异。`
+              : `当前 ${currentPeriod} 老师结算数据不足，先检查月份和原始表导入。`;
+        }
+      }
+
       function renderTeacherSettlementList() {
         const holder = byId("teacherSettlementList");
         if (!holder) return;
@@ -3119,6 +3227,7 @@
         const reviewNode = byId("periodReviewStatus");
         if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
+        renderFinanceCommandCenter(period);
         renderFinanceWorkbench(period);
         renderMySettlementCard();
         renderTeacherSettlementList();
@@ -3379,6 +3488,25 @@
       byId("exportExpensesButton").addEventListener("click", exportExpenses);
       byId("financeImportButton").addEventListener("click", importFinanceSheets);
       byId("financeAutofillButton").addEventListener("click", applyFinanceAutofill);
+      byId("financeCommandGrid")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-finance-command]");
+        if (!button) return;
+        const action = button.getAttribute("data-finance-command");
+        const targetMap = {
+          settlement: "teacherSettlementEntry",
+          diff: "teacherDiffSection",
+          import: "financeImportSection",
+          attendance: "attendanceFinanceSection",
+          period: "periodInput"
+        };
+        const target = byId(targetMap[action] || "financeWorkbenchSection");
+        if (action === "period") {
+          target?.focus();
+          target?.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
+        }
+        target?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
       byId("expenseTableBody").addEventListener("click", (event) => {
         const button = event.target.closest("[data-delete-expense]");
         if (!button) return;
