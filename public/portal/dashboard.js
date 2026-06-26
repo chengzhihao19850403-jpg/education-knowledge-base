@@ -496,6 +496,20 @@
     return { rows: list, changed };
   }
 
+  function mergeTaskRows(...groups) {
+    const map = new Map();
+    groups.flat().forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const id = String(row.id || row.taskId || "").trim();
+      if (!id) return;
+      const existing = map.get(id) || {};
+      const incomingTime = Date.parse(row.updatedAt || row.createdAt || row.time || "") || 0;
+      const existingTime = Date.parse(existing.updatedAt || existing.createdAt || existing.time || "") || 0;
+      map.set(id, incomingTime >= existingTime ? { ...existing, ...row, id } : { ...row, ...existing, id });
+    });
+    return [...map.values()].sort((left, right) => String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || "")));
+  }
+
   function taskRelatedToCurrentUser(item) {
     const employee = currentEmployee();
     const name = employee?.name || "";
@@ -511,7 +525,7 @@
       try {
         const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
         if (result?.ok && result.data?.found && Array.isArray(result.data.payload)) {
-          rows = result.data.payload;
+          rows = mergeTaskRows(result.data.payload, rows);
           cloudHydrated = true;
           localStorage.setItem(suggestionsKey, JSON.stringify(rows));
         }
