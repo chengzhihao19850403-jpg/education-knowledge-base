@@ -1055,6 +1055,21 @@
         return byId("roomUsageDate")?.value || "";
       }
 
+      function currentMonthValue() {
+        return dateKey(new Date().toISOString()).slice(0, 7);
+      }
+
+      function setTeacherSheetPeriod(period) {
+        const select = byId("teacherSheetPeriod");
+        if (!period || !select) return false;
+        const hasPeriod = Array.from(select.options || []).some((option) => option.value === period);
+        if (hasPeriod) {
+          select.value = period;
+          return true;
+        }
+        return false;
+      }
+
       function currentTeacherSheetRows() {
         const period = selectedPeriod();
         const teacher = selectedTeacher();
@@ -1407,6 +1422,7 @@
           return;
         }
         if (action === "today" || action === "week") {
+          setTeacherSheetPeriod(currentMonthValue());
           if (mode) mode.value = action;
           renderTeacherSheet();
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });

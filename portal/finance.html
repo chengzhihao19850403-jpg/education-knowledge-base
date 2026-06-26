@@ -1358,6 +1358,29 @@
         return DEPARTED_FINANCE_TEACHERS.has(String(name || "").trim());
       }
 
+      function currentMonthValue() {
+        return new Date().toISOString().slice(0, 7);
+      }
+
+      function periodHasFinanceRows(periodName, teacher = "") {
+        const bundle = readPreimportBundle();
+        return ["teacherFinanceSummaryRows", "salaryAttendance", "salaryRevenueAttendance"].some((key) => {
+          return (bundle[key] || []).some((row) => {
+            return row.period === periodName && (!teacher || teacherNameOf(row) === teacher);
+          });
+        });
+      }
+
+      function setFinancePeriod(periodName) {
+        if (!periodName || !periodHasFinanceRows(periodName)) return false;
+        currentPeriod = periodName;
+        const input = byId("periodInput");
+        if (input) input.value = periodName;
+        getPeriod(currentPeriod);
+        syncFormFromPeriod();
+        return true;
+      }
+
       function normalizePreimportEmploymentRows(key, rows) {
         if (!Array.isArray(rows)) return [];
         return rows.map((row) => {
@@ -3812,9 +3835,15 @@
 
       function applyFinanceQuick(action) {
         if (action === "mine") {
+          setFinancePeriod(currentMonthValue());
           selectCurrentFinanceTeacher();
           renderFinanceTeacherDetail();
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "summary") {
+          setFinancePeriod(currentMonthValue());
+          byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "detail") {
