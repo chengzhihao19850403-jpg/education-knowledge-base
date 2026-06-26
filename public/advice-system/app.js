@@ -225,19 +225,48 @@ function ensureAuditId(item) {
 
 function mergeLeadRows(...groups) {
   const map = new Map();
+  const rowTime = (lead) => {
+    const value = String(lead?.updatedAt || lead?.enrolledAt || lead?.createdAt || "").trim();
+    const parsed = Date.parse(value.replace(" ", "T"));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
   groups.flat().forEach((lead) => {
     if (!lead || typeof lead !== "object") return;
     const safeLead = ensureLeadId(lead);
     const key = safeLead.leadId;
-    const existing = map.get(key) || {};
-    map.set(key, {
-      ...existing,
-      ...safeLead,
-      leadId: key,
-      renewalRecords: Array.isArray(safeLead.renewalRecords) ? safeLead.renewalRecords : Array.isArray(existing.renewalRecords) ? existing.renewalRecords : []
-    });
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        ...safeLead,
+        leadId: key,
+        renewalRecords: Array.isArray(safeLead.renewalRecords) ? safeLead.renewalRecords : []
+      });
+      return;
+    }
+    const incomingIsNewer = rowTime(safeLead) >= rowTime(existing);
+    const mergedRenewals = mergeLeadRenewalRecords(existing.renewalRecords || [], safeLead.renewalRecords || []);
+    map.set(key, incomingIsNewer
+      ? { ...existing, ...safeLead, leadId: key, renewalRecords: mergedRenewals }
+      : { ...safeLead, ...existing, leadId: key, renewalRecords: mergedRenewals });
   });
   return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function mergeLeadRenewalRecords(...groups) {
+  const map = new Map();
+  groups.flat().forEach((record) => {
+    if (!record || typeof record !== "object") return;
+    const key = String(record.id || [record.createdAt, record.courseName, record.amount, record.type].filter(Boolean).join("|")).trim();
+    if (!key) return;
+    const existing = map.get(key) || {};
+    map.set(key, { ...existing, ...record, id: record.id || key });
+  });
+  return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function touchLead(lead) {
+  if (lead && typeof lead === "object") lead.updatedAt = new Date().toISOString();
+  return lead;
 }
 
 function mergeFollowupRows(...groups) {
@@ -803,6 +832,7 @@ function saveFollowupRecord({
   const target = state.leads.find((lead) => lead.studentName === leadName);
   const cleanText = String(text || "").trim();
   if (!target || !cleanText) return false;
+  touchLead(target);
   target.lastFollowup = "刚刚";
   if (parentNeed) target.parentNeed = parentNeed;
   if (painPoint) target.studentPainPoint = painPoint;
@@ -1378,6 +1408,7 @@ function bindPendingLeadFixActions() {
       );
       const nextOwner = ownerSelect?.value || "待分配";
       target.owner = nextOwner;
+      touchLead(target);
       target.lastFollowup = "刚刚补负责人";
       target.nextAction =
         nextOwner === "待分配" ? "仍待分配负责人" : "负责人已补齐，尽快首联";
@@ -1399,6 +1430,7 @@ function bindPendingLeadFixActions() {
       );
       const nextChannel = channelSelect?.value || "待补来源";
       target.channel = nextChannel;
+      touchLead(target);
       target.channelMeta = buildChannelMeta(nextChannel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补来源";
       pushFollowup(target.studentName, `在待补字段处理中补齐来源渠道：${nextChannel}。`);
@@ -1420,6 +1452,7 @@ function bindPendingLeadFixActions() {
       const nextNote = noteInput?.value.trim();
       if (!nextNote) return;
       target.note = nextNote;
+      touchLead(target);
       target.lastFollowup = "刚刚补备注";
       pushFollowup(target.studentName, `在待补字段处理中补齐首条备注：${nextNote}。`);
       logAudit("待补字段-补备注", target.studentName, nextNote);
@@ -1439,6 +1472,7 @@ function bindPendingLeadFixActions() {
       );
       const nextChannelOwner = input?.value || "待补渠道归属";
       target.channelOwner = nextChannelOwner;
+      touchLead(target);
       target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补渠道归属";
       pushFollowup(target.studentName, `在待补字段处理中补齐渠道归属：${nextChannelOwner}。`);
@@ -1460,6 +1494,7 @@ function bindPendingLeadFixActions() {
       const nextReferrer = input?.value.trim();
       if (!nextReferrer) return;
       target.referrerName = nextReferrer;
+      touchLead(target);
       target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
       target.lastFollowup = "刚刚补推荐人";
       pushFollowup(target.studentName, `在待补字段处理中补齐推荐人：${nextReferrer}。`);
@@ -1977,6 +2012,7 @@ function bindLeadCreate() {
       trialTime: "",
       enrolledAmount: 0,
       createdAt: formatNowStamp(),
+      updatedAt: new Date().toISOString(),
     });
     byId("leadStudentName").value = "";
     byId("leadPhone").value = "";
@@ -2039,6 +2075,7 @@ function bindQuickLeadCreate() {
       trialTime: "",
       enrolledAmount: 0,
       createdAt: formatNowStamp(),
+      updatedAt: new Date().toISOString(),
     });
     state.selectedLeadName = studentName;
     byId("quickLeadStudentName").value = "";
@@ -2076,6 +2113,7 @@ function bindFeedbackSave() {
       return;
     }
     target.intent = byId("feedbackIntent").value;
+    touchLead(target);
     target.lastFollowup = "刚刚回填";
     target.note = byId("feedbackSummary").value.trim() || target.note;
     target.nextAction = `下次跟进：${byId("feedbackNextDate").value}`;
@@ -2115,6 +2153,7 @@ function bindEnrollmentCreate() {
       return;
     }
     target.status = "定金 / 已报名";
+    touchLead(target);
     target.enrolledAmount = amount;
     target.enrolledAt = formatNowStamp();
     target.attributionLocked = true;
@@ -2230,16 +2269,19 @@ function bindRenewalCreate() {
         : buildAttributionSnapshot(target);
 
     const renewalRecord = {
+      id: `renew-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       type: byId("renewType").value,
       courseName: byId("renewCourseName").value,
       amount,
       attributionSnapshot: inheritedSnapshot,
       remark: byId("renewRemark").value.trim(),
+      createdAt: new Date().toISOString(),
     };
 
     if (!Array.isArray(target.renewalRecords)) {
       target.renewalRecords = [];
     }
+    touchLead(target);
     target.renewalRecords.push(renewalRecord);
     target.financeProfile = {
       settledAmount: Number(target.financeProfile?.settledAmount || target.enrolledAmount || 0) + amount,
@@ -2437,6 +2479,7 @@ function bindBatchImport() {
           mergeNotes.push(`补下次跟进=${nextFollowupDate}`);
         }
         existingLead.channelOwner = deriveChannelOwner(existingLead);
+        touchLead(existingLead);
         existingLead.channelMeta = buildChannelMeta(
           existingLead.channel,
           existingLead.channelOwner,
@@ -2501,6 +2544,7 @@ function bindBatchImport() {
         trialTime: normalizeDateTimeLocal(trialTime),
         enrolledAmount: 0,
         createdAt: formatNowStamp(),
+        updatedAt: new Date().toISOString(),
       };
       if (newLead.trialTime) {
         newLead.trial = formatTrialDisplay(newLead.trialTime);
@@ -2542,6 +2586,7 @@ function bindTrialCreate() {
     const target = state.leads.find((lead) => lead.studentName === studentName);
     if (!target) return;
     target.status = "已预约试听";
+    touchLead(target);
     target.trialTeacher = byId("trialTeacherSelect").value;
     target.trialTime = byId("trialTimeInput").value;
     target.trial = formatTrialDisplay(target.trialTime);
@@ -2594,6 +2639,7 @@ function bindDetailSave() {
       return;
     }
     target.owner = nextOwner;
+    touchLead(target);
     target.status = byId("detailStatusSelect").value;
     target.intent = byId("detailIntentSelect").value;
     target.inGroup = byId("detailInGroupSelect").value;
@@ -2637,6 +2683,7 @@ function bindAttributionUnlock() {
     const before = formatAttributionSnapshot(target.attributionSnapshot || buildAttributionSnapshot(target));
     if (!window.confirm(`确定解锁 ${target.studentName} 的归属链吗？\n原归属：${before}\n解锁后修改会记录在跟进和操作日志里。`)) return;
     target.attributionLocked = false;
+    touchLead(target);
     target.attributionUnlockLog = `${formatNowStamp()} ${getOperatorLabel()} 解锁，原归属：${before}`;
     target.lastFollowup = "刚刚解锁归属链";
     pushFollowup(target.studentName, `归属链已解锁。原归属：${before}。后续修改需保存当前线索修改。`);
@@ -2698,6 +2745,7 @@ function bindLeadActions() {
       if (!target) return;
       if (!canEditAdmissions()) return;
       target.owner = select.value;
+      touchLead(target);
       target.lastFollowup = "刚刚重分配";
       logAudit("调整负责人", target.studentName, `改为 ${select.value}。`);
       syncSelectedLead(target.studentName);
@@ -2715,6 +2763,7 @@ function bindLeadActions() {
       if (target.status === "新建未联系") target.status = "已沟通待邀约";
       else if (target.status === "已沟通待邀约") target.status = "持续跟进中";
       else if (target.status === "试听完成待转化") target.status = "持续跟进中";
+      touchLead(target);
       target.lastFollowup = "刚刚推进";
       target.nextAction = "继续跟进并补下一步动作";
       pushFollowup(
@@ -2750,6 +2799,7 @@ function bindLeadActions() {
       if (!target) return;
       if (!canEditAdmissions()) return;
       target.status = "试听完成待转化";
+      touchLead(target);
       target.trial = "已试听";
       target.nextAction = "48 小时内给报名方案";
       target.lastFollowup = "刚刚完成试听";
@@ -2794,6 +2844,7 @@ function bindLeadActions() {
         `[data-public-owner-select="${studentName}"]`
       );
       target.owner = ownerSelect?.value || ownerOptions[0];
+      touchLead(target);
       target.nextAction = "已重新分配，尽快首联";
       target.lastFollowup = "刚刚重分配";
       pushFollowup(target.studentName, `公海线索已重新分配给 ${target.owner}，需要尽快首联。`);
