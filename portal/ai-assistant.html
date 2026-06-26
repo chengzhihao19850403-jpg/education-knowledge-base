@@ -66,7 +66,8 @@
         color: var(--ink);
         background: #fff;
         line-height: 1.8;
-        resize: vertical;
+        resize: none;
+        overflow: hidden;
         outline: none;
       }
       .result-edit:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
@@ -391,6 +392,17 @@
         return items;
       }
 
+      function autoGrowTextarea(textarea) {
+        if (!textarea) return;
+        textarea.style.height = "auto";
+        const nextHeight = Math.max(textarea.scrollHeight + 4, textarea.classList.contains("draft-edit") ? 170 : 220);
+        textarea.style.height = `${nextHeight}px`;
+      }
+
+      function autoGrowTextareas(scope = document) {
+        scope.querySelectorAll?.("textarea.result-edit").forEach(autoGrowTextarea);
+      }
+
       function setEditingDraft(id) {
         editingDraftId = String(id || "");
         const button = byId("saveDraftButton");
@@ -428,6 +440,7 @@
             </details>
           </div>
         `).join("") : `<div class="draft-item"><strong>暂无草稿</strong><span>保存后会显示最近 50 条。</span></div>`;
+        autoGrowTextareas(byId("aiDraftList"));
       }
 
       async function hydrateDrafts() {
@@ -553,6 +566,7 @@
       function syncEditableResultFields() {
         document.querySelectorAll("[data-result-field]").forEach((textarea) => {
           textarea.dataset.previousValue = textarea.value;
+          autoGrowTextarea(textarea);
           updateCompletionWarning(textarea);
           textarea.addEventListener("input", () => {
             if (!latestResult) return;
@@ -567,6 +581,7 @@
             }
             textarea.dataset.previousValue = nextValue;
             updateCompletionWarning(textarea);
+            autoGrowTextarea(textarea);
           });
         });
       }
@@ -1498,7 +1513,13 @@
         byId("aiMessage").textContent = "已在右侧整理结果打开草稿，修改后点“保存草稿修改”或直接归档。";
       });
       byId("aiDraftList")?.addEventListener("input", (event) => {
-        if (event.target?.matches?.("[data-draft-editor]")) updateCompletionWarning(event.target);
+        if (event.target?.matches?.("[data-draft-editor]")) {
+          updateCompletionWarning(event.target);
+          autoGrowTextarea(event.target);
+        }
+      });
+      byId("aiDraftList")?.addEventListener("toggle", (event) => {
+        if (event.target?.matches?.("details") && event.target.open) autoGrowTextareas(event.target);
       });
       byId("archivedFeedbackList")?.addEventListener("click", async (event) => {
         const button = event.target.closest("button[data-archive-action]");
