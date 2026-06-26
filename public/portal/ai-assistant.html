@@ -70,11 +70,14 @@
         outline: none;
       }
       .result-edit:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+      .result-edit.needs-completion { border-color: rgba(180,83,9,0.55); background: #fff7ed; }
       .result-hint { margin-top: 6px; color: var(--muted); font-size: 12px; }
+      .completion-warning { margin-top: 8px; padding: 9px 10px; border-radius: 12px; background: rgba(180,83,9,0.12); color: var(--amber); font-size: 12px; line-height: 1.55; font-weight: 800; }
       .draft-list { display: grid; gap: 10px; margin-top: 12px; }
       .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
       .draft-item strong { display: block; }
       .draft-item span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+      .draft-edit { min-height: 170px; margin-top: 8px; }
       .history-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
       .history-tools input { flex: 1 1 180px; min-height: 38px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
       .history-item details { margin-top: 8px; }
@@ -224,6 +227,7 @@
       const currentUsername = String(currentEmployee.username || "").trim();
       let recognition = null;
       let latestResult = null;
+      let editingDraftId = "";
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -301,6 +305,69 @@
         return row?.result?.parentMessage || row?.result?.polishedText || row?.sourceText || resultToText(row?.result) || "";
       }
 
+      function resultFromDraftText(row, text) {
+        const result = row?.result && typeof row.result === "object" ? { ...row.result } : {};
+        const value = String(text || "").trim();
+        if (row?.mode === "classFeedback" || result.parentMessage) {
+          result.parentMessage = value;
+          result.polishedText = value;
+        } else {
+          result.polishedText = value;
+        }
+        return result;
+      }
+
+      function missingCompletionItems(value) {
+        const text = String(value || "");
+        const items = [];
+        if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|《\s*[_＿xX\s]*\s*》/.test(text)) items.push("横线或空白占位");
+        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|某某|待(老师)?(补充|确认|填写)|未补|空缺|待定/.test(text)) items.push("待补内容");
+        if (/第\s*(?:__|＿+|[xX])\s*次/.test(text)) items.push("第几次课");
+        if (/《\s*(?:__|＿+|[xX]+|待补充)?\s*》做完/.test(text)) items.push("课后作业");
+        if (/(本次课上课内容：\s*(?:\n\s*)?(?:__|＿+|待补充)|\n\s*\d+\.\s*(?:__|＿+|待补充)\s*(?:\n|$))/.test(text)) items.push("上课内容");
+        return [...new Set(items)];
+      }
+
+      function completionClass(value) {
+        return missingCompletionItems(value).length ? " needs-completion" : "";
+      }
+
+      function completionWarningHtml(value) {
+        const items = missingCompletionItems(value);
+        return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? `还有未补完整内容：${escapeHtml(items.join("、"))}。补齐后再归档。` : ""}</div>`;
+      }
+
+      function updateCompletionWarning(textarea) {
+        if (!textarea) return [];
+        const items = missingCompletionItems(textarea.value);
+        textarea.classList.toggle("needs-completion", items.length > 0);
+        const warning = textarea.parentElement?.querySelector("[data-completion-warning]");
+        if (warning) {
+          warning.hidden = items.length === 0;
+          warning.textContent = items.length ? `还有未补完整内容：${items.join("、")}。补齐后再归档。` : "";
+        }
+        return items;
+      }
+
+      function setEditingDraft(id) {
+        editingDraftId = String(id || "");
+        const button = byId("saveDraftButton");
+        if (button) button.textContent = editingDraftId ? "保存草稿修改" : "保存草稿";
+      }
+
+      function updateDraftRow(id, patchBuilder) {
+        const rows = readDrafts();
+        const index = rows.findIndex((row) => String(row.id || row.rowId || "") === String(id));
+        if (index < 0) return null;
+        const current = rows[index];
+        const patch = typeof patchBuilder === "function" ? patchBuilder(current) : patchBuilder;
+        const updated = { ...current, ...patch, updatedAt: new Date().toISOString() };
+        rows[index] = updated;
+        writeDrafts(rows);
+        renderDrafts(rows);
+        return updated;
+      }
+
       function renderDrafts(rows = readDrafts()) {
         rows = visibleDraftRows(rows).slice(0, 50);
         byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
@@ -309,10 +376,12 @@
             <span>${escapeHtml(row.modeLabel || "-")}｜${escapeHtml(row.target || "-")}｜${escapeHtml(row.createdAt || "")}</span>
             <details>
               <summary>查看草稿内容</summary>
-              <pre class="result-text">${escapeHtml(draftDisplayText(row) || "暂无内容")}</pre>
+              <textarea class="result-edit draft-edit${completionClass(draftDisplayText(row))}" data-draft-editor="${escapeHtml(row.id || "")}">${escapeHtml(draftDisplayText(row) || "")}</textarea>
+              ${completionWarningHtml(draftDisplayText(row))}
               <div class="history-actions">
+                <button class="button" type="button" data-draft-action="save-inline" data-draft-id="${escapeHtml(row.id || "")}">保存草稿内容</button>
                 <button class="button secondary" type="button" data-draft-action="copy" data-draft-id="${escapeHtml(row.id || "")}">复制草稿</button>
-                <button class="button secondary" type="button" data-draft-action="reuse" data-draft-id="${escapeHtml(row.id || "")}">继续编辑</button>
+                <button class="button secondary" type="button" data-draft-action="reuse" data-draft-id="${escapeHtml(row.id || "")}">带到右侧精修</button>
               </div>
             </details>
           </div>
@@ -334,6 +403,11 @@
 
       function findDraftById(id) {
         return visibleDraftRows(readDrafts()).find((row) => String(row.id || row.rowId || "") === String(id));
+      }
+
+      function draftEditorTextFromButton(button, fallback = "") {
+        const textarea = button?.closest(".history-item")?.querySelector("[data-draft-editor]");
+        return textarea ? textarea.value : fallback;
       }
 
       function archivedFeedbackRowsFrom(rows) {
@@ -427,14 +501,16 @@
 
       function editableResultTextarea(field, value, label) {
         return `
-          <textarea class="result-edit" data-result-field="${escapeHtml(field)}" aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
+          <textarea class="result-edit${completionClass(value)}" data-result-field="${escapeHtml(field)}" aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
           <div class="result-hint">可直接修改，修改后再保存草稿、复制或归档。</div>
+          ${completionWarningHtml(value)}
         `;
       }
 
       function syncEditableResultFields() {
         document.querySelectorAll("[data-result-field]").forEach((textarea) => {
           textarea.dataset.previousValue = textarea.value;
+          updateCompletionWarning(textarea);
           textarea.addEventListener("input", () => {
             if (!latestResult) return;
             const field = textarea.dataset.resultField;
@@ -447,6 +523,7 @@
               }
             }
             textarea.dataset.previousValue = nextValue;
+            updateCompletionWarning(textarea);
           });
         });
       }
@@ -822,6 +899,7 @@
           operatorRole: currentEmployee.role || ""
         };
         byId("aiRunButton").disabled = true;
+        setEditingDraft("");
         byId("aiMessage").textContent = "正在整理...";
         try {
           const result = await window.JRC_CLOUD?.aiAssistant?.(payload);
@@ -862,6 +940,26 @@
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
+        if (editingDraftId) {
+          const updated = updateDraftRow(editingDraftId, (current) => ({
+            title: latestResult.title || current.title || modeLabel(byId("aiModeInput").value),
+            mode: byId("aiModeInput").value,
+            modeLabel: modeLabel(byId("aiModeInput").value),
+            target: byId("aiTargetInput").value.trim(),
+            sourceText: current.sourceText || byId("aiInputText").value.trim(),
+            result: latestResult,
+            createdBy: current.createdBy || currentName,
+            createdByUsername: current.createdByUsername || currentEmployee.username || ""
+          }));
+          if (updated) {
+            latestResult = updated.result;
+            renderResult(latestResult);
+            setEditingDraft(editingDraftId);
+            byId("aiMessage").textContent = "已保存草稿修改。";
+            return;
+          }
+          setEditingDraft("");
+        }
         const row = {
           id: `ai-${Date.now()}`,
           title: latestResult.title || modeLabel(byId("aiModeInput").value),
@@ -875,6 +973,7 @@
           createdAt: new Date().toISOString()
         };
         writeDrafts([row, ...readDrafts()]);
+        setEditingDraft(row.id);
         renderDrafts();
         byId("aiMessage").textContent = "已保存 AI 草稿。";
       }
@@ -964,6 +1063,13 @@
           return;
         }
         const mode = byId("aiModeInput").value;
+        const feedbackText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
+        const missingItems = ["feedback", "classFeedback"].includes(mode) ? missingCompletionItems(feedbackText) : [];
+        if (missingItems.length) {
+          byId("aiMessage").textContent = `还有未补完整内容：${missingItems.join("、")}。请在右侧整理结果里补齐后再归档。`;
+          document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
+          return;
+        }
         const serviceRow = {
           id: `ai-feedback-${Date.now()}`,
           student,
@@ -1283,6 +1389,7 @@
       byId("aiClearButton").addEventListener("click", () => {
         byId("aiInputText").value = "";
         latestResult = null;
+        setEditingDraft("");
         byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
       });
       byId("copyResultButton").addEventListener("click", async () => {
@@ -1297,7 +1404,21 @@
           byId("aiMessage").textContent = "没有找到这条草稿。";
           return;
         }
-        const text = draftDisplayText(row);
+        const text = draftEditorTextFromButton(button, draftDisplayText(row));
+        if (button.dataset.draftAction === "save-inline") {
+          const updated = updateDraftRow(button.dataset.draftId, (current) => ({
+            result: resultFromDraftText(current, text),
+            sourceText: current.sourceText || "",
+            title: current.title || current.modeLabel || "AI 草稿"
+          }));
+          if (updated && editingDraftId === String(button.dataset.draftId)) {
+            latestResult = updated.result;
+            renderResult(latestResult);
+            setEditingDraft(editingDraftId);
+          }
+          byId("aiMessage").textContent = updated ? "已保存这条草稿内容。" : "草稿保存失败，请刷新后重试。";
+          return;
+        }
         if (button.dataset.draftAction === "copy") {
           await navigator.clipboard?.writeText(text);
           byId("aiMessage").textContent = "已复制草稿内容。";
@@ -1305,11 +1426,15 @@
         }
         byId("aiModeInput").value = row.mode || "classFeedback";
         byId("aiTargetInput").value = row.target || "";
-        byId("aiInputText").value = row.sourceText || text;
-        latestResult = row.result || null;
+        if (row.sourceText) byId("aiInputText").value = row.sourceText;
+        latestResult = resultFromDraftText(row, text);
+        setEditingDraft(button.dataset.draftId);
         if (latestResult) renderResult(latestResult);
         updateActionButtons();
-        byId("aiMessage").textContent = "已带入草稿，可以继续修改或重新 AI 整理。";
+        byId("aiMessage").textContent = "已在右侧整理结果打开草稿，修改后点“保存草稿修改”或直接归档。";
+      });
+      byId("aiDraftList")?.addEventListener("input", (event) => {
+        if (event.target?.matches?.("[data-draft-editor]")) updateCompletionWarning(event.target);
       });
       byId("archivedFeedbackList")?.addEventListener("click", async (event) => {
         const button = event.target.closest("button[data-archive-action]");
