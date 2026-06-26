@@ -745,20 +745,21 @@
 
       function classFeedbackNeedsRebuild(parentMessage) {
         const text = String(parentMessage || "");
-        const courseSection = extractTemplateSection(text, "本次课上课内容：", ["二、知识点要点：", "知识点要点：", "三、学习掌握情况：", "学习情况反馈："]);
-        const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["三、学习掌握情况：", "学习情况反馈：", "四、课后作业："]);
-        return !text.includes("三、学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+        const courseSection = extractTemplateSection(text, "本次课上课内容：", ["三、知识点要点：", "二、知识点要点：", "知识点要点：", "四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈："]);
+        const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈：", "五、课后作业：", "四、课后作业："]);
+        return !text.includes("学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
       }
 
       function formatClassFeedbackText(value, target = "") {
         const greeting = normalizeFeedbackRecipient(target);
         let text = String(value || "")
           .replace(/^.{0,16}(妈妈|爸爸|父母|家长)[，,：:\s]*您好?[，,：:\s]*/, `${greeting}，`)
-          .replace(/(一、上课状态：|上课状态：)/g, "\n\n$1\n")
-          .replace(/(本次课上课内容：)/g, "\n\n$1\n")
-          .replace(/(二、知识点要点：|知识点要点：)/g, "\n\n$1\n")
-          .replace(/(三、学习掌握情况：|学习掌握情况：|学习情况反馈：)/g, "\n\n$1\n")
-          .replace(/(四、课后作业：|课后作业：)/g, "\n\n$1\n")
+          .replace(/(?:^|\n)\s*(?:一、)?上课状态：/g, "\n\n一、上课状态：\n")
+          .replace(/(?:^|\n)\s*(?:二、)?本次课上课内容：/g, "\n\n二、本次课上课内容：\n")
+          .replace(/(?:^|\n)\s*(?:(?:二|三)、)?知识点要点：/g, "\n\n三、知识点要点：\n")
+          .replace(/(?:^|\n)\s*(?:(?:三|四)、)?(?:学习掌握情况|学习情况反馈)：/g, "\n\n四、学习掌握情况：\n")
+          .replace(/(?:^|\n)\s*(?:(?:四|五)、)?课后作业：/g, "\n\n五、课后作业：\n")
+          .replace(/(一、上课状态：|二、本次课上课内容：|三、知识点要点：|四、学习掌握情况：|五、课后作业：)\n{2,}/g, "$1\n")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
         if (text && !text.startsWith(greeting)) text = `${greeting}，\n\n${text}`;
@@ -770,7 +771,7 @@
         const target = payload.target ?? byId("aiTargetInput")?.value ?? "";
         const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
         const parentMessage = String(result.parentMessage || "");
-        const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("三、学习掌握情况") && parentMessage.includes("四、课后作业");
+        const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("本次课上课内容") && parentMessage.includes("知识点要点") && parentMessage.includes("学习掌握情况") && parentMessage.includes("课后作业");
         if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
           const formatted = formatClassFeedbackText(parentMessage, target);
           return { ...result, parentMessage: formatted, polishedText: result.polishedText === parentMessage ? formatted : result.polishedText };
@@ -898,16 +899,16 @@
           "一、上课状态：",
           parsed.stateText,
           "",
-          "本次课上课内容：",
+          "二、本次课上课内容：",
           numberedLines(courseItems),
           "",
-          "二、知识点要点：",
+          "三、知识点要点：",
           numberedLines(knowledgeItems),
           "",
-          "三、学习掌握情况：",
+          "四、学习掌握情况：",
           numberedLines(masteryItems),
           "",
-          "四、课后作业：",
+          "五、课后作业：",
           `《${homework}》做完`
         ].join("\n");
       }

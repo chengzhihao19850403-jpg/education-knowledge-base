@@ -1175,20 +1175,21 @@ function extractTemplateSection(text, label, nextLabels = []) {
 
 function classFeedbackNeedsRebuild(parentMessage) {
   const text = String(parentMessage || "");
-  const courseSection = extractTemplateSection(text, "本次课上课内容：", ["二、知识点要点：", "知识点要点：", "三、学习掌握情况：", "学习情况反馈："]);
-  const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["三、学习掌握情况：", "学习情况反馈：", "四、课后作业："]);
-  return !text.includes("三、学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+  const courseSection = extractTemplateSection(text, "本次课上课内容：", ["三、知识点要点：", "二、知识点要点：", "知识点要点：", "四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈："]);
+  const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈：", "五、课后作业：", "四、课后作业："]);
+  return !text.includes("学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
 }
 
 function formatClassFeedbackText(value, target = "") {
   const greeting = normalizeFeedbackRecipient(target);
   let text = String(value || "")
     .replace(/^.{0,16}(妈妈|爸爸|父母|家长)[，,：:\s]*您好?[，,：:\s]*/, `${greeting}，`)
-    .replace(/(一、上课状态：|上课状态：)/g, "\n\n$1\n")
-    .replace(/(本次课上课内容：)/g, "\n\n$1\n")
-    .replace(/(二、知识点要点：|知识点要点：)/g, "\n\n$1\n")
-    .replace(/(三、学习掌握情况：|学习掌握情况：|学习情况反馈：)/g, "\n\n$1\n")
-    .replace(/(四、课后作业：|课后作业：)/g, "\n\n$1\n")
+    .replace(/(?:^|\n)\s*(?:一、)?上课状态：/g, "\n\n一、上课状态：\n")
+    .replace(/(?:^|\n)\s*(?:二、)?本次课上课内容：/g, "\n\n二、本次课上课内容：\n")
+    .replace(/(?:^|\n)\s*(?:(?:二|三)、)?知识点要点：/g, "\n\n三、知识点要点：\n")
+    .replace(/(?:^|\n)\s*(?:(?:三|四)、)?(?:学习掌握情况|学习情况反馈)：/g, "\n\n四、学习掌握情况：\n")
+    .replace(/(?:^|\n)\s*(?:(?:四|五)、)?课后作业：/g, "\n\n五、课后作业：\n")
+    .replace(/(一、上课状态：|二、本次课上课内容：|三、知识点要点：|四、学习掌握情况：|五、课后作业：)\n{2,}/g, "$1\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (text && !text.startsWith(greeting)) text = `${greeting}，\n\n${text}`;
@@ -1317,16 +1318,16 @@ function buildClassFeedbackTemplate(target, rawText, meta = {}) {
     "一、上课状态：",
     parsed.stateText,
     "",
-    "本次课上课内容：",
+    "二、本次课上课内容：",
     numberedLines(courseItems),
     "",
-    "二、知识点要点：",
+    "三、知识点要点：",
     numberedLines(knowledgeItems),
     "",
-    "三、学习掌握情况：",
+    "四、学习掌握情况：",
     numberedLines(masteryItems),
     "",
-    "四、课后作业：",
+    "五、课后作业：",
     `《${homework}》做完`
   ].join("\n");
 }
@@ -1358,8 +1359,9 @@ function aiSystemPrompt() {
     "涉及课件资料归档时，要整理年级、体系、主题、资料类型、标签、适用场景、打印/使用建议和标准文件命名建议。",
     "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
     "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；每个栏目之间必须空一行，方便老师复制到微信。",
+    "课堂反馈每个栏目标题后面必须直接换行写正文，不要在栏目标题和正文之间再空一行。",
     "课堂反馈称呼统一用“某某的家长您好”，不要默认写妈妈或爸爸；原始描述里的作业要提取到课后作业；原始描述里的上课主要内容要提取到本次课上课内容。",
-    "课堂反馈模板必须使用这套结构：标题行 + 一、上课状态 + 本次课上课内容 + 二、知识点要点 + 三、学习掌握情况 + 四、课后作业。",
+    "课堂反馈模板必须使用这套结构：标题行 + 一、上课状态 + 二、本次课上课内容 + 三、知识点要点 + 四、学习掌握情况 + 五、课后作业。",
     "标题里的季节优先使用传入的 lessonSeason，没有则从原文识别春季/秋季/暑假/寒假；标题里的第几次优先使用传入的 lessonNumber，没有则识别原文，否则保留 __。",
     "本次课上课内容必须用 1-4 条编号列出知识主题；知识点要点必须用 1-4 条编号列出核心定义、公式、定理或方法；学习掌握情况必须与前面的编号主题对应。",
     "生成课堂反馈前必须先做语义分类：孩子表现、注意力、讲话、提醒、制止、互动、状态、纪律等只属于“上课状态”；作业只属于“课后作业”；具体学习主题、章节、题型、知识点才属于“本次课上课内容”。",
@@ -1388,6 +1390,7 @@ function buildAiUserPrompt(body) {
     mode === "feedback" ? "整理成课堂表现、学习内容、作业情况、需要家长配合、内部跟进建议。家长沟通建议要温和、具体、不过度承诺。" : "",
     mode === "classFeedback" ? [
       "根据老师原始描述，匹配并填写以下统一课堂反馈模板；根据实际情况适当改写，不要生硬套话；parentMessage 必须是一段可直接微信发给家长的完整文字；每个栏目之间必须保留空行：",
+      "格式要求：栏目标题下一行直接写正文，标题和正文之间不要空行；相邻两个大栏目之间保留一个空行。",
       "标题行中的季节优先使用课程阶段字段；第几次优先使用课次字段；如果字段为空，再从原始内容中识别，否则保留 __。",
       "填写前先把原始内容分类：",
       "A. 上课状态：孩子表现、注意力、讲话、纪律、互动、提醒、制止、状态、态度。",
@@ -1399,15 +1402,15 @@ function buildAiUserPrompt(body) {
       "某某的家长您好，这是春季小课第__次课程反馈：",
       "一、上课状态：",
       "根据老师原始描述如实整理课堂表现、专注度、互动、纪律、提醒情况。",
-      "本次课上课内容：",
+      "二、本次课上课内容：",
       "1. 从老师原始描述中提取主要上课内容",
       "2. 最多 4 条",
-      "二、知识点要点：",
+      "三、知识点要点：",
       "请根据老师提到的上课主要内容，补充家长可查询、可询问孩子的核心定义、公式、定理、解题思路或知识要点；数学要尽量写清公式/方法，科学要尽量写清概念/现象/结论。",
-      "三、学习掌握情况：",
+      "四、学习掌握情况：",
       "1. 对应上课内容第 1 条写孩子掌握情况",
       "2. 对应上课内容第 2 条写孩子掌握情况",
-      "四、课后作业：",
+      "五、课后作业：",
       "《从老师原始描述中提取作业；没有则填 __》做完",
       "如果原始描述中孩子状态一般或偏弱，要温和改写对应模块，不要强行写“非常棒”；如果信息缺失，用 __ 保留待老师确认。",
       "internalNote 写给学管，包含：本次反馈依据、需要老师确认的空缺字段、是否需要后续跟进、风险等级和下一步。"
@@ -1525,7 +1528,7 @@ function ensureClassFeedbackResult(result, body) {
   if (String(body?.mode || "") !== "classFeedback") return result;
   const rawAiText = String(result?._rawAiText || result?.polishedText || result?.parentMessage || "");
   const parentMessage = String(result?.parentMessage || rawAiText || "");
-  const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("三、学习掌握情况") && parentMessage.includes("四、课后作业");
+  const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("本次课上课内容") && parentMessage.includes("知识点要点") && parentMessage.includes("学习掌握情况") && parentMessage.includes("课后作业");
   if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
     const formatted = formatClassFeedbackText(parentMessage, body?.target || "");
     return {
