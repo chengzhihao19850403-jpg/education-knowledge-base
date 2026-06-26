@@ -1057,7 +1057,10 @@
         <strong>下一步优先处理</strong>
         <span class="badge ${list.length ? "status-warn" : "status-ok"}">${list.length ? `${list.length} 项` : "暂无断点"}</span>
         ${list.length
-          ? `<ol class="link-action-list">${list.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>`
+          ? `<ol class="link-action-list">${list.map((item) => {
+              if (typeof item === "string") return `<li>${escapeHtml(item)}</li>`;
+              return `<li><strong>${escapeHtml(item.owner || "负责人待定")}｜${escapeHtml(item.system || "相关系统")}</strong><br>${escapeHtml(item.text || "")}${item.href ? `<br><a class="text-link" href="${escapeHtml(item.href)}">${escapeHtml(item.actionText || "去处理")}</a>` : ""}</li>`;
+            }).join("")}</ol>`
           : "<p>当前关键链路没有明显断点。后续继续让老师用真实数据录入、归档、点名和反馈，系统会自动继续体检。</p>"}
       </div>
     `;
@@ -1298,24 +1301,66 @@
     const warningChecks = totalChecks - passedChecks;
     const priorityActions = [];
     if (!scheduleRows.length) {
-      priorityActions.push("先到排课系统确认六月/暑假排课明细是否已导入，排课为空会影响点名、财务和教学质量。");
+      priorityActions.push({
+        owner: "周珊",
+        system: "排课系统",
+        text: "先确认六月/暑假排课明细是否已导入。排课为空会影响点名、财务和教学质量。",
+        href: "./paike.html",
+        actionText: "打开排课系统"
+      });
     } else if (scheduleWithoutAttendance) {
-      priorityActions.push(`补齐约 ${scheduleWithoutAttendance} 人次点名，优先处理排课已存在但未点名的课程。`);
+      priorityActions.push({
+        owner: "高芳燕",
+        system: "学生与家长服务系统",
+        text: `补齐约 ${scheduleWithoutAttendance} 人次点名，优先处理排课已存在但未点名的课程。`,
+        href: "./student-service.html",
+        actionText: "打开点名"
+      });
     }
     if (sessions.length && unresolvedCount) {
-      priorityActions.push(`点名里还有约 ${unresolvedCount} 人次缺席、请假或待联系家长，需要落实补课、视频课或不销课口径。`);
+      priorityActions.push({
+        owner: "高芳燕",
+        system: "学生与家长服务系统",
+        text: `点名里还有约 ${unresolvedCount} 人次缺席、请假或待联系家长，需要落实补课、视频课或不销课口径。`,
+        href: "./student-service.html",
+        actionText: "处理缺席追踪"
+      });
     }
     if (enrolledWithoutServiceCount) {
-      priorityActions.push(`招生已报名学生还有约 ${enrolledWithoutServiceCount} 人未建学生服务档案，先补档案再排服务流程。`);
+      priorityActions.push({
+        owner: "颜雨涵 / 高芳燕",
+        system: "招生管理 / 学生服务",
+        text: `招生已报名学生还有约 ${enrolledWithoutServiceCount} 人未建学生服务档案，先补档案再排服务流程。`,
+        href: "./student-service.html",
+        actionText: "查看学生档案"
+      });
     }
     if (aiClassFeedbackDrafts.length && !aiArchivedRows.length) {
-      priorityActions.push("AI 课堂反馈已有草稿但还没有归档到学生服务，提醒老师整理后点“归档学生服务”。");
+      priorityActions.push({
+        owner: "李舒",
+        system: "AI 助手",
+        text: "AI 课堂反馈已有草稿但还没有归档到学生服务，提醒老师整理后点“归档学生服务”。",
+        href: "./ai-assistant.html",
+        actionText: "打开 AI 助手"
+      });
     }
     if (openFeedback.length) {
-      priorityActions.push(`全站还有 ${openFeedback.length} 条反馈未闭环，先判断是否转任务，再让提出人复核。`);
+      priorityActions.push({
+        owner: "叶源泽",
+        system: "建议与任务协同系统",
+        text: `全站还有 ${openFeedback.length} 条反馈未闭环，先判断是否转任务，再让提出人复核。`,
+        href: "./suggestions.html#siteFeedbackTitle",
+        actionText: "看反馈台账"
+      });
     }
     if (qualityMissingTeachers) {
-      priorityActions.push(`排课涉及老师中约 ${qualityMissingTeachers} 位缺教学质量记录，后续补巡课/问卷/整改数据。`);
+      priorityActions.push({
+        owner: "郑嘉艺",
+        system: "教学质量系统",
+        text: `排课涉及老师中约 ${qualityMissingTeachers} 位缺教学质量记录，后续补巡课、问卷或整改数据。`,
+        href: "./teaching-quality.html",
+        actionText: "打开教学质量"
+      });
     }
 
     const cards = [
