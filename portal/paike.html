@@ -382,6 +382,18 @@
       .room-usage-table {
         min-width: 980px;
       }
+      .teacher-day-table {
+        min-width: 1120px;
+      }
+      .teacher-day-table th:first-child,
+      .teacher-day-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #f8fbfb;
+        min-width: 118px;
+        font-weight: 800;
+      }
       .room-usage-table th:first-child,
       .room-usage-table td:first-child {
         position: sticky;
@@ -511,6 +523,16 @@
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="table-wrap">
           <table class="teacher-sheet-table" id="teacherSheetTable"></table>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">当天空档</p>
+        <h2>当天老师空档表</h2>
+        <p class="hero-text">排新课时先看这里：同一天里，每位老师每个时间段有没有课。空格显示“可排”，有课程就显示学生/班级。</p>
+        <div id="teacherDaySummary" class="excel-summary"></div>
+        <div class="table-wrap">
+          <table class="teacher-day-table" id="teacherDayTable"></table>
         </div>
       </section>
 
@@ -1027,6 +1049,7 @@
         renderTeacherSheetSummary(rows);
         if (!rows.length) {
           table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请先确认月份、老师姓名是否和原 Excel 一致。</div></td></tr></tbody>`;
+          renderTeacherDayAvailability();
           renderRoomUsage();
           return;
         }
@@ -1064,7 +1087,66 @@
             `).join("")}
           </tbody>
         `;
+        renderTeacherDayAvailability();
         renderRoomUsage();
+      }
+
+      function renderTeacherDayAvailability() {
+        const table = byId("teacherDayTable");
+        const summary = byId("teacherDaySummary");
+        if (!table) return;
+        const period = selectedPeriod();
+        const date = selectedRoomDate();
+        const rows = paikeRows.filter((row) => row.period === period);
+        const dayRows = rows.filter((row) => !date || row.date === date);
+        const teachers = Array.from(new Set(rows.map((row) => row.teacher).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const slots = visibleTimeSlots(dayRows, rows);
+        const byTeacherSlot = new Map();
+        dayRows.forEach((row) => {
+          const key = `${row.teacher}|${timeSlotLabel(row)}`;
+          if (!byTeacherSlot.has(key)) byTeacherSlot.set(key, []);
+          byTeacherSlot.get(key).push(row);
+        });
+        const busyCells = Array.from(byTeacherSlot.values()).filter((items) => items.length).length;
+        const freeCells = teachers.length && slots.length ? Math.max(0, teachers.length * slots.length - busyCells) : 0;
+        if (summary) {
+          summary.innerHTML = `
+            <div class="excel-summary-card"><span>查看日期</span><strong>${escapeHtml(date ? dateLabel(date) : "-")}</strong></div>
+            <div class="excel-summary-card"><span>老师数</span><strong>${teachers.length}</strong></div>
+            <div class="excel-summary-card"><span>已占用格</span><strong>${busyCells}</strong></div>
+            <div class="excel-summary-card"><span>可排空格</span><strong>${freeCells}</strong></div>
+          `;
+        }
+        if (!teachers.length || !slots.length) {
+          table.innerHTML = `<tbody><tr><td><div class="empty">当前月份还没有老师排课数据。</div></td></tr></tbody>`;
+          return;
+        }
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>老师</th>
+              ${slots.map((slot) => `<th>${escapeHtml(slot)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${teachers.map((teacher) => `
+              <tr>
+                <td><strong>${escapeHtml(teacher)}</strong></td>
+                ${slots.map((slot) => {
+                  const cellRows = byTeacherSlot.get(`${teacher}|${slot}`) || [];
+                  return `<td>${cellRows.length
+                    ? cellRows.slice(0, 3).map((row) => `
+                      <div class="lesson-block">
+                        <strong>${escapeHtml(row.student || row.lessonType || "已排课")}</strong>
+                        <small>${escapeHtml(row.room && row.room !== "-" ? row.room : "未写教室")}</small>
+                      </div>
+                    `).join("")
+                    : `<span class="room-free">可排</span>`}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        `;
       }
 
       function renderRoomUsage() {
@@ -1394,7 +1476,10 @@
         byId(id)?.addEventListener("input", renderTeacherSheet);
         byId(id)?.addEventListener("change", renderTeacherSheet);
       });
-      byId("roomUsageDate")?.addEventListener("change", renderRoomUsage);
+      byId("roomUsageDate")?.addEventListener("change", () => {
+        renderTeacherDayAvailability();
+        renderRoomUsage();
+      });
 
       initPaikeDashboard();
     </script>
