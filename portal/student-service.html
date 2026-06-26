@@ -38,7 +38,8 @@
       }
       .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
       .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
-      .hero, .grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr); gap: 18px; }
+      .hero { display: grid; grid-template-columns: 1fr; gap: 18px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr); gap: 18px; }
       .card { padding: 22px; }
       .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
       .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -90,6 +91,12 @@
       .feedback-details[open] summary { margin-bottom: 8px; }
       .attendance-touch-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 260px; }
       .attendance-touch-actions .button { min-width: 68px; padding: 0 12px; }
+      .attendance-touch-actions .button.status-selected { color: #fff; border-color: transparent; }
+      .attendance-touch-actions .button.status-present { background: #0f766e; }
+      .attendance-touch-actions .button.status-late { background: #ca8a04; }
+      .attendance-touch-actions .button.status-leave { background: #2563eb; }
+      .attendance-touch-actions .button.status-absent { background: #dc2626; }
+      .attendance-touch-actions .button.status-review { background: #7c3aed; }
       .attendance-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       .attendance-summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fff; }
       .attendance-summary-card span { color: var(--muted); font-size: 12px; }
@@ -119,6 +126,39 @@
       .service-module-card p { margin-top: 10px; font-size: 13px; }
       .service-module-card.active { border-color: rgba(13,148,136,0.46); background: rgba(13,148,136,0.08); box-shadow: 0 14px 30px rgba(13,148,136,0.14); }
       .service-module-current { margin-top: 14px; padding: 13px 15px; border-radius: 16px; background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.16); color: var(--muted); line-height: 1.7; }
+      .service-detail-panel > summary {
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 800;
+      }
+      .service-detail-panel > summary::-webkit-details-marker { display: none; }
+      .service-detail-panel > summary::after {
+        content: "展开";
+        flex: 0 0 auto;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand-dark);
+        font-size: 12px;
+      }
+      .service-detail-panel[open] > summary { margin-bottom: 16px; }
+      .service-detail-panel[open] > summary::after { content: "收起"; }
+      .fixed-teacher-note {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0 12px;
+        background: rgba(13,148,136,0.08);
+        color: var(--brand-dark);
+        font-weight: 800;
+      }
       .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
@@ -151,23 +191,14 @@
         <article class="card">
           <p class="eyebrow">学生服务</p>
           <h1>学生与家长服务系统</h1>
-          <p class="hero-text">学生档案、课后反馈、家长沟通、点名、出门测和续费风险。</p>
+          <p class="hero-text">先选择学生群体，再处理点名、出门测、缺勤异常、课堂反馈和家长跟进。</p>
           <div class="tag-row">
             <span class="tag">学生档案</span>
-            <span class="tag">学习跟踪</span>
-            <span class="tag">课后反馈</span>
-            <span class="tag">家长沟通</span>
-            <span class="tag warn">续费风险</span>
+            <span class="tag">上课点名</span>
+            <span class="tag">出门测</span>
+            <span class="tag warn">缺勤跟进</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
-        </article>
-        <article class="card">
-          <h2>先选服务台</h2>
-          <div class="mini-list">
-            <div class="mini-item"><strong>程老师班课</strong><p>程老师学生的点名、反馈、缺席追踪和家长服务。</p></div>
-            <div class="mini-item"><strong>小班课</strong><p>数学小课、培优课、常规班课的学生服务。</p></div>
-            <div class="mini-item"><strong>科学课</strong><p>科学老师学生、出门测和家长沟通记录。</p></div>
-          </div>
         </article>
       </section>
 
@@ -176,7 +207,7 @@
           <div>
             <p class="eyebrow">服务台</p>
             <h2>选择学生群体</h2>
-            <p>进入对应服务台后，点名、成绩、课堂反馈和学生台账会按该学生群体过滤。</p>
+            <p>选择后，本页点名、登分、异常和学生台账都会只显示对应学生群体。</p>
           </div>
           <span class="status-chip" id="activeServiceModuleBadge">程老师班课</span>
         </div>
@@ -213,11 +244,12 @@
         <div class="my-service-list" id="myServiceList"></div>
       </section>
 
-      <section class="card">
+      <details class="card service-detail-panel" id="studentAdmissionTransferPanel">
+        <summary>招生转入待处理</summary>
         <div class="section-head">
           <div>
-            <h2>招生转入候选</h2>
-            <p>从招生系统读取已报名学生，生成学生档案和入学交接。</p>
+            <h2>招生转入待处理</h2>
+            <p>从招生系统读取已报名学生，需要时再生成学生档案和入学交接。</p>
           </div>
           <span class="status-chip">联动预览</span>
         </div>
@@ -229,46 +261,54 @@
             <tbody id="studentAdmissionLinkBody"></tbody>
           </table>
         </div>
-      </section>
+      </details>
 
       <section class="card">
         <div class="section-head">
           <div>
-            <h2>上课点名与课销确认</h2>
-            <p>选择课程，带出名单，直接点选到课状态。</p>
+            <h2>上课点名 / 出门测登分 / 课销确认</h2>
+            <p>先选日期、时间、老师和班级，再进入点名。名单默认未点名，出门测可手填或用 Excel 自动匹配。</p>
           </div>
           <span class="status-chip">全体老师</span>
         </div>
         <div class="form-grid">
           <label class="field"><span>日期</span><input id="attendanceDate" type="date"></label>
-          <label class="field"><span>任课老师</span><select id="attendanceTeacher"></select></label>
-          <label class="field"><span>课程类型</span><select id="attendanceLessonType"><option>正常课</option><option>试听课</option><option>补课</option><option>视频课</option><option>录播核销</option></select></label>
-          <label class="field span-3"><span>从已上传排课选择</span><select id="attendancePreimportSelect"></select></label>
+          <label class="field"><span>时间段</span><select id="attendanceTimeSlot"><option value="">先选择日期和老师</option></select></label>
+          <label class="field" id="attendanceTeacherField"><span>任课老师</span><select id="attendanceTeacher"></select><div class="fixed-teacher-note" id="attendanceTeacherFixed" hidden>程志豪</div></label>
+          <label class="field span-3"><span>班级</span><select id="attendanceClassSelect"><option value="">先选择日期、时间和老师</option></select></label>
+          <select id="attendanceLessonType" hidden><option>正常课</option></select>
+          <select id="attendancePreimportSelect" hidden></select>
           <div class="notice span-3 attendance-source-status" id="attendanceSourceStatus">排课数据：正在同步。</div>
-          <label class="field span-3"><span>班级 / 课程</span><input id="attendanceClass" placeholder="例如：暑假数学提升班 / 初一数学小班"></label>
+          <label class="field span-3"><span>班级名称</span><input id="attendanceClass" placeholder="系统会自动带出；无匹配排课时可手动填写"></label>
           <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。"></textarea></label>
         </div>
         <div class="actions">
-          <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出排课名单</button>
-          <button class="button" id="attendanceBuildButton" type="button">生成点名名单</button>
-          <button class="button secondary" id="attendanceImportButton" type="button">上传名单 Excel / CSV</button>
+          <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出所选班级名单</button>
+          <button class="button" id="attendanceBuildButton" type="button">开始点名</button>
+          <button class="button secondary" id="attendanceImportButton" type="button">上传名单 / 出门测登分 Excel</button>
           <button class="button secondary" id="attendanceTemplateButton" type="button">下载名单模板</button>
+          <select id="attendanceRosterSort" style="min-height:38px; border:1px solid var(--line); border-radius:999px; padding:0 12px; background:#fff;">
+            <option value="manual">当前顺序</option>
+            <option value="name">按姓名首字母</option>
+            <option value="score-desc">按出门测成绩高到低</option>
+            <option value="score-asc">按出门测成绩低到高</option>
+          </select>
           <button class="button secondary" id="attendanceSaveButton" type="button">保存本节点名</button>
           <button class="button secondary" id="attendanceExportButton" type="button">导出点名 CSV</button>
           <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
-        <div class="notice" id="attendanceMessage">到课默认计课时费和课销；缺席、请假、待核对必须选择后续处理；有出门测成绩会自动修正为有效到课。</div>
+        <div class="notice" id="attendanceMessage">名单生成后默认全部未点名，不预设到课；老师在手机或 iPad 上逐个点击确认。</div>
         <div class="attendance-summary-grid">
-          <div class="attendance-summary-card"><span>本节名单</span><strong id="attendanceMetricTotal">0</strong></div>
-          <div class="attendance-summary-card"><span>有效到课</span><strong id="attendanceMetricPresent">0</strong></div>
-          <div class="attendance-summary-card"><span>待追踪</span><strong id="attendanceMetricFollowup">0</strong></div>
-          <div class="attendance-summary-card"><span>普通财务人数</span><strong id="attendanceMetricFinance">0</strong></div>
-          <div class="attendance-summary-card"><span>单独结算人数</span><strong id="attendanceMetricSpecial">0</strong></div>
+          <div class="attendance-summary-card"><span>应到名单</span><strong id="attendanceMetricTotal">0</strong></div>
+          <div class="attendance-summary-card"><span>到课 / 迟到</span><strong id="attendanceMetricPresent">0</strong></div>
+          <div class="attendance-summary-card"><span>未点名</span><strong id="attendanceMetricFollowup">0</strong></div>
+          <div class="attendance-summary-card"><span>异常待处理</span><strong id="attendanceMetricFinance">0</strong></div>
+          <div class="attendance-summary-card"><span>出门测已录</span><strong id="attendanceMetricSpecial">0</strong></div>
         </div>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>学生</th><th>到课状态</th><th>出门测 / 小测</th><th>课销与课时规则</th><th>后续处理</th><th>系统判断</th></tr>
+              <tr><th>学生</th><th>点名状态</th><th>出门测 / 小测</th><th>课销与课时规则</th><th>后续处理</th><th>系统判断</th></tr>
             </thead>
             <tbody id="attendanceRosterBody"></tbody>
           </table>
@@ -289,17 +329,24 @@
             <tbody id="attendanceSettlementBody"></tbody>
           </table>
         </div>
+        <div class="form-grid" style="margin-top:16px;">
+          <label class="field"><span>异常日期</span><select id="followupDateSelect"><option value="">暂无异常</option></select></label>
+          <label class="field"><span>时间段</span><select id="followupTimeSelect"><option value="">暂无异常</option></select></label>
+          <label class="field"><span>任课老师</span><select id="followupTeacherSelect"><option value="">暂无异常</option></select></label>
+          <label class="field span-3"><span>班级</span><select id="followupClassSelect"><option value="">暂无异常</option></select></label>
+        </div>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>学生</th><th>日期 / 课程</th><th>老师</th><th>异常类型</th><th>处理方式</th><th>财务 / 课销口径</th><th>操作</th></tr>
+              <tr><th>学生</th><th>本节课</th><th>异常</th><th>处理</th></tr>
             </thead>
             <tbody id="attendanceFollowupBody"></tbody>
           </table>
         </div>
       </section>
 
-      <section class="card">
+      <details class="card service-detail-panel">
+        <summary>出门测成绩分析</summary>
         <div class="section-head">
           <div>
             <h2>成绩同步与学管沟通</h2>
@@ -321,9 +368,10 @@
             <tbody id="scoreAnalyticsBody"></tbody>
           </table>
         </div>
-      </section>
+      </details>
 
-      <section class="card">
+      <details class="card service-detail-panel">
+        <summary>学生服务总览</summary>
         <div class="section-head">
           <div>
             <h2>学生服务总览</h2>
@@ -345,9 +393,10 @@
             <tbody id="studentProfileSummaryBody"></tbody>
           </table>
         </div>
-      </section>
+      </details>
 
-      <section class="card">
+      <details class="card service-detail-panel">
+        <summary>课堂反馈时间轴</summary>
         <div class="section-head">
           <div>
             <h2>课堂反馈时间轴</h2>
@@ -368,8 +417,10 @@
           </table>
         </div>
         <div class="notice" id="studentFeedbackTimelineMessage">普通老师只看本人归档反馈；学管、教务和管理员可查看全量。</div>
-      </section>
+      </details>
 
+      <details class="card service-detail-panel">
+        <summary>学生服务台账与手工录入</summary>
       <section class="grid">
         <article class="card">
           <div class="section-head">
@@ -414,8 +465,10 @@
           <div class="notice" id="studentServiceMessage">学生档案会和招生、排课、点名数据联动。</div>
         </article>
       </section>
+      </details>
 
-      <section class="card">
+      <details class="card service-detail-panel">
+        <summary>操作日志</summary>
         <div class="section-head">
           <div>
             <h2>操作日志</h2>
@@ -430,7 +483,7 @@
             <tbody id="studentAuditTableBody"></tbody>
           </table>
         </div>
-      </section>
+      </details>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
@@ -464,7 +517,7 @@
         const candidateModule = (row = {}) => {
           const teacher = compact(row.trialTeacher || row.teacher || row.owner || "");
           const text = compact([row.className, row.courseName, row.subject, row.channel, row.note, row.studentName].filter(Boolean).join(" "));
-          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (/程志豪|程老师/.test(teacher) || /程老师|程志豪/.test(text)) return "cheng";
           if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验/.test(text)) return "science";
           return "small";
         };
@@ -515,7 +568,15 @@
           }
         };
         let activeServiceModule = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
+        const UNMARKED_STATUS = "未点名";
         const ATTENDANCE_STATUSES = ["到课", "迟到", "请假", "缺席", "待核对"];
+        const STATUS_BUTTON_CLASS = {
+          "到课": "status-present",
+          "迟到": "status-late",
+          "请假": "status-leave",
+          "缺席": "status-absent",
+          "待核对": "status-review"
+        };
         const FOLLOWUP_OPTIONS = [
           "正常销课并计课时",
           "不计课时不销课",
@@ -528,10 +589,14 @@
         const fields = {
           date: document.getElementById("attendanceDate"),
           teacher: document.getElementById("attendanceTeacher"),
+          teacherFixed: document.getElementById("attendanceTeacherFixed"),
+          timeSlot: document.getElementById("attendanceTimeSlot"),
+          classSelect: document.getElementById("attendanceClassSelect"),
           lessonType: document.getElementById("attendanceLessonType"),
           preimportSelect: document.getElementById("attendancePreimportSelect"),
           className: document.getElementById("attendanceClass"),
-          rosterInput: document.getElementById("attendanceRosterInput")
+          rosterInput: document.getElementById("attendanceRosterInput"),
+          rosterSort: document.getElementById("attendanceRosterSort")
         };
         const loadPreimportButton = document.getElementById("attendanceLoadPreimportButton");
         const buildButton = document.getElementById("attendanceBuildButton");
@@ -546,6 +611,12 @@
         const historyBody = document.getElementById("attendanceHistoryBody");
         const settlementBody = document.getElementById("attendanceSettlementBody");
         const followupBody = document.getElementById("attendanceFollowupBody");
+        const followupFilters = {
+          date: document.getElementById("followupDateSelect"),
+          time: document.getElementById("followupTimeSelect"),
+          teacher: document.getElementById("followupTeacherSelect"),
+          className: document.getElementById("followupClassSelect")
+        };
         const attendanceMetricTotal = document.getElementById("attendanceMetricTotal");
         const attendanceMetricPresent = document.getElementById("attendanceMetricPresent");
         const attendanceMetricFollowup = document.getElementById("attendanceMetricFollowup");
@@ -783,7 +854,7 @@
             record.student,
             record.studentName
           ].filter(Boolean).join(" "));
-          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (/程志豪|程老师/.test(teacher) || /程老师|程志豪/.test(text)) return "cheng";
           if (SCIENCE_TEACHERS.map(compactText).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
           return "small";
         };
@@ -811,6 +882,7 @@
           if (fields.rosterInput) fields.rosterInput.value = "";
           if (fields.className) fields.className.value = "";
           updateServiceModuleUi();
+          populateTeachers();
           renderAll();
         };
         const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
@@ -820,6 +892,7 @@
         const countSpecialPresent = (row, teacher) => isEffectivePresent(row) && isSpecialSettlementTeacher(teacher) ? 1 : 0;
         const attendanceJudgement = (row) => {
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "出门测修正为已到";
+          if (!row.status || row.status === UNMARKED_STATUS) return "尚未点名";
           if (row.status === "到课") return "点名已到";
           if (row.status === "迟到") return "迟到已到";
           if (row.status === "待核对") return "待二次核对";
@@ -927,18 +1000,32 @@
           if (parsed.teacher) ensureTeacherOption(parsed.teacher, { select: true });
           if (parsed.className && fields.className) fields.className.value = parsed.className;
           if (parsed.lessonType && fields.lessonType) fields.lessonType.value = parsed.lessonType;
+          const scoreRows = parsed.rows.filter((row) => String(row.exitScore || "").trim());
+          if (draftRows.length && scoreRows.length) {
+            const scoreByName = new Map(scoreRows.map((row) => [compactText(row.studentName), row.exitScore]));
+            let matched = 0;
+            draftRows = draftRows.map((row) => {
+              const score = scoreByName.get(compactText(row.studentName));
+              if (score == null) return row;
+              matched += 1;
+              return { ...row, exitScore: score };
+            });
+            renderRoster();
+            setMessage(`已从${sourceLabel}匹配 ${matched} 名学生的出门测成绩；点名状态保持原样，需要老师手动确认。`);
+            return;
+          }
           fields.rosterInput.value = parsed.rows.map((row) => row.studentName).join("\n");
           const teacher = getSelectedTeacher();
           draftRows = parsed.rows.map((row) => ({
             studentName: row.studentName,
             teacher,
             serviceModule: activeServiceModule,
-            status: "到课",
+            status: UNMARKED_STATUS,
             exitScore: row.exitScore || "",
-            followup: "正常销课并计课时"
+            followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
-          setMessage(`已从${sourceLabel}识别 ${draftRows.length} 名学生${draftRows.some((row) => row.exitScore) ? "，并带入出门测成绩。" : "。"}`);
+          setMessage(`已从${sourceLabel}识别 ${draftRows.length} 名学生${draftRows.some((row) => row.exitScore) ? "，并带入出门测成绩。" : "。"}名单默认未点名，请逐个确认。`);
         };
         const readImportFile = async (file) => {
           const fileName = file.name || "";
@@ -973,6 +1060,7 @@
           URL.revokeObjectURL(url);
         };
         const getSelectedTeacher = () => {
+          if (activeServiceModule === "cheng") return "程志豪";
           const employee = currentEmployee();
           if (!canManageAll() && employee?.role === "授课老师") return employee.name;
           return fields.teacher?.value || employee?.name || "未选择老师";
@@ -1011,6 +1099,12 @@
           row.className,
           row.sourceId
         ].map((value) => String(value || "").trim()).join("|");
+        const scheduleTimeLabel = (row) => {
+          const start = String(row.startTime || "").trim();
+          const end = String(row.endTime || "").trim();
+          if (!start && !end) return "未填时间";
+          return end ? `${start}-${end}` : start;
+        };
         const dedupeScheduleRows = (rows) => {
           const map = new Map();
           rows.forEach((row) => {
@@ -1083,14 +1177,27 @@
           ...rowsFromPreimportBundle(),
           ...rowsFromPaikeRegularState()
         ]);
-        const filterScheduleRosterRows = (rows) => {
+        const filterScheduleBaseRows = (rows) => {
           const date = fields.date?.value || "";
           const teacher = getSelectedTeacher();
+          const teacherMatches = (rowTeacher) => {
+            const value = String(rowTeacher || "").trim();
+            if (!teacher || value === teacher) return true;
+            if (activeServiceModule === "cheng" && /程志豪|程老师/.test(value)) return true;
+            return false;
+          };
           return rows.filter((row) => {
             if (date && row.date !== date) return false;
-            if (teacher && row.teacherName !== teacher) return false;
+            if (!teacherMatches(row.teacherName)) return false;
             if (serviceModuleForRecord(row) !== activeServiceModule) return false;
             return row.studentName;
+          });
+        };
+        const filterScheduleRosterRows = (rows) => {
+          const timeSlot = fields.timeSlot?.value || "";
+          return filterScheduleBaseRows(rows).filter((row) => {
+            if (timeSlot && scheduleTimeLabel(row) !== timeSlot) return false;
+            return true;
           });
         };
         const autoAlignScheduleFilter = (rows) => {
@@ -1116,14 +1223,38 @@
           autoAlignScheduleFilter(rows);
           return filterScheduleRosterRows(rows);
         };
+        const selectedClassPayload = () => {
+          const value = fields.classSelect?.value || fields.preimportSelect?.value || "";
+          if (!value) return null;
+          try {
+            return JSON.parse(decodeURIComponent(value));
+          } catch {
+            return null;
+          }
+        };
+        const syncSelectedClassName = () => {
+          const item = selectedClassPayload();
+          if (fields.className) fields.className.value = item?.className || "";
+        };
         const renderPreimportOptions = () => {
-          if (!fields.preimportSelect) return;
           const allRows = getAllScheduleRosterRows();
           if (canManageAll()) {
             Array.from(new Set(allRows.map((row) => row.teacherName).filter(Boolean)))
               .forEach((teacherName) => ensureTeacherOption(teacherName));
           }
           autoAlignScheduleFilter(allRows);
+          const baseRows = filterScheduleBaseRows(allRows);
+          if (fields.timeSlot) {
+            const previousTime = fields.timeSlot.value;
+            const timeOptions = Array.from(new Set(baseRows.map(scheduleTimeLabel).filter(Boolean)));
+            if (!timeOptions.length) {
+              fields.timeSlot.innerHTML = `<option value="">当前日期和老师暂无课程</option>`;
+              fields.timeSlot.value = "";
+            } else {
+              fields.timeSlot.innerHTML = timeOptions.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+              fields.timeSlot.value = timeOptions.includes(previousTime) ? previousTime : timeOptions[0];
+            }
+          }
           const matchedRows = filterScheduleRosterRows(allRows);
           const grouped = new Map();
           matchedRows.forEach((row) => {
@@ -1146,23 +1277,35 @@
           updateAttendanceSourceStatus(allRows, matchedRows, options.length);
           if (!options.length) {
             const label = preimportBundle ? "当前日期和老师没有匹配排课" : "可手动粘贴名单点名";
-            fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
+            if (fields.preimportSelect) fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
+            if (fields.classSelect) fields.classSelect.innerHTML = `<option value="">${label}</option>`;
+            if (fields.className) fields.className.value = "";
             return;
           }
-          fields.preimportSelect.innerHTML = options.map((item) => {
+          const previousClass = fields.classSelect?.value || "";
+          const optionHtml = options.map((item) => {
             const payload = encodeURIComponent(JSON.stringify(item));
             const timeLabel = item.startTime ? ` ${escapeHtml(item.startTime)}${item.endTime ? `-${escapeHtml(item.endTime)}` : ""}` : "";
-            return `<option value="${payload}">${escapeHtml(item.date)}${timeLabel} ${escapeHtml(item.teacherName)}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
+            return `<option value="${payload}">${escapeHtml(timeLabel.trim() || "未填时间")}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
           }).join("");
+          if (fields.preimportSelect) fields.preimportSelect.innerHTML = optionHtml;
+          if (fields.classSelect) {
+            fields.classSelect.innerHTML = optionHtml;
+            if (previousClass && Array.from(fields.classSelect.options).some((option) => option.value === previousClass)) {
+              fields.classSelect.value = previousClass;
+            }
+          }
+          syncSelectedClassName();
         };
         const loadPreimportRoster = () => {
-          if (!fields.preimportSelect?.value) {
+          const selectedValue = fields.classSelect?.value || fields.preimportSelect?.value || "";
+          if (!selectedValue) {
             setMessage("当前日期和老师没有可带出的已上传排课。可以换日期/老师，或手动粘贴名单。");
             return;
           }
           let item = null;
           try {
-            item = JSON.parse(decodeURIComponent(fields.preimportSelect.value));
+            item = JSON.parse(decodeURIComponent(selectedValue));
           } catch {
             item = null;
           }
@@ -1177,12 +1320,13 @@
           draftRows = item.students.map((studentName) => ({
             studentName,
             teacher: item.teacherName,
-            status: "到课",
+            serviceModule: activeServiceModule,
+            status: UNMARKED_STATUS,
             exitScore: "",
-            followup: "正常销课并计课时"
+            followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
-          setMessage(`已从${item.sourceType || "排课"}带出 ${item.students.length} 名学生。保存点名前请核对实际到课和出门测。`);
+          setMessage(`已从${item.sourceType || "排课"}带出 ${item.students.length} 名学生，当前全部为未点名。请老师逐个点击到课、迟到、请假或缺席。`);
         };
         const populateTeachers = () => {
           const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
@@ -1190,15 +1334,52 @@
             .filter((employee) => employee.role === "授课老师" || employee.subject || employee.commissionRate)
             .map((employee) => employee.name)
             .filter(Boolean);
-          const names = Array.from(new Set([...teacherNames, "程志豪", "海滢滢", "姚老师"]));
+          const scienceNames = ["海滢滢", "姚老师", "朱永乐"];
+          const allNames = Array.from(new Set([...teacherNames, "程志豪", ...scienceNames]));
+          const names = activeServiceModule === "cheng"
+            ? ["程志豪"]
+            : activeServiceModule === "science"
+              ? scienceNames
+              : allNames.filter((name) => name !== "程志豪" && !scienceNames.includes(name));
           const employee = currentEmployee();
           fields.teacher.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
           if (employee?.name && names.includes(employee.name)) fields.teacher.value = employee.name;
-          if (!canManageAll() && employee?.role === "授课老师") {
+          if (activeServiceModule === "cheng") {
+            fields.teacher.value = "程志豪";
+            fields.teacher.hidden = true;
+            if (fields.teacherFixed) {
+              fields.teacherFixed.hidden = false;
+              fields.teacherFixed.textContent = "程志豪";
+            }
+          } else {
+            fields.teacher.hidden = false;
+            if (fields.teacherFixed) fields.teacherFixed.hidden = true;
+          }
+          if (activeServiceModule !== "cheng" && !canManageAll() && employee?.role === "授课老师") {
             fields.teacher.value = employee.name;
             fields.teacher.disabled = true;
+          } else {
+            fields.teacher.disabled = activeServiceModule === "cheng";
           }
           renderPreimportOptions();
+        };
+        const sortedDraftEntries = () => {
+          const sortValue = fields.rosterSort?.value || "manual";
+          const entries = draftRows.map((row, index) => ({ row, index }));
+          if (sortValue === "name") {
+            return entries.sort((left, right) => String(left.row.studentName || "").localeCompare(String(right.row.studentName || ""), "zh-CN"));
+          }
+          if (sortValue === "score-desc" || sortValue === "score-asc") {
+            return entries.sort((left, right) => {
+              const leftScore = numericScore(left.row.exitScore);
+              const rightScore = numericScore(right.row.exitScore);
+              const emptyValue = sortValue === "score-desc" ? -Infinity : Infinity;
+              const leftValue = leftScore == null ? emptyValue : leftScore;
+              const rightValue = rightScore == null ? emptyValue : rightScore;
+              return sortValue === "score-desc" ? rightValue - leftValue : leftValue - rightValue;
+            });
+          }
+          return entries;
         };
         const renderRoster = () => {
           if (!draftRows.length) {
@@ -1206,13 +1387,13 @@
             renderDraftMetrics();
             return;
           }
-          rosterBody.innerHTML = draftRows.map((row, index) => `
+          rosterBody.innerHTML = sortedDraftEntries().map(({ row, index }) => `
             <tr>
-              <td><strong>${escapeHtml(row.studentName)}</strong></td>
+              <td><strong>${escapeHtml(row.studentName)}</strong><br><span class="tag ${row.status === UNMARKED_STATUS ? "review" : ""}">${escapeHtml(row.status || UNMARKED_STATUS)}</span></td>
               <td>
                 <div class="attendance-touch-actions">
                   ${ATTENDANCE_STATUSES.map((status) => `
-                    <button class="button ${row.status === status ? "" : "secondary"}" data-attendance-status="${index}" data-status="${escapeHtml(status)}" type="button">${escapeHtml(status)}</button>
+                    <button class="button ${row.status === status ? `status-selected ${STATUS_BUTTON_CLASS[status] || ""}` : "secondary"}" data-attendance-status="${index}" data-status="${escapeHtml(status)}" type="button">${escapeHtml(status)}</button>
                   `).join("")}
                 </div>
               </td>
@@ -1229,17 +1410,16 @@
           renderDraftMetrics();
         };
         const renderDraftMetrics = () => {
-          const teacher = getSelectedTeacher();
           const total = draftRows.length;
           const present = draftRows.filter(isEffectivePresent).length;
+          const unmarked = draftRows.filter((row) => !row.status || row.status === UNMARKED_STATUS).length;
           const followup = draftRows.filter(needsFollowup).length;
-          const finance = draftRows.reduce((sum, row) => sum + countFinancePresent(row, teacher), 0);
-          const special = draftRows.reduce((sum, row) => sum + countSpecialPresent(row, teacher), 0);
+          const scored = draftRows.filter(hasExitScore).length;
           if (attendanceMetricTotal) attendanceMetricTotal.textContent = String(total);
           if (attendanceMetricPresent) attendanceMetricPresent.textContent = String(present);
-          if (attendanceMetricFollowup) attendanceMetricFollowup.textContent = String(followup);
-          if (attendanceMetricFinance) attendanceMetricFinance.textContent = String(finance);
-          if (attendanceMetricSpecial) attendanceMetricSpecial.textContent = String(special);
+          if (attendanceMetricFollowup) attendanceMetricFollowup.textContent = String(unmarked);
+          if (attendanceMetricFinance) attendanceMetricFinance.textContent = String(followup);
+          if (attendanceMetricSpecial) attendanceMetricSpecial.textContent = String(scored);
         };
         const deriveSettlementRows = () => {
           const groups = new Map();
@@ -1284,6 +1464,9 @@
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) {
             return "点名未到但有出门测成绩，说明学生可能后来到了，需要修正点名和课销。";
           }
+          if (!row.status || row.status === UNMARKED_STATUS) {
+            return "学生还没有完成点名确认，请先核对是否到课、迟到、请假或缺席。";
+          }
           if (!isEffectivePresent(row)) {
             return session.teacher === "程志豪"
               ? "程老师学生缺课后，需要确认视频课、线下补课或一对一补齐。"
@@ -1294,6 +1477,7 @@
         };
         const followupType = (row) => {
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "出门测修正";
+          if (!row.status || row.status === UNMARKED_STATUS) return "未点名";
           if (row.status === "请假") return "请假处理";
           if (row.status === "待核对") return "待核对";
           if (row.status === "缺席") return "缺席追踪";
@@ -1304,6 +1488,7 @@
           const teacher = session?.teacher || row?.teacher || "";
           const method = row.followup || "待联系家长";
           if (hasExitScore(row) && !["到课", "迟到"].includes(row.status)) return "有成绩，建议先修正到课后再结算";
+          if (!row.status || row.status === UNMARKED_STATUS) return "未点名，暂不进入课时费和课销";
           if (method === "正常销课并计课时") return isFinanceExcludedTeacher(teacher) ? "只进单独/教学记录" : "进入普通课时费和家长课销";
           if (method === "不计课时不销课") return "不进课时费，不扣家长课时";
           if (method === "线下补课后再销课" || method === "视频补课完成后销课") return "先暂缓，完成补课后再销课";
@@ -1371,27 +1556,68 @@
             setMessage(result?.ok ? "异常处理已保存到云端，并同步学生服务台账。" : "异常处理已暂存在当前设备，云端连接恢复后会再同步。");
           });
         };
+        const sessionTimeLabel = (session) => {
+          const start = String(session?.startTime || "").trim();
+          const end = String(session?.endTime || "").trim();
+          if (!start && !end) return "未填时间";
+          return end ? `${start}-${end}` : start;
+        };
+        const setFollowupOptions = (select, values, fallbackLabel) => {
+          if (!select) return "";
+          const cleanValues = Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+          if (!cleanValues.length) {
+            select.innerHTML = `<option value="">${fallbackLabel}</option>`;
+            select.value = "";
+            return "";
+          }
+          const previous = select.value;
+          select.innerHTML = cleanValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+          select.value = cleanValues.includes(previous) ? previous : cleanValues[0];
+          return select.value;
+        };
+        const refreshFollowupFilters = (rows) => {
+          if (!followupFilters.date || !followupFilters.className) return;
+          const date = setFollowupOptions(followupFilters.date, rows.map(({ session }) => session.date || ""), "暂无异常");
+          const byDate = rows.filter(({ session }) => !date || session.date === date);
+          const time = setFollowupOptions(followupFilters.time, byDate.map(({ session }) => sessionTimeLabel(session)), "暂无异常");
+          const byTime = byDate.filter(({ session }) => !time || sessionTimeLabel(session) === time);
+          const teacher = setFollowupOptions(followupFilters.teacher, byTime.map(({ session }) => session.teacher || ""), "暂无异常");
+          const byTeacher = byTime.filter(({ session }) => !teacher || session.teacher === teacher);
+          setFollowupOptions(followupFilters.className, byTeacher.map(({ session }) => session.className || "未填班级"), "暂无异常");
+        };
+        const filterFollowupRows = (rows) => {
+          const date = followupFilters.date?.value || "";
+          const time = followupFilters.time?.value || "";
+          const teacher = followupFilters.teacher?.value || "";
+          const className = followupFilters.className?.value || "";
+          return rows.filter(({ session }) => {
+            if (date && session.date !== date) return false;
+            if (time && sessionTimeLabel(session) !== time) return false;
+            if (teacher && session.teacher !== teacher) return false;
+            if (className && (session.className || "未填班级") !== className) return false;
+            return true;
+          });
+        };
         const renderFollowups = () => {
           if (!followupBody) return;
-          const rows = deriveFollowupRows();
+          const allRows = deriveFollowupRows();
+          refreshFollowupFilters(allRows);
+          const rows = filterFollowupRows(allRows);
           if (!rows.length) {
-            followupBody.innerHTML = `<tr><td colspan="7">暂无待处理异常。缺席、请假、待核对或出门测修正会自动进入这里。</td></tr>`;
+            followupBody.innerHTML = `<tr><td colspan="4">当前班级暂无待处理异常。缺席、请假、未点名或出门测修正会自动进入这里。</td></tr>`;
             return;
           }
-          followupBody.innerHTML = rows.slice(0, 30).map(({ session, row }) => `
+          followupBody.innerHTML = rows.map(({ session, row }) => `
             <tr>
               <td><strong>${escapeHtml(row.studentName)}</strong></td>
-              <td>${escapeHtml(session.date || "-")}<br>${escapeHtml(session.className || "-")}</td>
-              <td>${escapeHtml(session.teacher || "-")}</td>
-              <td>${escapeHtml(followupType(row))}<br><span class="tag warn">${escapeHtml(row.status || "-")}</span>${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
+              <td>${escapeHtml(session.date || "-")} ${escapeHtml(sessionTimeLabel(session))}<br>${escapeHtml(session.teacher || "-")}｜${escapeHtml(session.className || "-")}</td>
+              <td>${escapeHtml(followupType(row))}<br><span class="tag warn">${escapeHtml(row.status || UNMARKED_STATUS)}</span>${hasExitScore(row) ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}<br>${escapeHtml(followupReason(row, session))}</td>
               <td>
                 <select data-followup-method="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}" style="min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 10px; background:#fff;">
                   ${FOLLOWUP_OPTIONS.map((option) => `<option ${row.followup === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
                 </select>
-                <br>${escapeHtml(followupReason(row, session))}
-              </td>
-              <td>${escapeHtml(followupFinanceRule(row, session))}</td>
-              <td>
+                <br>${escapeHtml(followupFinanceRule(row, session))}
+                <br>
                 ${hasExitScore(row) && !["到课", "迟到"].includes(row.status) ? `<button class="button secondary" type="button" data-mark-attendance-present="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}">修正到课</button><br>` : ""}
                 <button class="button" type="button" data-resolve-followup="${escapeHtml(session.id)}|${escapeHtml(row.rowId)}">标记已处理</button>
               </td>
@@ -1746,6 +1972,11 @@
           renderPreimportOptions();
         });
         fields.teacher?.addEventListener("change", renderPreimportOptions);
+        fields.timeSlot?.addEventListener("change", renderPreimportOptions);
+        fields.classSelect?.addEventListener("change", () => {
+          syncSelectedClassName();
+          loadPreimportRoster();
+        });
         moduleCards.forEach((card) => {
           card.addEventListener("click", () => switchServiceModule(card.getAttribute("data-service-module")));
         });
@@ -1785,12 +2016,12 @@
             studentName: row.studentName,
             teacher,
             serviceModule: activeServiceModule,
-            status: "到课",
+            status: UNMARKED_STATUS,
             exitScore: row.exitScore || "",
-            followup: "正常销课并计课时"
+            followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
-          setMessage(`已生成 ${draftRows.length} 人点名名单。可以在 iPad 上直接点选到课状态${draftRows.some((row) => row.exitScore) ? "，出门测成绩也已带入。" : "。"}`);
+          setMessage(`已生成 ${draftRows.length} 人点名名单，当前全部未点名。可以在 iPad 上逐个点击状态${draftRows.some((row) => row.exitScore) ? "，出门测成绩也已带入。" : "。"}`);
         });
         saveButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
@@ -1798,13 +2029,21 @@
             setMessage("请先生成点名名单，再保存本节课记录。");
             return;
           }
+          const unmarkedCount = draftRows.filter((row) => !row.status || row.status === UNMARKED_STATUS).length;
+          if (unmarkedCount && !window.confirm(`还有 ${unmarkedCount} 名学生未点名。未点名会进入缺勤异常待处理，确认保存吗？`)) {
+            setMessage(`还有 ${unmarkedCount} 名学生未点名，请继续确认。`);
+            return;
+          }
           const teacher = getSelectedTeacher();
+          const selectedClass = selectedClassPayload();
           const session = {
             id: `class-att-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             date: fields.date?.value || today(),
             teacher,
             lessonType: fields.lessonType?.value || "正常课",
             className: fields.className?.value?.trim() || "",
+            startTime: selectedClass?.startTime || "",
+            endTime: selectedClass?.endTime || "",
             serviceModule: activeServiceModule,
             operatorName: currentEmployee()?.name || "未登录",
             reviewStatus: "待复核",
@@ -1842,6 +2081,10 @@
         });
         exportButton.addEventListener("click", () => {
           if (canUseAttendance()) exportCsv();
+        });
+        fields.rosterSort?.addEventListener("change", renderRoster);
+        Object.values(followupFilters).forEach((select) => {
+          select?.addEventListener("change", renderFollowups);
         });
         historyBody.addEventListener("click", (event) => {
           const button = event.target.closest("[data-confirm-attendance]");
@@ -1942,7 +2185,7 @@
           if (["cheng", "small", "science"].includes(explicit)) return explicit;
           const teacher = compact(row.teacher || row.createdBy || row.owner || row.operatorName || "");
           const text = compact([row.className, row.type, row.content, row.parentMessage, row.sourceText, row.student].filter(Boolean).join(" "));
-          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (/程志豪|程老师/.test(teacher) || /程老师|程志豪/.test(text)) return "cheng";
           if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
           return "small";
         };

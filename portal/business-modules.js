@@ -997,7 +997,7 @@
       const compact = (value) => String(value || "").replace(/\s+/g, "");
       const teacher = compact(row.teacher || row.teacherName || row.createdBy || row.operatorName || "");
       const text = compact([row.className, row.type, row.content, row.parentMessage, row.sourceText, row.student, row.studentName].filter(Boolean).join(" "));
-      if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+      if (/程志豪|程老师/.test(teacher) || /程老师|程志豪/.test(text)) return "cheng";
       if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
       return "small";
     }
