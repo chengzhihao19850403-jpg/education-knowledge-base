@@ -1038,6 +1038,7 @@
     const defaultOutlineCategory = "普通课程资料";
     const outlineCategoryOptions = [defaultOutlineCategory, "程老师授课大纲", "科学老师授课大纲", "小课老师授课大纲"];
     const seasonOptions = ["春季", "暑假", "秋季", "寒假", "通用"];
+    const scienceOutlineTeachers = ["海滢滢", "姚老师", "朱永乐"];
     const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit") || currentEmployee.role !== "授课老师";
     const isGradeRestricted = !canViewAllGrades;
     const allowedGrades = isGradeRestricted ? (gradeExpertRule?.grades || []) : allGradeOptions;
@@ -1104,6 +1105,15 @@
       return Array.from(names).sort((left, right) => left.localeCompare(right, "zh-CN"));
     }
 
+    function teacherFilterNamesForActiveOutline() {
+      if (activeOutlineFilter === "科学老师授课大纲") return scienceOutlineTeachers;
+      if (activeOutlineFilter === "小课老师授课大纲") {
+        const scienceSet = new Set(scienceOutlineTeachers);
+        return teachingTeacherNames().filter((name) => !scienceSet.has(name));
+      }
+      return [];
+    }
+
     function applyTeacherOptions() {
       const names = teachingTeacherNames();
       const input = $("curriculumTeacherInput");
@@ -1115,17 +1125,19 @@
       const filter = $("curriculumTeacherFilter");
       if (filter) {
         const selected = filter.value || "";
-        filter.innerHTML = `<option value="">全部授课老师</option>${names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
-        if (selected && names.includes(selected)) filter.value = selected;
+        const filterNames = teacherFilterNamesForActiveOutline();
+        filter.innerHTML = `<option value="">全部授课老师</option>${filterNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
+        if (selected && filterNames.includes(selected)) filter.value = selected;
       }
     }
 
     function updateCurriculumFilterControls() {
       const teacherFilter = $("curriculumTeacherFilter");
       if (!teacherFilter) return;
-      const shouldShowTeacherFilter = activeOutlineFilter === "小课老师授课大纲";
+      const shouldShowTeacherFilter = ["小课老师授课大纲", "科学老师授课大纲"].includes(activeOutlineFilter);
       teacherFilter.hidden = !shouldShowTeacherFilter;
       if (!shouldShowTeacherFilter) teacherFilter.value = "";
+      applyTeacherOptions();
     }
 
     function isImageFile(row = {}) {
@@ -1175,6 +1187,7 @@
     let editingIndex = -1;
     let activeOutlineFilter = "";
     let curriculumPreviewObjectUrl = "";
+    let curriculumPreviewZoom = 1;
 
     function gradeScopeText() {
       if (!isGradeRestricted) return "当前账号可查看全部年级课程资料。";
@@ -1258,10 +1271,24 @@
       const image = $("curriculumPreviewImage");
       if (modal) modal.setAttribute("aria-hidden", "true");
       if (image) image.removeAttribute("src");
+      curriculumPreviewZoom = 1;
       if (curriculumPreviewObjectUrl) {
         URL.revokeObjectURL(curriculumPreviewObjectUrl);
         curriculumPreviewObjectUrl = "";
       }
+    }
+
+    function applyCurriculumPreviewZoom() {
+      const image = $("curriculumPreviewImage");
+      if (!image) return;
+      image.style.width = `${Math.round(curriculumPreviewZoom * 100)}%`;
+      image.style.margin = "0 auto";
+      image.style.display = "block";
+    }
+
+    function setCurriculumPreviewZoom(nextZoom) {
+      curriculumPreviewZoom = Math.min(4, Math.max(0.5, nextZoom));
+      applyCurriculumPreviewZoom();
     }
 
     async function previewCurriculumImage(row, button) {
@@ -1279,8 +1306,10 @@
       if (!modal || !image) return;
       closeCurriculumPreview();
       if (title) title.textContent = row.fileName || "图片预览";
+      setCurriculumPreviewZoom(1);
       if (row.fileDataUrl) {
         image.src = row.fileDataUrl;
+        image.onload = applyCurriculumPreviewZoom;
         modal.setAttribute("aria-hidden", "false");
         setText("curriculumMessage", `正在预览 ${row.fileName}。`);
         return;
@@ -1299,6 +1328,7 @@
         }
         curriculumPreviewObjectUrl = URL.createObjectURL(result.blob);
         image.src = curriculumPreviewObjectUrl;
+        image.onload = applyCurriculumPreviewZoom;
         modal.setAttribute("aria-hidden", "false");
         setText("curriculumMessage", `正在预览 ${row.fileName}。`);
       } catch (error) {
@@ -1678,6 +1708,9 @@
       }
     });
     $("curriculumPreviewCloseButton")?.addEventListener("click", closeCurriculumPreview);
+    $("curriculumPreviewZoomOutButton")?.addEventListener("click", () => setCurriculumPreviewZoom(curriculumPreviewZoom - 0.25));
+    $("curriculumPreviewZoomResetButton")?.addEventListener("click", () => setCurriculumPreviewZoom(1));
+    $("curriculumPreviewZoomInButton")?.addEventListener("click", () => setCurriculumPreviewZoom(curriculumPreviewZoom + 0.25));
     $("curriculumPreviewModal")?.addEventListener("click", (event) => {
       if (event.target === $("curriculumPreviewModal")) closeCurriculumPreview();
     });
