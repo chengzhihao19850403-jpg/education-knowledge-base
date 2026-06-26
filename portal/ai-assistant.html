@@ -609,9 +609,7 @@
           ["整理正文", result.polishedText],
           ["建议动作", result.suggestedAction],
           ["待办", Array.isArray(result.todoItems) ? result.todoItems.map((item) => `- ${item}`).join("\n") : ""],
-          ["标签", Array.isArray(result.quickTags) ? result.quickTags.join("、") : ""],
-          ["结构化信息", result.structuredData && typeof result.structuredData === "object" ? JSON.stringify(result.structuredData, null, 2) : ""],
-          ["内部备注", result.internalNote]
+          ["标签", Array.isArray(result.quickTags) ? result.quickTags.join("、") : ""]
         ].filter(([, value]) => value);
         return sections.map(([label, value]) => `${label}：\n${Array.isArray(value) ? value.join("\n") : value}`).join("\n\n");
       }
@@ -856,19 +854,14 @@
         latestResult = result;
         const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
         const tags = Array.isArray(result.quickTags) ? result.quickTags : [];
-        const structuredText = result.structuredData && typeof result.structuredData === "object" ? JSON.stringify(result.structuredData, null, 2) : "";
         const classFeedback = isClassFeedbackMode();
         const showPolishedText = !classFeedback && result.polishedText && result.polishedText !== result.parentMessage;
-        const showStructuredText = !classFeedback && structuredText;
-        const showInternalNote = !classFeedback && result.internalNote;
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
           ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版")}</div>` : ""}
           ${showPolishedText ? `<div class="result-item"><strong>整理正文</strong>${editableResultTextarea("polishedText", result.polishedText, "整理正文")}</div>` : ""}
           ${!classFeedback && todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
           ${!classFeedback && tags.length ? `<div class="result-item"><strong>标签</strong><p>${tags.map((item) => escapeHtml(item)).join("、")}</p></div>` : ""}
-          ${showStructuredText ? `<div class="result-item"><strong>结构化信息</strong><pre class="result-text">${escapeHtml(structuredText)}</pre></div>` : ""}
-          ${showInternalNote ? `<div class="result-item"><strong>内部备注</strong><pre class="result-text">${escapeHtml(result.internalNote)}</pre></div>` : ""}
         `;
         syncEditableResultFields();
         updateActionButtons();
