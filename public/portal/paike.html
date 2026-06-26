@@ -879,6 +879,67 @@
         return timeMinutes(String(label || "").split("-")[0]);
       }
 
+      const COMMON_TIME_SLOTS = [
+        "08:00-10:00",
+        "08:30-10:00",
+        "08:30-10:20",
+        "10:10-11:40",
+        "10:30-12:00",
+        "12:30-14:30",
+        "13:00-14:30",
+        "13:00-15:00",
+        "14:30-16:30",
+        "14:40-16:10",
+        "15:00-16:30",
+        "16:10-17:40",
+        "16:30-18:00",
+        "17:00-18:30",
+        "18:30-20:00",
+        "18:30-20:30",
+        "19:00-20:30"
+      ];
+
+      function isValidTimeSlot(label) {
+        const parts = String(label || "").split("-");
+        if (parts.length < 2) return Boolean(String(label || "").trim());
+        return parts.every((part) => {
+          const match = String(part).match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return false;
+          const hour = Number(match[1]);
+          const minute = Number(match[2]);
+          return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+        });
+      }
+
+      function datesInPeriod(period) {
+        const match = String(period || "").match(/^(\d{4})-(\d{2})$/);
+        if (!match) return Array.from(new Set(paikeRows.map((row) => row.date).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const lastDay = new Date(year, month, 0).getDate();
+        return Array.from({ length: lastDay }, (_, index) => `${match[1]}-${match[2]}-${String(index + 1).padStart(2, "0")}`);
+      }
+
+      function dateMatchesMode(date, mode) {
+        const weekday = weekdayName(date);
+        if (mode === "weekend") return ["周五", "周六", "周日"].includes(weekday);
+        if (mode === "weekday") return ["周一", "周二", "周三", "周四"].includes(weekday);
+        return true;
+      }
+
+      function currentVisibleDates() {
+        const mode = byId("teacherSheetMode")?.value || "month";
+        return datesInPeriod(selectedPeriod()).filter((date) => dateMatchesMode(date, mode));
+      }
+
+      function visibleTimeSlots(rows, fallbackRows = []) {
+        const actualSlots = [...rows, ...fallbackRows]
+          .map(timeSlotLabel)
+          .filter((slot) => slot && slot !== "未填时间" && isValidTimeSlot(slot));
+        return Array.from(new Set([...COMMON_TIME_SLOTS, ...actualSlots]))
+          .sort((a, b) => timeSlotSortValue(a) - timeSlotSortValue(b));
+      }
+
       function selectedPeriod() {
         return byId("teacherSheetPeriod")?.value || "2026-06";
       }
@@ -937,10 +998,12 @@
           .map((row) => row.date)
           .filter(Boolean)))
           .sort((a, b) => a.localeCompare(b));
-        const preferredDate = preferredRows.find((row) => row.date)?.date || dates[0] || "";
-        const current = dates.includes(select.value) ? select.value : preferredDate;
-        select.innerHTML = dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(dateLabel(date))}</option>`).join("");
-        if (dates.includes(current)) select.value = current;
+        const fullDates = datesInPeriod(period);
+        const optionDates = fullDates.length ? fullDates : dates;
+        const preferredDate = preferredRows.find((row) => row.date)?.date || dates[0] || optionDates[0] || "";
+        const current = optionDates.includes(select.value) ? select.value : preferredDate;
+        select.innerHTML = optionDates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(dateLabel(date))}</option>`).join("");
+        if (optionDates.includes(current)) select.value = current;
       }
 
       function renderTeacherSheetSummary(rows) {
@@ -950,7 +1013,7 @@
         const roomMissing = rows.filter((row) => !String(row.room || "").trim() || row.room === "-").length;
         holder.innerHTML = `
           <div class="excel-summary-card"><span>当前老师</span><strong>${escapeHtml(selectedTeacher() || "-")}</strong></div>
-          <div class="excel-summary-card"><span>本月课程格</span><strong>${rows.length}</strong></div>
+          <div class="excel-summary-card"><span>已排课程</span><strong>${rows.length}</strong></div>
           <div class="excel-summary-card"><span>学生/班级</span><strong>${studentCount}</strong></div>
           <div class="excel-summary-card"><span>未写教室</span><strong>${roomMissing}</strong></div>
         `;
@@ -967,8 +1030,9 @@
           renderRoomUsage();
           return;
         }
-        const dates = Array.from(new Set(rows.map((row) => row.date).filter(Boolean))).sort((a, b) => a.localeCompare(b)).slice(0, 31);
-        const slots = Array.from(new Set(rows.map(timeSlotLabel))).sort((a, b) => timeSlotSortValue(a) - timeSlotSortValue(b));
+        const dates = currentVisibleDates();
+        const periodRows = paikeRows.filter((row) => row.period === selectedPeriod());
+        const slots = visibleTimeSlots(rows, periodRows);
         const byCell = new Map();
         rows.forEach((row) => {
           const key = `${timeSlotLabel(row)}|${row.date}`;
@@ -1015,9 +1079,8 @@
         const dayRoomRows = dayRows.filter((row) => row.room && row.room !== "-");
         const noRoomRows = rows.filter((row) => !row.room || row.room === "-");
         const rooms = Array.from(new Set(roomRows.map((row) => row.room))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
-        const daySlots = Array.from(new Set(dayRows.map(timeSlotLabel))).filter(Boolean);
-        const monthSlots = Array.from(new Set(rows.map(timeSlotLabel))).filter(Boolean);
-        const slots = (daySlots.length ? daySlots : monthSlots).sort((a, b) => timeSlotSortValue(a) - timeSlotSortValue(b));
+        const daySlots = visibleTimeSlots(dayRows, rows);
+        const slots = daySlots.length ? daySlots : COMMON_TIME_SLOTS;
         const freeCells = rooms.length && slots.length ? Math.max(0, rooms.length * slots.length - dayRoomRows.length) : 0;
         if (summary) {
           summary.innerHTML = `
