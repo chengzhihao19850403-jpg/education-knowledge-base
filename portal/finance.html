@@ -1144,6 +1144,7 @@
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260624b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260626f"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       const FINANCE_STORAGE_KEY = "jrc-finance-ledger-v1";
@@ -1354,6 +1355,17 @@
       function setFinanceAutofillMessage(text) {
         const node = byId("financeAutofillMessage");
         if (node) node.textContent = text;
+      }
+
+      function recordFinanceLink(action, count = 1, samples = [], note = "") {
+        window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+          source: "财务系统",
+          target: "排课 / 点名 / 建议任务",
+          action,
+          count,
+          samples,
+          note
+        });
       }
 
       function readLocalAttendance() {
@@ -1842,6 +1854,12 @@
         period.reviewStatus = "待复核";
         period.updatedAt = new Date().toISOString();
         period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        recordFinanceLink(
+          "月结草算保存",
+          1,
+          [currentPeriod],
+          "财务月结保存为待复核状态，后续继续和排课、点名、工资表进行对照。"
+        );
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? `已保存到云端：${currentPeriod} 月结数据已进入“待复核”。`
@@ -1861,6 +1879,12 @@
           reviewedAt: expense.reviewedAt || period.reviewedAt,
           reviewedBy: expense.reviewedBy || period.reviewedBy
         }));
+        recordFinanceLink(
+          "月结复核确认",
+          1,
+          [currentPeriod],
+          "财务月结确认后，作为人工复核后的阶段结果；仍保留与原 Excel 对照的余地。"
+        );
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? `已保存到云端：${currentPeriod} 财务数据已确认复核。`
@@ -2493,6 +2517,12 @@
             const taskId = row.taskId || `task-finance-${Date.now()}`;
             const result = await createFinanceReconciliationTask(row, taskId);
             taskResult.ok = result?.ok;
+            recordFinanceLink(
+              "财务核对草稿转任务",
+              1,
+              [`${row.teacherName || "未指定老师"}｜${row.title || row.period || currentPeriod}`],
+              "财务发现的差异不再停留在表格里，已转入建议与任务协同系统，由负责人处理并反馈结果。"
+            );
             nextRow = {
               ...nextRow,
               status: "已转任务",
@@ -2548,13 +2578,21 @@
         period.otherTeacherCost = String(Math.round(salaryAmount * 100) / 100);
         period.expenses = period.expenses || [];
         const existingImportIds = new Set(period.expenses.map((row) => row.importSourceId).filter(Boolean));
+        let importedExpenseCount = 0;
         expenseRows.forEach((row) => {
           if (existingImportIds.has(row.id)) return;
           period.expenses.push(createImportedExpenseDraft(row));
+          importedExpenseCount += 1;
         });
         period.reviewStatus = "待复核";
         period.updatedAt = new Date().toISOString();
         period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
+        recordFinanceLink(
+          "原始表数据带入财务草算",
+          salaryRows.length + revenueRows.length + importedExpenseCount,
+          [`${currentPeriod}｜收入${money(revenueAmount)}｜工资课时${money(salaryAmount)}`],
+          "工资表、排课表和支出表带入财务月结草算，供财务与人工 Excel 交叉核对。"
+        );
         writeState(state).then((result) => {
           setFinanceAutofillMessage(
             result?.ok

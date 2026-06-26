@@ -1195,11 +1195,13 @@
         const updateAttendanceFollowup = (sessionId, rowId, updates) => {
           const sessions = mergeAttendanceSessions(readRows());
           let updatedSession = null;
+          let updatedStudent = "";
           const nextSessions = sessions.map((session) => {
             if (String(session.id) !== String(sessionId)) return session;
             const rows = (session.rows || []).map((row) => {
               const safeRow = ensureAttendanceRowId(session, row);
               if (String(safeRow.rowId) !== String(rowId)) return safeRow;
+              updatedStudent = safeRow.studentName || safeRow.student || "";
               return {
                 ...safeRow,
                 ...updates,
@@ -1219,6 +1221,14 @@
           renderMyServiceWorkbench();
           if (updatedSession) {
             const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([updatedSession]) || [];
+            window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+              source: "学生服务点名",
+              target: "学生服务系统 / 财务系统",
+              action: updates.status === "到课" ? "出门测反向修正到课" : "缺勤异常处理完成",
+              count: 1,
+              samples: [`${updatedStudent || "未填学生"}｜${updatedSession.date || "-"}｜${updatedSession.className || "-"}`],
+              note: "缺席、请假、待核对学生处理完成后，同步更新学生服务记录，并作为课销和课时费核对依据。"
+            });
             window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session: updatedSession, linkedRows } }));
           }
           Promise.resolve(saveResult).then((result) => {
@@ -1534,6 +1544,14 @@
           target.reviewStatus = "已确认";
           target.reviewedAt = new Date().toISOString();
           target.reviewedBy = currentEmployee()?.name || "未登录";
+          window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+            source: "学生服务点名",
+            target: "财务系统",
+            action: "点名复核确认",
+            count: (target.rows || []).length,
+            samples: [`${target.date || "-"}｜${target.teacher || "-"}｜${target.className || "-"}`],
+            note: "管理员确认本节点名后，可进入老师课时费和家长课销核对。"
+          });
           Promise.resolve(saveRows(rows)).then((result) => {
             setMessage(result?.ok
               ? "已保存到云端：本节点名已确认复核，可作为课时费和课销核对依据。"
@@ -1661,6 +1679,14 @@
           renderStudentProfileSummary();
           renderMyServiceWorkbench();
           const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([session]) || [];
+          window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+            source: "学生服务点名",
+            target: "学生服务系统 / 财务系统",
+            action: "保存点名并生成课销课时依据",
+            count: session.rows.length,
+            samples: [`${session.date || "-"}｜${session.teacher || "-"}｜${session.className || "-"}`],
+            note: "保存点名后，学生服务生成跟进记录；财务系统读取点名数据形成课时费、单独结算和家长课销核对依据。"
+          });
           window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session, linkedRows } }));
           const unresolved = session.rows.filter(needsFollowup).length;
           Promise.resolve(saveResult).then((result) => {

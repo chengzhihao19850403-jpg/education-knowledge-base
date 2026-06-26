@@ -862,7 +862,7 @@
 
     function hydrateFromAttendance() {
       const sessions = readStore(attendanceKey, []);
-      const linkedRows = syncAttendanceIntoStudentService(sessions, { dispatch: false });
+      const linkedRows = syncAttendanceIntoStudentService(sessions, { dispatch: false, log: false });
       if (linkedRows.length) {
         rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       }
@@ -872,7 +872,7 @@
     function hydrateFromAdmissions() {
       const state = readAdmissionsState();
       const leads = Array.isArray(state.leads) ? state.leads : [];
-      const linkedRows = syncAdmissionsIntoStudentService(leads, { dispatch: false });
+      const linkedRows = syncAdmissionsIntoStudentService(leads, { dispatch: false, log: false });
       if (linkedRows.length) {
         rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       }
@@ -1062,7 +1062,7 @@
     }
     window.JRC_CLOUD?.readModuleData?.(attendanceKey).then((result) => {
       const remoteSessions = Array.isArray(result?.data?.payload) ? result.data.payload : [];
-      const remoteLinkedCount = syncAttendanceIntoStudentService(remoteSessions, { dispatch: false }).length;
+      const remoteLinkedCount = syncAttendanceIntoStudentService(remoteSessions, { dispatch: false, log: false }).length;
       if (!remoteLinkedCount) return;
       rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       render();
@@ -1072,7 +1072,7 @@
     });
     window.JRC_CLOUD?.readModuleData?.("advice-system-stage-prototype").then((result) => {
       const remoteLeads = Array.isArray(result?.data?.payload?.leads) ? result.data.payload.leads : [];
-      const remoteLinkedCount = syncAdmissionsIntoStudentService(remoteLeads, { dispatch: false }).length;
+      const remoteLinkedCount = syncAdmissionsIntoStudentService(remoteLeads, { dispatch: false, log: false }).length;
       if (!remoteLinkedCount) return;
       rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       render();
@@ -1091,7 +1091,7 @@
       setText("studentServiceMessage", "已同步云端学生服务台账。");
     });
     window.addEventListener("jrc-attendance-saved", (event) => {
-      const count = syncAttendanceIntoStudentService([event.detail?.session].filter(Boolean), { dispatch: false }).length;
+      const count = syncAttendanceIntoStudentService([event.detail?.session].filter(Boolean), { dispatch: false, log: false }).length;
       if (!count) return;
       rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       render();
