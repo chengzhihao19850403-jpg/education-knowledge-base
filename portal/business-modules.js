@@ -123,6 +123,90 @@
     };
   }
 
+  function admissionLeadToStudentService(lead) {
+    const student = normalizeName(lead?.studentName || lead?.name || "");
+    if (!student) return null;
+    const enrolledAmount = Number(lead?.enrolledAmount || 0);
+    const status = normalizeText(lead?.status || "");
+    const parentPhone = normalizePhone(lead?.parentPhone || lead?.phone || "");
+    const owner = normalizeName(lead?.owner || "");
+    const trialTeacher = normalizeName(lead?.trialTeacher || "");
+    const className = normalizeName(lead?.grade || lead?.className || "待分班");
+    const sourceId = normalizeText(lead?.leadId || lead?.id || `${student}-${parentPhone || owner}`);
+    const note = [
+      status ? `招生状态：${status}` : "",
+      lead?.channel ? `来源：${lead.channel}` : "",
+      owner ? `招生/学管：${owner}` : "",
+      trialTeacher ? `试听老师：${trialTeacher}` : "",
+      enrolledAmount ? `实收/报名金额：${enrolledAmount}` : "",
+      parentPhone ? `家长电话：${parentPhone}` : ""
+    ].filter(Boolean).join("；");
+    return {
+      rowId: `adm-flow-${sourceId}`.replace(/\s+/g, ""),
+      student,
+      className,
+      teacher: trialTeacher || owner || "-",
+      type: "入学交接",
+      risk: "正常",
+      content: note || "招生系统已报名学生自动进入学生服务候选。",
+      next: "建立学生档案，安排首次家长沟通和正式排课",
+      sourceModule: "admissions",
+      sourceLeadId: sourceId,
+      sourceStatus: status,
+      parentPhone,
+      channel: normalizeText(lead?.channel || ""),
+      admissionsOwner: owner,
+      trialTeacher,
+      enrolledAmount,
+      createdAt: lead?.createdAt || nowText(),
+      updatedAt: nowText()
+    };
+  }
+
+  function readAdmissionsState() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("advice-system-stage-prototype") || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function syncAdmissionsIntoStudentService(leads, options = {}) {
+    const key = "jrc-student-service-v2";
+    const incoming = (Array.isArray(leads) ? leads : [])
+      .filter((lead) => String(lead?.status || "") === "定金 / 已报名" || Number(lead?.enrolledAmount || 0) > 0)
+      .map(admissionLeadToStudentService)
+      .filter(Boolean);
+    if (!incoming.length) return [];
+    const existing = readStore(key, []);
+    const merged = mergeRowsById([...incoming, ...existing], key);
+    localStorage.setItem(key, JSON.stringify(merged));
+    if (window.JRC_CLOUD?.writeModuleData) {
+      const writeMerged = (remoteRows = []) => {
+        const nextRows = mergeRowsById([...incoming, ...remoteRows, ...existing], key);
+        localStorage.setItem(key, JSON.stringify(nextRows));
+        return window.JRC_CLOUD.writeModuleData(key, "studentService", nextRows).catch((error) => {
+          console.warn("招生联动学生服务云端保存失败", error);
+          return { ok: false, error };
+        });
+      };
+      if (window.JRC_CLOUD.readModuleData) {
+        window.JRC_CLOUD.readModuleData(key)
+          .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+          .catch(() => writeMerged([]));
+      } else {
+        writeMerged([]);
+      }
+    }
+    if (options.dispatch !== false) {
+      window.dispatchEvent(new CustomEvent("jrc-student-service-linked", {
+        detail: { rows: incoming, source: "admissions" }
+      }));
+    }
+    return incoming;
+  }
+
   function syncAttendanceIntoStudentService(sessions, options = {}) {
     const key = "jrc-student-service-v2";
     const incoming = (Array.isArray(sessions) ? sessions : [])
@@ -700,6 +784,16 @@
       return linkedRows.length;
     }
 
+    function hydrateFromAdmissions() {
+      const state = readAdmissionsState();
+      const leads = Array.isArray(state.leads) ? state.leads : [];
+      const linkedRows = syncAdmissionsIntoStudentService(leads, { dispatch: false });
+      if (linkedRows.length) {
+        rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+      }
+      return linkedRows.length;
+    }
+
     function fillForm(row) {
       $("studentNameInput").value = row.student || "";
       $("studentClassInput").value = row.className || "";
@@ -726,7 +820,7 @@
             <td>${escapeHtml(row.student)}</td>
             <td>${escapeHtml(row.className)}</td>
             <td>${escapeHtml(row.teacher)}</td>
-            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}<br><button type="button" data-action="copy-parent-message" data-index="${index}" style="margin-top:6px; min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(13,148,136,0.28); background:rgba(13,148,136,0.08); color:#0f766e; cursor:pointer;">复制家长文案</button>` : ""}</td>
+            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "admissions" ? "<br><span style=\"color:#1d4ed8;font-size:12px;font-weight:800;\">招生转入</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}<br><button type="button" data-action="copy-parent-message" data-index="${index}" style="margin-top:6px; min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(13,148,136,0.28); background:rgba(13,148,136,0.08); color:#0f766e; cursor:pointer;">复制家长文案</button>` : ""}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>
@@ -876,9 +970,10 @@
     });
     resetForm();
     const linkedCount = hydrateFromAttendance();
+    const admissionsLinkedCount = hydrateFromAdmissions();
     render();
-    if (linkedCount) {
-      setText("studentServiceMessage", `已从点名系统同步 ${linkedCount} 条学生服务记录。`);
+    if (linkedCount || admissionsLinkedCount) {
+      setText("studentServiceMessage", `已自动联动：点名 ${linkedCount} 条，招生报名 ${admissionsLinkedCount} 条。`);
     }
     window.JRC_CLOUD?.readModuleData?.(attendanceKey).then((result) => {
       const remoteSessions = Array.isArray(result?.data?.payload) ? result.data.payload : [];
@@ -890,10 +985,21 @@
     }).catch((error) => {
       console.warn("云端点名联动学生服务读取失败", error);
     });
+    window.JRC_CLOUD?.readModuleData?.("advice-system-stage-prototype").then((result) => {
+      const remoteLeads = Array.isArray(result?.data?.payload?.leads) ? result.data.payload.leads : [];
+      const remoteLinkedCount = syncAdmissionsIntoStudentService(remoteLeads, { dispatch: false }).length;
+      if (!remoteLinkedCount) return;
+      rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+      render();
+      setText("studentServiceMessage", `已从云端招生同步 ${remoteLinkedCount} 条入学交接记录。`);
+    }).catch((error) => {
+      console.warn("云端招生联动学生服务读取失败", error);
+    });
     readCloudStore(key, (cloudRows) => {
       rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       hydrateFromAttendance();
+      hydrateFromAdmissions();
       rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
       resetForm();
       render();
@@ -1785,6 +1891,7 @@
 
   window.JRC_BUSINESS_MODULES = {
     ...(window.JRC_BUSINESS_MODULES || {}),
-    syncAttendanceIntoStudentService
+    syncAttendanceIntoStudentService,
+    syncAdmissionsIntoStudentService
   };
 })();

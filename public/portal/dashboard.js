@@ -796,6 +796,11 @@
     `;
   }
 
+  function sampleList(rows, formatter, limit = 3) {
+    const list = (Array.isArray(rows) ? rows : []).slice(0, limit).map(formatter).filter(Boolean);
+    return list.length ? ` 样例：${list.join("；")}` : "";
+  }
+
   async function renderCloudReadiness() {
     const holder = $("portalCloudReadinessList");
     if (!holder) return;
@@ -940,7 +945,17 @@
     const effectiveCount = sessions.reduce((sum, session) => sum + (Array.isArray(session.rows) ? session.rows : [])
       .filter(isEffectiveAttendance).length, 0);
     const scheduleWithoutAttendance = [...scheduleStudentKeys].filter((key) => key && !attendanceStudentKeys.has(key)).length;
+    const scheduleWithoutAttendanceSamples = scheduleRows.filter((row) => {
+      const key = scheduleStudentKey(row);
+      return key && !attendanceStudentKeys.has(key);
+    }).slice(0, 3);
     const attendanceWithoutService = [...attendanceStudentKeys].filter((key) => key && !serviceLinkedKeys.has(key)).length;
+    const attendanceWithoutServiceSamples = sessions.flatMap((session) => (Array.isArray(session.rows) ? session.rows : []).map((row) => ({ session, row })))
+      .filter(({ session, row }) => {
+        const key = attendanceStudentKey(session, row);
+        return key && !serviceLinkedKeys.has(key);
+      })
+      .slice(0, 3);
     const financePeriods = financeState?.periods && typeof financeState.periods === "object" ? Object.keys(financeState.periods).length : 0;
     const hasFinanceAttendance = sessions.length > 0;
     const leads = Array.isArray(admissionsState?.leads) ? admissionsState.leads : [];
@@ -950,7 +965,8 @@
     const enrolledWithoutService = enrolledLeads.filter((lead) => {
       const name = normalizePersonName(lead.studentName);
       return name && !serviceNames.has(name);
-    }).length;
+    });
+    const enrolledWithoutServiceCount = enrolledWithoutService.length;
     const aiDrafts = Array.isArray(aiDraftRows) ? aiDraftRows : [];
     const aiClassFeedbackDrafts = aiDrafts.filter((row) => {
       const modeText = `${row?.mode || ""} ${row?.modeLabel || ""} ${row?.title || ""}`;
@@ -967,14 +983,35 @@
     (Array.isArray(qualityState?.objectiveMetrics) ? qualityState.objectiveMetrics : []).forEach((row) => row.teacher && qualityTeachers.add(row.teacher));
     const teachingTeacherNames = new Set(scheduleRows.map((row) => row.teacherName || row.teacher).filter(Boolean));
     const qualityMissingTeachers = [...teachingTeacherNames].filter((name) => !qualityTeachers.has(name)).length;
+    const qualityMissingTeacherSamples = [...teachingTeacherNames].filter((name) => !qualityTeachers.has(name)).slice(0, 3);
+    const passedChecks = [
+      scheduleRows.length > 0 && scheduleWithoutAttendance === 0,
+      sessions.length > 0 && attendanceWithoutService === 0,
+      hasFinanceAttendance,
+      financePeriods > 0,
+      enrolledLeads.length > 0 && enrolledWithoutServiceCount === 0,
+      aiClassFeedbackDrafts.length > 0 && aiArchivedRows.length > 0,
+      feedbackList.length > 0 && openFeedback.length === 0,
+      qualityTeachers.size > 0 && qualityMissingTeachers === 0
+    ].filter(Boolean).length;
+    const totalChecks = 8;
+    const warningChecks = totalChecks - passedChecks;
 
     const cards = [
+      linkHealthCard(
+        "链路体检总览",
+        warningChecks ? `${warningChecks} 项待处理` : "全部通过",
+        warningChecks ? "status-warn" : "status-ok",
+        `本次自检覆盖 ${totalChecks} 条关键链路：${passedChecks} 条正常，${warningChecks} 条需要继续补数据或处理断点。下面每张卡会显示断点数量和样例。`,
+        "./suggestions.html",
+        "看整改"
+      ),
       linkHealthCard(
         "排课 → 点名",
         scheduleRows.length ? (scheduleWithoutAttendance ? "有待点名" : "已覆盖") : "待导入",
         scheduleRows.length && !scheduleWithoutAttendance ? "status-ok" : "status-warn",
         scheduleRows.length
-          ? `排课明细 ${scheduleRows.length} 人次；仍有约 ${scheduleWithoutAttendance} 人次未形成点名记录。`
+          ? `排课明细 ${scheduleRows.length} 人次；仍有约 ${scheduleWithoutAttendance} 人次未形成点名记录。${sampleList(scheduleWithoutAttendanceSamples, (row) => `${row.date || "-"} ${row.teacherName || row.teacher || "-"} ${row.studentName || row.className || "-"}`)}`
           : "还没有读取到排课明细，需先导入或维护排课。",
         "./paike.html",
         "看排课"
@@ -984,7 +1021,7 @@
         sessions.length ? (attendanceWithoutService ? "待沉淀" : "已沉淀") : "待点名",
         sessions.length && !attendanceWithoutService ? "status-ok" : "status-warn",
         sessions.length
-          ? `已保存点名 ${sessions.length} 节 / ${attendanceStudentKeys.size} 人次；约 ${attendanceWithoutService} 人次未进入学生服务台账。`
+          ? `已保存点名 ${sessions.length} 节 / ${attendanceStudentKeys.size} 人次；约 ${attendanceWithoutService} 人次未进入学生服务台账。${sampleList(attendanceWithoutServiceSamples, ({ session, row }) => `${session.date || "-"} ${session.teacher || "-"} ${row.studentName || row.student || "-"}`)}`
           : "还没有点名记录。老师保存点名后会自动流入学生服务。",
         "./student-service.html",
         "看学生服务"
@@ -1011,10 +1048,10 @@
       ),
       linkHealthCard(
         "招生 → 学生服务",
-        enrolledLeads.length ? (enrolledWithoutService ? "待建档" : "已建档") : "待报名",
-        enrolledLeads.length && !enrolledWithoutService ? "status-ok" : "status-warn",
+        enrolledLeads.length ? (enrolledWithoutServiceCount ? "待建档" : "已建档") : "待报名",
+        enrolledLeads.length && !enrolledWithoutServiceCount ? "status-ok" : "status-warn",
         enrolledLeads.length
-          ? `招生已报名/有实收 ${enrolledLeads.length} 人；约 ${enrolledWithoutService} 人还没在学生服务台账里形成档案。`
+          ? `招生已报名/有实收 ${enrolledLeads.length} 人；约 ${enrolledWithoutServiceCount} 人还没在学生服务台账里形成档案。${sampleList(enrolledWithoutService, (lead) => `${lead.studentName || "-"} ${lead.owner || lead.trialTeacher || ""}`)}`
           : `当前招生线索 ${leads.length} 条，试听候选 ${trialLeads.length} 条；报名后应进入学生服务。`,
         "./student-service.html",
         "看学生档案"
@@ -1034,7 +1071,7 @@
         feedbackList.length ? (openFeedback.length ? "有待处理" : "已闭环") : "待反馈",
         feedbackList.length && !openFeedback.length ? "status-ok" : "status-warn",
         feedbackList.length
-          ? `全站反馈 ${feedbackList.length} 条；待处理/继续反馈 ${openFeedback.length} 条；已转任务 ${feedbackTasks.length} 条。`
+          ? `全站反馈 ${feedbackList.length} 条；待处理/继续反馈 ${openFeedback.length} 条；已转任务 ${feedbackTasks.length} 条。${sampleList(openFeedback, (row) => `${row.userName || "未登录"}：${row.type || "反馈"}`)}`
           : "老师提交反馈后，应由管理员判断是否转任务、处理并让提出人复核。",
         "./suggestions.html",
         "看反馈"
@@ -1044,7 +1081,7 @@
         qualityTeachers.size ? (qualityMissingTeachers ? "部分缺质控" : "已采集") : "待采集",
         qualityTeachers.size && !qualityMissingTeachers ? "status-ok" : "status-warn",
         qualityTeachers.size
-          ? `教学质量已有 ${qualityTeachers.size} 位老师数据；排课涉及老师中约 ${qualityMissingTeachers} 位还没有质控记录。财务只使用内部候选，不公开排名。`
+          ? `教学质量已有 ${qualityTeachers.size} 位老师数据；排课涉及老师中约 ${qualityMissingTeachers} 位还没有质控记录。${qualityMissingTeacherSamples.length ? ` 样例：${qualityMissingTeacherSamples.join("、")}` : ""} 财务只使用内部候选，不公开排名。`
           : "教学质量数据还在采集中；后续会作为财务绩效候选，需要权限隔离。",
         "./teaching-quality.html",
         "看教学质量"
