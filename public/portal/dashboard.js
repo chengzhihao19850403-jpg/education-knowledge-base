@@ -562,7 +562,10 @@
   function feedbackProgressText(row) {
     const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
     const latestNote = notes[notes.length - 1];
-    return row?.resolution || latestNote?.text || (siteFeedbackIsClosed(row) ? "已处理，等待本人复核。" : "已提交，等待管理员处理。");
+    if (siteFeedbackIsClosed(row)) return latestNote?.text || "你已确认解决。";
+    if (siteFeedbackNeedsReview(row)) return row?.resolution || latestNote?.text || "已整改，等待你复核是否真正解决。";
+    if ((row?.status || "") === "已转任务") return row?.resolution || latestNote?.text || "已转为任务，等待负责人提交完成反馈。";
+    return row?.resolution || latestNote?.text || "已提交，等待管理员处理。";
   }
 
   async function readSiteFeedbackRows() {
@@ -665,20 +668,23 @@
     if (!listHolder) return;
     const rows = (await readSiteFeedbackRows()).filter(feedbackRelatedToCurrentUser);
     const closedRows = rows.filter(siteFeedbackIsClosed);
+    const reviewRows = rows.filter(siteFeedbackNeedsReview);
     const reopenRows = rows.filter((row) => row.status === "继续反馈");
-    const pendingRows = rows.filter((row) => !siteFeedbackIsClosed(row));
+    const pendingRows = rows.filter((row) => !siteFeedbackIsClosed(row) && !siteFeedbackNeedsReview(row));
     if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = String(rows.length);
     if (statsHolder) {
       statsHolder.innerHTML = `
         <div class="workbench-kpi-card"><span>已提交</span><strong>${rows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>已处理</span><strong>${closedRows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>待处理</span><strong>${pendingRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>待我复核</span><strong>${reviewRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>已解决</span><strong>${closedRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>处理中</span><strong>${pendingRows.length}</strong></div>
         <div class="workbench-kpi-card"><span>继续反馈</span><strong>${reopenRows.length}</strong></div>
       `;
     }
     listHolder.innerHTML = rows.length ? rows.slice(0, 4).map((row) => {
       const done = siteFeedbackIsClosed(row);
-      const level = row.status === "继续反馈" ? "提醒" : done ? "正常" : "提醒";
+      const needsReview = siteFeedbackNeedsReview(row);
+      const level = row.status === "继续反馈" || needsReview ? "紧急" : done ? "正常" : "提醒";
       const title = `${row.type || "反馈"}｜${row.system || "未知页面"}`;
       const progressText = feedbackProgressText(row);
       const detail = [
@@ -686,7 +692,7 @@
         `问题：${String(row.content || "").slice(0, 72)}${String(row.content || "").length > 72 ? "..." : ""}`,
         `进展：${progressText.slice(0, 86)}${progressText.length > 86 ? "..." : ""}`
       ].join("\n");
-      return todoItem(level, title, detail, "./suggestions.html#siteFeedbackTitle", done ? "去复核" : "看进展");
+      return todoItem(level, title, detail, "./suggestions.html#siteFeedbackTitle", needsReview ? "去确认" : done ? "查看结果" : "看进展");
     }).join("") : todoItem(
       "正常",
       "暂无个人反馈",
@@ -1032,7 +1038,11 @@
   }
 
   function siteFeedbackIsClosed(row) {
-    return ["已处理", "已转任务", "已确认解决"].includes(row?.status || "");
+    return (row?.status || "") === "已确认解决";
+  }
+
+  function siteFeedbackNeedsReview(row) {
+    return ["已整改待复核", "已处理"].includes(row?.status || "");
   }
 
   function isEffectiveAttendance(row) {

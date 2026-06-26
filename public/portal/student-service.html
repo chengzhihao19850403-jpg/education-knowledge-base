@@ -245,10 +245,10 @@
       </section>
 
       <details class="card service-detail-panel" id="studentAdmissionTransferPanel">
-        <summary>招生转入待处理</summary>
+        <summary>招生转入建档</summary>
         <div class="section-head">
           <div>
-            <h2>招生转入待处理</h2>
+            <h2>招生转入建档</h2>
             <p>从招生系统读取已报名学生，需要时再生成学生档案和入学交接。</p>
           </div>
           <span class="status-chip">联动预览</span>
@@ -662,6 +662,8 @@
           : false;
         const canManageAll = () => hasPermission("studentService.edit") || hasPermission("admin.access");
         const canUseAttendance = () => hasPermission("studentService.access") || canManageAll();
+        const admissionTransferPanel = document.getElementById("studentAdmissionTransferPanel");
+        if (admissionTransferPanel) admissionTransferPanel.hidden = !canManageAll();
         const escapeHtml = (value) => String(value ?? "")
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")

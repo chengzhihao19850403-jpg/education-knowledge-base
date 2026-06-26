@@ -121,6 +121,8 @@
       }
       .quick-grid,
       .status-grid,
+      .workbench-grid,
+      .filter-grid,
       .path-grid {
         display: grid;
         gap: 12px;
@@ -128,15 +130,28 @@
       }
       .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .workbench-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .path-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .status-card,
+      .workbench-card,
       .path-card {
         padding: 16px;
         border: 1px solid var(--line);
         border-radius: 18px;
         background: rgba(255,255,255,0.78);
       }
+      .workbench-card {
+        min-height: 118px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .workbench-card.active {
+        border-color: rgba(13,148,136,0.42);
+        background: rgba(13,148,136,0.09);
+      }
       .status-card span,
+      .workbench-card span,
       .path-card span {
         color: var(--muted);
         font-size: 12px;
@@ -155,6 +170,30 @@
       .path-card strong {
         display: block;
         margin-top: 8px;
+      }
+      .filter-grid label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .filter-grid select,
+      .filter-grid input {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+      }
+      .maintenance-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
       }
       .notice {
         margin-top: 16px;
@@ -228,6 +267,9 @@
         .hero,
         .quick-grid,
         .status-grid,
+        .workbench-grid,
+        .filter-grid,
+        .maintenance-actions,
         .path-grid,
         .my-paike-summary {
           grid-template-columns: 1fr;
@@ -262,49 +304,102 @@
       <section class="hero">
         <article class="card">
           <p class="eyebrow">排课</p>
-          <h1>排课系统</h1>
-          <p class="hero-text">先看云端有没有读到排课数据，再按老师熟悉的旧版界面核对平时课表、暑假课表和点名课销。</p>
+          <h1>排课工作台</h1>
+          <p class="hero-text">先看今天和本周要上的课，再按老师、班级核对。排课会继续联动点名、课销和财务试算。</p>
           <div class="tag-row">
-            <span class="tag">旧版熟悉界面</span>
-            <span class="tag">云端核对</span>
-            <span class="tag">点名课销联动</span>
-            <span class="tag warn">空数据先查月份和入口</span>
+            <span class="tag">今日课程</span>
+            <span class="tag">本周课表</span>
+            <span class="tag">按老师/班级查课</span>
+            <span class="tag warn">异常优先处理</span>
           </div>
-          <div class="quick-grid">
-            <a class="button" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/index.html">上传总表</a>
-            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式</a>
-            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式</a>
-            <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">点名课销</a>
+          <div class="workbench-grid" id="paikeWorkbenchTabs">
+            <button class="workbench-card active" type="button" data-paike-view="week"><span>本周</span><strong>今日/本周课表</strong><p>先看这周所有课程。</p></button>
+            <button class="workbench-card" type="button" data-paike-view="teacher"><span>老师</span><strong>按老师查课</strong><p>核对某位老师一周/月内课程。</p></button>
+            <button class="workbench-card" type="button" data-paike-view="class"><span>班级</span><strong>按班级查课</strong><p>查看某个班级连续课程。</p></button>
+            <button class="workbench-card" type="button" data-paike-view="issues"><span>异常</span><strong>排课异常核对</strong><p>优先处理空数据、未点名、待核对。</p></button>
           </div>
-          <div class="notice">如果进入后看不到数据，先不要判断为“丢了”。先看下方核对台：云端是否读到数据、六月和平时模式是否有明细、暑假模式是否有数据。</div>
+          <div class="notice">如果看不到数据，先看“数据状态”和空数据提示：系统会说明是当前筛选无课程、月份未导入，还是老师/班级名称未匹配。</div>
         </article>
 
         <aside class="card">
-          <p class="eyebrow">怎么试</p>
-          <h2>周老师核对顺序</h2>
+          <p class="eyebrow">怎么用</p>
+          <h2>排课老师核对顺序</h2>
           <div class="path-grid">
-            <div class="path-card"><span>1</span><strong>看核对台</strong><p>先确认云端数据行数，不要直接进旧版页面猜。</p></div>
-            <div class="path-card"><span>2</span><strong>进对应模式</strong><p>六月平时课看“平时模式”，七八月看“暑假模式”。</p></div>
-            <div class="path-card"><span>3</span><strong>报具体问题</strong><p>反馈时写清老师、学生、日期、哪个入口没有显示。</p></div>
+            <div class="path-card"><span>1</span><strong>先看本周</strong><p>确认今天和本周课程是否完整。</p></div>
+            <div class="path-card"><span>2</span><strong>再查老师/班级</strong><p>发现问题时缩小到具体老师或班级。</p></div>
+            <div class="path-card"><span>3</span><strong>处理异常</strong><p>未点名、待核对、影响财务的课优先处理。</p></div>
           </div>
         </aside>
       </section>
 
       <section class="card">
-        <p class="eyebrow">核对台</p>
-        <h2>云端排课数据状态</h2>
+        <p class="eyebrow">数据状态</p>
+        <h2>排课数据状态</h2>
         <div class="status-grid" id="paikeStatusGrid"></div>
       </section>
 
-      <section class="card" id="myPaikeSection">
+      <section class="card">
+        <p class="eyebrow">筛选</p>
+        <h2 id="paikeViewTitle">今日/本周课表</h2>
+        <div class="filter-grid">
+          <label>日期范围
+            <select id="paikeRangeFilter">
+              <option value="week">本周</option>
+              <option value="today">今天</option>
+              <option value="month">本月</option>
+              <option value="all">全部已读数据</option>
+            </select>
+          </label>
+          <label>老师
+            <select id="paikeTeacherFilter"><option value="">全部老师</option></select>
+          </label>
+          <label>班级/学生
+            <select id="paikeClassFilter"><option value="">全部班级/学生</option></select>
+          </label>
+          <label>搜索
+            <input id="paikeKeywordFilter" type="search" placeholder="输入老师、学生、班级、日期">
+          </label>
+        </div>
+        <div id="paikeWorkbenchSummary"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>时间</th>
+                <th>老师</th>
+                <th>班级/学生</th>
+                <th>地点</th>
+                <th>点名/财务状态</th>
+                <th>来源</th>
+              </tr>
+            </thead>
+            <tbody id="paikeWorkbenchBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
         <p class="eyebrow">我的课表</p>
-        <h2>我的排课核对</h2>
+        <h2>当前登录老师排课</h2>
         <div id="myPaikeCard"></div>
       </section>
 
       <section class="card">
-        <p class="eyebrow">最近明细</p>
-        <h2>当前读到的排课样例</h2>
+        <p class="eyebrow">导入与维护</p>
+        <h2>排课数据维护入口</h2>
+        <p class="hero-text">上传和旧版核对入口保留给排课负责人使用。日常核对优先使用上方工作台。</p>
+        <div class="maintenance-actions">
+          <a class="button" data-requires-permission="paike.edit" href="/jrcedu/paike-legacy/index.html">上传总表</a>
+          <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式旧版</a>
+          <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式旧版</a>
+          <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">进入点名课销</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">原始样例</p>
+        <h2>当前读到的排课明细样例</h2>
         <div class="table-wrap">
           <table>
             <thead>
@@ -332,8 +427,13 @@
       const stores = {
         importReview: "paike-summer-import-review-v1",
         regular: "paike-june-system-v1",
-        preimport: "jrc-paike-finance-preimport-2026-06-22"
+        preimport: "jrc-paike-finance-preimport-2026-06-22",
+        attendance: "jrc-class-attendance-v1"
       };
+      let paikeRows = [];
+      let paikeReviewRows = [];
+      let paikeAttendanceRows = [];
+      let activePaikeView = "week";
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -452,6 +552,66 @@
         return Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
       }
 
+      function attendanceRowsFromData(data) {
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.records)) return data.records;
+        if (Array.isArray(data?.attendanceRows)) return data.attendanceRows;
+        return [];
+      }
+
+      function dateKey(value) {
+        const text = String(value || "").trim().replace(/\./g, "-").replace(/\//g, "-");
+        const match = text.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (!match) return "";
+        return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`;
+      }
+
+      function startOfWeek(date) {
+        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const day = d.getDay() || 7;
+        d.setDate(d.getDate() - day + 1);
+        return d;
+      }
+
+      function isInRange(row, range) {
+        if (range === "all") return true;
+        const key = dateKey(row.date);
+        if (!key) return range !== "today" && range !== "week";
+        const rowDate = new Date(`${key}T00:00:00`);
+        const now = new Date();
+        if (range === "today") return key === dateKey(now.toISOString());
+        if (range === "month") return key.slice(0, 7) === dateKey(now.toISOString()).slice(0, 7);
+        const weekStart = startOfWeek(now);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        return rowDate >= weekStart && rowDate <= weekEnd;
+      }
+
+      function matchAttendance(row) {
+        const teacher = String(row.teacher || "").trim();
+        const date = dateKey(row.date);
+        const classText = String(row.student || "").trim();
+        return paikeAttendanceRows.filter((item) => {
+          const itemDate = dateKey(item.date || item.courseDate || item.attendanceDate);
+          const itemTeacher = String(item.teacherName || item.teacher || "").trim();
+          const itemClass = String(item.className || item.studentName || item.student || "").trim();
+          return (!date || !itemDate || itemDate === date) &&
+            (!teacher || !itemTeacher || itemTeacher === teacher) &&
+            (!classText || !itemClass || classText.includes(itemClass) || itemClass.includes(classText));
+        });
+      }
+
+      function scheduleStatus(row) {
+        const attendanceMatches = matchAttendance(row);
+        const hasAttendance = attendanceMatches.some((item) => ["到课", "迟到", "请假", "缺勤", "已点名"].includes(String(item.attendanceStatus || item.status || "")));
+        const hasAbsence = attendanceMatches.some((item) => ["缺勤", "请假", "未到"].includes(String(item.attendanceStatus || item.status || "")));
+        const financeReady = /工资|财务|结算|待对账|匹配|已读取/.test(String(row.status || ""));
+        if (hasAbsence) return { label: "缺勤待处理", tone: "warn" };
+        if (hasAttendance) return { label: financeReady ? "已点名 / 财务待核" : "已点名", tone: "" };
+        if (row.status && /异常|待确认|待核|低/.test(String(row.status))) return { label: "待核对", tone: "warn" };
+        return { label: "待点名", tone: "warn" };
+      }
+
       function normalizedScheduleRows({ regularEntries, scheduleSessions }) {
         const regularRows = regularEntries.map((row) => ({
           source: "平时模式",
@@ -460,6 +620,7 @@
           teacher: row.teacher || row.teacherName || "-",
           student: row.studentName || row.student || row.className || "-",
           time: row.time || row.startTime || row.hours || "-",
+          room: row.classroomName || row.roomName || "-",
           status: row.status || "已读取"
         }));
         const preimportRows = scheduleSessions.map((row) => ({
@@ -469,6 +630,7 @@
           teacher: row.teacherName || row.teacher || "-",
           student: Array.isArray(row.studentNames) ? row.studentNames.join("、") : row.studentName || row.lessonTypeRaw || "-",
           time: row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || row.hours || "-",
+          room: row.roomName || row.classroomName || "-",
           status: row.status || row.importConfidence || "已读取"
         }));
         return [...regularRows, ...preimportRows]
@@ -520,6 +682,100 @@
         `;
       }
 
+      function fillSelectOptions(id, values, allLabel) {
+        const select = byId(id);
+        if (!select) return;
+        const current = select.value;
+        const options = [`<option value="">${escapeHtml(allLabel)}</option>`, ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)];
+        select.innerHTML = options.join("");
+        if (values.includes(current)) select.value = current;
+      }
+
+      function renderWorkbenchFilters() {
+        const teachers = Array.from(new Set(paikeRows.map((row) => row.teacher).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const classes = Array.from(new Set(paikeRows.map((row) => row.student).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        fillSelectOptions("paikeTeacherFilter", teachers, "全部老师");
+        fillSelectOptions("paikeClassFilter", classes.slice(0, 200), "全部班级/学生");
+      }
+
+      function filteredWorkbenchRows() {
+        const range = byId("paikeRangeFilter")?.value || "week";
+        const teacher = byId("paikeTeacherFilter")?.value || "";
+        const klass = byId("paikeClassFilter")?.value || "";
+        const keyword = String(byId("paikeKeywordFilter")?.value || "").trim().toLowerCase();
+        return paikeRows.filter((row) => {
+          const status = scheduleStatus(row);
+          const haystack = [row.date, row.time, row.teacher, row.student, row.room, row.source, row.status, status.label].join(" ").toLowerCase();
+          if (activePaikeView === "teacher" && !teacher) return true;
+          if (activePaikeView === "class" && !klass) return true;
+          if (activePaikeView === "issues" && !/待|缺勤|异常|核对|未/.test(status.label + row.status)) return false;
+          return isInRange(row, range) &&
+            (!teacher || row.teacher === teacher) &&
+            (!klass || row.student === klass) &&
+            (!keyword || haystack.includes(keyword));
+        }).sort((left, right) => {
+          const dateDiff = String(left.date || "").localeCompare(String(right.date || ""));
+          if (dateDiff) return dateDiff;
+          return String(left.time || "").localeCompare(String(right.time || ""));
+        });
+      }
+
+      function emptyReason() {
+        const range = byId("paikeRangeFilter")?.value || "week";
+        const teacher = byId("paikeTeacherFilter")?.value || "";
+        const klass = byId("paikeClassFilter")?.value || "";
+        const keyword = String(byId("paikeKeywordFilter")?.value || "").trim();
+        if (!paikeRows.length) return "云端和本机都暂未读到排课明细。请先到“导入与维护”上传总表，或确认服务器已经部署最新数据包。";
+        if (teacher && !paikeRows.some((row) => row.teacher === teacher)) return `没有匹配到 ${teacher} 的排课。请检查老师姓名是否和表格一致。`;
+        if (klass && !paikeRows.some((row) => row.student === klass)) return `没有匹配到 ${klass} 的排课。请检查班级/学生名称是否一致。`;
+        if (keyword) return `当前关键词“${keyword}”没有匹配结果，可以删掉关键词或换老师/班级筛选。`;
+        if (range === "today") return "今天没有读到课程。可以切到“本周”或“全部已读数据”确认是否只是今天无课。";
+        if (range === "week") return "本周没有读到课程。可以切到“本月”或“全部已读数据”确认月份是否正确。";
+        if (range === "month") return "本月没有读到课程。请检查是否导入了当前月份的排课表。";
+        return "当前筛选条件下没有排课，请放宽老师、班级或日期范围。";
+      }
+
+      function renderWorkbench() {
+        const titleMap = {
+          week: "今日/本周课表",
+          teacher: "按老师查课",
+          class: "按班级查课",
+          issues: "排课异常核对"
+        };
+        byId("paikeViewTitle").textContent = titleMap[activePaikeView] || "排课工作台";
+        const rows = filteredWorkbenchRows();
+        const todayCount = paikeRows.filter((row) => isInRange(row, "today")).length;
+        const weekCount = paikeRows.filter((row) => isInRange(row, "week")).length;
+        const issueCount = paikeRows.filter((row) => /待|缺勤|异常|核对|未/.test(scheduleStatus(row).label + row.status)).length + paikeReviewRows.length;
+        byId("paikeWorkbenchSummary").innerHTML = `
+          <div class="my-paike-summary">
+            <div class="my-paike-cell"><span>今日课程</span><strong>${todayCount}</strong></div>
+            <div class="my-paike-cell"><span>本周课程</span><strong>${weekCount}</strong></div>
+            <div class="my-paike-cell"><span>当前筛选</span><strong>${rows.length}</strong></div>
+            <div class="my-paike-cell"><span>待处理异常</span><strong>${issueCount}</strong></div>
+          </div>
+        `;
+        const body = byId("paikeWorkbenchBody");
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="7"><div class="empty">${escapeHtml(emptyReason())}</div></td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.slice(0, 80).map((row) => {
+          const status = scheduleStatus(row);
+          return `
+            <tr>
+              <td>${escapeHtml(row.date)}</td>
+              <td>${escapeHtml(row.time)}</td>
+              <td>${escapeHtml(row.teacher)}</td>
+              <td>${escapeHtml(row.student)}</td>
+              <td>${escapeHtml(row.room || "-")}</td>
+              <td><span class="status-pill ${escapeHtml(status.tone)}">${escapeHtml(status.label)}</span><br>${escapeHtml(row.status || "")}</td>
+              <td>${escapeHtml(row.source)}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
       function renderStatus({ reviewRows, regularEntries, scheduleSessions }) {
         const grid = byId("paikeStatusGrid");
         const juneRows = scheduleSessions.filter((row) => row.period === "2026-06").length + regularEntries.length;
@@ -563,18 +819,42 @@
       }
 
       async function initPaikeDashboard() {
-        const [reviewRows, regularData, preimportData] = await Promise.all([
+        const [reviewRows, regularData, preimportData, attendanceData] = await Promise.all([
           readCloud(stores.importReview, []),
           readCloud(stores.regular, {}),
-          readCloud(stores.preimport, window.JRC_PREIMPORT_SUMMARY || {})
+          readCloud(stores.preimport, window.JRC_PREIMPORT_SUMMARY || {}),
+          readCloud(stores.attendance, [])
         ]);
         const safeReviewRows = Array.isArray(reviewRows) ? reviewRows : [];
         const regularEntries = scheduleEntriesFromRegular(regularData);
         const scheduleSessions = scheduleSessionsFromPreimport(preimportData);
+        paikeReviewRows = safeReviewRows;
+        paikeAttendanceRows = attendanceRowsFromData(attendanceData);
+        paikeRows = normalizedScheduleRows({ regularEntries, scheduleSessions });
+        renderWorkbenchFilters();
+        renderWorkbench();
         renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
         renderMyPaike({ regularEntries, scheduleSessions });
         renderPreview({ regularEntries, scheduleSessions });
       }
+
+      document.querySelectorAll("[data-paike-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          activePaikeView = button.getAttribute("data-paike-view") || "week";
+          document.querySelectorAll("[data-paike-view]").forEach((node) => node.classList.toggle("active", node === button));
+          if (activePaikeView === "teacher") byId("paikeTeacherFilter")?.focus();
+          if (activePaikeView === "class") byId("paikeClassFilter")?.focus();
+          if (activePaikeView === "issues") {
+            const range = byId("paikeRangeFilter");
+            if (range) range.value = "all";
+          }
+          renderWorkbench();
+        });
+      });
+      ["paikeRangeFilter", "paikeTeacherFilter", "paikeClassFilter", "paikeKeywordFilter"].forEach((id) => {
+        byId(id)?.addEventListener("input", renderWorkbench);
+        byId(id)?.addEventListener("change", renderWorkbench);
+      });
 
       initPaikeDashboard();
     </script>

@@ -1626,10 +1626,36 @@
           byId("voiceStopButton").disabled = true;
           byId("aiMessage").textContent = "语音已停止，可以继续修改文字或点击 AI 整理。";
         };
+        recognition.onerror = (event) => {
+          byId("voiceStartButton").disabled = false;
+          byId("voiceStopButton").disabled = true;
+          const errorText = event?.error === "not-allowed"
+            ? "浏览器没有麦克风权限。请允许麦克风，或先用手机键盘听写转文字。"
+            : event?.error === "no-speech"
+              ? "没有识别到声音，请靠近设备再试；也可以直接用键盘听写。"
+              : "当前设备语音识别不稳定，请先用手机键盘听写转文字，再点 AI 整理。";
+          byId("aiMessage").textContent = errorText;
+        };
       }
 
-      byId("voiceStartButton").addEventListener("click", () => recognition?.start());
-      byId("voiceStopButton").addEventListener("click", () => recognition?.stop());
+      byId("voiceStartButton").addEventListener("click", () => {
+        if (!recognition) {
+          byId("aiMessage").textContent = "当前设备不支持实时语音识别，可以使用手机键盘听写后再 AI 整理。";
+          return;
+        }
+        try {
+          recognition.start();
+        } catch {
+          byId("aiMessage").textContent = "语音识别已经启动或暂时不可用，请稍等几秒再试。";
+        }
+      });
+      byId("voiceStopButton").addEventListener("click", () => {
+        try {
+          recognition?.stop();
+        } catch {
+          byId("aiMessage").textContent = "语音已结束，可以继续编辑文字或点击 AI 整理。";
+        }
+      });
       byId("aiModeInput").addEventListener("change", updateActionButtons);
       byId("aiRunButton").addEventListener("click", runAi);
       byId("aiClearButton").addEventListener("click", () => {

@@ -802,12 +802,10 @@
               <div class="field">
                 <label>来源渠道</label>
                 <select id="quickLeadChannel">
-                  <option>抖音投流</option>
                   <option>老家长转介绍</option>
-                  <option>自然到访</option>
-                  <option>官网表单</option>
-                  <option>内部员工推荐</option>
-                  <option>异业合作</option>
+                  <option>线上客户</option>
+                  <option>扩科</option>
+                  <option>其他</option>
                 </select>
               </div>
               <div class="field">
@@ -1278,9 +1276,10 @@
               <div class="field">
                 <label>来源渠道</label>
                 <select id="leadChannel">
-                  <option>抖音投流</option>
                   <option>老家长转介绍</option>
-                  <option>自然到访</option>
+                  <option>线上客户</option>
+                  <option>扩科</option>
+                  <option>其他</option>
                 </select>
               </div>
               <div class="field">
@@ -1515,8 +1514,8 @@
                 <div class="hint">选择试听对象、试听老师和试听时间。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">预约后入待反馈</span>
-                <span class="status-chip">预约完直接入待反馈清单</span>
+                <span class="status-chip">预约后进入待试听</span>
+                <span class="status-chip">试听完成后再填反馈</span>
               </div>
             </div>
             <div class="form-grid">
@@ -1525,6 +1524,28 @@
                 <select id="trialLeadSelect">
                   <option value="">暂无可预约学生</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>学校</label>
+                <input id="trialSchoolInput" placeholder="学生所在学校">
+              </div>
+              <div class="field">
+                <label>年级</label>
+                <select id="trialGradeInput">
+                  <option>一年级</option>
+                  <option>二年级</option>
+                  <option>三年级</option>
+                  <option>四年级</option>
+                  <option>五年级</option>
+                  <option>六年级</option>
+                  <option>初一</option>
+                  <option>初二</option>
+                  <option>初三</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>试听班级</label>
+                <input id="trialClassInput" placeholder="例如 五年级数学小班">
               </div>
               <div class="field">
                 <label>试听老师</label>
@@ -1546,6 +1567,26 @@
               <div class="field">
                 <label>试听时间</label>
                 <input id="trialTimeInput" type="datetime-local" value="">
+              </div>
+              <div class="field">
+                <label>联系方式</label>
+                <input id="trialContactPersonInput" placeholder="例如 妈妈 / 爸爸 / 本人">
+              </div>
+              <div class="field">
+                <label>微信昵称及微信号</label>
+                <input id="trialWechatInput" placeholder="微信昵称 / 微信号">
+              </div>
+              <div class="field">
+                <label>联系电话</label>
+                <input id="trialPhoneInput" inputmode="tel" placeholder="联系电话">
+              </div>
+              <div class="field">
+                <label>跟进对象</label>
+                <input id="trialFollowupTargetInput" placeholder="例如 妈妈">
+              </div>
+              <div class="field">
+                <label>自动提醒时间</label>
+                <input id="trialReminderInput" type="datetime-local">
               </div>
               <div class="field span-2">
                 <label>预约备注</label>
@@ -1684,8 +1725,13 @@
               </div>
               <div class="field">
                 <label>课程产品</label>
-                <select>
-                  <option>暑假数学提升班</option>
+                <select id="enrollCourseProduct">
+                  <option>程老师班课</option>
+                  <option>科学班课</option>
+                  <option>数学小班课</option>
+                  <option>科学小班课</option>
+                  <option>数学一对一</option>
+                  <option>科学一对一</option>
                 </select>
               </div>
               <div class="field">
@@ -1718,11 +1764,32 @@
               </div>
               <div class="field">
                 <label>开课时间</label>
-                <input id="enrollStartDate" value="">
+                <select id="enrollStartTimeSelect">
+                  <option value="">选择常用时间</option>
+                  <option>周五 18:00</option>
+                  <option>周五 19:30</option>
+                  <option>周六 08:30</option>
+                  <option>周六 10:20</option>
+                  <option>周六 13:30</option>
+                  <option>周六 15:30</option>
+                  <option>周六 18:30</option>
+                  <option>周日 08:30</option>
+                  <option>周日 10:20</option>
+                  <option>周日 13:30</option>
+                  <option>周日 15:30</option>
+                  <option>周日 18:30</option>
+                </select>
+                <input id="enrollStartDate" value="" placeholder="也可自定义，例如 暑假周二四 18:30">
               </div>
               <div class="field">
                 <label>渠道归属</label>
-                <input id="enrollChannel" value="">
+                <select id="enrollChannel">
+                  <option>老家长转介绍</option>
+                  <option>线上客户</option>
+                  <option>扩科</option>
+                  <option>其他</option>
+                </select>
+                <input id="enrollChannelOther" value="" placeholder="选择其他时填写补充说明">
               </div>
               <div class="field">
                 <label>招生顾问</label>

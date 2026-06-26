@@ -1389,8 +1389,18 @@
       return [];
     }
 
+    function teacherInputNamesForSelectedOutline() {
+      const selectedOutline = normalizeOutlineCategory($("curriculumOutlineCategoryInput")?.value || activeOutlineFilter, "课程大纲");
+      if (selectedOutline === "科学老师授课大纲") return scienceOutlineTeachers;
+      if (selectedOutline === "小课老师授课大纲") {
+        const scienceSet = new Set(scienceOutlineTeachers);
+        return teachingTeacherNames().filter((name) => !scienceSet.has(name));
+      }
+      return teachingTeacherNames();
+    }
+
     function applyTeacherOptions() {
-      const names = teachingTeacherNames();
+      const names = teacherInputNamesForSelectedOutline();
       const input = $("curriculumTeacherInput");
       if (input) {
         const selected = input.value || "";
@@ -1633,7 +1643,7 @@
 
     function rowMatchesCurriculumFilters(row) {
       const outlineFilter = activeOutlineFilter || $("curriculumOutlineFilter")?.value || "";
-      const teacherFilter = activeOutlineFilter === "小课老师授课大纲" ? ($("curriculumTeacherFilter")?.value || "") : "";
+      const teacherFilter = ["小课老师授课大纲", "科学老师授课大纲"].includes(activeOutlineFilter) ? ($("curriculumTeacherFilter")?.value || "") : "";
       const seasonFilter = $("curriculumSeasonFilter")?.value || "";
       const gradeFilter = $("curriculumGradeFilter")?.value || "";
       if (outlineFilter && normalizeOutlineCategory(row.outlineCategory, row.type) !== outlineFilter) return false;
@@ -1885,6 +1895,7 @@
       if ($("curriculumOutlineCategoryInput").value !== defaultOutlineCategory && $("curriculumTypeInput")) {
         $("curriculumTypeInput").value = "课程大纲";
       }
+      applyTeacherOptions();
     });
     $("curriculumSortSelect")?.addEventListener("change", render);
     $("curriculumExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "curriculumMessage", "导出", () => downloadCsv("教研与课程产品数据.csv", visibleRows(), [

@@ -332,6 +332,11 @@
         border-color: rgba(148, 163, 184, 0.34);
         background: rgba(248,250,252,0.88);
       }
+      .departed-settlement-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
       .teacher-status-note {
         display: inline-flex;
         align-items: center;
@@ -659,10 +664,10 @@
             <span class="tag warn">待审核数据不入账</span>
           </div>
           <div class="quick-actions">
-            <a class="button secondary" href="#financeWorkbenchSection">本月核对台</a>
-            <a class="button secondary" href="#teacherSettlementEntry">老师结算</a>
-            <a class="button secondary" href="#teacherDiffSection">差异核对</a>
-            <a class="button secondary" href="#monthlySection">月结录入</a>
+            <a class="button secondary" href="#teacherSettlementEntry">老师结算结果</a>
+            <a class="button secondary" href="#teacherDiffSection">数据核对中心</a>
+            <a class="button secondary" href="#financeImportSection">原始数据导入</a>
+            <a class="button secondary" href="#departedSettlementSection">离职结算查看</a>
           </div>
           <div class="pilot-banner">
             当前系统用于和 Excel 月结表对照：系统算一版，人工算一版，不一致就查差异。确认前不作为最终发薪、分红和课销依据。
@@ -740,6 +745,13 @@
           <a class="button secondary" href="#attendanceFinanceSection">查看点名课销</a>
           <a class="button secondary" href="#monthlySection">进入月结录入</a>
         </div>
+      </section>
+
+      <section class="card" id="departedSettlementSection">
+        <p class="eyebrow">离职员工</p>
+        <h2>离职员工结算查看</h2>
+        <p style="margin-top: 8px;">离职老师不再参与新排课、新任务和当前在职统计，但历史排课、工资行和本月结算保留，方便月底对账。</p>
+        <div class="departed-settlement-list" id="departedSettlementList"></div>
       </section>
 
       <section class="card" id="trialCompareSection">
@@ -2137,7 +2149,7 @@
       function renderTeacherSettlementList() {
         const holder = byId("teacherSettlementList");
         if (!holder) return;
-        const rows = teacherSettlementRows();
+        const rows = teacherSettlementRows().filter((row) => !row.departed);
         if (!rows.length) {
           holder.innerHTML = `<div class="empty">当前月份还没有老师结算数据。请先确认月份是否切对，或继续导入工资表、排课表。</div>`;
           return;
@@ -2160,6 +2172,45 @@
             <div>
               <strong>${row.scheduleCount}</strong>
               <span>排课学生人次</span>
+            </div>
+            <div>
+              <strong>${row.issueCount}</strong>
+              <span>待核差异</span>
+            </div>
+            <div>
+              <strong>${row.highPriority ? `${row.highPriority} 条` : "无"}</strong>
+              <span>高优先级</span>
+            </div>
+          </article>
+        `).join("");
+      }
+
+      function renderDepartedSettlementList() {
+        const holder = byId("departedSettlementList");
+        if (!holder) return;
+        const rows = teacherSettlementRows().filter((row) => row.departed);
+        if (!rows.length) {
+          holder.innerHTML = `<div class="empty">当前月份没有离职员工历史结算行。</div>`;
+          return;
+        }
+        holder.innerHTML = rows.map((row) => `
+          <article class="teacher-settlement-card departed">
+            <div>
+              <strong>${escapeHtml(row.teacherName)}</strong>
+              <span>离职历史结算</span>
+              <em class="teacher-status-note">账号停用，历史保留</em>
+            </div>
+            <div>
+              <strong>${money(row.salaryAmount)}</strong>
+              <span>工资/课时金额</span>
+            </div>
+            <div>
+              <strong>${row.salaryRows}</strong>
+              <span>工资/课时行</span>
+            </div>
+            <div>
+              <strong>${row.scheduleCount}</strong>
+              <span>历史排课人次</span>
             </div>
             <div>
               <strong>${row.issueCount}</strong>
@@ -3071,6 +3122,7 @@
         renderFinanceWorkbench(period);
         renderMySettlementCard();
         renderTeacherSettlementList();
+        renderDepartedSettlementList();
         renderExpenses(period);
         renderTrialCompareSummary();
         renderMonthStatusSummary();

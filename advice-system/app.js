@@ -34,7 +34,9 @@ const statusClassMap = {
 
 const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "程志豪"];
 const trialTeacherOptions = ["待安排", "叶源泽", "李舒", "赵萱", "朱永乐", "郑嘉艺", "潘云贵", "曹德顺", "吴水琴", "吴建勇", "海滢滢", "程志豪"];
-const channelOptions = ["待补来源", "抖音投流", "老家长转介绍", "自然到访", "官网表单"];
+const channelOptions = ["待补来源", "老家长转介绍", "线上客户", "扩科", "其他"];
+const courseProductOptions = ["程老师班课", "科学班课", "数学小班课", "科学小班课", "数学一对一", "科学一对一"];
+const startTimeOptions = ["周五 18:00", "周五 19:30", "周六 08:30", "周六 10:20", "周六 13:30", "周六 15:30", "周六 18:30", "周日 08:30", "周日 10:20", "周日 13:30", "周日 15:30", "周日 18:30"];
 const channelOwnerOptions = ["待补渠道归属", "陈雨晴", "颜雨涵", "高芳燕", "周珊", "前台"];
 const importTemplateFields = [
   "学生姓名",
@@ -487,20 +489,32 @@ function deriveChannelOwner(lead) {
   if (lead.channelMeta?.includes("网销归属：")) {
     return lead.channelMeta.replace("网销归属：", "").trim() || "待补渠道归属";
   }
+  if (lead.channel === "线上客户") return "待补渠道归属";
   if (lead.channel === "自然到访") return "前台";
   return "待补渠道归属";
 }
 
 function buildChannelMeta(channel, channelOwner, referrerName) {
   if (channel === "老家长转介绍" && referrerName) return `推荐人：${referrerName}`;
-  if ((channel === "抖音投流" || channel === "官网表单") && channelOwner && channelOwner !== "待补渠道归属") {
+  if ((channel === "线上客户" || channel === "抖音投流" || channel === "官网表单") && channelOwner && channelOwner !== "待补渠道归属") {
     return `网销归属：${channelOwner}`;
   }
-  if (channel === "自然到访" && channelOwner && channelOwner !== "待补渠道归属") {
+  if ((channel === "扩科" || channel === "自然到访") && channelOwner && channelOwner !== "待补渠道归属") {
     return `${channelOwner}登记`;
   }
   if (referrerName) return `推荐人：${referrerName}`;
   return "待补推荐人";
+}
+
+function normalizeLeadChannelForSelect(channel) {
+  const value = String(channel || "").trim();
+  if (!value) return "老家长转介绍";
+  if (channelOptions.includes(value)) return value;
+  if (value.startsWith("其他：")) return "其他";
+  if (["抖音投流", "官网表单", "线上表单", "视频号", "小红书"].includes(value)) return "线上客户";
+  if (["续费扩科", "内部扩科", "扩科报名"].includes(value)) return "扩科";
+  if (["自然到访", "内部员工推荐", "异业合作"].includes(value)) return "其他";
+  return "其他";
 }
 
 function normalizePhone(phone) {
@@ -557,6 +571,37 @@ function buildAttributionSnapshot(lead) {
   };
 }
 
+function refreshEnrollmentStartTimeOptions() {
+  const select = byId("enrollStartTimeSelect");
+  if (!select) return;
+  const saved = Array.isArray(state.customStartTimeOptions) ? state.customStartTimeOptions : [];
+  const values = Array.from(new Set([...startTimeOptions, ...saved].filter(Boolean)));
+  const current = select.value;
+  select.innerHTML = [`<option value="">选择常用时间</option>`, ...values.map((value) => `<option>${escapeHtml(value)}</option>`)].join("");
+  if (values.includes(current)) select.value = current;
+}
+
+function resolveEnrollmentChannel() {
+  const channel = byId("enrollChannel")?.value || "";
+  const other = byId("enrollChannelOther")?.value.trim() || "";
+  return channel === "其他" && other ? `其他：${other}` : channel;
+}
+
+function resolveEnrollmentStartTime() {
+  const manual = byId("enrollStartDate")?.value.trim() || "";
+  const selected = byId("enrollStartTimeSelect")?.value || "";
+  const value = manual || selected;
+  if (manual) {
+    state.customStartTimeOptions = Array.isArray(state.customStartTimeOptions) ? state.customStartTimeOptions : [];
+    if (!state.customStartTimeOptions.includes(manual) && !startTimeOptions.includes(manual)) {
+      state.customStartTimeOptions.push(manual);
+      state.customStartTimeOptions = state.customStartTimeOptions.slice(-30);
+      refreshEnrollmentStartTimeOptions();
+    }
+  }
+  return value;
+}
+
 function formatAttributionSnapshot(snapshot) {
   if (!snapshot) return "未锁定";
   return `${snapshot.channel} / ${snapshot.channelOwner} / ${snapshot.owner}${snapshot.referrerName ? ` / 推荐人 ${snapshot.referrerName}` : ""}`;
@@ -604,7 +649,7 @@ function collectMissingLeadFields(lead) {
   const missing = [];
   if (!lead.channel || lead.channel === "待补来源") missing.push("缺来源渠道");
   if (!lead.owner || lead.owner === "待分配") missing.push("缺负责人");
-  if ((lead.channel === "抖音投流" || lead.channel === "官网表单") && (!deriveChannelOwner(lead) || deriveChannelOwner(lead) === "待补渠道归属")) {
+  if (lead.channel === "线上客户" && (!deriveChannelOwner(lead) || deriveChannelOwner(lead) === "待补渠道归属")) {
     missing.push("缺渠道归属");
   }
   if (lead.channel === "老家长转介绍" && !lead.referrerName && deriveReferrerText(lead.channelMeta) === "无") {
@@ -1523,6 +1568,7 @@ function renderEnrollmentLeadOptions() {
   if (!activeLead) {
     input.value = "";
     byId("enrollChannel").value = "";
+    if (byId("enrollChannelOther")) byId("enrollChannelOther").value = "";
     byId("enrollOwner").value = "";
     byId("enrollReferrer").value = "";
     byId("enrollAttributionPreview").value = "暂无可报名线索";
@@ -1532,7 +1578,20 @@ function renderEnrollmentLeadOptions() {
     return;
   }
 
-  byId("enrollChannel").value = activeLead.channel;
+  const channelValue = String(activeLead.channel || "");
+  const normalizedChannel = normalizeLeadChannelForSelect(channelValue);
+  if (channelOptions.includes(normalizedChannel)) {
+    byId("enrollChannel").value = normalizedChannel;
+    if (byId("enrollChannelOther")) byId("enrollChannelOther").value = "";
+  } else if (channelValue.startsWith("其他：")) {
+    byId("enrollChannel").value = "其他";
+    if (byId("enrollChannelOther")) byId("enrollChannelOther").value = channelValue.replace(/^其他：/, "");
+  } else {
+    byId("enrollChannel").value = "其他";
+    if (byId("enrollChannelOther")) byId("enrollChannelOther").value = channelValue;
+  }
+  if (byId("enrollCourseProduct") && activeLead.courseProduct) byId("enrollCourseProduct").value = activeLead.courseProduct;
+  if (byId("enrollStartDate")) byId("enrollStartDate").value = activeLead.startDate || activeLead.startTime || "";
   byId("enrollOwner").value = activeLead.owner;
   byId("enrollReferrer").value = activeLead.referrerName || deriveReferrerText(activeLead.channelMeta);
   byId("enrollAttributionPreview").value = formatAttributionSnapshot(buildAttributionSnapshot(activeLead));
@@ -2131,6 +2190,12 @@ function bindEnrollmentCreate() {
   const button = byId("createEnrollmentButton");
   if (!button) return;
 
+  refreshEnrollmentStartTimeOptions();
+  byId("enrollStartTimeSelect")?.addEventListener("change", () => {
+    const selected = byId("enrollStartTimeSelect")?.value || "";
+    if (selected && byId("enrollStartDate")) byId("enrollStartDate").value = selected;
+  });
+
   byId("enrollStudentName")?.addEventListener("change", () => {
     syncSelectedLead(byId("enrollStudentName").value.trim());
     renderAll();
@@ -2154,6 +2219,12 @@ function bindEnrollmentCreate() {
     }
     target.status = "定金 / 已报名";
     touchLead(target);
+    target.courseProduct = byId("enrollCourseProduct")?.value || target.courseProduct || "程老师班课";
+    target.startDate = resolveEnrollmentStartTime();
+    target.channel = resolveEnrollmentChannel() || target.channel;
+    target.owner = byId("enrollOwner")?.value.trim() || target.owner;
+    target.referrerName = byId("enrollReferrer")?.value.trim() || target.referrerName || "";
+    target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
     target.enrolledAmount = amount;
     target.enrolledAt = formatNowStamp();
     target.attributionLocked = true;
@@ -2165,10 +2236,10 @@ function bindEnrollmentCreate() {
     };
     target.nextAction = byId("enrollRemark").value.trim() || "已报名";
     target.lastFollowup = "刚刚报名";
-    target.note = `报名登记完成 / 渠道：${byId("enrollChannel").value} / 顾问：${byId("enrollOwner").value}`;
+    target.note = `报名登记完成 / 课程：${target.courseProduct} / 开课：${target.startDate || "待定"} / 渠道：${target.channel} / 顾问：${target.owner}`;
     pushFollowup(
       target.studentName,
-      `已登记报名，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`
+      `已登记报名，课程 ${target.courseProduct}，开课时间 ${target.startDate || "待定"}，实收金额 ${amount}，状态更新为定金 / 已报名。归属链已锁定：${target.attributionSnapshot.channel} / ${target.attributionSnapshot.channelOwner} / ${target.attributionSnapshot.owner}${target.attributionSnapshot.referrerName ? ` / 推荐人 ${target.attributionSnapshot.referrerName}` : ""}。`
     );
     logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
     renderAll();
@@ -2587,6 +2658,14 @@ function bindTrialCreate() {
     if (!target) return;
     target.status = "已预约试听";
     touchLead(target);
+    target.school = byId("trialSchoolInput")?.value.trim() || target.school || "";
+    target.grade = byId("trialGradeInput")?.value || target.grade;
+    target.trialClass = byId("trialClassInput")?.value.trim() || target.trialClass || "";
+    target.contactPerson = byId("trialContactPersonInput")?.value.trim() || target.contactPerson || "";
+    target.wechat = byId("trialWechatInput")?.value.trim() || target.wechat || "";
+    target.parentPhone = byId("trialPhoneInput")?.value.trim() || target.parentPhone || "";
+    target.followupTarget = byId("trialFollowupTargetInput")?.value.trim() || target.followupTarget || "";
+    target.reminderAt = byId("trialReminderInput")?.value || target.reminderAt || "";
     target.trialTeacher = byId("trialTeacherSelect").value;
     target.trialTime = byId("trialTimeInput").value;
     target.trial = formatTrialDisplay(target.trialTime);
@@ -2597,7 +2676,7 @@ function bindTrialCreate() {
     state.selectedLeadName = target.studentName;
     logAudit("预约试听", target.studentName, `${target.trialTeacher} / ${target.trial}`);
     renderAll();
-    setInlineMessage("saveTrialMessage", `已预约：${target.studentName} / ${target.trialTeacher}`, "success");
+    setInlineMessage("saveTrialMessage", `已预约：${target.studentName} / ${target.trialTeacher}。已进入待试听，试听完成后再回填反馈。`, "success");
     showToast("试听预约已保存");
   });
 
@@ -2607,6 +2686,14 @@ function bindTrialCreate() {
     );
     if (!target) return;
     syncSelectedLead(target.studentName);
+    if (byId("trialSchoolInput")) byId("trialSchoolInput").value = target.school || "";
+    if (byId("trialGradeInput")) byId("trialGradeInput").value = target.grade || byId("trialGradeInput").value;
+    if (byId("trialClassInput")) byId("trialClassInput").value = target.trialClass || "";
+    if (byId("trialContactPersonInput")) byId("trialContactPersonInput").value = target.contactPerson || "";
+    if (byId("trialWechatInput")) byId("trialWechatInput").value = target.wechat || "";
+    if (byId("trialPhoneInput")) byId("trialPhoneInput").value = target.parentPhone || "";
+    if (byId("trialFollowupTargetInput")) byId("trialFollowupTargetInput").value = target.followupTarget || "";
+    if (byId("trialReminderInput")) byId("trialReminderInput").value = target.reminderAt || "";
     renderAll();
   });
 }

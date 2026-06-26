@@ -733,7 +733,8 @@
             <option value="">全部状态</option>
             <option value="待处理">待处理</option>
             <option value="已转任务">已转任务</option>
-            <option value="已处理">已处理</option>
+            <option value="已整改待复核">已整改待复核</option>
+            <option value="已处理">已处理（旧状态）</option>
             <option value="已确认解决">已确认解决</option>
             <option value="继续反馈">继续反馈</option>
           </select>
@@ -743,7 +744,7 @@
             <option value="普通">普通</option>
             <option value="可后置">可后置</option>
           </select>
-          <button class="button secondary" type="button" id="exportFeedbackButton">导出反馈 CSV</button>
+          <button class="button secondary" type="button" id="exportFeedbackButton">导出待整改 CSV</button>
         </div>
         <div class="feedback-grid" id="siteFeedbackList"></div>
       </section>
@@ -787,6 +788,10 @@
         paused: "暂缓"
       };
       const statusOrder = ["new", "assigned", "doing", "launched", "paused"];
+      const feedbackClosedStatuses = ["已确认解决"];
+      const feedbackReviewStatuses = ["已整改待复核", "已处理"];
+      const feedbackTaskStatuses = ["已转任务"];
+      const feedbackDoneLikeStatuses = [...feedbackClosedStatuses, ...feedbackReviewStatuses, ...feedbackTaskStatuses];
       const impactMap = {
         high: "高影响",
         medium: "中影响",
@@ -1236,6 +1241,7 @@
         normalized.system = normalized.system || normalized.pageTitle || "未知页面";
         normalized.type = type;
         normalized.status = normalized.status || "待处理";
+        if (normalized.status === "已处理") normalized.status = "已整改待复核";
         normalized.severity = normalized.severity || (["数据不对", "按钮点不开"].includes(type) ? "紧急" : "普通");
         normalized.content = normalized.content || normalized.description || "";
         normalized.url = normalized.url || "";
@@ -1392,12 +1398,13 @@
         const ranksNode = byId("siteFeedbackRanks");
         const feedbackTitle = byId("siteFeedbackTitle");
         const visibleBaseRows = canManage ? siteFeedbackRows : siteFeedbackRows.filter(personMatchesNameOrUsername);
-        const closedStatuses = ["已处理", "已转任务", "已确认解决"];
+        const closedStatuses = feedbackDoneLikeStatuses;
         if (feedbackTitle) feedbackTitle.textContent = canManage ? "全站反馈问题" : "我的反馈问题";
         const exportButton = byId("exportFeedbackButton");
         if (exportButton) exportButton.hidden = !canManage;
         const pendingRows = visibleBaseRows.filter((row) => !closedStatuses.includes(row.status));
-        const processedRows = visibleBaseRows.filter((row) => closedStatuses.includes(row.status));
+        const reviewRows = visibleBaseRows.filter((row) => feedbackReviewStatuses.includes(row.status));
+        const solvedRows = visibleBaseRows.filter((row) => feedbackClosedStatuses.includes(row.status));
         const taskRows = visibleBaseRows.filter((row) => row.status === "已转任务");
         const reopenedRows = visibleBaseRows.filter((row) => row.status === "继续反馈");
         const urgentRows = visibleBaseRows.filter((row) => row.severity === "紧急" && !closedStatuses.includes(row.status));
@@ -1405,23 +1412,25 @@
         const systemNames = new Set(visibleBaseRows.map((row) => row.system || "未知页面"));
         const countBy = (field) => {
           const map = new Map();
-          visibleBaseRows.forEach((row) => {
+          siteFeedbackRows.forEach((row) => {
             const key = String(row[field] || (field === "userName" ? "未登录" : "未知页面"));
             map.set(key, (map.get(key) || 0) + 1);
           });
-          return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+          return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
         };
         if (summaryNode) {
           const summaryRows = canManage ? [
             ["试用反馈", visibleBaseRows.length],
-            ["已处理", processedRows.length],
+            ["待复核", reviewRows.length],
+            ["已解决", solvedRows.length],
             ["待处理", pendingRows.length],
             ["紧急", urgentRows.length],
             ["参与老师", teacherNames.size],
             ["涉及系统", systemNames.size]
           ] : [
             ["我共提反馈", visibleBaseRows.length],
-            ["已处理", processedRows.length],
+            ["待我复核", reviewRows.length],
+            ["已解决", solvedRows.length],
             ["待处理", pendingRows.length],
             ["继续反馈", reopenedRows.length],
             ["已转任务", taskRows.length],
@@ -1445,7 +1454,7 @@
               </div>
             </div>
           `;
-          ranksNode.innerHTML = renderRank("试用贡献记录", teacherRows) + renderRank("系统反馈分布", systemRows);
+          ranksNode.innerHTML = renderRank("试用贡献记录（全量）", teacherRows) + renderRank("系统反馈分布", systemRows);
         }
         const rows = [...visibleBaseRows]
           .filter((row) => {
@@ -1470,8 +1479,8 @@
         }
         list.innerHTML = rows.map((row) => {
           const mine = personMatchesNameOrUsername(row);
-          const done = closedStatuses.includes(row.status);
-          const canVerify = mine && ["已处理", "已转任务"].includes(row.status || "");
+          const done = feedbackClosedStatuses.includes(row.status);
+          const canVerify = mine && feedbackReviewStatuses.includes(row.status || "");
           const reviewNotes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
           const feedbackUrl = String(row.url || "").trim();
           return `
@@ -1492,8 +1501,8 @@
               ${reviewNotes.length ? `<details class="comment-details"><summary>复核记录 ${reviewNotes.length}</summary><div class="comment-list">${reviewNotes.map((note) => `<div class="comment-item"><strong>${escapeHtml(note.author || "反馈人")}：</strong>${escapeHtml(note.text || "")} <span class="muted">${escapeHtml(note.time || "")}</span></div>`).join("")}</div></details>` : ""}
               <div class="card-tools">
                 ${feedbackUrl ? `<a class="button secondary" href="${escapeHtml(feedbackUrl)}" target="_blank" rel="noreferrer">打开页面</a>` : ""}
-                ${canManage && !done ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
-                ${canManage && !["已处理", "已确认解决"].includes(row.status || "") ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
+                ${canManage && !done && row.status !== "已转任务" ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
+                ${canManage && !feedbackDoneLikeStatuses.includes(row.status || "") ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
                 ${canVerify ? `<button class="button" type="button" data-feedback-action="confirm">确认已解决</button>` : ""}
                 ${canVerify ? `<button class="button secondary" type="button" data-feedback-action="reopen">仍有问题</button>` : ""}
               </div>
@@ -1907,7 +1916,7 @@
         if (item.sourceFeedbackId) {
           const feedback = siteFeedbackRows.find((row) => row.id === item.sourceFeedbackId);
           if (feedback) {
-            feedback.status = "已处理";
+            feedback.status = "已整改待复核";
             feedback.taskId = item.taskId || feedback.taskId || "";
             feedback.owner = item.owner || feedback.owner || currentName;
             feedback.ownerUsername = item.ownerUsername || feedback.ownerUsername || "";
@@ -1921,7 +1930,7 @@
               "任务完成回写反馈",
               1,
               [`${feedback.type || "试用问题"}｜${feedback.userName || "未登录"}`],
-              "任务负责人提交完成反馈后，原反馈卡片自动显示处理结果，提出人可以直接确认是否解决。",
+              "任务负责人提交完成反馈后，原反馈卡片进入待复核，提出人确认后才算真正闭环。",
               "建议与任务协同系统",
               "全站反馈问题"
             );
@@ -1981,9 +1990,10 @@
       }
 
       function exportFeedbackCsv() {
+        const exportRows = siteFeedbackRows.filter((row) => !feedbackClosedStatuses.includes(row.status || ""));
         const rows = [
           ["提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "问题分类", "紧急程度", "状态", "任务编号", "问题说明", "页面链接", "处理人", "处理时间"],
-          ...siteFeedbackRows.map((row) => [
+          ...exportRows.map((row) => [
             row.createdAt || "",
             row.userName || "",
             row.username || "",
@@ -2008,7 +2018,7 @@
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `试用反馈台账-${today()}.csv`;
+        link.download = `待整改反馈台账-${today()}.csv`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2038,10 +2048,12 @@
         const action = actionButton.getAttribute("data-action");
         if (action === "vote") {
           item.votedBy = Array.isArray(item.votedBy) ? item.votedBy : [];
-          if (!item.votedBy.includes(currentUsername)) {
+          if (item.votedBy.includes(currentUsername)) {
+            item.votedBy = item.votedBy.filter((username) => username !== currentUsername);
+          } else {
             item.votedBy.push(currentUsername);
-            item.votes = item.votedBy.length;
           }
+          item.votes = item.votedBy.length;
         }
         if (action === "comment") addComment(item);
         if (action === "convert-task" && canManage) {
@@ -2088,7 +2100,7 @@
           if (!canManage) return;
           const resolution = prompt("请填写处理结果，提交人会看到这段说明并复核是否真的解决：", feedback.resolution || "");
           if (resolution === null) return;
-          feedback.status = "已处理";
+          feedback.status = "已整改待复核";
           feedback.resolution = String(resolution || "").trim() || "管理员已处理，请提交人复核。";
           feedback.processedAt = new Date().toISOString();
           feedback.updatedAt = feedback.processedAt;
@@ -2099,7 +2111,7 @@
             "反馈标记已处理",
             1,
             [`${feedback.type || "试用问题"}｜${feedback.userName || "未登录"}`],
-            "管理员直接填写处理结果，提交人会在我的反馈问题中复核。",
+            "管理员直接填写处理结果，反馈进入待复核，提交人确认后才算真正闭环。",
             "全站反馈问题",
             "反馈提交人"
           );
