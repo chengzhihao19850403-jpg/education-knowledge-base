@@ -318,6 +318,7 @@
       }
       let state = normalizeQualityState(loadState());
       let cloudQualityReady = false;
+      let cloudQualitySaveTimer = null;
       function byId(id) { return document.getElementById(id); }
       function isLegacyInspection(record) {
         return LEGACY_INSPECTION_CLASSES.has(record.className) && String(record.date || "").startsWith("2026-06-");
@@ -354,9 +355,25 @@
         state = normalizeQualityState(state);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         if (!cloudQualityReady) return;
-        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "teachingQuality", state).catch((error) => {
-          console.warn("教学质量数据云端保存失败", error);
-        });
+        if (!window.JRC_CLOUD?.writeModuleData) return;
+        clearTimeout(cloudQualitySaveTimer);
+        cloudQualitySaveTimer = setTimeout(async () => {
+          try {
+            let mergedState = normalizeQualityState(state);
+            if (window.JRC_CLOUD?.readModuleData) {
+              const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+              if (result.ok && result.data?.found && result.data.payload) {
+                const remoteState = normalizeQualityState(mergeQualityState(defaultState, result.data.payload));
+                mergedState = normalizeQualityState(mergeQualityState(remoteState, state));
+                state = mergedState;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+              }
+            }
+            await window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "teachingQuality", mergedState);
+          } catch (error) {
+            console.warn("教学质量数据云端保存失败", error);
+          }
+        }, 450);
       }
       function hydrateCloudQuality() {
         window.JRC_CLOUD?.readModuleData?.(STORAGE_KEY).then((result) => {
