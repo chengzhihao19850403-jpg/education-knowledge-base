@@ -54,10 +54,28 @@
 
   function mergeFeedbackRows(...groups) {
     const map = new Map();
+    const rowTime = (row) => {
+      const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+      const noteTime = notes.map((note) => Date.parse(note?.time || "") || 0).reduce((max, value) => Math.max(max, value), 0);
+      return Math.max(
+        Date.parse(row?.updatedAt || "") || 0,
+        Date.parse(row?.processedAt || "") || 0,
+        Date.parse(row?.confirmedAt || "") || 0,
+        Date.parse(row?.reopenedAt || "") || 0,
+        Date.parse(row?.createdAt || "") || 0,
+        noteTime
+      );
+    };
     groups.flat().forEach((row) => {
       if (!row || typeof row !== "object") return;
       const id = String(row.id || "").trim() || `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-      map.set(id, { ...row, id });
+      const existing = map.get(id);
+      if (!existing) {
+        map.set(id, { ...row, id });
+        return;
+      }
+      const rowIsNewer = rowTime(row) >= rowTime(existing);
+      map.set(id, rowIsNewer ? { ...existing, ...row, id } : { ...row, ...existing, id });
     });
     return [...map.values()]
       .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))

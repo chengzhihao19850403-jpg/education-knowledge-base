@@ -1232,12 +1232,29 @@
 
       function mergeById(rows) {
         const map = new Map();
+        const rowTime = (row) => {
+          const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+          const noteTime = notes.map((note) => Date.parse(note?.time || "") || 0).reduce((max, value) => Math.max(max, value), 0);
+          return Math.max(
+            Date.parse(row?.updatedAt || "") || 0,
+            Date.parse(row?.processedAt || "") || 0,
+            Date.parse(row?.confirmedAt || "") || 0,
+            Date.parse(row?.reopenedAt || "") || 0,
+            Date.parse(row?.createdAt || "") || 0,
+            noteTime
+          );
+        };
         rows.forEach((row) => {
           if (!row || typeof row !== "object") return;
           const normalized = normalizeFeedback(row);
           const id = String(normalized.id || "").trim();
-          const existing = map.get(id) || {};
-          map.set(id, { ...existing, ...normalized, id });
+          const existing = map.get(id);
+          if (!existing) {
+            map.set(id, { ...normalized, id });
+            return;
+          }
+          const normalizedIsNewer = rowTime(normalized) >= rowTime(existing);
+          map.set(id, normalizedIsNewer ? { ...existing, ...normalized, id } : { ...normalized, ...existing, id });
         });
         return [...map.values()]
           .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
@@ -2035,6 +2052,7 @@
           feedback.status = "已处理";
           feedback.resolution = String(resolution || "").trim() || "管理员已处理，请提交人复核。";
           feedback.processedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.processedAt;
           feedback.processedBy = currentName;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: `标记已处理：${feedback.resolution}`, time: today() });
@@ -2054,6 +2072,7 @@
           if (!personMatchesNameOrUsername(feedback)) return;
           feedback.status = "已确认解决";
           feedback.confirmedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.confirmedAt;
           feedback.confirmedBy = currentName;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: "提交人已确认解决。", time: today() });
@@ -2075,6 +2094,7 @@
           if (!text || !text.trim()) return;
           feedback.status = "继续反馈";
           feedback.reopenedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.reopenedAt;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: `仍有问题：${text.trim()}`, time: today() });
           recordSuggestionLink(
