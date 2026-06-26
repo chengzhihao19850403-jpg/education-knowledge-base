@@ -970,6 +970,7 @@
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-student-service-v2";
     const attendanceKey = "jrc-class-attendance-v1";
+    const scienceTeachers = ["海滢滢", "姚老师", "朱永乐"];
     const defaults = {
       student: "",
       className: "",
@@ -984,6 +985,39 @@
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
+
+    function activeServiceModule() {
+      const key = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
+      return ["cheng", "small", "science"].includes(key) ? key : "cheng";
+    }
+
+    function serviceModuleForRow(row = {}) {
+      const explicit = String(row.serviceModule || "").trim();
+      if (["cheng", "small", "science"].includes(explicit)) return explicit;
+      const compact = (value) => String(value || "").replace(/\s+/g, "");
+      const teacher = compact(row.teacher || row.teacherName || row.createdBy || row.operatorName || "");
+      const text = compact([row.className, row.type, row.content, row.parentMessage, row.sourceText, row.student, row.studentName].filter(Boolean).join(" "));
+      if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+      if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
+      return "small";
+    }
+
+    function visibleServiceRows(inputRows = rows) {
+      const moduleKey = activeServiceModule();
+      return (Array.isArray(inputRows) ? inputRows : []).filter((row) => serviceModuleForRow(row) === moduleKey);
+    }
+
+    function visibleServiceEntries(keyword, sortValue) {
+      return rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => serviceModuleForRow(row) === activeServiceModule())
+        .filter(({ row }) => rowMatches(row, keyword))
+        .sort((left, right) => {
+          if (sortValue === "oldest") return parseDateValue(left.row.createdAt) - parseDateValue(right.row.createdAt);
+          if (sortValue === "status") return statusRank(left.row.risk, ["高风险", "关注", "正常"]) - statusRank(right.row.risk, ["高风险", "关注", "正常"]);
+          return parseDateValue(right.row.createdAt) - parseDateValue(left.row.createdAt);
+        });
+    }
 
     function hydrateFromAttendance() {
       const sessions = readStore(attendanceKey, []);
@@ -1048,7 +1082,8 @@
     function render() {
       const keyword = $("studentFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("studentSortSelect")?.value || "newest";
-      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.risk, ["高风险", "关注", "正常"]);
+      const filteredRows = visibleServiceRows();
+      const entries = visibleServiceEntries(keyword, sortValue);
       $("studentServiceTableBody").innerHTML = entries.length ? entries
         .map(({ row, index }) => `
           <tr>
@@ -1062,10 +1097,10 @@
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("") : `<tr><td colspan="8">暂无学生服务记录。可以先新增一条真实记录，或把 Excel 另存为 CSV 后导入。</td></tr>`;
-      setText("studentMetricTotal", rows.length);
-      setText("studentMetricFeedback", rows.filter((row) => row.type === "课后反馈").length);
-      setText("studentMetricRisk", rows.filter((row) => row.risk !== "正常").length);
-      setText("studentMetricCommunication", rows.filter((row) => row.type === "家长沟通").length);
+      setText("studentMetricTotal", filteredRows.length);
+      setText("studentMetricFeedback", filteredRows.filter((row) => row.type === "课后反馈").length);
+      setText("studentMetricRisk", filteredRows.filter((row) => row.risk !== "正常").length);
+      setText("studentMetricCommunication", filteredRows.filter((row) => row.type === "家长沟通").length);
       renderAuditLog(moduleKey, "studentAuditTableBody");
     }
 
@@ -1088,6 +1123,7 @@
         risk: $("studentRiskInput")?.value || "正常",
         content: normalizeText($("studentContentInput")?.value) || "-",
         next: normalizeText($("studentNextActionInput")?.value) || "-",
+        serviceModule: editingIndex >= 0 ? rows[editingIndex].serviceModule || activeServiceModule() : activeServiceModule(),
         parentMessage: editingIndex >= 0 ? rows[editingIndex].parentMessage || "" : "",
         sourceModule: editingIndex >= 0 ? rows[editingIndex].sourceModule || "" : "",
         sourceText: editingIndex >= 0 ? rows[editingIndex].sourceText || "" : "",
@@ -1110,7 +1146,11 @@
     });
     $("studentFilterInput")?.addEventListener("input", render);
     $("studentSortSelect")?.addEventListener("change", render);
-    $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadCsv("学生与家长服务数据.csv", rows, [
+    window.addEventListener("storage", (event) => {
+      if (event.key === "jrc-student-service-active-module-v1") render();
+    });
+    window.addEventListener("jrc-student-service-module-changed", render);
+    $("studentExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "studentServiceMessage", "导出", () => downloadCsv("学生与家长服务数据.csv", visibleServiceRows(), [
       { label: "学生", value: "student" },
       { label: "班级/课程", value: "className" },
       { label: "任课老师", value: "teacher" },
@@ -1127,13 +1167,14 @@
         denyAction("studentServiceMessage", "清空");
         return;
       }
-      markRowsDeleted(key, rows);
-      rows = [];
+      const deletingRows = visibleServiceRows();
+      markRowsDeleted(key, deletingRows);
+      rows = rows.filter((row) => serviceModuleForRow(row) !== activeServiceModule());
       writeStore(key, rows, { restoreDeleted: false });
-      recordAudit(moduleKey, "清空", "学生服务台账", "0 条");
+      recordAudit(moduleKey, "清空", "学生服务台账", `${deletingRows.length} 条`);
       resetForm();
       render();
-      setText("studentServiceMessage", "已清空本页台账。后续可新增或导入真实记录。");
+      setText("studentServiceMessage", "已清空当前服务台台账，其他服务台数据保留。");
     });
     bindRowActions("studentServiceTableBody", {
       onEdit(index) {
@@ -1190,6 +1231,7 @@
           risk: normalizeStatus(readField(row, ["risk", "风险", "风险等级", "续费风险"], "正常"), ["正常", "关注", "高风险"], "正常"),
           content: normalizeText(readField(row, ["content", "记录内容", "最近反馈", "反馈"], "-")) || "-",
           next: normalizeText(readField(row, ["next", "下一步", "跟进事项"], "-")) || "-",
+          serviceModule: activeServiceModule(),
           createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
           updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
         };

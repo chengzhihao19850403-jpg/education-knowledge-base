@@ -102,6 +102,23 @@
       .my-service-list { display: grid; gap: 8px; margin-top: 12px; }
       .my-service-item { padding: 11px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.6; }
       .my-service-item strong { color: var(--ink); }
+      .service-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+      .service-module-card {
+        width: 100%;
+        min-height: 148px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fff;
+        text-align: left;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(23,33,50,0.06);
+      }
+      .service-module-card strong { display: block; color: var(--ink); font-size: 18px; }
+      .service-module-card span { display: inline-flex; margin-top: 10px; padding: 4px 9px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; font-weight: 800; }
+      .service-module-card p { margin-top: 10px; font-size: 13px; }
+      .service-module-card.active { border-color: rgba(13,148,136,0.46); background: rgba(13,148,136,0.08); box-shadow: 0 14px 30px rgba(13,148,136,0.14); }
+      .service-module-current { margin-top: 14px; padding: 13px 15px; border-radius: 16px; background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.16); color: var(--muted); line-height: 1.7; }
       .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
@@ -110,7 +127,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) {
         .topbar { align-items: flex-start; flex-direction: column; }
-        .metrics, .form-grid, .attendance-summary-grid, .my-service-grid { grid-template-columns: 1fr; }
+        .metrics, .form-grid, .attendance-summary-grid, .my-service-grid, .service-module-grid { grid-template-columns: 1fr; }
         .span-3 { grid-column: auto; }
         .attendance-touch-actions { min-width: 520px; }
         .attendance-touch-actions .button { min-height: 46px; }
@@ -145,13 +162,42 @@
           <div class="auth-note" data-role-greeting></div>
         </article>
         <article class="card">
-          <h2>常用工作</h2>
+          <h2>先选服务台</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>上课点名</strong><p>按课程带出名单，触摸选择到课、请假、缺席或待核对。</p></div>
-            <div class="mini-item"><strong>出门测</strong><p>下课前录入成绩，自动进入学生档案和学管沟通。</p></div>
-            <div class="mini-item"><strong>缺席追踪</strong><p>缺席学生必须落实不销课、补课、视频课或录播核销。</p></div>
+            <div class="mini-item"><strong>程老师班课</strong><p>程老师学生的点名、反馈、缺席追踪和家长服务。</p></div>
+            <div class="mini-item"><strong>小班课</strong><p>数学小课、培优课、常规班课的学生服务。</p></div>
+            <div class="mini-item"><strong>科学课</strong><p>科学老师学生、出门测和家长沟通记录。</p></div>
           </div>
         </article>
+      </section>
+
+      <section class="card" id="studentServiceModuleChooser">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">服务台</p>
+            <h2>选择学生群体</h2>
+            <p>进入对应服务台后，点名、成绩、课堂反馈和学生台账会按该学生群体过滤。</p>
+          </div>
+          <span class="status-chip" id="activeServiceModuleBadge">程老师班课</span>
+        </div>
+        <div class="service-module-grid">
+          <button class="service-module-card active" type="button" data-service-module="cheng">
+            <strong>程老师班课系统</strong>
+            <span>程老师学生</span>
+            <p>适合查看程老师班课的点名、出门测、课堂反馈和缺席补课追踪。</p>
+          </button>
+          <button class="service-module-card" type="button" data-service-module="small">
+            <strong>小班课系统</strong>
+            <span>数学小课</span>
+            <p>适合常规小班课、培优课、数学课程的学生家长服务。</p>
+          </button>
+          <button class="service-module-card" type="button" data-service-module="science">
+            <strong>科学课系统</strong>
+            <span>科学老师</span>
+            <p>适合科学课程学生、科学出门测和科学老师课堂反馈。</p>
+          </button>
+        </div>
+        <div class="service-module-current" id="activeServiceModuleNote">当前显示：程老师班课系统。</div>
       </section>
 
       <section class="card">
@@ -409,20 +455,38 @@
         }).format(Number(value) || 0);
         const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
         const rows = derived?.pendingLinks?.enrolledStudentCandidates || [];
-        if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="6">当前还没有从招生系统转入的真实报名学生。重新导入招生表后，这里会自动显示可建档名单。</td></tr>`;
-          return;
-        }
-        body.innerHTML = rows.map((row) => `
-          <tr>
-            <td>${escapeHtml(row.studentName || "-")}</td>
-            <td>${escapeHtml(row.channel || "-")}</td>
-            <td>${escapeHtml(row.owner || "-")}</td>
-            <td>${escapeHtml(row.trialTeacher || "-")}</td>
-            <td>${money(row.enrolledAmount || 0)}</td>
-            <td>生成学生档案、入学交接、首次家长沟通待办</td>
-          </tr>
-        `).join("");
+        const scienceTeachers = ["海滢滢", "姚老师", "朱永乐"];
+        const activeServiceModule = () => {
+          const moduleKey = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
+          return ["cheng", "small", "science"].includes(moduleKey) ? moduleKey : "cheng";
+        };
+        const compact = (value) => String(value || "").replace(/\s+/g, "");
+        const candidateModule = (row = {}) => {
+          const teacher = compact(row.trialTeacher || row.teacher || row.owner || "");
+          const text = compact([row.className, row.courseName, row.subject, row.channel, row.note, row.studentName].filter(Boolean).join(" "));
+          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验/.test(text)) return "science";
+          return "small";
+        };
+        const render = () => {
+          const list = rows.filter((row) => candidateModule(row) === activeServiceModule());
+          if (!list.length) {
+            body.innerHTML = `<tr><td colspan="6">当前服务台还没有从招生系统转入的真实报名学生。重新导入招生表或切换服务台后，这里会自动显示可建档名单。</td></tr>`;
+            return;
+          }
+          body.innerHTML = list.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.studentName || "-")}</td>
+              <td>${escapeHtml(row.channel || "-")}</td>
+              <td>${escapeHtml(row.owner || "-")}</td>
+              <td>${escapeHtml(row.trialTeacher || "-")}</td>
+              <td>${money(row.enrolledAmount || 0)}</td>
+              <td>生成学生档案、入学交接、首次家长沟通待办</td>
+            </tr>
+          `).join("");
+        };
+        window.addEventListener("jrc-student-service-module-changed", render);
+        render();
       })();
     </script>
     <script>
@@ -432,6 +496,25 @@
         const PAIKE_REGULAR_STORE_KEY = "paike-june-system-v1";
         const SETTLEMENT_TEACHERS = ["海滢滢", "姚老师"];
         const FINANCE_EXCLUDED_TEACHERS = ["程志豪", "海滢滢", "姚老师"];
+        const SCIENCE_TEACHERS = ["海滢滢", "姚老师", "朱永乐"];
+        const SERVICE_MODULES = {
+          cheng: {
+            label: "程老师班课系统",
+            shortLabel: "程老师班课",
+            note: "当前显示程老师班课学生：点名、成绩、课堂反馈和缺席追踪都会按程老师相关课程过滤。"
+          },
+          small: {
+            label: "小班课系统",
+            shortLabel: "小班课",
+            note: "当前显示数学小班课学生：排除程老师班课和科学课，方便学管查看常规小课服务。"
+          },
+          science: {
+            label: "科学课系统",
+            shortLabel: "科学课",
+            note: "当前显示科学课学生：海滢滢、姚老师、朱永乐及课程名含科学的记录会进入这里。"
+          }
+        };
+        let activeServiceModule = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
         const ATTENDANCE_STATUSES = ["到课", "迟到", "请假", "缺席", "待核对"];
         const FOLLOWUP_OPTIONS = [
           "正常销课并计课时",
@@ -476,6 +559,9 @@
         const studentProfileSummaryBody = document.getElementById("studentProfileSummaryBody");
         const myServiceGrid = document.getElementById("myServiceGrid");
         const myServiceList = document.getElementById("myServiceList");
+        const moduleCards = Array.from(document.querySelectorAll("[data-service-module]"));
+        const activeModuleBadge = document.getElementById("activeServiceModuleBadge");
+        const activeModuleNote = document.getElementById("activeServiceModuleNote");
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
@@ -592,7 +678,7 @@
           if (!shouldScopeToCurrentTeacher()) return true;
           return String(session?.teacher || "") === String(currentEmployee()?.name || "");
         };
-        const readVisibleRows = () => mergeAttendanceSessions(readRows()).filter(sessionVisibleToCurrentUser);
+        const readVisibleRows = () => mergeAttendanceSessions(readRows()).filter(sessionVisibleToCurrentUser).filter(sessionMatchesActiveModule);
         const saveRows = (rows) => {
           let mergedRows = mergeAttendanceSessions(rows);
           localStorage.setItem(STORE_KEY, JSON.stringify(mergedRows));
@@ -681,6 +767,52 @@
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
         const isFollowupHandled = (row) => row?.followupHandled === true || row?.followupStatus === "已处理";
         const needsFollowup = (row) => (!isEffectivePresent(row) || row.followup === "待联系家长") && !isFollowupHandled(row);
+        const compactText = (value) => String(value || "").replace(/\s+/g, "");
+        const serviceModuleForRecord = (record = {}) => {
+          const explicit = String(record.serviceModule || "").trim();
+          if (SERVICE_MODULES[explicit]) return explicit;
+          const teacher = compactText(record.teacher || record.teacherName || record.createdBy || record.operatorName || "");
+          const text = compactText([
+            record.className,
+            record.courseName,
+            record.lessonType,
+            record.type,
+            record.content,
+            record.parentMessage,
+            record.sourceText,
+            record.student,
+            record.studentName
+          ].filter(Boolean).join(" "));
+          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (SCIENCE_TEACHERS.map(compactText).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
+          return "small";
+        };
+        const serviceModuleForSession = (session = {}) => {
+          const sessionModule = serviceModuleForRecord(session);
+          if (sessionModule !== "small") return sessionModule;
+          const rowModule = (Array.isArray(session.rows) ? session.rows : [])
+            .map((row) => serviceModuleForRecord({ ...row, teacher: session.teacher, className: session.className, lessonType: session.lessonType }))
+            .find((moduleKey) => moduleKey !== "small");
+          return rowModule || "small";
+        };
+        const sessionMatchesActiveModule = (session) => serviceModuleForSession(session) === activeServiceModule;
+        const updateServiceModuleUi = () => {
+          const config = SERVICE_MODULES[activeServiceModule] || SERVICE_MODULES.cheng;
+          moduleCards.forEach((card) => card.classList.toggle("active", card.getAttribute("data-service-module") === activeServiceModule));
+          if (activeModuleBadge) activeModuleBadge.textContent = config.shortLabel;
+          if (activeModuleNote) activeModuleNote.textContent = config.note;
+        };
+        const switchServiceModule = (moduleKey) => {
+          if (!SERVICE_MODULES[moduleKey]) return;
+          activeServiceModule = moduleKey;
+          localStorage.setItem("jrc-student-service-active-module-v1", activeServiceModule);
+          window.dispatchEvent(new CustomEvent("jrc-student-service-module-changed", { detail: { moduleKey: activeServiceModule } }));
+          draftRows = [];
+          if (fields.rosterInput) fields.rosterInput.value = "";
+          if (fields.className) fields.className.value = "";
+          updateServiceModuleUi();
+          renderAll();
+        };
         const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
         const isSpecialSettlementTeacher = (teacher) => SETTLEMENT_TEACHERS.includes(teacher);
         const isFinanceExcludedTeacher = (teacher) => FINANCE_EXCLUDED_TEACHERS.includes(teacher);
@@ -800,6 +932,7 @@
           draftRows = parsed.rows.map((row) => ({
             studentName: row.studentName,
             teacher,
+            serviceModule: activeServiceModule,
             status: "到课",
             exitScore: row.exitScore || "",
             followup: "正常销课并计课时"
@@ -956,6 +1089,7 @@
           return rows.filter((row) => {
             if (date && row.date !== date) return false;
             if (teacher && row.teacherName !== teacher) return false;
+            if (serviceModuleForRecord(row) !== activeServiceModule) return false;
             return row.studentName;
           });
         };
@@ -1612,6 +1746,9 @@
           renderPreimportOptions();
         });
         fields.teacher?.addEventListener("change", renderPreimportOptions);
+        moduleCards.forEach((card) => {
+          card.addEventListener("click", () => switchServiceModule(card.getAttribute("data-service-module")));
+        });
         loadPreimportButton?.addEventListener("click", loadPreimportRoster);
         importButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
@@ -1647,6 +1784,7 @@
           draftRows = parsed.rows.map((row) => ({
             studentName: row.studentName,
             teacher,
+            serviceModule: activeServiceModule,
             status: "到课",
             exitScore: row.exitScore || "",
             followup: "正常销课并计课时"
@@ -1667,11 +1805,12 @@
             teacher,
             lessonType: fields.lessonType?.value || "正常课",
             className: fields.className?.value?.trim() || "",
+            serviceModule: activeServiceModule,
             operatorName: currentEmployee()?.name || "未登录",
             reviewStatus: "待复核",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            rows: draftRows.map((row) => ({ ...row, teacher }))
+            rows: draftRows.map((row) => ({ ...row, teacher, serviceModule: activeServiceModule }))
           };
           const sessions = readRows();
           sessions.unshift(session);
@@ -1768,6 +1907,7 @@
           renderRoster();
         });
         window.addEventListener("jrc-feedback-timeline-rendered", renderMyServiceWorkbench);
+        updateServiceModuleUi();
         renderAll();
         hydrateCloudRows();
         hydrateScheduleSources();
@@ -1792,6 +1932,20 @@
           .replace(/'/g, "&#039;");
         const normalize = (value) => String(value || "").trim();
         const compact = (value) => normalize(value).replace(/\s+/g, "");
+        const scienceTeachers = ["海滢滢", "姚老师", "朱永乐"];
+        const activeServiceModule = () => {
+          const moduleKey = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
+          return ["cheng", "small", "science"].includes(moduleKey) ? moduleKey : "cheng";
+        };
+        const serviceModuleForFeedback = (row = {}) => {
+          const explicit = normalize(row.serviceModule);
+          if (["cheng", "small", "science"].includes(explicit)) return explicit;
+          const teacher = compact(row.teacher || row.createdBy || row.owner || row.operatorName || "");
+          const text = compact([row.className, row.type, row.content, row.parentMessage, row.sourceText, row.student].filter(Boolean).join(" "));
+          if (teacher === "程志豪" || /程老师|程志豪/.test(text)) return "cheng";
+          if (scienceTeachers.map(compact).includes(teacher) || /科学|物理|化学|实验|海滢滢|姚老师|朱永乐/.test(text)) return "science";
+          return "small";
+        };
         const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
         const canViewAll = () => {
           const employee = currentEmployee();
@@ -1902,6 +2056,7 @@
           return rows
             .filter(isClassFeedback)
             .filter(belongsToCurrentUser)
+            .filter((row) => serviceModuleForFeedback(row) === activeServiceModule())
             .filter((row) => matchKeyword(row, keyword))
             .slice(0, 50);
         };
@@ -1927,11 +2082,11 @@
           }).join("") : `<tr><td colspan="5">暂无可查看的课堂反馈。老师在 AI 助手生成并归档后，会自动进入这里。</td></tr>`;
           if (message) {
             const total = rows.filter(isClassFeedback).filter(belongsToCurrentUser).length;
-            localStorage.setItem("jrc-my-feedback-visible-count", String(total));
-            window.dispatchEvent(new CustomEvent("jrc-feedback-timeline-rendered", { detail: { total } }));
+            localStorage.setItem("jrc-my-feedback-visible-count", String(list.length));
+            window.dispatchEvent(new CustomEvent("jrc-feedback-timeline-rendered", { detail: { total: list.length } }));
             message.textContent = canViewAll()
-              ? `已读取 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`
-              : `已读取本人 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`;
+              ? `已读取当前服务台 ${list.length}/${total} 条课堂反馈；当前列表最多显示最近 50 条。`
+              : `已读取本人当前服务台 ${list.length}/${total} 条课堂反馈；当前列表最多显示最近 50 条。`;
           }
         };
         const hydrate = async () => {
@@ -1950,6 +2105,7 @@
 
         searchInput?.addEventListener("input", render);
         refreshButton?.addEventListener("click", hydrate);
+        window.addEventListener("jrc-student-service-module-changed", render);
         body.addEventListener("click", async (event) => {
           const button = event.target.closest("[data-copy-feedback]");
           if (!button) return;
