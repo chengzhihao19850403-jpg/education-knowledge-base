@@ -71,13 +71,25 @@
 
   function mergeRowsById(rows, prefix = "row") {
     const map = new Map();
+    const rowTime = (row) => {
+      const value = String(row?.updatedAt || row?.createdAt || row?.at || row?.time || row?.date || "").trim();
+      const parsed = Date.parse(value.replace(/\./g, "/"));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       if (!row || typeof row !== "object") return;
       const normalized = ensureRowId(row, prefix);
       const rowId = String(normalized.rowId || "").trim();
       if (!rowId) return;
-      const existing = map.get(rowId) || {};
-      map.set(rowId, { ...existing, ...normalized, rowId });
+      const existing = map.get(rowId);
+      if (!existing) {
+        map.set(rowId, { ...normalized, rowId });
+        return;
+      }
+      const incomingIsNewer = rowTime(normalized) >= rowTime(existing);
+      map.set(rowId, incomingIsNewer
+        ? { ...existing, ...normalized, rowId }
+        : { ...normalized, ...existing, rowId });
     });
     return [...map.values()].sort((left, right) => {
       const rightDate = String(right.updatedAt || right.createdAt || "");
