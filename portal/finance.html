@@ -328,6 +328,21 @@
         color: var(--muted);
         font-size: 12px;
       }
+      .teacher-settlement-card.departed {
+        border-color: rgba(148, 163, 184, 0.34);
+        background: rgba(248,250,252,0.88);
+      }
+      .teacher-status-note {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        margin-top: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(100, 116, 139, 0.1);
+        color: #475569;
+        font-size: 12px;
+      }
       .my-settlement-card {
         margin-top: 16px;
         padding: 16px;
@@ -1325,6 +1340,30 @@
       let state = readState();
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
+      const DEPARTED_FINANCE_TEACHERS = new Set(["万盈盈", "何建军", "张艳"]);
+
+      function teacherNameOf(row) {
+        return String(row?.teacherName || row?.teacher || row?.姓名 || "").trim();
+      }
+
+      function isDepartedFinanceTeacher(name) {
+        return DEPARTED_FINANCE_TEACHERS.has(String(name || "").trim());
+      }
+
+      function normalizePreimportEmploymentRows(key, rows) {
+        if (!Array.isArray(rows)) return [];
+        return rows.map((row) => {
+          if (!row || typeof row !== "object") return row;
+          const teacherName = teacherNameOf(row);
+          if (!isDepartedFinanceTeacher(teacherName)) return row;
+          return {
+            ...row,
+            teacherName: row.teacherName || teacherName,
+            employmentStatus: "departed",
+            excludeFromTeacherDiff: false
+          };
+        });
+      }
 
       function preimportRowTime(row) {
         const value = String(row?.updatedAt || row?.importedAt || row?.createdAt || row?.date || row?.generatedAt || "").trim();
@@ -1402,6 +1441,7 @@
             key,
             ...safeBundles.map((bundle) => Array.isArray(bundle[key]) ? bundle[key] : [])
           );
+          merged[key] = normalizePreimportEmploymentRows(key, merged[key]);
         });
         return {
           ...merged,
@@ -1992,28 +2032,41 @@
       function teacherSettlementRows() {
         const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
         const precheckRows = (derived?.preimport?.teacherMonthPrecheck || []).filter((row) => row.period === currentPeriod);
+        const summaryRows = (readPreimportBundle().teacherFinanceSummaryRows || []).filter((row) => row.period === currentPeriod);
         const salaryRows = (readPreimportBundle().salaryAttendance || []).filter((row) => {
-          return row.period === currentPeriod && !row.excludeFromTeacherDiff && row.financeRoleType !== "nonTeaching";
+          return row.period === currentPeriod && row.financeRoleType !== "nonTeaching";
         });
         const salaryByTeacher = new Map();
         salaryRows.forEach((row) => {
-          const teacher = String(row.teacherName || row.teacher || "未匹配老师").trim() || "未匹配老师";
-          if (!salaryByTeacher.has(teacher)) salaryByTeacher.set(teacher, { rowCount: 0, amount: 0 });
+          const teacher = teacherNameOf(row) || "未匹配老师";
+          if (!salaryByTeacher.has(teacher)) salaryByTeacher.set(teacher, { rowCount: 0, amount: 0, departed: false });
           const group = salaryByTeacher.get(teacher);
           group.rowCount += 1;
           group.amount += salaryRowAmount(row);
+          if (row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacher)) group.departed = true;
+        });
+        const summaryByTeacher = new Map();
+        summaryRows.forEach((row) => {
+          const teacher = teacherNameOf(row);
+          if (!teacher) return;
+          summaryByTeacher.set(teacher, row);
         });
         const teacherNames = new Set([
           ...precheckRows.map((row) => row.teacherName).filter(Boolean),
-          ...Array.from(salaryByTeacher.keys())
+          ...Array.from(salaryByTeacher.keys()),
+          ...Array.from(summaryByTeacher.keys())
         ]);
         return Array.from(teacherNames).map((teacherName) => {
           const precheck = precheckRows.find((row) => row.teacherName === teacherName) || {};
           const salary = salaryByTeacher.get(teacherName) || { rowCount: 0, amount: 0 };
+          const summary = summaryByTeacher.get(teacherName) || {};
+          const departed = salary.departed || summary.employmentStatus === "departed" || precheck.employmentStatus === "departed" || isDepartedFinanceTeacher(teacherName);
           const issueCount = toNumber(precheck.scheduleOnly) + toNumber(precheck.salaryOnly);
           const highPriority = toNumber(precheck.highPriorityDifferences);
           const scheduleCount = toNumber(precheck.scheduleStudentSessions);
-          const status = highPriority
+          const status = departed
+            ? "离职历史结算"
+            : highPriority
             ? "先查高优先级"
             : issueCount
               ? "有差异待核"
@@ -2028,9 +2081,11 @@
             scheduleHours: toNumber(precheck.scheduleHours),
             issueCount,
             highPriority,
-            status
+            status,
+            departed
           };
         }).sort((left, right) => {
+          if (left.departed !== right.departed) return left.departed ? 1 : -1;
           if (left.highPriority !== right.highPriority) return right.highPriority - left.highPriority;
           if (left.issueCount !== right.issueCount) return right.issueCount - left.issueCount;
           return left.teacherName.localeCompare(right.teacherName, "zh-CN");
@@ -2088,10 +2143,11 @@
           return;
         }
         holder.innerHTML = rows.map((row) => `
-          <article class="teacher-settlement-card">
+          <article class="teacher-settlement-card ${row.departed ? "departed" : ""}">
             <div>
               <strong>${escapeHtml(row.teacherName)}</strong>
               <span>${escapeHtml(row.status)}</span>
+              ${row.departed ? `<em class="teacher-status-note">只保留历史排课与本月结算</em>` : ""}
             </div>
             <div>
               <strong>${money(row.salaryAmount)}</strong>

@@ -6,7 +6,10 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from pathlib import Path
 
-from openpyxl import load_workbook
+try:
+    from openpyxl import load_workbook
+except ModuleNotFoundError:
+    load_workbook = None
 
 
 SITE_ROOT = Path("/Users/chengzhihao/Documents/Codex/2026-06-20-jrcedu-master")
@@ -29,7 +32,7 @@ TEACHER_NAME_MAP = {
     "吴（女）": "吴水琴",
 }
 NON_TEACHING_FINANCE_NAMES = {"周珊"}
-DEPARTED_FINANCE_ONLY_NAMES = {"万盈盈"}
+DEPARTED_FINANCE_ONLY_NAMES = {"万盈盈", "何建军", "张艳"}
 IGNORE_SHEETS = {"小课产值", "日常消费表", "周珊"}
 DATE_RE = re.compile(r"第\s*(\d+)\s*次\s*(\d{1,2})[.月](\d{1,2})")
 
@@ -101,6 +104,73 @@ def normalize_teacher_name(name: str) -> str:
     return TEACHER_NAME_MAP.get(text(name), text(name))
 
 
+def name_list(names: set[str]) -> str:
+    return "、".join(sorted(names))
+
+
+def teacher_employment_status(teacher_name: str) -> str:
+    return "departed" if teacher_name in DEPARTED_FINANCE_ONLY_NAMES else "active"
+
+
+def is_departed_teacher(teacher_name: str) -> bool:
+    return teacher_employment_status(teacher_name) == "departed"
+
+
+def row_teacher_name(row: dict) -> str:
+    return text(row.get("teacherName") or row.get("teacher") or row.get("姓名"))
+
+
+def normalize_departed_finance_rows(bundle: dict) -> dict:
+    array_keys = [
+        "salaryAttendance",
+        "salaryRevenueAttendance",
+        "teacherFinanceSummaryRows",
+        "teacherMonthPrecheck",
+        "reconciliationIssues",
+    ]
+    for key in array_keys:
+        rows = bundle.get(key)
+        if not isinstance(rows, list):
+            continue
+        normalized = []
+        for row in rows:
+            if not isinstance(row, dict):
+                normalized.append(row)
+                continue
+            teacher_name = row_teacher_name(row)
+            if not is_departed_teacher(teacher_name):
+                normalized.append(row)
+                continue
+            next_row = {**row, "teacherName": row.get("teacherName") or teacher_name, "employmentStatus": "departed"}
+            if key == "salaryAttendance":
+                next_row["excludeFromTeacherDiff"] = False
+            normalized.append(next_row)
+        bundle[key] = normalized
+    readiness_text = text(bundle.get("financeReadinessText"))
+    departed_line = (
+        f"- {name_list(DEPARTED_FINANCE_ONLY_NAMES)}按已离职历史结算处理，"
+        "保留离职前工资结算和历史排课，不再作为在岗教学老师参与新分配；历史差异仍保留供结算对比。"
+    )
+    if readiness_text:
+        readiness_text = re.sub(
+            r"- 万盈盈按已离职历史结算处理，保留离职前工资结算，不再作为在岗教学老师参与差异展示。",
+            departed_line,
+            readiness_text,
+        )
+        if departed_line not in readiness_text:
+            readiness_text = f"{readiness_text}\n{departed_line}"
+        bundle["financeReadinessText"] = readiness_text
+    return bundle
+
+
+def load_portal_preimport_bundle(path: Path) -> dict:
+    raw = path.read_text(encoding="utf-8")
+    prefix = "window.JRC_PREIMPORT_SUMMARY = "
+    start = raw.index(prefix) + len(prefix)
+    end = raw.index(";\nwindow.JRC_PREIMPORT_BUNDLE", start)
+    return json.loads(raw[start:end])
+
+
 def find_header_row(ws) -> int:
     for row_idx in range(1, min(ws.max_row, 12) + 1):
         values = [clean_header(ws.cell(row_idx, col).value) for col in range(1, min(ws.max_column, 40) + 1)]
@@ -163,7 +233,7 @@ def extract_summary_rows(ws) -> list[dict]:
             "period": "2026-05",
             "teacherName": teacher_name,
             "financeRoleType": "nonTeaching" if teacher_name in NON_TEACHING_FINANCE_NAMES else "teaching",
-            "employmentStatus": "departed" if teacher_name in DEPARTED_FINANCE_ONLY_NAMES else "active",
+            "employmentStatus": teacher_employment_status(teacher_name),
         }
         for col_idx, header in enumerate(headers, start=1):
             if header:
@@ -274,8 +344,8 @@ def extract_teacher_sheet(ws) -> tuple[list[dict], list[dict], list[dict], list[
                         "sourceWorkbook": MAY_SALARY_PATH.name,
                         "sourceSheet": ws.title,
                         "financeRoleType": "nonTeaching" if teacher_name in NON_TEACHING_FINANCE_NAMES else "teaching",
-                        "employmentStatus": "departed" if teacher_name in DEPARTED_FINANCE_ONLY_NAMES else "active",
-                        "excludeFromTeacherDiff": teacher_name in DEPARTED_FINANCE_ONLY_NAMES,
+                        "employmentStatus": teacher_employment_status(teacher_name),
+                        "excludeFromTeacherDiff": False,
                     }
                 )
 
@@ -326,7 +396,7 @@ def extract_teacher_sheet(ws) -> tuple[list[dict], list[dict], list[dict], list[
                     "sourceWorkbook": MAY_SALARY_PATH.name,
                     "sourceSheet": ws.title,
                     "financeRoleType": "nonTeaching" if teacher_name in NON_TEACHING_FINANCE_NAMES else "teaching",
-                    "employmentStatus": "departed" if teacher_name in DEPARTED_FINANCE_ONLY_NAMES else "active",
+                    "employmentStatus": teacher_employment_status(teacher_name),
                 }
             )
 
@@ -334,6 +404,8 @@ def extract_teacher_sheet(ws) -> tuple[list[dict], list[dict], list[dict], list[
 
 
 def load_may_workbook_payload():
+    if load_workbook is None:
+        raise RuntimeError("openpyxl is required when rebuilding from the original May salary workbook.")
     workbook = load_workbook(MAY_SALARY_PATH, data_only=True, read_only=True)
     summary_rows = extract_summary_rows(workbook["小课产值"])
     expense_rows = extract_expense_rows(workbook["日常消费表"])
@@ -473,8 +545,6 @@ def build_may_reconciliation(schedule_sessions: list[dict], payout_rows: list[di
     for row in payout_rows:
         if row.get("needsReview") or row.get("period") != "2026-05":
             continue
-        if row.get("employmentStatus") == "departed":
-            continue
         salary_index[normalize_key(row["teacherName"], row["studentName"], row["date"])].append(row)
 
     rows = []
@@ -526,8 +596,6 @@ def build_teacher_precheck(schedule_sessions: list[dict], payout_rows: list[dict
         item["scheduleHours"] += to_number(session.get("hours")) * max(1, len(session.get("studentNames") or []))
     for row in payout_rows:
         if row.get("needsReview") or row.get("period") != "2026-05":
-            continue
-        if row.get("employmentStatus") == "departed":
             continue
         item = teacher_summary[row["teacherName"]]
         item["teacherName"] = row["teacherName"]
@@ -621,13 +689,17 @@ def build_finance_readiness_text(may_payload: dict, may_reconciliation: list[dic
             f"- 五月排课/工资差异：{sum(1 for row in may_reconciliation if row['status'] != '匹配')} 条，"
             f"其中高优先级 {sum(1 for row in may_reconciliation if row['priority'] == '高' and row['status'] != '匹配')} 条。",
             "- 周珊按学管 / 排课岗处理，保留工资成本，不进入教学老师差异口径。",
-            "- 万盈盈按已离职历史结算处理，保留离职前工资结算，不再作为在岗教学老师参与差异展示。",
+            f"- {name_list(DEPARTED_FINANCE_ONLY_NAMES)}按已离职历史结算处理，保留离职前工资结算，不再作为在岗教学老师参与差异展示。",
             "- 五月费用按分类栏抽取，没有把左上角的汇总流水块重复计入，避免重复放大成本。",
         ]
     )
 
 
 def build_bundle():
+    if not MAY_SALARY_PATH.exists():
+        bundle = load_portal_preimport_bundle(PORTAL_PREIMPORT_PATH)
+        return normalize_departed_finance_rows(bundle)
+
     base_bundle = json.loads(BASE_BUNDLE_PATH.read_text(encoding="utf-8"))
     may_payload = load_may_workbook_payload()
     may_schedule_sessions = build_may_schedule_sessions()
@@ -687,7 +759,7 @@ def build_bundle():
         "bySchedulePeriod": dict(sorted((period, count) for period, count in by_schedule_period.items() if period)),
         "byTeacher": by_teacher,
     }
-    return bundle
+    return normalize_departed_finance_rows(bundle)
 
 
 def write_preimport_files(bundle: dict) -> None:
