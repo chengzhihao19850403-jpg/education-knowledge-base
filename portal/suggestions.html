@@ -751,6 +751,7 @@
 
 
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260626g"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const DELETED_STORAGE_KEY = "jrc-suggestion-deleted-v1";
@@ -778,6 +779,17 @@
       const currentName = currentEmployee?.name || "员工";
       const currentUsername = currentEmployee?.username || currentName;
       const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
+
+      function recordSuggestionLink(action, count = 1, samples = [], note = "", source = "建议与任务协同系统", target = "建议与任务协同系统") {
+        window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+          source,
+          target,
+          action,
+          count,
+          samples,
+          note
+        });
+      }
       const sampleSuggestionIds = new Set(["s1", "s2", "s3"]);
       const MODULE_OWNER_TASKS = [
         {
@@ -1681,6 +1693,14 @@
         item.decision = item.decision || `已派给 ${item.owner} 执行。`;
         item.comments = item.comments || [];
         item.comments.push({ author: currentName, text: `已派任务给 ${item.owner}。`, time: today() });
+        recordSuggestionLink(
+          "建议派发为任务",
+          1,
+          [`${item.title || "未命名任务"}｜${item.owner}`],
+          "建议被管理员派给负责人后，会出现在负责人的任务列表中，完成后需要提交结果。",
+          "建议与任务协同系统",
+          "负责人待办"
+        );
         return true;
       }
 
@@ -1780,6 +1800,14 @@
         feedback.processedBy = currentName;
         feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
         feedback.reviewNotes.push({ author: currentName, text: feedback.resolution, time: today() });
+        recordSuggestionLink(
+          "反馈转为执行任务",
+          1,
+          [`${feedback.type || "试用问题"}｜${owner.trim()}`],
+          "试用反馈被转为任务后，负责人需要处理并提交完成反馈，提出人后续复核是否解决。",
+          "全站反馈问题",
+          "建议与任务协同系统"
+        );
         writeSiteFeedbackRows();
         return true;
       }
@@ -1787,12 +1815,44 @@
       function submitCompletion(item) {
         const text = prompt("填写完成反馈：做了什么、结果如何、还缺什么");
         if (!text || !text.trim()) return;
-        item.completionReport = text.trim();
+        const report = text.trim();
+        item.completionReport = report;
         item.status = "launched";
         item.completedAt = new Date().toISOString();
         item.completedBy = currentName;
         item.comments = item.comments || [];
-        item.comments.push({ author: currentName, text: `完成反馈：${text.trim()}`, time: today() });
+        item.comments.push({ author: currentName, text: `完成反馈：${report}`, time: today() });
+        if (item.sourceFeedbackId) {
+          const feedback = siteFeedbackRows.find((row) => row.id === item.sourceFeedbackId);
+          if (feedback) {
+            feedback.status = "已处理";
+            feedback.taskId = item.taskId || feedback.taskId || "";
+            feedback.owner = item.owner || feedback.owner || currentName;
+            feedback.ownerUsername = item.ownerUsername || feedback.ownerUsername || "";
+            feedback.resolution = `任务负责人 ${currentName} 已提交完成反馈：${report}`;
+            feedback.processedAt = new Date().toISOString();
+            feedback.processedBy = currentName;
+            feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+            feedback.reviewNotes.push({ author: currentName, text: feedback.resolution, time: today() });
+            writeSiteFeedbackRows();
+            recordSuggestionLink(
+              "任务完成回写反馈",
+              1,
+              [`${feedback.type || "试用问题"}｜${feedback.userName || "未登录"}`],
+              "任务负责人提交完成反馈后，原反馈卡片自动显示处理结果，提出人可以直接确认是否解决。",
+              "建议与任务协同系统",
+              "全站反馈问题"
+            );
+          }
+        }
+        recordSuggestionLink(
+          "负责人提交完成反馈",
+          1,
+          [`${item.title || "未命名任务"}｜${currentName}`],
+          "负责人填写完成结果后，管理员和提出人可以继续核对是否真的解决。",
+          "负责人待办",
+          "建议与任务协同系统"
+        );
         writeSuggestions();
         renderAll();
       }
@@ -1952,6 +2012,14 @@
           feedback.processedBy = currentName;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: `标记已处理：${feedback.resolution}`, time: today() });
+          recordSuggestionLink(
+            "反馈标记已处理",
+            1,
+            [`${feedback.type || "试用问题"}｜${feedback.userName || "未登录"}`],
+            "管理员直接填写处理结果，提交人会在我的反馈问题中复核。",
+            "全站反馈问题",
+            "反馈提交人"
+          );
           writeSiteFeedbackRows();
           renderAll();
           return;
@@ -1963,6 +2031,14 @@
           feedback.confirmedBy = currentName;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: "提交人已确认解决。", time: today() });
+          recordSuggestionLink(
+            "提交人确认解决",
+            1,
+            [`${feedback.type || "试用问题"}｜${currentName}`],
+            "反馈提交人确认问题已经解决，本条反馈闭环。",
+            "反馈提交人",
+            "全站反馈问题"
+          );
           writeSiteFeedbackRows();
           renderAll();
           return;
@@ -1975,6 +2051,14 @@
           feedback.reopenedAt = new Date().toISOString();
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: `仍有问题：${text.trim()}`, time: today() });
+          recordSuggestionLink(
+            "提交人继续反馈",
+            1,
+            [`${feedback.type || "试用问题"}｜${currentName}`],
+            "反馈提交人认为问题没有完全解决，已重新打开并补充说明。",
+            "反馈提交人",
+            "全站反馈问题"
+          );
           writeSiteFeedbackRows();
           renderAll();
           return;
