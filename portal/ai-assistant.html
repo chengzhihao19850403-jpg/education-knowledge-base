@@ -78,6 +78,8 @@
       .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
       .draft-item strong { display: block; }
       .draft-item span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+      .draft-item .draft-status { display: inline-flex; width: fit-content; margin-top: 8px; padding: 4px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-dark); font-weight: 800; }
+      .draft-item .draft-status.archived { background: rgba(22, 163, 74, 0.12); color: #15803d; }
       .draft-edit { min-height: 170px; margin-top: 8px; }
       .history-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
       .history-tools input { flex: 1 1 180px; min-height: 38px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
@@ -422,12 +424,23 @@
         return updated;
       }
 
+      function shortDateTime(value) {
+        return String(value || "").replace("T", " ").slice(0, 16);
+      }
+
+      function draftArchiveBadge(row) {
+        if (!row?.archivedAt && !row?.archivedStudentServiceId) return "";
+        const time = shortDateTime(row.archivedAt);
+        return `<span class="draft-status archived">已归档学生服务${time ? `｜${escapeHtml(time)}` : ""}</span>`;
+      }
+
       function renderDrafts(rows = readDrafts()) {
         rows = visibleDraftRows(rows).slice(0, 50);
         byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
           <div class="draft-item history-item">
             <strong>${escapeHtml(draftHistoryTitle(row))}</strong>
             <span>${escapeHtml(row.modeLabel || "-")}｜${escapeHtml(row.target || "-")}｜${escapeHtml(row.createdAt || "")}</span>
+            ${draftArchiveBadge(row)}
             <details>
               <summary>查看草稿内容</summary>
               <textarea class="result-edit draft-edit${completionClass(draftDisplayText(row))}" data-draft-editor="${escapeHtml(row.id || "")}">${escapeHtml(draftDisplayText(row) || "")}</textarea>
@@ -1123,6 +1136,41 @@
         return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 
+      function compactArchivePart(value) {
+        return String(value || "").trim().replace(/\s+/g, "");
+      }
+
+      function lessonArchivePart(value) {
+        const raw = String(value || "").trim();
+        if (!raw || /^[_＿xX]+$/.test(raw)) return "";
+        return raw;
+      }
+
+      function feedbackArchiveKey(row) {
+        const existing = String(row?.archiveKey || "").trim();
+        if (existing) return existing;
+        const draftId = String(row?.sourceDraftId || "").trim();
+        if (draftId) return `draft:${draftId}`;
+        const student = compactArchivePart(row?.student);
+        const teacher = compactArchivePart(row?.teacher || row?.createdBy);
+        const season = lessonArchivePart(row?.lessonSeason);
+        const lessonNumber = lessonArchivePart(row?.lessonNumber);
+        if (student && teacher && (season || lessonNumber)) return `lesson:${student}|${teacher}|${season}|${lessonNumber}`;
+        const text = compactArchivePart(row?.parentMessage || row?.content).slice(0, 96);
+        if (student && teacher && text) return `text:${student}|${teacher}|${text}`;
+        return "";
+      }
+
+      function markEditingDraftArchived(serviceRow) {
+        if (!editingDraftId) return;
+        updateDraftRow(editingDraftId, (current) => ({
+          result: latestResult,
+          archivedAt: serviceRow.updatedAt || serviceRow.createdAt || new Date().toISOString(),
+          archivedStudentServiceId: serviceRow.id,
+          archiveKey: serviceRow.archiveKey || feedbackArchiveKey(serviceRow)
+        }));
+      }
+
       async function saveToStudentService() {
         if (!latestResult) {
           byId("aiMessage").textContent = "请先完成 AI 整理。";
@@ -1147,7 +1195,8 @@
           document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
           return;
         }
-        const serviceRow = {
+        const now = new Date().toISOString();
+        let serviceRow = {
           id: `ai-feedback-${Date.now()}`,
           student,
           className: resolvedCourseName,
@@ -1159,14 +1208,16 @@
           parentMessage: latestResult.parentMessage || "",
           next: latestResult.suggestedAction || (Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("；") : "") || "学管跟进家长反馈",
           sourceModule: "aiAssistant",
+          sourceDraftId: editingDraftId || "",
           sourceText: byId("aiInputText").value.trim(),
           lessonSeason: resolvedLessonSeason,
           lessonNumber: resolvedLessonNumber,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           createdBy: currentName,
           createdByUsername: currentUsername
         };
+        serviceRow.archiveKey = feedbackArchiveKey(serviceRow);
         let rows = safeParse(localStorage.getItem(STUDENT_SERVICE_KEY), []);
         try {
           const remote = await window.JRC_CLOUD?.readModuleData?.(STUDENT_SERVICE_KEY);
@@ -1174,11 +1225,30 @@
             rows = mergeRowsById([...remote.data.payload, ...(Array.isArray(rows) ? rows : [])]);
           }
         } catch (_) {}
-        const nextRows = mergeRowsById([serviceRow, ...(Array.isArray(rows) ? rows : [])]);
+        const archiveKey = feedbackArchiveKey(serviceRow);
+        const existingIndex = archiveKey
+          ? rows.findIndex((row) => feedbackArchiveKey(row) === archiveKey)
+          : -1;
+        const updatedExisting = existingIndex >= 0;
+        if (updatedExisting) {
+          const existing = rows[existingIndex];
+          serviceRow = {
+            ...existing,
+            ...serviceRow,
+            id: existing.id || existing.rowId || serviceRow.id,
+            createdAt: existing.createdAt || serviceRow.createdAt,
+            updatedAt: now
+          };
+          rows[existingIndex] = serviceRow;
+        }
+        const nextRows = updatedExisting
+          ? mergeRowsById(rows)
+          : mergeRowsById([serviceRow, ...(Array.isArray(rows) ? rows : [])]);
         localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
+        markEditingDraftArchived(serviceRow);
         byId("aiMessage").textContent = result?.ok
-          ? `已归档到学生服务系统：${student}。进入学生服务台账搜索学生姓名，可直接复制家长版反馈。`
+          ? `${updatedExisting ? "已更新学生服务归档" : "已归档到学生服务系统"}：${student}。进入学生服务台账搜索学生姓名，可直接复制家长版反馈。`
           : `已先保存到当前设备：${student}。云端恢复后会同步到学生服务台账。`;
         hydrateArchivedFeedbacks();
       }

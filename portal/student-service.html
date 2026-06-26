@@ -1795,6 +1795,15 @@
         const rowId = (row) => {
           const existing = normalize(row?.id || row?.rowId);
           if (existing) return existing;
+          const archiveKey = normalize(row?.archiveKey);
+          if (archiveKey) return archiveKey;
+          const sourceDraftId = normalize(row?.sourceDraftId);
+          if (sourceDraftId) return `draft:${sourceDraftId}`;
+          const student = compact(row?.student);
+          const teacher = compact(row?.teacher || row?.createdBy);
+          const season = compact(row?.lessonSeason);
+          const lessonNumber = compact(row?.lessonNumber);
+          if (student && teacher && (season || lessonNumber)) return `lesson:${student}|${teacher}|${season}|${lessonNumber}`;
           return [
             row?.student,
             row?.teacher,
