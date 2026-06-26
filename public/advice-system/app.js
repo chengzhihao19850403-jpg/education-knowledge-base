@@ -303,10 +303,33 @@ function persistState() {
 function scheduleCloudPersist() {
   if (!cloudStoreReady || !window.JRC_CLOUD?.writeModuleData) return;
   clearTimeout(cloudSaveTimer);
-  cloudSaveTimer = setTimeout(() => {
-    window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "admissions", state).catch((error) => {
+  cloudSaveTimer = setTimeout(async () => {
+    try {
+      let remoteState = normalizeState(structuredClone(defaultState));
+      if (window.JRC_CLOUD?.readModuleData) {
+        const result = await window.JRC_CLOUD.readModuleData(STORAGE_KEY);
+        if (result.ok && result.data?.found && result.data.payload) {
+          remoteState = normalizeState({
+            ...structuredClone(defaultState),
+            ...result.data.payload,
+          });
+        }
+      }
+      const mergedState = normalizeState({
+        ...structuredClone(defaultState),
+        ...remoteState,
+        ...state,
+        leads: mergeLeadRows(remoteState.leads || [], state.leads || []),
+        followups: mergeFollowupRows(remoteState.followups || [], state.followups || []),
+        auditLogs: mergeAuditRows(remoteState.auditLogs || [], state.auditLogs || [])
+      });
+      Object.keys(state).forEach((key) => delete state[key]);
+      Object.assign(state, mergedState);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      await window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "admissions", state);
+    } catch (error) {
       console.warn("招生系统云端保存失败", error);
-    });
+    }
   }, 450);
 }
 
