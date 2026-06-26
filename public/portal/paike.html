@@ -134,6 +134,12 @@
         gap: 8px;
         justify-content: flex-end;
       }
+      .teacher-quick-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
       .quick-grid,
       .status-grid,
       .workbench-grid,
@@ -459,7 +465,8 @@
         .path-grid,
         .my-paike-summary,
         .excel-toolbar,
-        .excel-summary {
+        .excel-summary,
+        .teacher-quick-actions {
           grid-template-columns: 1fr;
         }
       }
@@ -541,10 +548,18 @@
           <label>显示
             <select id="teacherSheetMode">
               <option value="month">整月课表</option>
+              <option value="today">今天课表</option>
+              <option value="week">本周课表</option>
               <option value="weekend">周五/周六/周日</option>
               <option value="weekday">周一到周四</option>
             </select>
           </label>
+        </div>
+        <div class="teacher-quick-actions">
+          <button class="button secondary" type="button" data-teacher-sheet-quick="mine">我的课表</button>
+          <button class="button secondary" type="button" data-teacher-sheet-quick="today">今天课表</button>
+          <button class="button secondary" type="button" data-teacher-sheet-quick="week">本周课表</button>
+          <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
         </div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="table-wrap">
@@ -567,7 +582,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="roomUsageSection">
         <p class="eyebrow">教室</p>
         <div class="section-heading-row">
           <h2>教室使用表</h2>
@@ -1008,6 +1023,8 @@
 
       function dateMatchesMode(date, mode) {
         const weekday = weekdayName(date);
+        if (mode === "today") return dateKey(date) === dateKey(new Date().toISOString());
+        if (mode === "week") return isInRange({ date }, "week");
         if (mode === "weekend") return ["周五", "周六", "周日"].includes(weekday);
         if (mode === "weekday") return ["周一", "周二", "周三", "周四"].includes(weekday);
         return true;
@@ -1047,6 +1064,8 @@
           if (period && row.period !== period) return false;
           if (teacher && row.teacher !== teacher) return false;
           const weekday = weekdayName(row.date);
+          if (mode === "today" && dateKey(row.date) !== dateKey(new Date().toISOString())) return false;
+          if (mode === "week" && !isInRange(row, "week")) return false;
           if (mode === "weekend" && !["周五", "周六", "周日"].includes(weekday)) return false;
           if (mode === "weekday" && !["周一", "周二", "周三", "周四"].includes(weekday)) return false;
           const haystack = [row.teacher, row.student, row.rawText, row.lessonType, row.time, row.room, row.date].join(" ").toLowerCase();
@@ -1366,6 +1385,38 @@
         downloadCsv(`排课-${selectedPeriod()}-${selectedRoomDate() || "当天"}-教室使用.csv`, roomUsageExportRows());
       }
 
+      function selectCurrentEmployeeTeacher() {
+        const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+        const select = byId("teacherSheetTeacher");
+        if (!employeeName || !select) return false;
+        const hasTeacher = Array.from(select.options || []).some((option) => option.value === employeeName);
+        if (hasTeacher) {
+          select.value = employeeName;
+          return true;
+        }
+        return false;
+      }
+
+      function applyTeacherSheetQuick(action) {
+        const mode = byId("teacherSheetMode");
+        if (action === "mine") {
+          selectCurrentEmployeeTeacher();
+          if (mode) mode.value = "month";
+          renderTeacherSheet();
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "today" || action === "week") {
+          if (mode) mode.value = action;
+          renderTeacherSheet();
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "rooms") {
+          byId("roomUsageSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+
       function fillSelectOptions(id, values, allLabel) {
         const select = byId(id);
         if (!select) return;
@@ -1637,6 +1688,9 @@
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);
       byId("exportRoomUsageButton")?.addEventListener("click", exportRoomUsage);
+      document.querySelectorAll("[data-teacher-sheet-quick]").forEach((button) => {
+        button.addEventListener("click", () => applyTeacherSheetQuick(button.getAttribute("data-teacher-sheet-quick") || ""));
+      });
 
       initPaikeDashboard();
     </script>

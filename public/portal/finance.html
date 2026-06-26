@@ -895,6 +895,17 @@
         </aside>
       </section>
 
+      <section class="card">
+        <p class="eyebrow">快速入口</p>
+        <h2>财务老师常用操作</h2>
+        <div class="quick-actions">
+          <button class="button secondary" type="button" data-finance-quick="mine">我的工资单</button>
+          <button class="button secondary" type="button" data-finance-quick="summary">看本月总表</button>
+          <button class="button secondary" type="button" data-finance-quick="detail">看老师明细</button>
+          <button class="button secondary" type="button" data-finance-quick="admin">管理员核对区</button>
+        </div>
+      </section>
+
       <section class="summary-grid" aria-label="财务汇总">
         <article class="summary-card">
           <span class="summary-label">课时收入</span>
@@ -3779,10 +3790,44 @@
             "financeStatementMode",
             "financeQuickJump",
             "exportSummaryButton",
-            "exportExpensesButton"
+            "exportExpensesButton",
+            "exportTeacherWageButton"
           ].includes(node.id);
-          if (!canEdit && !keepEnabled) node.disabled = true;
+          const keepQuickButton = Boolean(node.dataset?.financeQuick);
+          if (!canEdit && !keepEnabled && !keepQuickButton) node.disabled = true;
         });
+      }
+
+      function selectCurrentFinanceTeacher() {
+        const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+        const select = byId("financeTeacherSelect");
+        if (!employeeName || !select) return false;
+        const hasTeacher = Array.from(select.options || []).some((option) => option.value === employeeName);
+        if (hasTeacher) {
+          select.value = employeeName;
+          return true;
+        }
+        return false;
+      }
+
+      function applyFinanceQuick(action) {
+        if (action === "mine") {
+          selectCurrentFinanceTeacher();
+          renderFinanceTeacherDetail();
+          byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "detail") {
+          byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "admin") {
+          const details = byId("financeAdminDetails");
+          if (details) details.open = true;
+          details?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
       }
 
       byId("periodInput").addEventListener("change", (event) => {
@@ -3821,6 +3866,9 @@
       byId("exportSummaryButton").addEventListener("click", exportSummary);
       byId("exportExpensesButton").addEventListener("click", exportExpenses);
       byId("exportTeacherWageButton")?.addEventListener("click", exportTeacherWage);
+      document.querySelectorAll("[data-finance-quick]").forEach((button) => {
+        button.addEventListener("click", () => applyFinanceQuick(button.getAttribute("data-finance-quick") || ""));
+      });
       byId("financeImportButton").addEventListener("click", importFinanceSheets);
       byId("financeAutofillButton").addEventListener("click", applyFinanceAutofill);
       byId("financeCommandGrid")?.addEventListener("click", (event) => {
