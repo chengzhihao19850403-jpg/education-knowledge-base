@@ -127,6 +127,15 @@
     writeDeletedRowIds(key, ids);
   }
 
+  function markRowsDeleted(key, rows) {
+    const ids = readDeletedRowIds(key);
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const rowId = String(ensureRowId(row, key)?.rowId || "").trim();
+      if (rowId) ids.add(rowId);
+    });
+    writeDeletedRowIds(key, ids);
+  }
+
   function filterDeletedRows(key, rows) {
     const ids = readDeletedRowIds(key);
     if (!ids.size) return rows;
@@ -1081,6 +1090,7 @@
         denyAction("studentServiceMessage", "清空");
         return;
       }
+      markRowsDeleted(key, rows);
       rows = [];
       writeStore(key, rows);
       recordAudit(moduleKey, "清空", "学生服务台账", "0 条");
@@ -1825,6 +1835,7 @@
         denyAction("curriculumMessage", "清空");
         return;
       }
+      markRowsDeleted(key, rows);
       rows = [];
       writeStore(key, rows);
       recordAudit(moduleKey, "清空", "教研课程台账", "0 条");
@@ -2096,6 +2107,7 @@
         denyAction("hrMessage", "清空");
         return;
       }
+      markRowsDeleted(key, rows);
       rows = [];
       writeStore(key, rows);
       recordAudit(moduleKey, "清空", "人事培训台账", "0 条");
@@ -2287,6 +2299,7 @@
         denyAction("campusMessage", "清空");
         return;
       }
+      markRowsDeleted(key, rows);
       rows = [];
       writeStore(key, rows);
       recordAudit(moduleKey, "清空", "校区运营台账", "0 条");
