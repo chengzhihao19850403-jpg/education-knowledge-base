@@ -904,6 +904,7 @@
           <button class="button secondary" type="button" data-finance-quick="detail">看老师明细</button>
           <button class="button secondary" type="button" data-finance-quick="admin">管理员核对区</button>
         </div>
+        <div class="notice" id="financeActionMessage" hidden></div>
       </section>
 
       <section class="summary-grid" aria-label="财务汇总">
@@ -1505,8 +1506,14 @@
       };
 
       function setFinanceMessage(text) {
-        const node = byId("financeSaveMessage");
-        if (node) node.textContent = text;
+        const message = text || "";
+        const saveNode = byId("financeSaveMessage");
+        const actionNode = byId("financeActionMessage");
+        if (saveNode) saveNode.textContent = message || "财务数据保存后默认进入“待复核”。";
+        if (actionNode) {
+          actionNode.hidden = !message;
+          actionNode.textContent = message;
+        }
       }
 
       function setFinanceImportMessage(text) {
@@ -3744,13 +3751,19 @@
             row.reviewStatus
           ])
         ]);
+        setFinanceMessage(`已导出 ${currentPeriod} 月度汇总，包含点名结算预览和逐学生点名明细。`);
       }
 
       function exportExpenses() {
         const period = getPeriod();
+        const expenseRows = period.expenses || [];
+        if (!expenseRows.length) {
+          setFinanceMessage(`当前 ${currentPeriod} 暂无支出记录，未导出空表。`);
+          return;
+        }
         const rows = [
           ["月份", "日期", "类别", "金额", "经办/报销人", "状态", "复核状态", "复核人", "支付方式", "说明"],
-          ...(period.expenses || []).map((expense) => [
+          ...expenseRows.map((expense) => [
             currentPeriod,
             expense.date,
             expense.category,
@@ -3764,13 +3777,23 @@
           ])
         ];
         downloadCsv(`日常支出明细-${currentPeriod}.csv`, rows);
+        setFinanceMessage(`已导出 ${currentPeriod} 日常支出明细，共 ${expenseRows.length} 条。`);
       }
 
       function exportTeacherWage() {
         const teacher = byId("financeTeacherSelect")?.value || "";
+        if (!teacher) {
+          setFinanceMessage("请先选择老师，再导出工资单。");
+          byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
         const rows = teacherDetailRows();
         const groups = teacherDetailGroups(rows);
         const data = teacherWageOverviewData(teacher, rows, groups);
+        if (!rows.length && !data.summaryRow) {
+          setFinanceMessage(`${teacher} 在 ${currentPeriod} 暂无工资明细或产值总表，未导出空工资单。请先切换月份或导入原工资表。`);
+          return;
+        }
         const summary = data.summaryRow || {};
         const detailRows = groups.map((group) => {
           const sortedRows = group.rows.slice().sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
@@ -3807,6 +3830,7 @@
           ["学生/班级", "课时费", "单次提成", "上课次数", "上课日期/第几次", "应发小计", "来源", "状态"],
           ...detailRows
         ]);
+        setFinanceMessage(`已导出 ${teacher} ${currentPeriod} 工资单：明细 ${data.rowsCount} 条，学生/班级 ${data.studentCount} 个。`);
       }
 
       function applyEditPermission() {
@@ -3843,26 +3867,34 @@
       function applyFinanceQuick(action) {
         if (action === "mine") {
           setFinancePeriod(currentMonthValue());
-          selectCurrentFinanceTeacher();
+          const selectedMine = selectCurrentFinanceTeacher();
           renderFinanceTeacherDetail();
+          setFinanceMessage(selectedMine
+            ? `已切换到你的 ${currentPeriod} 工资明细。`
+            : "当前登录姓名没有匹配到老师工资单，已显示当前选择老师。");
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "summary") {
           setFinancePeriod(currentMonthValue());
+          setFinanceMessage(`已切换到 ${currentPeriod} 小课产值总表。`);
           byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "detail") {
+          const teacher = byId("financeTeacherSelect")?.value || "当前老师";
+          setFinanceMessage(`已跳到 ${teacher} 工资明细。`);
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "admin") {
           const details = byId("financeAdminDetails");
           if (details) details.open = true;
+          setFinanceMessage("已打开管理员核对区，普通老师主要看总表和自己的工资明细。");
           details?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
+        setFinanceMessage("已切换到财务总表。");
         byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
       }
 
@@ -3878,12 +3910,16 @@
       byId("financeQuickJump")?.addEventListener("change", (event) => {
         const value = event.target.value;
         if (value === "detail") {
+          const teacher = byId("financeTeacherSelect")?.value || "当前老师";
+          setFinanceMessage(`已跳到 ${teacher} 工资明细。`);
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
         } else if (value === "admin") {
           const details = byId("financeAdminDetails");
           if (details) details.open = true;
+          setFinanceMessage("已打开管理员核对区。");
           details?.scrollIntoView({ block: "start", behavior: "smooth" });
         } else {
+          setFinanceMessage(`已跳到 ${currentPeriod} 小课产值总表。`);
           byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }
       });
@@ -3893,6 +3929,7 @@
         const teacher = row.getAttribute("data-finance-teacher-row") || "";
         if (byId("financeTeacherSelect")) byId("financeTeacherSelect").value = teacher;
         renderFinanceTeacherDetail();
+        setFinanceMessage(`已切换到 ${teacher} 工资明细。`);
         byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
       byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());

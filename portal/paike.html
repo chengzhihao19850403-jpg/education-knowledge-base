@@ -562,6 +562,7 @@
           <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
         </div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
+        <div class="notice" id="teacherSheetMessage" hidden></div>
         <div class="table-wrap">
           <table class="teacher-sheet-table" id="teacherSheetTable"></table>
         </div>
@@ -728,6 +729,13 @@
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+      }
+
+      function setTeacherSheetMessage(text) {
+        const node = byId("teacherSheetMessage");
+        if (!node) return;
+        node.hidden = !text;
+        node.textContent = text || "";
       }
 
       function safeParse(raw, fallback) {
@@ -1400,15 +1408,33 @@
       }
 
       function exportTeacherSheet() {
+        const rows = currentTeacherSheetRows();
+        if (!rows.length) {
+          setTeacherSheetMessage("当前筛选下没有可导出的老师课表。请先切换月份、老师或显示范围。");
+          return;
+        }
         downloadCsv(`排课-${selectedPeriod()}-${selectedTeacher() || "老师课表"}.csv`, teacherSheetExportRows());
+        setTeacherSheetMessage(`已导出 ${selectedTeacher() || "当前老师"} ${selectedPeriod()} 课表。`);
       }
 
       function exportTeacherDay() {
+        const rows = paikeRows.filter((row) => row.period === selectedPeriod());
+        if (!rows.length) {
+          setTeacherSheetMessage("当前月份没有老师空档数据，暂不能导出。");
+          return;
+        }
         downloadCsv(`排课-${selectedPeriod()}-${selectedRoomDate() || "当天"}-老师空档.csv`, teacherDayExportRows());
+        setTeacherSheetMessage(`已导出 ${selectedRoomDate() ? dateLabel(selectedRoomDate()) : selectedPeriod()} 老师空档表。`);
       }
 
       function exportRoomUsage() {
+        const rows = paikeRows.filter((row) => row.period === selectedPeriod() && row.room && row.room !== "-");
+        if (!rows.length) {
+          setTeacherSheetMessage("当前月份还没有识别到教室数据，暂不能导出教室表。");
+          return;
+        }
         downloadCsv(`排课-${selectedPeriod()}-${selectedRoomDate() || "当天"}-教室使用.csv`, roomUsageExportRows());
+        setTeacherSheetMessage(`已导出 ${selectedRoomDate() ? dateLabel(selectedRoomDate()) : selectedPeriod()} 教室使用表。`);
       }
 
       function selectCurrentEmployeeTeacher() {
@@ -1426,9 +1452,10 @@
       function applyTeacherSheetQuick(action) {
         const mode = byId("teacherSheetMode");
         if (action === "mine") {
-          selectCurrentEmployeeTeacher();
+          const selectedMine = selectCurrentEmployeeTeacher();
           if (mode) mode.value = "month";
           renderTeacherSheet();
+          setTeacherSheetMessage(selectedMine ? "已切换到你的老师课表。" : "当前登录姓名没有匹配到老师课表，已保留当前老师选择。");
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
@@ -1436,10 +1463,12 @@
           setTeacherSheetPeriod(currentMonthValue());
           if (mode) mode.value = action;
           renderTeacherSheet();
+          setTeacherSheetMessage(action === "today" ? "已切换到今天课表。" : "已切换到本周课表。");
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "rooms") {
+          setTeacherSheetMessage("已跳到教室使用表。");
           byId("roomUsageSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }
       }
