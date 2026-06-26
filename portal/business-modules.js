@@ -98,6 +98,44 @@
     });
   }
 
+  function deletedRowsKey(key) {
+    return `${key}-deleted-ids-v1`;
+  }
+
+  function readDeletedRowIds(key) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(deletedRowsKey(key)) || "[]");
+      return new Set(Array.isArray(parsed) ? parsed.map((value) => String(value || "").trim()).filter(Boolean) : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function writeDeletedRowIds(key, ids) {
+    const rows = [...ids].map((value) => String(value || "").trim()).filter(Boolean);
+    localStorage.setItem(deletedRowsKey(key), JSON.stringify(rows));
+    window.JRC_CLOUD?.writeModuleData?.(deletedRowsKey(key), cloudStoreModules[key] || "business", rows, { replaceMode: "replace" }).catch((error) => {
+      console.warn("删除标记云端保存失败", key, error);
+    });
+  }
+
+  function markRowDeleted(key, row) {
+    const rowId = String(ensureRowId(row, key)?.rowId || "").trim();
+    if (!rowId) return;
+    const ids = readDeletedRowIds(key);
+    ids.add(rowId);
+    writeDeletedRowIds(key, ids);
+  }
+
+  function filterDeletedRows(key, rows) {
+    const ids = readDeletedRowIds(key);
+    if (!ids.size) return rows;
+    return (Array.isArray(rows) ? rows : []).filter((row) => {
+      const rowId = String(ensureRowId(row, key)?.rowId || "").trim();
+      return !ids.has(rowId);
+    });
+  }
+
   function readLinkEvents() {
     try {
       const parsed = JSON.parse(localStorage.getItem(linkEventKey) || "[]");
@@ -381,22 +419,35 @@
   }
 
   function writeStore(key, rows) {
-    const mergedRows = mergeRowsById(rows, key);
+    const mergedRows = filterDeletedRows(key, mergeRowsById(rows, key));
     localStorage.setItem(key, JSON.stringify(mergedRows));
     if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], mergedRows);
   }
 
   function readCloudStore(key, onRows) {
     if (!window.JRC_CLOUD?.readModuleData) return;
+    const deletedTask = window.JRC_CLOUD.readModuleData(deletedRowsKey(key)).then((deletedResult) => {
+      if (!deletedResult.ok || !deletedResult.data?.found || !Array.isArray(deletedResult.data.payload)) return;
+      const localIds = readDeletedRowIds(key);
+      deletedResult.data.payload.forEach((value) => {
+        const id = String(value || "").trim();
+        if (id) localIds.add(id);
+      });
+      localStorage.setItem(deletedRowsKey(key), JSON.stringify([...localIds]));
+    }).catch((error) => {
+      console.warn("删除标记云端读取失败", key, error);
+    });
     window.JRC_CLOUD.readModuleData(key).then((result) => {
       if (!result.ok || !result.data?.found || !Array.isArray(result.data.payload)) return;
-      const localRows = readStore(key, []);
-      const mergedRows = mergeRowsById([...(Array.isArray(localRows) ? localRows : []), ...result.data.payload], key);
-      localStorage.setItem(key, JSON.stringify(mergedRows));
-      if (JSON.stringify(mergedRows) !== JSON.stringify(result.data.payload) && mergedRows.length) {
-        writeCloudStore(key, cloudStoreModules[key], mergedRows);
-      }
-      onRows(mergedRows);
+      deletedTask.finally(() => {
+        const localRows = readStore(key, []);
+        const mergedRows = filterDeletedRows(key, mergeRowsById([...(Array.isArray(localRows) ? localRows : []), ...result.data.payload], key));
+        localStorage.setItem(key, JSON.stringify(mergedRows));
+        if (JSON.stringify(mergedRows) !== JSON.stringify(result.data.payload) && mergedRows.length) {
+          writeCloudStore(key, cloudStoreModules[key], mergedRows);
+        }
+        onRows(mergedRows);
+      });
     }).catch((error) => {
       console.warn("云端数据读取失败", key, error);
     });
@@ -405,7 +456,7 @@
   function writeCloudStore(key, moduleKey, rows) {
     if (!window.JRC_CLOUD?.writeModuleData) return;
     const context = Array.isArray(rows) && rows.length === 0 ? { replaceMode: "replace" } : {};
-    window.JRC_CLOUD.writeModuleData(key, moduleKey, rows, context).catch((error) => {
+    window.JRC_CLOUD.writeModuleData(key, moduleKey, filterDeletedRows(key, rows), context).catch((error) => {
       console.warn("云端数据保存失败", key, error);
     });
   }
@@ -1046,6 +1097,7 @@
       },
       onDelete(index) {
         const removed = rows[index];
+        markRowDeleted(key, removed);
         rows.splice(index, 1);
         writeStore(key, rows);
         recordAudit(moduleKey, "删除", removed.student, removed.type);
@@ -1789,6 +1841,7 @@
       },
       onDelete(index) {
         const removed = rows[index];
+        markRowDeleted(key, removed);
         rows.splice(index, 1);
         writeStore(key, rows);
         recordAudit(moduleKey, "删除", removed.name, removed.type);
@@ -2059,6 +2112,7 @@
       },
       onDelete(index) {
         const removed = rows[index];
+        markRowDeleted(key, removed);
         rows.splice(index, 1);
         writeStore(key, rows);
         recordAudit(moduleKey, "删除", removed.employee, removed.type);
@@ -2249,6 +2303,7 @@
       },
       onDelete(index) {
         const removed = rows[index];
+        markRowDeleted(key, removed);
         rows.splice(index, 1);
         writeStore(key, rows);
         recordAudit(moduleKey, "删除", removed.title, removed.type);
