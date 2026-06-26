@@ -87,29 +87,7 @@
   async function ensureSessionToken() {
     const config = readConfig();
     if (!config.enabled || config.apiToken) return config;
-    const session = readSession();
-    const username = String(session.username || "").trim().toLowerCase();
-    if (!username) return config;
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password: "10281028" }),
-        credentials: "include"
-      });
-      const text = await response.text();
-      const data = text ? safeJsonParse(text, null) : null;
-      if (!response.ok || !data?.token) return config;
-      writeSession({
-        ...session,
-        cloudApiToken: data.token,
-        cloudTokenExpiresAt: data.expiresAt || null,
-        cloudLoginAt: new Date().toISOString()
-      });
-      return readConfig();
-    } catch {
-      return config;
-    }
+    return config;
   }
 
   function enqueue(kind, payload) {
@@ -244,6 +222,13 @@
     }
   }
 
+  async function changePassword(currentPassword, newPassword) {
+    return request("/change-password", {
+      method: "POST",
+      body: { currentPassword, newPassword }
+    });
+  }
+
   async function readModuleData(storeKey) {
     return request(`/module-data?storeKey=${encodeURIComponent(storeKey)}`);
   }
@@ -364,6 +349,7 @@
     listEmployees,
     listPermissions,
     login,
+    changePassword,
     readModuleData,
     writeModuleData,
     uploadCurriculumFile,

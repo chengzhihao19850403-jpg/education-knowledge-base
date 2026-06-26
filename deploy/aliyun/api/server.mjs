@@ -15,6 +15,7 @@ const minimaxApiKey = process.env.JRC_MINIMAX_API_KEY || process.env.MINIMAX_API
 const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimaxi.com/v1/chat/completions";
 const minimaxModel = process.env.JRC_MINIMAX_MODEL || "MiniMax-M3";
 const minimaxGroupId = process.env.JRC_MINIMAX_GROUP_ID || "";
+const departedEmployeeUsernames = ["zhangyan", "hejianjun"];
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",")
   .map((origin) => origin.trim())
@@ -501,6 +502,43 @@ async function handleHealth(res, headers) {
   send(res, 200, { ok: true, siteId, db: "connected" }, headers);
 }
 
+async function applyDepartedEmployeeLocks() {
+  if (!departedEmployeeUsernames.length) return;
+  let client = null;
+  try {
+    client = await pool.connect();
+    await client.query("begin");
+    const result = await client.query(`
+      update employees
+      set
+        status = 'departed',
+        metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+          'departedAt', coalesce(metadata->>'departedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SSOF')),
+          'departedReason', '账号离职停用；历史排课、上课、结算记录保留'
+        ),
+        updated_at = now()
+      where username = any($1::text[])
+        and status <> 'departed'
+      returning id, username
+    `, [departedEmployeeUsernames]);
+    await client.query(`
+      delete from employee_permissions
+      where employee_id in (
+        select id from employees where username = any($1::text[])
+      )
+    `, [departedEmployeeUsernames]);
+    await client.query("commit");
+    if (result.rowCount > 0) {
+      console.log(`Locked departed employee accounts: ${result.rows.map((row) => row.username).join(", ")}`);
+    }
+  } catch (error) {
+    if (client) await client.query("rollback").catch(() => {});
+    console.error("Failed to lock departed employee accounts", error);
+  } finally {
+    if (client) client.release();
+  }
+}
+
 async function handleEmployees(res, headers) {
   const employees = await pool.query(`
     select id, name, username, role, phone, wechat, subject, scope, hire_date, regular_date, commission_rate, status
@@ -581,6 +619,72 @@ async function handleLogin(req, res, headers) {
     exp: expiresAt
   });
   send(res, 200, { ok: true, siteId, employee, token, expiresAt }, headers);
+}
+
+async function handleChangePassword(req, res, headers, authorization) {
+  const username = String(authorization?.payload?.sub || "").trim().toLowerCase();
+  if (!username) {
+    send(res, 403, { ok: false, error: "session_required", message: "请先用员工账号登录后再修改密码。" }, headers);
+    return;
+  }
+
+  const body = await readJson(req);
+  const currentPassword = String(body.currentPassword || body.oldPassword || "");
+  const newPassword = String(body.newPassword || "");
+  if (!currentPassword || !newPassword) {
+    send(res, 400, { ok: false, error: "missing_password", message: "请填写旧密码和新密码。" }, headers);
+    return;
+  }
+  if (newPassword.length < 8) {
+    send(res, 400, { ok: false, error: "weak_password", message: "新密码至少 8 位。" }, headers);
+    return;
+  }
+  if (newPassword === currentPassword) {
+    send(res, 400, { ok: false, error: "same_password", message: "新密码不能和旧密码一样。" }, headers);
+    return;
+  }
+
+  const employee = await pool.query(`
+    select id, name, username, role, password_hash
+    from employees
+    where username = $1
+      and status = 'active'
+      and password_hash is not null
+      and password_hash = crypt($2, password_hash)
+    limit 1
+  `, [username, currentPassword]);
+  const row = employee.rows[0];
+  if (!row) {
+    send(res, 401, { ok: false, error: "invalid_current_password", message: "旧密码不正确，不能修改。" }, headers);
+    return;
+  }
+
+  await pool.query(`
+    update employees
+    set
+      password_hash = crypt($2, gen_salt('bf')),
+      metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('passwordChangedAt', now()),
+      updated_at = now()
+    where id = $1
+  `, [row.id, newPassword]);
+
+  await pool.query(`
+    insert into audit_logs (
+      module_key, action_key, target_type, target_id, summary,
+      operator_id, operator_name, operator_username, operator_role, created_at
+    )
+    values ('portal', 'password.change', 'employee', $1, '员工修改登录密码', $2, $3, $4, $5, now())
+  `, [row.username, row.id, row.name, row.username, row.role]);
+
+  const refreshedEmployee = await employeeWithPermissions(username);
+  const expiresAt = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+  const token = signToken({
+    sub: refreshedEmployee.username,
+    name: refreshedEmployee.name,
+    role: refreshedEmployee.role,
+    exp: expiresAt
+  });
+  send(res, 200, { ok: true, siteId, employee: refreshedEmployee, token, expiresAt }, headers);
 }
 
 async function handleGetModuleData(url, res, headers) {
@@ -1582,6 +1686,7 @@ async function route(req, res) {
     if (req.method === "GET" && url.pathname === "/health") return await handleHealth(res, headers);
     if (req.method === "GET" && url.pathname === "/employees") return await handleEmployees(res, headers);
     if (req.method === "GET" && url.pathname === "/permissions") return await handlePermissions(res, headers);
+    if (req.method === "POST" && url.pathname === "/change-password") return await handleChangePassword(req, res, headers, authorization);
     if (req.method === "POST" && url.pathname === "/ai-assistant") return await handleAiAssistant(req, res, headers, authorization);
     if (req.method === "GET" && url.pathname === "/module-data") return await handleGetModuleData(url, res, headers);
     if (req.method === "PUT" && url.pathname === "/module-data") return await handlePutModuleData(req, res, headers);
@@ -1606,6 +1711,8 @@ async function route(req, res) {
   }
 }
 
-http.createServer(route).listen(port, () => {
-  console.log(`JRC cloud API listening on ${port}`);
+applyDepartedEmployeeLocks().finally(() => {
+  http.createServer(route).listen(port, () => {
+    console.log(`JRC cloud API listening on ${port}`);
+  });
 });

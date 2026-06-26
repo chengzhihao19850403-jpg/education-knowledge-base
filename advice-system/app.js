@@ -32,8 +32,8 @@ const statusClassMap = {
   "试听完成待转化": "red",
 };
 
-const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "张艳", "程志豪"];
-const trialTeacherOptions = ["待安排", "叶源泽", "李舒", "赵萱", "朱永乐", "郑嘉艺", "潘云贵", "曹德顺", "何建军", "吴水琴", "吴建勇", "海滢滢", "程志豪"];
+const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "程志豪"];
+const trialTeacherOptions = ["待安排", "叶源泽", "李舒", "赵萱", "朱永乐", "郑嘉艺", "潘云贵", "曹德顺", "吴水琴", "吴建勇", "海滢滢", "程志豪"];
 const channelOptions = ["待补来源", "抖音投流", "老家长转介绍", "自然到访", "官网表单"];
 const channelOwnerOptions = ["待补渠道归属", "陈雨晴", "颜雨涵", "高芳燕", "周珊", "前台"];
 const importTemplateFields = [

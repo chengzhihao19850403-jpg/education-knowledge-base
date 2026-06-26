@@ -63,7 +63,6 @@ const JRC_CURRICULUM_GRADE_EXPERTS = {
   lishu: { grades: ["一年级", "二年级", "三年级"], subject: "数学" },
   wushuiqin: { grades: ["四年级"], subject: "数学" },
   panyungui: { grades: ["五年级"], subject: "数学" },
-  hejianjun: { grades: ["五年级"], subject: "数学" },
   zhaoxuan: { grades: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"] },
   yeyuanze: { grades: ["初一"], subject: "数学" },
   wujianyong: { grades: ["初一"], subject: "数学" },
@@ -245,18 +244,6 @@ const JRC_EMPLOYEES = [
     subject: ""
   },
   {
-    name: "张艳",
-    username: "zhangyan",
-    password: "10281028",
-    role: "学管",
-    phone: "18257757570",
-    wechat: "wxid_23k2fz90s2m522",
-    scope: "科学",
-    hireDate: "2026-05-23",
-    regularDate: "",
-    subject: "科学"
-  },
-  {
     name: "程志豪",
     username: "chengzhihao",
     password: "10281028",
@@ -425,19 +412,6 @@ const JRC_EMPLOYEES = [
     commissionRate: "20%"
   },
   {
-    name: "何建军",
-    username: "hejianjun",
-    password: "10281028",
-    role: "授课老师",
-    phone: "13065696203",
-    wechat: "lypwas2127793792",
-    scope: "五年级",
-    hireDate: "2026-04-10",
-    regularDate: "2026-05-10",
-    subject: "数学",
-    commissionRate: "20%"
-  },
-  {
     name: "吴建勇",
     username: "wujianyong",
     password: "10281028",
@@ -458,6 +432,7 @@ const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
+const JRC_DEPARTED_EMPLOYEE_USERNAMES = new Set(["zhangyan", "hejianjun"]);
 const JRC_GRANULAR_MODULES = [
   ["studentService", "学生服务"],
   ["curriculum", "教研课程"],
@@ -580,7 +555,9 @@ function jrcWriteCustomEmployees(employees) {
 }
 
 function jrcGetAllEmployees() {
-  return [...JRC_EMPLOYEES, ...jrcReadCustomEmployees()];
+  return [...JRC_EMPLOYEES, ...jrcReadCustomEmployees()].filter((employee) => {
+    return !JRC_DEPARTED_EMPLOYEE_USERNAMES.has(String(employee.username || "").trim().toLowerCase());
+  });
 }
 
 function jrcReadSession() {
@@ -1123,6 +1100,110 @@ function jrcCanManageEmployees(employee = jrcResolveCurrentEmployee()) {
   return JRC_SUPER_ADMIN_USERNAMES.includes(employee.username);
 }
 
+function jrcShowPasswordChangeDialog(currentEmployee) {
+  document.querySelector(".jrc-password-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "jrc-password-overlay";
+  overlay.innerHTML = `
+    <div class="jrc-password-dialog" role="dialog" aria-modal="true" aria-labelledby="jrcPasswordTitle">
+      <div class="jrc-password-dialog__head">
+        <div>
+          <p>Account Security</p>
+          <h2 id="jrcPasswordTitle">修改登录密码</h2>
+        </div>
+        <button type="button" class="jrc-password-close" aria-label="关闭">×</button>
+      </div>
+      <form id="jrcPasswordChangeForm" class="jrc-password-form">
+        <label>
+          当前账号
+          <input value="${currentEmployee.name}（${currentEmployee.username}）" disabled>
+        </label>
+        <label>
+          旧密码
+          <input id="jrcCurrentPasswordInput" type="password" autocomplete="current-password" placeholder="请输入旧密码">
+        </label>
+        <label>
+          新密码
+          <input id="jrcNewPasswordInput" type="password" autocomplete="new-password" placeholder="至少 8 位">
+        </label>
+        <label>
+          确认新密码
+          <input id="jrcConfirmPasswordInput" type="password" autocomplete="new-password" placeholder="再输入一次">
+        </label>
+        <div id="jrcPasswordMessage" class="jrc-password-message"></div>
+        <div class="jrc-password-actions">
+          <button type="button" class="jrc-password-secondary">取消</button>
+          <button type="submit" class="jrc-password-primary">保存新密码</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  overlay.querySelector(".jrc-password-close")?.addEventListener("click", close);
+  overlay.querySelector(".jrc-password-secondary")?.addEventListener("click", close);
+  overlay.querySelector("#jrcPasswordChangeForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = overlay.querySelector("#jrcPasswordMessage");
+    const submitButton = overlay.querySelector(".jrc-password-primary");
+    const currentPassword = overlay.querySelector("#jrcCurrentPasswordInput")?.value || "";
+    const newPassword = overlay.querySelector("#jrcNewPasswordInput")?.value || "";
+    const confirmPassword = overlay.querySelector("#jrcConfirmPasswordInput")?.value || "";
+    const setMessage = (text, good = false) => {
+      if (!message) return;
+      message.textContent = text;
+      message.classList.toggle("jrc-password-message--success", good);
+    };
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setMessage("请把旧密码和新密码填写完整。");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setMessage("新密码至少 8 位。");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage("两次输入的新密码不一致。");
+      return;
+    }
+    if (!window.JRC_CLOUD?.changePassword) {
+      setMessage("云端接口未加载，暂时不能修改密码。");
+      return;
+    }
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "正在保存...";
+      }
+      const result = await window.JRC_CLOUD.changePassword(currentPassword, newPassword);
+      if (!result.ok || !result.data?.ok) {
+        setMessage(result.data?.message || "修改失败，请确认旧密码是否正确。");
+        return;
+      }
+      jrcWriteSession(result.data.employee || currentEmployee, {
+        cloudApiToken: result.data.token || jrcReadSession()?.cloudApiToken || "",
+        cloudTokenExpiresAt: result.data.expiresAt || null
+      });
+      window.JRC_CURRENT_EMPLOYEE = result.data.employee || currentEmployee;
+      setMessage("密码已修改，下次请使用新密码登录。", true);
+      setTimeout(close, 900);
+    } catch (error) {
+      setMessage(`修改失败：${String(error?.message || error)}`);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "保存新密码";
+      }
+    }
+  });
+}
+
 function jrcEnsureTopbar(currentEmployee) {
   const topbar = document.createElement("div");
   topbar.className = "jrc-auth-bar";
@@ -1133,11 +1214,15 @@ function jrcEnsureTopbar(currentEmployee) {
         <span>${currentEmployee.role} · ${currentEmployee.username} · 已开放：${jrcGetRoleSummary(currentEmployee)}</span>
       </div>
       <div class="jrc-auth-bar__actions">
+        <button type="button" id="jrcChangePasswordButton">修改密码</button>
         <button type="button" id="jrcLogoutButton">退出登录</button>
       </div>
     </div>
   `;
   document.body.prepend(topbar);
+  document.getElementById("jrcChangePasswordButton")?.addEventListener("click", () => {
+    jrcShowPasswordChangeDialog(currentEmployee);
+  });
   document.getElementById("jrcLogoutButton")?.addEventListener("click", () => {
     jrcClearSession();
     window.location.reload();
@@ -1477,6 +1562,118 @@ function jrcInjectStyles() {
       color: #fff;
       cursor: pointer;
       font: inherit;
+    }
+    .jrc-password-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(15,23,42,0.56);
+      backdrop-filter: blur(8px);
+    }
+    .jrc-password-dialog {
+      width: min(460px, 100%);
+      border-radius: 22px;
+      background: #fff;
+      color: #172132;
+      box-shadow: 0 24px 70px rgba(15,23,42,0.22);
+      padding: 22px;
+    }
+    .jrc-password-dialog__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .jrc-password-dialog__head p,
+    .jrc-password-dialog__head h2 {
+      margin: 0;
+    }
+    .jrc-password-dialog__head p {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0d9488;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .jrc-password-dialog__head h2 {
+      font-size: 22px;
+    }
+    .jrc-password-close {
+      width: 34px;
+      min-height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(23,33,50,0.10);
+      background: #f8fafc;
+      color: #334155;
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+    }
+    .jrc-password-form {
+      display: grid;
+      gap: 12px;
+    }
+    .jrc-password-form label {
+      display: grid;
+      gap: 6px;
+      color: #637083;
+      font-size: 13px;
+    }
+    .jrc-password-form input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(23,33,50,0.12);
+      border-radius: 12px;
+      padding: 0 12px;
+      color: #172132;
+      background: #fff;
+      font: inherit;
+    }
+    .jrc-password-form input:disabled {
+      background: #f8fafc;
+      color: #64748b;
+    }
+    .jrc-password-message {
+      min-height: 22px;
+      color: #b91c1c;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .jrc-password-message--success {
+      color: #0f766e;
+    }
+    .jrc-password-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .jrc-password-actions button {
+      min-height: 40px;
+      padding: 0 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .jrc-password-primary {
+      border: 0;
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      color: #fff;
+    }
+    .jrc-password-primary:disabled {
+      opacity: 0.62;
+      cursor: wait;
+    }
+    .jrc-password-secondary {
+      border: 1px solid rgba(23,33,50,0.12);
+      background: #fff;
+      color: #172132;
     }
     .jrc-login-overlay {
       position: fixed;
@@ -1948,6 +2145,12 @@ function jrcShowLoginOverlay() {
         });
         document.body.classList.remove("jrc-auth-required");
         window.location.href = "/jrcedu/portal/index.html?login=ok";
+        return false;
+      }
+      if (cloudResult && !cloudResult.skipped && !cloudResult.ok) {
+        if (errorBox) errorBox.textContent = cloudResult.status === 401
+          ? "用户名或密码不正确，请用新密码登录。"
+          : "云端登录暂时不可用，请稍后重试。";
         return false;
       }
 

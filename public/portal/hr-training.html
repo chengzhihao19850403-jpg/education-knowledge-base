@@ -50,6 +50,9 @@
       .mini-list { display: grid; gap: 12px; margin-top: 14px; }
       .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
       .mini-item strong { display: block; margin-bottom: 6px; }
+      .process-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+      .process-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.65; }
+      .process-list strong { color: var(--ink); }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
       table { width: 100%; min-width: 860px; border-collapse: collapse; }
@@ -156,9 +159,9 @@
 
         <article class="card">
           <h2>新增人事事项</h2>
-          <p>记录人事调整、权限调整和培训安排。</p>
+          <p>记录人事调整、权限调整、培训安排和离职交接。</p>
           <div class="form-grid">
-            <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
+            <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>离职</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
             <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" placeholder="填写员工姓名"></label>
             <label class="field"><span>关联系统</span><input id="hrSystemInput" placeholder="例如：财务 / 排课 / 学管知识库"></label>
             <label class="field"><span>处理状态</span><select id="hrStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option></select></label>
@@ -173,6 +176,23 @@
           </div>
           <div class="notice" id="hrMessage">员工档案、岗位、权限和提成口径在这里维护。</div>
         </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>离职处理方法</h2>
+            <p>离职只停当前身份和权限，不删除历史排课、上课、点名、工资结算依据。</p>
+          </div>
+          <span class="status-chip">管理员流程</span>
+        </div>
+        <ul class="process-list">
+          <li><strong>1. 停账号和权限：</strong>在人事系统记录离职事项后，由管理员把账号状态改为离职，并清空系统权限，离职人员不能再登录。</li>
+          <li><strong>2. 停止未来分配：</strong>从招生负责人、试听老师、教研年级负责人、排课可选老师等当前名单中移除，避免新学生和新课程继续分给离职人员。</li>
+          <li><strong>3. 保留历史数据：</strong>已经发生的排课、上课、点名、出门测、课时费和工资结算记录全部保留，只用于本月核对、离职结算和后续追溯。</li>
+          <li><strong>4. 交接学生和资料：</strong>学管确认学生归属、家长沟通、课程资料和未完成事项是否转给新负责人，必要时在建议与任务协同系统派任务。</li>
+          <li><strong>5. 财务结算锁定：</strong>财务只结算离职前实际发生的课时和补课记录；离职后的新排课、新招生、新课时不再进入该员工名下。</li>
+        </ul>
       </section>
 
       <section class="card">
