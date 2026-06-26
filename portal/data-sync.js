@@ -21,6 +21,7 @@
     { key: "jrc-hr-training-tasks-v2", label: "人事培训", shape: "array" },
     { key: "jrc-campus-operations-v2", label: "校区运营", shape: "array" },
     { key: "jrc-business-audit-log-v1", label: "操作日志", shape: "array" },
+    { key: "jrc-system-link-events-v1", label: "系统联动日志", shape: "array" },
     { key: "jrc-employee-directory-extra", label: "新增员工", shape: "array" }
   ];
 

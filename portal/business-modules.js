@@ -1,5 +1,6 @@
 (function () {
   const auditKey = "jrc-business-audit-log-v1";
+  const linkEventKey = "jrc-system-link-events-v1";
   const cloudStoreModules = {
     "jrc-student-service-v2": "studentService",
     "jrc-curriculum-products-v2": "curriculum",
@@ -83,6 +84,66 @@
       const leftDate = String(left.updatedAt || left.createdAt || "");
       return rightDate.localeCompare(leftDate);
     });
+  }
+
+  function readLinkEvents() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(linkEventKey) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function linkSample(rows, formatter = (row) => row?.student || row?.studentName || row?.title || "") {
+    return (Array.isArray(rows) ? rows : [])
+      .slice(0, 3)
+      .map(formatter)
+      .map((value) => normalizeText(value))
+      .filter(Boolean);
+  }
+
+  function recordLinkEvent({ source, target, action, count = 0, samples = [], status = "已同步", note = "" }) {
+    const existingRows = readLinkEvents();
+    const fingerprint = [
+      source,
+      target,
+      action,
+      count,
+      (Array.isArray(samples) ? samples : []).join("|")
+    ].join("::");
+    const duplicated = existingRows.find((row) => {
+      const rowFingerprint = [
+        row.source,
+        row.target,
+        row.action,
+        row.count,
+        (Array.isArray(row.samples) ? row.samples : []).join("|")
+      ].join("::");
+      const minutes = (Date.now() - Date.parse(row.at || "")) / 60000;
+      return rowFingerprint === fingerprint && Number.isFinite(minutes) && minutes < 10;
+    });
+    if (duplicated) return duplicated;
+    const event = {
+      id: `link-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      source,
+      target,
+      action,
+      count,
+      samples,
+      status,
+      note,
+      operatorName: currentOperator().name || "-",
+      operatorUsername: currentOperator().username || "-",
+      at: new Date().toISOString()
+    };
+    const rows = [event, ...existingRows].slice(0, 200);
+    localStorage.setItem(linkEventKey, JSON.stringify(rows));
+    window.JRC_CLOUD?.writeModuleData?.(linkEventKey, "systemLinks", rows).catch((error) => {
+      console.warn("系统联动日志云端保存失败", error);
+    });
+    window.dispatchEvent(new CustomEvent("jrc-system-link-event", { detail: event }));
+    return event;
   }
 
   function effectiveAttendancePresent(row) {
@@ -208,6 +269,16 @@
         detail: { rows: incoming, source: "admissions" }
       }));
     }
+    if (options.log !== false) {
+      recordLinkEvent({
+        source: "招生管理系统",
+        target: "学生服务系统",
+        action: "报名/实收学生转入学生服务",
+        count: incoming.length,
+        samples: linkSample(incoming, (row) => `${row.student}${row.className ? `｜${row.className}` : ""}`),
+        note: "报名后自动形成入学交接候选，方便学管继续服务。"
+      });
+    }
     return incoming;
   }
 
@@ -242,6 +313,16 @@
       window.dispatchEvent(new CustomEvent("jrc-student-service-linked", {
         detail: { rows: incoming, source: "attendance" }
       }));
+    }
+    if (options.log !== false) {
+      recordLinkEvent({
+        source: "点名出门测",
+        target: "学生服务系统",
+        action: "点名记录沉淀为学生服务",
+        count: incoming.length,
+        samples: linkSample(incoming, (row) => `${row.student}${row.sourceDate ? `｜${row.sourceDate}` : ""}`),
+        note: "点名、出门测和缺席追踪进入学生服务，后续可用于学管沟通、课销和课时费核对。"
+      });
     }
     return incoming;
   }
@@ -2186,6 +2267,8 @@
 
   window.JRC_BUSINESS_MODULES = {
     ...(window.JRC_BUSINESS_MODULES || {}),
+    recordLinkEvent,
+    readLinkEvents,
     syncAttendanceIntoStudentService,
     syncAdmissionsIntoStudentService
   };

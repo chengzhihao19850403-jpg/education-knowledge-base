@@ -105,6 +105,7 @@
     { key: "jrc-campus-operations-v2", label: "校区运营", risk: "可先查看" },
     { key: "jrc-curriculum-products-v2", label: "教研课程", risk: "资料待补" }
   ];
+  const linkEventKey = "jrc-system-link-events-v1";
 
   function $(id) {
     return document.getElementById(id);
@@ -835,6 +836,30 @@
     `;
   }
 
+  function formatLinkEventTime(value) {
+    const raw = String(value || "");
+    if (!raw) return "-";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw.replace("T", " ").slice(0, 16);
+    return date.toLocaleString("zh-CN", { hour12: false }).slice(0, 16);
+  }
+
+  function latestLinkEventCard(events) {
+    const rows = (Array.isArray(events) ? events : [])
+      .filter((row) => row && typeof row === "object")
+      .sort((left, right) => String(right.at || "").localeCompare(String(left.at || "")))
+      .slice(0, 3);
+    return `
+      <div class="data-state-card link-health-priority">
+        <strong>最近自动联动</strong>
+        <span class="badge ${rows.length ? "status-ok" : "status-warn"}">${rows.length ? `${rows.length} 条` : "暂无记录"}</span>
+        ${rows.length ? rows.map((row) => `
+          <p><strong style="font-size:12px;">${escapeHtml(row.source || "-")} → ${escapeHtml(row.target || "-")}</strong><br>${escapeHtml(row.action || "自动联动")}：${escapeHtml(row.count || 0)} 条${Array.isArray(row.samples) && row.samples.length ? `；${escapeHtml(row.samples.join("、"))}` : ""}<br>${escapeHtml(formatLinkEventTime(row.at))}</p>
+        `).join("") : "<p>后续点名沉淀学生服务、招生报名转学生档案、AI课堂反馈归档后，这里会显示最近联动。</p>"}
+      </div>
+    `;
+  }
+
   function sampleList(rows, formatter, limit = 3) {
     const list = (Array.isArray(rows) ? rows : []).slice(0, limit).map(formatter).filter(Boolean);
     return list.length ? ` 样例：${list.join("；")}` : "";
@@ -939,7 +964,7 @@
     `;
     const foundation = window.JRC_DATA_FOUNDATION;
     const derived = foundation?.deriveSystemLinks?.() || { scheduleRows: [], counts: {} };
-    const [paikeRegular, attendanceSessions, studentRows, financeState, admissionsState, qualityState, feedbackRows, aiDraftRows, suggestionRows] = await Promise.all([
+    const [paikeRegular, attendanceSessions, studentRows, financeState, admissionsState, qualityState, feedbackRows, aiDraftRows, suggestionRows, linkEvents] = await Promise.all([
       readLinkedStore("paike-june-system-v1", {}),
       readLinkedStore("jrc-class-attendance-v1", []),
       readLinkedStore("jrc-student-service-v2", []),
@@ -948,7 +973,8 @@
       readLinkedStore("jrc-teaching-quality-system-v2-demo", {}),
       readLinkedStore("jrc-site-feedback-v1", []),
       readLinkedStore("jrc-ai-assistant-drafts-v1", []),
-      readLinkedStore("jrc-suggestion-management-v2", [])
+      readLinkedStore("jrc-suggestion-management-v2", []),
+      readLinkedStore(linkEventKey, [])
     ]);
     const regularEntries = Array.isArray(paikeRegular?.scheduleEntries) ? paikeRegular.scheduleEntries : [];
     const scheduleRows = Array.isArray(derived.scheduleRows) && derived.scheduleRows.length
@@ -1059,6 +1085,7 @@
 
     const cards = [
       linkHealthActionCard(priorityActions),
+      latestLinkEventCard(linkEvents),
       linkHealthCard(
         "链路体检总览",
         warningChecks ? `${warningChecks} 项待处理` : "全部通过",

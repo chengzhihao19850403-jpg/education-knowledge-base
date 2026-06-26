@@ -216,6 +216,7 @@
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260626e"></script>
     <script>
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
@@ -1247,6 +1248,14 @@
         localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
         markEditingDraftArchived(serviceRow);
+        window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
+          source: "AI 助手",
+          target: "学生服务系统",
+          action: updatedExisting ? "课堂反馈更新归档" : "课堂反馈归档",
+          count: 1,
+          samples: [`${student}${resolvedCourseName ? `｜${resolvedCourseName}` : ""}`],
+          note: updatedExisting ? "同一草稿或同一课次再次归档时更新原记录，避免重复。" : "老师确认课堂反馈后归档到学生服务，方便学管回看和复制家长文案。"
+        });
         byId("aiMessage").textContent = result?.ok
           ? `${updatedExisting ? "已更新学生服务归档" : "已归档到学生服务系统"}：${student}。进入学生服务台账搜索学生姓名，可直接复制家长版反馈。`
           : `已先保存到当前设备：${student}。云端恢复后会同步到学生服务台账。`;
