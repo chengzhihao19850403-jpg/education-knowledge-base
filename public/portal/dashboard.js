@@ -845,8 +845,21 @@
   }
 
   function latestLinkEventCard(events) {
-    const rows = (Array.isArray(events) ? events : [])
+    const eventMap = new Map();
+    (Array.isArray(events) ? events : [])
       .filter((row) => row && typeof row === "object")
+      .forEach((row) => {
+        const key = String(row.fingerprint || [
+          row.source,
+          row.target,
+          row.action,
+          row.count,
+          (Array.isArray(row.samples) ? row.samples : []).join("|")
+        ].join("::"));
+        const existing = eventMap.get(key);
+        if (!existing || String(row.at || "").localeCompare(String(existing.at || "")) > 0) eventMap.set(key, row);
+      });
+    const rows = [...eventMap.values()]
       .sort((left, right) => String(right.at || "").localeCompare(String(left.at || "")))
       .slice(0, 5);
     return `

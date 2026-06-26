@@ -99,15 +99,22 @@
     const map = new Map();
     groups.flat().forEach((row) => {
       if (!row || typeof row !== "object") return;
-      const id = String(row.id || [
+      const fallbackFingerprint = [
         row.source,
         row.target,
         row.action,
         row.count,
-        row.at
-      ].join("|")).trim();
-      if (!id) return;
-      map.set(id, { ...(map.get(id) || {}), ...row, id });
+        (Array.isArray(row.samples) ? row.samples : []).join("|")
+      ].join("::");
+      const fingerprint = String(row.fingerprint || fallbackFingerprint).trim();
+      const id = String(row.id || fingerprint || row.at || "").trim();
+      if (!id && !fingerprint) return;
+      const key = fingerprint || id;
+      const existing = map.get(key) || {};
+      const existingTime = Date.parse(existing.at || "");
+      const rowTime = Date.parse(row.at || "");
+      const newer = !existing.at || (Number.isFinite(rowTime) && (!Number.isFinite(existingTime) || rowTime >= existingTime));
+      map.set(key, newer ? { ...existing, ...row, id, fingerprint: key } : { ...row, ...existing, fingerprint: key });
     });
     return [...map.values()]
       .sort((left, right) => String(right.at || "").localeCompare(String(left.at || "")))
@@ -149,6 +156,7 @@
       target,
       action,
       count,
+      fingerprint,
       samples,
       status,
       note,
