@@ -8,8 +8,10 @@ from pathlib import Path
 
 try:
     from openpyxl import load_workbook
+    from openpyxl.utils.cell import coordinate_to_tuple
 except ModuleNotFoundError:
     load_workbook = None
+    coordinate_to_tuple = None
 
 
 SITE_ROOT = Path("/Users/chengzhihao/Documents/Codex/2026-06-20-jrcedu-master")
@@ -20,6 +22,7 @@ MAY_SALARY_PATH = Path(
     "/Users/chengzhihao/Library/Containers/com.tencent.xinWeChat/Data/Documents/"
     "xwechat_files/cicilang001_cd31/temp/drag/小班课2026.5工资表(3).xlsx"
 )
+SCHEDULE_SOURCE_FOLDER = Path("/Users/chengzhihao/Desktop/排课系统")
 PORTAL_PREIMPORT_PATH = SITE_ROOT / "portal" / "preimport-data.js"
 PUBLIC_PREIMPORT_PATH = SITE_ROOT / "public" / "portal" / "preimport-data.js"
 OUT_BUNDLE_PATH = WORK_ROOT / "paike-finance-preimport-private-2026-06-23.json"
@@ -35,6 +38,7 @@ NON_TEACHING_FINANCE_NAMES = {"周珊"}
 DEPARTED_FINANCE_ONLY_NAMES = {"万盈盈", "何建军", "张艳"}
 IGNORE_SHEETS = {"小课产值", "日常消费表", "周珊"}
 DATE_RE = re.compile(r"第\s*(\d+)\s*次\s*(\d{1,2})[.月](\d{1,2})")
+ROOM_RE = re.compile(r"([一二三四五六七八九十\d]+楼\s*[一二三四五六七八九十\d]+号|[一二三四五六七八九十\d]+楼[一二三四五六七八九十\d]+号)")
 
 
 def text(value) -> str:
@@ -102,6 +106,86 @@ def parse_month_day(value) -> str:
 
 def normalize_teacher_name(name: str) -> str:
     return TEACHER_NAME_MAP.get(text(name), text(name))
+
+
+def parse_room_name(value) -> str:
+    raw = text(value).replace("(", "（").replace(")", "）")
+    match = ROOM_RE.search(raw)
+    return match.group(1).replace(" ", "") if match else ""
+
+
+def matching_sheet_name(workbook, requested: str) -> str:
+    if requested in workbook.sheetnames:
+        return requested
+    requested_clean = text(requested)
+    for sheet_name in workbook.sheetnames:
+        if text(sheet_name) == requested_clean:
+            return sheet_name
+    return ""
+
+
+def enrich_schedule_room_fields(bundle: dict) -> dict:
+    if load_workbook is None or coordinate_to_tuple is None:
+        return bundle
+    sessions = bundle.get("scheduleSessions")
+    if not isinstance(sessions, list):
+        return bundle
+
+    requested = defaultdict(set)
+    for row in sessions:
+        if not isinstance(row, dict):
+            continue
+        source_file = text(row.get("sourceFile") or row.get("sourceWorkbook"))
+        source_sheet = text(row.get("sourceSheet") or row.get("sheet"))
+        if source_file and source_sheet and row.get("cell"):
+            requested[source_file].add(source_sheet)
+
+    header_maps: dict[tuple[str, str], dict[int, dict]] = {}
+    for source_file, sheet_names in requested.items():
+        path = SCHEDULE_SOURCE_FOLDER / source_file
+        if not path.exists():
+            continue
+        try:
+            workbook = load_workbook(path, data_only=True, read_only=True)
+        except Exception:
+            continue
+        try:
+            for requested_sheet in sheet_names:
+                sheet_name = matching_sheet_name(workbook, requested_sheet)
+                if not sheet_name:
+                    continue
+                ws = workbook[sheet_name]
+                col_map = {}
+                for col_idx in range(1, ws.max_column + 1):
+                    weekday_header = text(ws.cell(2, col_idx).value)
+                    room_name = parse_room_name(weekday_header)
+                    if weekday_header or room_name:
+                        col_map[col_idx] = {
+                            "roomName": room_name,
+                            "sourceWeekdayHeader": weekday_header,
+                        }
+                header_maps[(source_file, requested_sheet)] = col_map
+        finally:
+            workbook.close()
+
+    for row in sessions:
+        if not isinstance(row, dict) or not row.get("cell"):
+            continue
+        source_file = text(row.get("sourceFile") or row.get("sourceWorkbook"))
+        source_sheet = text(row.get("sourceSheet") or row.get("sheet"))
+        col_map = header_maps.get((source_file, source_sheet))
+        if not col_map:
+            continue
+        try:
+            _, col_idx = coordinate_to_tuple(text(row.get("cell")))
+        except Exception:
+            continue
+        header = col_map.get(col_idx) or {}
+        if header.get("sourceWeekdayHeader") and not row.get("sourceWeekdayHeader"):
+            row["sourceWeekdayHeader"] = header["sourceWeekdayHeader"]
+        if header.get("roomName") and not row.get("roomName") and not row.get("classroomName"):
+            row["roomName"] = header["roomName"]
+    return bundle
 
 
 def name_list(names: set[str]) -> str:
@@ -698,7 +782,7 @@ def build_finance_readiness_text(may_payload: dict, may_reconciliation: list[dic
 def build_bundle():
     if not MAY_SALARY_PATH.exists():
         bundle = load_portal_preimport_bundle(PORTAL_PREIMPORT_PATH)
-        return normalize_departed_finance_rows(bundle)
+        return enrich_schedule_room_fields(normalize_departed_finance_rows(bundle))
 
     base_bundle = json.loads(BASE_BUNDLE_PATH.read_text(encoding="utf-8"))
     may_payload = load_may_workbook_payload()
@@ -759,7 +843,7 @@ def build_bundle():
         "bySchedulePeriod": dict(sorted((period, count) for period, count in by_schedule_period.items() if period)),
         "byTeacher": by_teacher,
     }
-    return normalize_departed_finance_rows(bundle)
+    return enrich_schedule_room_fields(normalize_departed_finance_rows(bundle))
 
 
 def write_preimport_files(bundle: dict) -> None:

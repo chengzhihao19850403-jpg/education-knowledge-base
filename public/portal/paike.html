@@ -293,6 +293,134 @@
         color: var(--ink);
         font-size: 22px;
       }
+      .excel-toolbar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .excel-toolbar label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .excel-toolbar select,
+      .excel-toolbar input {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+      }
+      .excel-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .excel-summary-card {
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.84);
+      }
+      .excel-summary-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .excel-summary-card strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 21px;
+      }
+      .teacher-sheet-table {
+        min-width: 1080px;
+      }
+      .teacher-sheet-table th:first-child,
+      .teacher-sheet-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #f8fbfb;
+        min-width: 118px;
+        font-weight: 800;
+      }
+      .teacher-sheet-table th {
+        text-align: center;
+        min-width: 138px;
+      }
+      .teacher-sheet-table td {
+        min-width: 138px;
+        height: 86px;
+        background: rgba(255,255,255,0.92);
+      }
+      .lesson-block {
+        display: grid;
+        gap: 4px;
+        padding: 8px;
+        border-radius: 12px;
+        background: rgba(13,148,136,0.08);
+        border: 1px solid rgba(13,148,136,0.14);
+        line-height: 1.45;
+      }
+      .lesson-block + .lesson-block {
+        margin-top: 6px;
+      }
+      .lesson-block strong {
+        font-size: 13px;
+      }
+      .lesson-block small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .room-usage-table {
+        min-width: 980px;
+      }
+      .room-usage-table th:first-child,
+      .room-usage-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #f8fbfb;
+        min-width: 108px;
+        font-weight: 800;
+      }
+      .room-free {
+        color: #047857;
+        font-weight: 800;
+      }
+      .room-busy {
+        color: #b45309;
+        font-weight: 800;
+      }
+      .room-course {
+        display: grid;
+        gap: 3px;
+        line-height: 1.45;
+      }
+      .room-course strong {
+        color: var(--ink);
+      }
+      .room-course small {
+        color: var(--muted);
+      }
+      .admin-details {
+        margin-top: 18px;
+      }
+      .admin-details summary {
+        cursor: pointer;
+        font-weight: 900;
+        color: var(--ink);
+      }
+      .admin-details summary + * {
+        margin-top: 14px;
+      }
       @media (max-width: 960px) {
         .hero,
         .quick-grid,
@@ -302,7 +430,9 @@
         .filter-grid,
         .maintenance-actions,
         .path-grid,
-        .my-paike-summary {
+        .my-paike-summary,
+        .excel-toolbar,
+        .excel-summary {
           grid-template-columns: 1fr;
         }
       }
@@ -335,127 +465,153 @@
       <section class="hero">
         <article class="card">
           <p class="eyebrow">排课</p>
-          <h1>排课工作台</h1>
-          <p class="hero-text">先看今天和本周要上的课，再按老师、班级核对。排课会继续联动点名、课销和财务试算。</p>
+          <h1>老师课表</h1>
+          <p class="hero-text">按原来的 Excel 习惯使用：先选月份和老师，直接看这位老师的整月课表；排课老师再看教室使用表，确认哪个时间还能排课。</p>
           <div class="tag-row">
-            <span class="tag">今日课程</span>
-            <span class="tag">本周课表</span>
-            <span class="tag">按老师/班级查课</span>
-            <span class="tag warn">异常优先处理</span>
+            <span class="tag">每个老师一张表</span>
+            <span class="tag">按日期和时间段排课</span>
+            <span class="tag">教室占用同步看</span>
+            <span class="tag warn">点名课销联动</span>
           </div>
-          <div class="workbench-grid" id="paikeWorkbenchTabs">
-            <button class="workbench-card active" type="button" data-paike-view="week"><span>本周</span><strong>今日/本周课表</strong><p>先看这周所有课程。</p></button>
-            <button class="workbench-card" type="button" data-paike-view="teacher"><span>老师</span><strong>按老师查课</strong><p>核对某位老师一周/月内课程。</p></button>
-            <button class="workbench-card" type="button" data-paike-view="class"><span>班级</span><strong>按班级查课</strong><p>查看某个班级连续课程。</p></button>
-            <button class="workbench-card" type="button" data-paike-view="issues"><span>异常</span><strong>排课异常核对</strong><p>优先处理空数据、未点名、待核对。</p></button>
-          </div>
-          <div class="notice">如果看不到数据，先看“数据状态”和空数据提示：系统会说明是当前筛选无课程、月份未导入，还是老师/班级名称未匹配。</div>
+          <div class="notice">普通老师进来优先看自己的课表；排课负责人可以切换老师和月份。下面的表格就是从你们原来的老师 Excel 时间表整理出来的。</div>
         </article>
 
         <aside class="card">
           <p class="eyebrow">怎么用</p>
-          <h2>排课老师核对顺序</h2>
+          <h2>排课老师工作顺序</h2>
           <div class="path-grid">
-            <div class="path-card"><span>1</span><strong>先看本周</strong><p>确认今天和本周课程是否完整。</p></div>
-            <div class="path-card"><span>2</span><strong>再查老师/班级</strong><p>发现问题时缩小到具体老师或班级。</p></div>
-            <div class="path-card"><span>3</span><strong>处理异常</strong><p>未点名、待核对、影响财务的课优先处理。</p></div>
+            <div class="path-card"><span>1</span><strong>选月份老师</strong><p>像打开老师 Excel 表一样查看。</p></div>
+            <div class="path-card"><span>2</span><strong>看空档排课</strong><p>有空位再排，没有空位不硬塞。</p></div>
+            <div class="path-card"><span>3</span><strong>看教室占用</strong><p>老师有空、教室也有空，才算能排。</p></div>
           </div>
         </aside>
       </section>
 
-      <section class="card" id="paikeCommandSection">
-        <p class="eyebrow">先看这里</p>
-        <h2>排课老师今日指挥台</h2>
-        <p class="hero-text">日常核对按这个顺序走：先看今天，再看本周，再处理异常；如果没有数据，再去导入和旧版入口确认。</p>
-        <div class="command-grid" id="paikeCommandGrid"></div>
-        <div class="notice" id="paikeCommandTip">正在读取排课数据。</div>
-      </section>
-
       <section class="card">
-        <p class="eyebrow">数据状态</p>
-        <h2>排课数据状态</h2>
-        <div class="status-grid" id="paikeStatusGrid"></div>
-      </section>
-
-      <section class="card">
-        <p class="eyebrow">筛选</p>
-        <h2 id="paikeViewTitle">今日/本周课表</h2>
-        <div class="filter-grid">
-          <label>日期范围
-            <select id="paikeRangeFilter">
-              <option value="week">本周</option>
-              <option value="today">今天</option>
-              <option value="month">本月</option>
-              <option value="all">全部已读数据</option>
-            </select>
+        <p class="eyebrow">老师课表</p>
+        <h2>每位老师一张月课表</h2>
+        <div class="excel-toolbar">
+          <label>月份
+            <select id="teacherSheetPeriod"></select>
           </label>
           <label>老师
-            <select id="paikeTeacherFilter"><option value="">全部老师</option></select>
+            <select id="teacherSheetTeacher"></select>
           </label>
-          <label>班级/学生
-            <select id="paikeClassFilter"><option value="">全部班级/学生</option></select>
+          <label>课程搜索
+            <input id="teacherSheetKeyword" type="search" placeholder="学生、班级、课程内容">
           </label>
-          <label>搜索
-            <input id="paikeKeywordFilter" type="search" placeholder="输入老师、学生、班级、日期">
+          <label>显示
+            <select id="teacherSheetMode">
+              <option value="month">整月课表</option>
+              <option value="weekend">周五/周六/周日</option>
+              <option value="weekday">周一到周四</option>
+            </select>
           </label>
         </div>
-        <div id="paikeWorkbenchSummary"></div>
+        <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>时间</th>
-                <th>老师</th>
-                <th>班级/学生</th>
-                <th>地点</th>
-                <th>点名/财务状态</th>
-                <th>来源</th>
-              </tr>
-            </thead>
-            <tbody id="paikeWorkbenchBody"></tbody>
-          </table>
+          <table class="teacher-sheet-table" id="teacherSheetTable"></table>
         </div>
       </section>
 
       <section class="card">
-        <p class="eyebrow">我的课表</p>
-        <h2>当前登录老师排课</h2>
-        <div id="myPaikeCard"></div>
-      </section>
-
-      <section class="card">
-        <p class="eyebrow">导入与维护</p>
-        <h2>排课数据维护入口</h2>
-        <p class="hero-text">上传和旧版核对入口保留给排课负责人使用。日常核对优先使用上方工作台。</p>
-        <div class="maintenance-actions">
-          <a class="button" data-requires-permission="paike.edit" href="/jrcedu/paike-legacy/index.html">上传总表</a>
-          <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式旧版</a>
-          <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式旧版</a>
-          <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">进入点名课销</a>
+        <p class="eyebrow">教室</p>
+        <h2>教室使用表</h2>
+        <p class="hero-text">先选日期，再看每个教室的占用。空格显示“可排”；有课程的格子会显示老师和学生，排课时就按这个表找空教室。</p>
+        <div class="excel-toolbar">
+          <label>查看日期
+            <select id="roomUsageDate"></select>
+          </label>
         </div>
-      </section>
-
-      <section class="card">
-        <p class="eyebrow">原始样例</p>
-        <h2>当前读到的排课明细样例</h2>
+        <div id="roomUsageSummary" class="excel-summary"></div>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>来源</th>
-                <th>月份</th>
-                <th>日期</th>
-                <th>老师</th>
-                <th>学生/班级</th>
-                <th>时间/课时</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody id="paikePreviewBody"></tbody>
-          </table>
+          <table class="room-usage-table" id="roomUsageTable"></table>
         </div>
       </section>
+
+      <details class="card admin-details">
+        <summary>管理员核对区：导入、异常、原始明细</summary>
+        <section id="paikeCommandSection">
+          <p class="eyebrow">核对</p>
+          <h2>排课数据状态</h2>
+          <div class="status-grid" id="paikeStatusGrid"></div>
+          <div class="command-grid" id="paikeCommandGrid"></div>
+          <div class="notice" id="paikeCommandTip">正在读取排课数据。</div>
+        </section>
+
+        <section style="margin-top: 18px;">
+          <p class="eyebrow">明细筛选</p>
+          <h2 id="paikeViewTitle">排课明细核对</h2>
+          <div class="filter-grid">
+            <label>日期范围
+              <select id="paikeRangeFilter">
+                <option value="week">本周</option>
+                <option value="today">今天</option>
+                <option value="month">本月</option>
+                <option value="all">全部已读数据</option>
+              </select>
+            </label>
+            <label>老师
+              <select id="paikeTeacherFilter"><option value="">全部老师</option></select>
+            </label>
+            <label>班级/学生
+              <select id="paikeClassFilter"><option value="">全部班级/学生</option></select>
+            </label>
+            <label>搜索
+              <input id="paikeKeywordFilter" type="search" placeholder="输入老师、学生、班级、日期">
+            </label>
+          </div>
+          <div id="paikeWorkbenchSummary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>时间</th>
+                  <th>老师</th>
+                  <th>班级/学生</th>
+                  <th>地点</th>
+                  <th>点名/财务状态</th>
+                  <th>来源</th>
+                </tr>
+              </thead>
+              <tbody id="paikeWorkbenchBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section style="margin-top: 18px;">
+          <p class="eyebrow">维护</p>
+          <h2>排课数据维护入口</h2>
+          <div class="maintenance-actions">
+            <a class="button" data-requires-permission="paike.edit" href="/jrcedu/paike-legacy/index.html">上传总表</a>
+            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式旧版</a>
+            <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式旧版</a>
+            <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">进入点名课销</a>
+          </div>
+        </section>
+
+        <section style="margin-top: 18px;">
+          <p class="eyebrow">原始样例</p>
+          <h2>当前读到的排课明细样例</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>来源</th>
+                  <th>月份</th>
+                  <th>日期</th>
+                  <th>老师</th>
+                  <th>学生/班级</th>
+                  <th>时间/课时</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="paikePreviewBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </details>
     </main>
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
@@ -660,6 +816,13 @@
           student: row.studentName || row.student || row.className || "-",
           time: row.time || row.startTime || row.hours || "-",
           room: row.classroomName || row.roomName || "-",
+          rawText: row.rawText || row.notes || "",
+          lessonType: row.lessonTypeRaw || row.lessonType || row.className || "",
+          startTime: row.startTime || "",
+          endTime: row.endTime || "",
+          sourceSheet: row.sourceSheet || row.sheet || "",
+          sourceWeekdayHeader: row.sourceWeekdayHeader || "",
+          cell: row.cell || "",
           status: row.status || "已读取"
         }));
         const preimportRows = scheduleSessions.map((row) => ({
@@ -669,55 +832,238 @@
           teacher: row.teacherName || row.teacher || "-",
           student: Array.isArray(row.studentNames) ? row.studentNames.join("、") : row.studentName || row.lessonTypeRaw || "-",
           time: row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || row.hours || "-",
-          room: row.roomName || row.classroomName || "-",
+          room: row.roomName || row.classroomName || inferRoomFromText([row.rawText, row.sourceWeekdayHeader, row.sourceSheet].join(" ")),
+          rawText: row.rawText || "",
+          lessonType: row.lessonTypeRaw || "",
+          startTime: row.startTime || "",
+          endTime: row.endTime || "",
+          sourceSheet: row.sourceSheet || row.sheet || "",
+          sourceWeekdayHeader: row.sourceWeekdayHeader || "",
+          cell: row.cell || "",
           status: row.status || row.importConfidence || "已读取"
         }));
         return [...regularRows, ...preimportRows]
           .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
       }
 
-      function renderMyPaike({ regularEntries, scheduleSessions }) {
-        const holder = byId("myPaikeCard");
+      function inferRoomFromText(value) {
+        const text = String(value || "");
+        const match = text.match(/([一二三四五六七八九十\d]+楼\s*[一二三四五六七八九十\d]+号|[一二三四五六七八九十\d]+楼[一二三四五六七八九十\d]+号)/);
+        return match ? match[1].replace(/\s+/g, "") : "";
+      }
+
+      function weekdayName(value) {
+        const key = dateKey(value);
+        if (!key) return "";
+        const names = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+        return names[new Date(`${key}T00:00:00`).getDay()] || "";
+      }
+
+      function dateLabel(value) {
+        const key = dateKey(value);
+        if (!key) return String(value || "-");
+        return `${key.slice(5)} ${weekdayName(key)}`;
+      }
+
+      function timeMinutes(value) {
+        const match = String(value || "").match(/(\d{1,2}):(\d{2})/);
+        if (!match) return 9999;
+        return Number(match[1]) * 60 + Number(match[2]);
+      }
+
+      function timeSlotLabel(row) {
+        return row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || "未填时间";
+      }
+
+      function timeSlotSortValue(label) {
+        return timeMinutes(String(label || "").split("-")[0]);
+      }
+
+      function selectedPeriod() {
+        return byId("teacherSheetPeriod")?.value || "2026-06";
+      }
+
+      function selectedTeacher() {
+        return byId("teacherSheetTeacher")?.value || "";
+      }
+
+      function selectedRoomDate() {
+        return byId("roomUsageDate")?.value || "";
+      }
+
+      function currentTeacherSheetRows() {
+        const period = selectedPeriod();
+        const teacher = selectedTeacher();
+        const keyword = String(byId("teacherSheetKeyword")?.value || "").trim().toLowerCase();
+        const mode = byId("teacherSheetMode")?.value || "month";
+        return paikeRows.filter((row) => {
+          if (period && row.period !== period) return false;
+          if (teacher && row.teacher !== teacher) return false;
+          const weekday = weekdayName(row.date);
+          if (mode === "weekend" && !["周五", "周六", "周日"].includes(weekday)) return false;
+          if (mode === "weekday" && !["周一", "周二", "周三", "周四"].includes(weekday)) return false;
+          const haystack = [row.teacher, row.student, row.rawText, row.lessonType, row.time, row.room, row.date].join(" ").toLowerCase();
+          return !keyword || haystack.includes(keyword);
+        }).sort((left, right) => (
+          String(left.date || "").localeCompare(String(right.date || "")) ||
+          timeMinutes(left.startTime || left.time) - timeMinutes(right.startTime || right.time)
+        ));
+      }
+
+      function setupTeacherSheetFilters() {
+        const periods = Array.from(new Set(paikeRows.map((row) => row.period).filter(Boolean))).sort();
+        const teachers = Array.from(new Set(paikeRows.map((row) => row.teacher).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const periodSelect = byId("teacherSheetPeriod");
+        const teacherSelect = byId("teacherSheetTeacher");
+        if (periodSelect) {
+          const current = periodSelect.value || (periods.includes("2026-06") ? "2026-06" : periods[periods.length - 1] || "");
+          periodSelect.innerHTML = periods.map((period) => `<option value="${escapeHtml(period)}">${escapeHtml(period)}</option>`).join("");
+          if (periods.includes(current)) periodSelect.value = current;
+        }
+        if (teacherSelect) {
+          const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+          const current = teacherSelect.value || (teachers.includes(employeeName) ? employeeName : teachers[0] || "");
+          teacherSelect.innerHTML = teachers.map((teacher) => `<option value="${escapeHtml(teacher)}">${escapeHtml(teacher)}</option>`).join("");
+          if (teachers.includes(current)) teacherSelect.value = current;
+        }
+      }
+
+      function setupRoomUsageDateFilter(preferredRows = []) {
+        const select = byId("roomUsageDate");
+        if (!select) return;
+        const period = selectedPeriod();
+        const dates = Array.from(new Set(paikeRows
+          .filter((row) => row.period === period)
+          .map((row) => row.date)
+          .filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b));
+        const preferredDate = preferredRows.find((row) => row.date)?.date || dates[0] || "";
+        const current = dates.includes(select.value) ? select.value : preferredDate;
+        select.innerHTML = dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(dateLabel(date))}</option>`).join("");
+        if (dates.includes(current)) select.value = current;
+      }
+
+      function renderTeacherSheetSummary(rows) {
+        const holder = byId("teacherSheetSummary");
         if (!holder) return;
-        const employee = window.JRC_CURRENT_EMPLOYEE || {};
-        const teacherName = String(employee.name || "").trim();
-        if (!teacherName) {
-          holder.innerHTML = `<div class="empty">当前没有识别到登录老师，无法生成我的课表核对。</div>`;
+        const studentCount = new Set(rows.flatMap((row) => String(row.student || "").split(/[、,，/+]/).map((item) => item.trim()).filter(Boolean))).size;
+        const roomMissing = rows.filter((row) => !String(row.room || "").trim() || row.room === "-").length;
+        holder.innerHTML = `
+          <div class="excel-summary-card"><span>当前老师</span><strong>${escapeHtml(selectedTeacher() || "-")}</strong></div>
+          <div class="excel-summary-card"><span>本月课程格</span><strong>${rows.length}</strong></div>
+          <div class="excel-summary-card"><span>学生/班级</span><strong>${studentCount}</strong></div>
+          <div class="excel-summary-card"><span>未写教室</span><strong>${roomMissing}</strong></div>
+        `;
+      }
+
+      function renderTeacherSheet() {
+        const table = byId("teacherSheetTable");
+        if (!table) return;
+        const rows = currentTeacherSheetRows();
+        setupRoomUsageDateFilter(rows);
+        renderTeacherSheetSummary(rows);
+        if (!rows.length) {
+          table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请先确认月份、老师姓名是否和原 Excel 一致。</div></td></tr></tbody>`;
+          renderRoomUsage();
           return;
         }
-        const rows = normalizedScheduleRows({ regularEntries, scheduleSessions })
-          .filter((row) => String(row.teacher || "").trim() === teacherName);
-        const periodCount = new Set(rows.map((row) => row.period).filter(Boolean)).size;
-        const studentCount = new Set(rows.flatMap((row) => String(row.student || "").split(/[、,，/]/).map((item) => item.trim()).filter(Boolean))).size;
-        const nextRows = rows.slice(0, 30);
-        holder.innerHTML = `
-          <div class="my-paike-card">
-            <strong>${escapeHtml(teacherName)}｜我的排课核对</strong>
-            <p style="margin-top:8px;">只显示当前登录老师的排课明细。若你本月有课但这里为空，请反馈“排课系统未显示本人课表”，并写清月份和班级。</p>
-            <div class="my-paike-summary">
-              <div class="my-paike-cell"><span>已读到课次</span><strong>${rows.length}</strong></div>
-              <div class="my-paike-cell"><span>涉及月份</span><strong>${periodCount}</strong></div>
-              <div class="my-paike-cell"><span>学生/班级</span><strong>${studentCount}</strong></div>
-              <div class="my-paike-cell"><span>最近显示</span><strong>${nextRows.length}</strong></div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>月份</th><th>日期</th><th>学生/班级</th><th>时间/课时</th><th>来源</th><th>状态</th></tr></thead>
-                <tbody>
-                  ${nextRows.length ? nextRows.map((row) => `
-                    <tr>
-                      <td>${escapeHtml(row.period)}</td>
-                      <td>${escapeHtml(row.date)}</td>
-                      <td>${escapeHtml(row.student)}</td>
-                      <td>${escapeHtml(row.time)}</td>
-                      <td>${escapeHtml(row.source)}</td>
-                      <td>${escapeHtml(row.status)}</td>
-                    </tr>
-                  `).join("") : `<tr><td colspan="6"><div class="empty">当前月份和云端数据里暂未匹配到你的课表。</div></td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        const dates = Array.from(new Set(rows.map((row) => row.date).filter(Boolean))).sort((a, b) => a.localeCompare(b)).slice(0, 31);
+        const slots = Array.from(new Set(rows.map(timeSlotLabel))).sort((a, b) => timeSlotSortValue(a) - timeSlotSortValue(b));
+        const byCell = new Map();
+        rows.forEach((row) => {
+          const key = `${timeSlotLabel(row)}|${row.date}`;
+          if (!byCell.has(key)) byCell.set(key, []);
+          byCell.get(key).push(row);
+        });
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>时间段</th>
+              ${dates.map((date) => `<th>${escapeHtml(dateLabel(date))}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${slots.map((slot) => `
+              <tr>
+                <td>${escapeHtml(slot)}</td>
+                ${dates.map((date) => {
+                  const cellRows = byCell.get(`${slot}|${date}`) || [];
+                  return `<td>${cellRows.map((row) => `
+                    <div class="lesson-block">
+                      <strong>${escapeHtml(row.student || row.lessonType || "未填学生")}</strong>
+                      <small>${escapeHtml(row.lessonType || row.rawText || "课程")}</small>
+                      <small>${escapeHtml(row.room && row.room !== "-" ? row.room : "未写教室")}｜${escapeHtml(scheduleStatus(row).label)}</small>
+                    </div>
+                  `).join("") || `<span class="room-free">可排</span>`}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        `;
+        renderRoomUsage();
+      }
+
+      function renderRoomUsage() {
+        const table = byId("roomUsageTable");
+        const summary = byId("roomUsageSummary");
+        if (!table) return;
+        const period = selectedPeriod();
+        const rows = paikeRows.filter((row) => row.period === period);
+        const date = selectedRoomDate();
+        const roomRows = rows.filter((row) => row.room && row.room !== "-");
+        const dayRows = rows.filter((row) => !date || row.date === date);
+        const dayRoomRows = dayRows.filter((row) => row.room && row.room !== "-");
+        const noRoomRows = rows.filter((row) => !row.room || row.room === "-");
+        const rooms = Array.from(new Set(roomRows.map((row) => row.room))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const daySlots = Array.from(new Set(dayRows.map(timeSlotLabel))).filter(Boolean);
+        const monthSlots = Array.from(new Set(rows.map(timeSlotLabel))).filter(Boolean);
+        const slots = (daySlots.length ? daySlots : monthSlots).sort((a, b) => timeSlotSortValue(a) - timeSlotSortValue(b));
+        const freeCells = rooms.length && slots.length ? Math.max(0, rooms.length * slots.length - dayRoomRows.length) : 0;
+        if (summary) {
+          summary.innerHTML = `
+            <div class="excel-summary-card"><span>当前月份</span><strong>${escapeHtml(period || "-")}</strong></div>
+            <div class="excel-summary-card"><span>查看日期</span><strong>${escapeHtml(date ? dateLabel(date) : "-")}</strong></div>
+            <div class="excel-summary-card"><span>当天占用</span><strong>${dayRoomRows.length}</strong></div>
+            <div class="excel-summary-card"><span>可排空格</span><strong>${freeCells}</strong></div>
+            <div class="excel-summary-card"><span>未写教室课程</span><strong>${noRoomRows.length}</strong></div>
+          `;
+        }
+        if (!rooms.length || !slots.length) {
+          table.innerHTML = `<tbody><tr><td><div class="empty">当前月份还没有从表格中识别到教室。排课时仍可先看老师课表，教室需要人工补充。</div></td></tr></tbody>`;
+          return;
+        }
+        const byRoomSlot = new Map();
+        dayRoomRows.forEach((row) => {
+          const key = `${row.room}|${timeSlotLabel(row)}`;
+          if (!byRoomSlot.has(key)) byRoomSlot.set(key, []);
+          byRoomSlot.get(key).push(row);
+        });
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>教室</th>
+              ${slots.map((slot) => `<th>${escapeHtml(slot)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rooms.map((room) => `
+              <tr>
+                <td><strong>${escapeHtml(room)}</strong></td>
+                ${slots.map((slot) => {
+                  const cellRows = byRoomSlot.get(`${room}|${slot}`) || [];
+                  return `<td>${cellRows.length
+                    ? cellRows.slice(0, 4).map((row) => `
+                      <div class="room-course">
+                        <strong>${escapeHtml(row.teacher)}｜${escapeHtml(row.student)}</strong>
+                        <small>${escapeHtml(row.lessonType || row.rawText || "课程")}</small>
+                        <small>${escapeHtml([row.sourceSheet, row.cell].filter(Boolean).join("!") || row.source || "")}</small>
+                      </div>
+                    `).join("")
+                    : `<span class="room-free">可排</span>`}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
         `;
       }
 
@@ -946,11 +1292,12 @@
         paikeReviewRows = safeReviewRows;
         paikeAttendanceRows = attendanceRowsFromData(attendanceData);
         paikeRows = normalizedScheduleRows({ regularEntries, scheduleSessions });
+        setupTeacherSheetFilters();
+        renderTeacherSheet();
         renderWorkbenchFilters();
         renderWorkbench();
         renderCommandCenter();
         renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
-        renderMyPaike({ regularEntries, scheduleSessions });
         renderPreview({ regularEntries, scheduleSessions });
       }
 
@@ -980,6 +1327,11 @@
         byId(id)?.addEventListener("input", renderWorkbench);
         byId(id)?.addEventListener("change", renderWorkbench);
       });
+      ["teacherSheetPeriod", "teacherSheetTeacher", "teacherSheetKeyword", "teacherSheetMode"].forEach((id) => {
+        byId(id)?.addEventListener("input", renderTeacherSheet);
+        byId(id)?.addEventListener("change", renderTeacherSheet);
+      });
+      byId("roomUsageDate")?.addEventListener("change", renderRoomUsage);
 
       initPaikeDashboard();
     </script>

@@ -627,6 +627,99 @@
         line-height: 1.6;
         font-size: 13px;
       }
+      .excel-finance-toolbar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .excel-finance-toolbar label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .excel-finance-toolbar select,
+      .excel-finance-toolbar input {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+      }
+      .excel-finance-summary {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .excel-finance-card {
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.84);
+      }
+      .excel-finance-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .excel-finance-card strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 21px;
+      }
+      .finance-statement-table,
+      .finance-teacher-detail-table {
+        min-width: 1120px;
+      }
+      .finance-statement-table th,
+      .finance-teacher-detail-table th {
+        text-align: center;
+      }
+      .finance-statement-table td,
+      .finance-teacher-detail-table td {
+        background: rgba(255,255,255,0.92);
+      }
+      .finance-statement-table td:first-child,
+      .finance-teacher-detail-table td:first-child {
+        font-weight: 800;
+      }
+      .lesson-date-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .lesson-date-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(13,148,136,0.1);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .finance-source-note {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .admin-details {
+        margin-top: 18px;
+      }
+      .admin-details summary {
+        cursor: pointer;
+        font-weight: 900;
+        color: var(--ink);
+      }
+      .admin-details summary + * {
+        margin-top: 14px;
+      }
       @media (max-width: 980px) {
         .hero,
         .grid {
@@ -640,7 +733,9 @@
         }
         .finance-path-grid,
         .workbench-strip,
-        .finance-command-grid {
+        .finance-command-grid,
+        .excel-finance-toolbar,
+        .excel-finance-summary {
           grid-template-columns: 1fr;
         }
         .my-settlement-grid {
@@ -697,23 +792,15 @@
       <section class="hero">
         <article class="card">
           <p class="eyebrow">财务</p>
-          <h1>财务系统</h1>
-          <p class="hero-text">先看老师结算，再查差异，最后做月结确认。这里是试运行核对台，不替代最终人工发薪复核。</p>
+          <h1>老师工资结算表</h1>
+          <p class="hero-text">按你们原来的工资 Excel 方式使用：先看小课产值总表，再点某位老师看本月上了哪些课、课时费多少、提成多少、最后应核对多少钱。</p>
           <div class="tag-row">
-            <span class="tag">老师结算</span>
-            <span class="tag">差异核对</span>
-            <span class="tag">点名课销</span>
-            <span class="tag warn">待审核数据不入账</span>
+            <span class="tag">每个老师一张结算表</span>
+            <span class="tag">课时收入</span>
+            <span class="tag">工资/提成/补课</span>
+            <span class="tag warn">离职只保留历史结算</span>
           </div>
-          <div class="quick-actions">
-            <a class="button secondary" href="#teacherSettlementEntry">老师结算结果</a>
-            <a class="button secondary" href="#teacherDiffSection">数据核对中心</a>
-            <a class="button secondary" href="#financeImportSection">原始数据导入</a>
-            <a class="button secondary" href="#departedSettlementSection">离职结算查看</a>
-          </div>
-          <div class="pilot-banner">
-            当前系统用于和 Excel 月结表对照：系统算一版，人工算一版，不一致就查差异。确认前不作为最终发薪、分红和课销依据。
-          </div>
+          <div class="pilot-banner">当前仍是试运行核对版：系统按导入表算一版，财务老师按原 Excel 算一版；不一致就回到管理员核对区查原因。</div>
           <div class="auth-note" data-role-greeting></div>
           <div class="edit-warning" id="editWarning" hidden>当前账号可以查看财务数据，但没有财务修改权限。需要财务或总管理员账号才能录入和删除。</div>
         </article>
@@ -725,51 +812,25 @@
             选择月份
             <input id="periodInput" type="month" value="2026-06">
           </label>
-          <p>先切月份，再看下方“本月核对台”。如果看不到数据，通常是月份没切对或原始表还没导入。</p>
+          <p>先切月份。五月已有小课产值总表；六月已有工资课次明细，产值总表等你后续补齐后会自动显示得更完整。</p>
         </aside>
-      </section>
-
-      <section class="card" id="financeWorkbenchSection">
-        <p class="eyebrow">本月核对台</p>
-        <h2>财务先看这里</h2>
-        <p style="margin-top: 8px;">财务老师进来先看这四张卡：有没有数据、老师结算是否出来、差异是否要优先处理、点名课销是否已经流入。</p>
-        <div class="finance-command-grid" id="financeCommandGrid"></div>
-        <div class="pilot-banner" id="financeCommandTip">正在读取当前月份财务数据。</div>
-        <div class="finance-path-grid">
-          <div class="finance-path-card">
-            <span>1</span>
-            <strong>看老师结算</strong>
-            <p>先确认每位老师本月有没有结算草算、工资行和排课行。</p>
-          </div>
-          <div class="finance-path-card">
-            <span>2</span>
-            <strong>查差异</strong>
-            <p>有高优先级差异时，不急着确认工资，先逐老师、逐行核对。</p>
-          </div>
-          <div class="finance-path-card">
-            <span>3</span>
-            <strong>确认月结</strong>
-            <p>课时、点名、支出都核过后，再确认本月复核并导出汇总。</p>
-          </div>
-        </div>
-        <div class="workbench-strip" id="financeWorkbenchCards"></div>
       </section>
 
       <section class="summary-grid" aria-label="财务汇总">
         <article class="summary-card">
-          <span class="summary-label">收入合计</span>
+          <span class="summary-label">课时收入</span>
           <strong class="summary-value" id="incomeTotal">¥0</strong>
-          <div class="summary-note">课时收入 + 其他收入</div>
+          <div class="summary-note">来自工资表收入区/课时收入</div>
         </article>
         <article class="summary-card">
-          <span class="summary-label">成本合计</span>
+          <span class="summary-label">老师结算成本</span>
           <strong class="summary-value" id="costTotal">¥0</strong>
-          <div class="summary-note">老师结算成本 + 已确认日常支出</div>
+          <div class="summary-note">基础工资 + 社保 + 课时提成 + 补课提成</div>
         </article>
         <article class="summary-card">
-          <span class="summary-label">经营毛利润</span>
+          <span class="summary-label">课时剩余/利润</span>
           <strong class="summary-value" id="grossProfit">¥0</strong>
-          <div class="summary-note">收入合计 - 成本合计</div>
+          <div class="summary-note">按原小课产值表口径先展示</div>
         </article>
         <article class="summary-card">
           <span class="summary-label">分红池 / 留存</span>
@@ -778,45 +839,117 @@
         </article>
       </section>
 
+      <section class="card" id="financeExcelStatementSection">
+        <p class="eyebrow">工资表</p>
+        <h2>小课产值总表</h2>
+        <div class="excel-finance-toolbar">
+          <label>老师
+            <select id="financeTeacherSelect"></select>
+          </label>
+          <label>搜索
+            <input id="financeTeacherKeyword" type="search" placeholder="老师、学生、课程">
+          </label>
+          <label>显示
+            <select id="financeStatementMode">
+              <option value="all">全部老师</option>
+              <option value="active">在职老师</option>
+              <option value="departed">离职历史</option>
+            </select>
+          </label>
+          <label>操作
+            <select id="financeQuickJump">
+              <option value="summary">看总表</option>
+              <option value="detail">看老师明细</option>
+              <option value="admin">管理员核对区</option>
+            </select>
+          </label>
+        </div>
+        <div class="excel-finance-summary" id="financeExcelSummary"></div>
+        <div class="table-wrap">
+          <table class="finance-statement-table">
+            <thead>
+              <tr>
+                <th>序号</th>
+                <th>姓名</th>
+                <th>课时总收入</th>
+                <th>基础工资</th>
+                <th>社保</th>
+                <th>课时提成</th>
+                <th>补课提成</th>
+                <th>答疑提成</th>
+                <th>补贴</th>
+                <th>课时剩余</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="financeExcelStatementBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="financeTeacherDetailSection">
+        <p class="eyebrow">老师明细</p>
+        <h2 id="financeTeacherDetailTitle">老师工资明细</h2>
+        <p class="hero-text">这里按老师原工资明细页展示：学生、课时费、提成、上课日期/第几次。老师看这个最接近原来的工资表。</p>
+        <div class="excel-finance-summary" id="financeTeacherDetailSummary"></div>
+        <div class="table-wrap">
+          <table class="finance-teacher-detail-table">
+            <thead>
+              <tr>
+                <th>学生/班级</th>
+                <th>课时费</th>
+                <th>单次提成</th>
+                <th>上课次数</th>
+                <th>上课日期/第几次</th>
+                <th>应发小计</th>
+                <th>来源</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="financeTeacherDetailBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <details class="card admin-details" id="financeAdminDetails">
+        <summary>管理员核对区：差异、导入、点名课销、月结录入</summary>
+
+      <section class="card" id="financeWorkbenchSection">
+        <p class="eyebrow">核对台</p>
+        <h2>财务后台核对</h2>
+        <div class="finance-command-grid" id="financeCommandGrid"></div>
+        <div class="pilot-banner" id="financeCommandTip">正在读取当前月份财务数据。</div>
+        <div class="workbench-strip" id="financeWorkbenchCards"></div>
+      </section>
+
       <section class="card" id="teacherSettlementEntry">
         <p class="eyebrow">老师结算</p>
         <h2>老师结算结果</h2>
-        <p style="margin-top: 8px;">先按老师看本月有没有工资行、排课行和待核差异；需要追查时再点下面的差异核对或逐条明细。</p>
         <div class="my-settlement-card" id="mySettlementCard" hidden></div>
         <div class="teacher-settlement-list" id="teacherSettlementList"></div>
-        <div class="quick-actions">
-          <a class="button secondary" href="#teacherDiffSection">查看老师差异表</a>
-          <a class="button secondary" href="#rowDiffSection">查看逐条明细</a>
-          <a class="button secondary" href="#attendanceFinanceSection">查看点名课销</a>
-          <a class="button secondary" href="#monthlySection">进入月结录入</a>
-        </div>
       </section>
 
       <section class="card" id="departedSettlementSection">
         <p class="eyebrow">离职员工</p>
         <h2>离职员工结算查看</h2>
-        <p style="margin-top: 8px;">离职老师不再参与新排课、新任务和当前在职统计，但历史排课、工资行和本月结算保留，方便月底对账。</p>
         <div class="departed-settlement-list" id="departedSettlementList"></div>
       </section>
 
       <section class="card" id="trialCompareSection">
         <p class="eyebrow">对账</p>
         <h2>系统结果与 Excel 差异</h2>
-        <p style="margin-top: 8px;">集中查看差异项，优先处理高影响问题。</p>
         <div class="compare-grid" id="trialCompareGrid"></div>
       </section>
 
       <section class="card" id="monthStatusSection">
         <p class="eyebrow">月份状态</p>
         <h2>当前哪些月份已经有数据</h2>
-        <p style="margin-top: 8px;">直接看每个月已有哪类数据，避免把“没切换月份”误看成“系统没有内容”。</p>
         <div class="month-status-grid" id="monthStatusGrid"></div>
       </section>
 
       <section class="card section-muted" id="financeImportSection">
         <p class="eyebrow">导入</p>
         <h2>财务原始表导入</h2>
-        <p style="margin-top: 8px;">导入工资、支出、成本表，保留来源文件，便于逐项对账。</p>
         <div class="actions">
           <input id="financeImportInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
           <button class="button" type="button" id="financeImportButton">导入原始表</button>
@@ -825,34 +958,13 @@
         <div class="compare-grid" id="financeImportGrid"></div>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>类别</th>
-                <th>金额</th>
-                <th>经办/报销人</th>
-                <th>状态</th>
-                <th>来源文件</th>
-                <th>说明</th>
-              </tr>
-            </thead>
+            <thead><tr><th>日期</th><th>类别</th><th>金额</th><th>经办/报销人</th><th>状态</th><th>来源文件</th><th>说明</th></tr></thead>
             <tbody id="importedExpenseBody"></tbody>
           </table>
         </div>
         <div class="table-wrap" style="margin-top: 16px;">
           <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>老师</th>
-                <th>学生/班级</th>
-                <th>金额</th>
-                <th>课时</th>
-                <th>状态</th>
-                <th>来源文件</th>
-                <th>备注</th>
-              </tr>
-            </thead>
+            <thead><tr><th>日期</th><th>老师</th><th>学生/班级</th><th>金额</th><th>课时</th><th>状态</th><th>来源文件</th><th>备注</th></tr></thead>
             <tbody id="importedSalaryBody"></tbody>
           </table>
         </div>
@@ -861,136 +973,45 @@
       <section class="card section-muted" id="financeAutofillSection">
         <p class="eyebrow">回填</p>
         <h2>原始表自动回填建议</h2>
-        <p style="margin-top: 8px;">工资/课时原始表会先统一归到“其他老师结算成本”草算字段；支出原始表会带入当月支出台账，状态保持“待复核”。</p>
         <div class="compare-grid" id="financeAutofillGrid"></div>
-        <div class="actions">
-          <button class="button" type="button" id="financeAutofillButton">一键带入本月草算</button>
-        </div>
+        <div class="actions"><button class="button" type="button" id="financeAutofillButton">一键带入本月草算</button></div>
         <div class="auth-note" id="financeAutofillMessage">当前还没有可带入的原始表汇总。</div>
       </section>
 
       <section class="card section-muted" id="preimportSection">
         <p class="eyebrow">联动</p>
         <h2>老师月度结算草算预览</h2>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>月份</th>
-                <th>老师</th>
-                <th>排课课时</th>
-                <th>教学系数</th>
-                <th>课时系数</th>
-                <th>当前提成</th>
-                <th>招生实收</th>
-                <th>财务影响</th>
-              </tr>
-            </thead>
-            <tbody id="financeLinkedBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>排课课时</th><th>教学系数</th><th>课时系数</th><th>当前提成</th><th>招生实收</th><th>财务影响</th></tr></thead><tbody id="financeLinkedBody"></tbody></table></div>
       </section>
 
       <section class="card" id="financeReconciliationSection">
         <p class="eyebrow">AI 核对</p>
         <h2>AI 财务核对草稿</h2>
-        <p style="margin-top: 8px;">这里展示 AI 助手送来的财务核对线索，财务老师只需要看待复核项，不用重新手工抄一遍。</p>
         <div class="compare-grid" id="financeReconciliationGrid"></div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>月份</th>
-                <th>老师</th>
-                <th>标题</th>
-                <th>金额线索</th>
-                <th>课时线索</th>
-                <th>缺失字段</th>
-                <th>风险点</th>
-                <th>状态</th>
-                <th>来源时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="financeReconciliationBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>标题</th><th>金额线索</th><th>课时线索</th><th>缺失字段</th><th>风险点</th><th>状态</th><th>来源时间</th><th>操作</th></tr></thead><tbody id="financeReconciliationBody"></tbody></table></div>
       </section>
 
       <section class="card" id="excelReconciliationSection">
         <p class="eyebrow">对账</p>
         <h2>排课与工资表对账</h2>
-        <p style="margin-top: 8px;">对账通过前不进入正式工资、课销和分红。</p>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>老师</th>
-                <th>排课学生人次</th>
-                <th>排课学生小时</th>
-                <th>工资表课次</th>
-                <th>已匹配</th>
-                <th>待核差异</th>
-                <th>高优先级</th>
-                <th>对账状态</th>
-              </tr>
-            </thead>
-            <tbody id="excelPreimportBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>老师</th><th>排课学生人次</th><th>排课学生小时</th><th>工资表课次</th><th>已匹配</th><th>待核差异</th><th>高优先级</th><th>对账状态</th></tr></thead><tbody id="excelPreimportBody"></tbody></table></div>
       </section>
 
       <section class="card" id="teacherDiffSection">
         <p class="eyebrow">差异明细</p>
         <h2>老师月度试算与差异核对</h2>
-        <p style="margin-top: 8px;">这里直接按老师展示系统试算口径，方便和老师自己的 Excel 结果逐人逐月比对。现阶段以“发现差异、定位问题”为目标。</p>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>月份</th>
-                <th>老师</th>
-                <th>排课课次</th>
-                <th>排课课时</th>
-                <th>工资/课时行数</th>
-                <th>工资/课时金额</th>
-                <th>待核差异</th>
-                <th>高优先级</th>
-                <th>当前状态</th>
-              </tr>
-            </thead>
-            <tbody id="teacherDiffBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>排课课次</th><th>排课课时</th><th>工资/课时行数</th><th>工资/课时金额</th><th>待核差异</th><th>高优先级</th><th>当前状态</th></tr></thead><tbody id="teacherDiffBody"></tbody></table></div>
       </section>
 
       <section class="card" id="rowDiffSection">
         <p class="eyebrow">行级核对</p>
         <h2>排课行与工资行逐条查看</h2>
-        <p style="margin-top: 8px;">按当前月份直接列出排课行与工资行，方便老师快速发现“排了课但工资表没有”、“工资表有行但排课里没找到”的情况。</p>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>来源</th>
-                <th>老师</th>
-                <th>学生</th>
-                <th>日期</th>
-                <th>时长/课次</th>
-                <th>金额/课型</th>
-                <th>原始标记</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody id="rowDiffBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>来源</th><th>老师</th><th>学生</th><th>日期</th><th>时长/课次</th><th>金额/课型</th><th>原始标记</th><th>状态</th></tr></thead><tbody id="rowDiffBody"></tbody></table></div>
       </section>
 
       <section class="card" id="attendanceFinanceSection">
         <p class="eyebrow">点名</p>
         <h2>点名课时费与课销</h2>
-        <div class="auth-note">点名、出门测和缺席追踪会进入结算草表；正式工资和家长课销仍由财务复核后确认。</div>
         <div class="settlement-summary-grid">
           <div class="settlement-summary-card"><span>课程数</span><strong id="attendanceFinanceLessons">0</strong></div>
           <div class="settlement-summary-card"><span>总人次</span><strong id="attendanceFinanceTotal">0</strong></div>
@@ -999,218 +1020,52 @@
           <div class="settlement-summary-card"><span>单独结算</span><strong id="attendanceFinanceSpecial">0</strong></div>
           <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
         </div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>月份</th>
-                <th>老师</th>
-                <th>课程数</th>
-                <th>总人次</th>
-                <th>有效到课</th>
-                <th>普通财务人次</th>
-                <th>单独结算人次</th>
-                <th>待追踪</th>
-                <th>结算口径</th>
-              </tr>
-            </thead>
-            <tbody id="attendanceSettlementFinanceBody"></tbody>
-          </table>
-        </div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>流转状态</th>
-                <th>说明</th>
-                <th>财务处理</th>
-              </tr>
-            </thead>
-            <tbody id="attendanceFlowFinanceBody"></tbody>
-          </table>
-        </div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>老师</th>
-                <th>学生</th>
-                <th>班级 / 课程</th>
-                <th>点名 / 出门测</th>
-                <th>财务人次</th>
-                <th>单独结算</th>
-                <th>异常处理</th>
-                <th>复核</th>
-              </tr>
-            </thead>
-            <tbody id="attendanceDetailFinanceBody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>结算口径</th></tr></thead><tbody id="attendanceSettlementFinanceBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>流转状态</th><th>说明</th><th>财务处理</th></tr></thead><tbody id="attendanceFlowFinanceBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
       </section>
 
       <section class="grid" id="monthlySection">
         <article class="card">
           <p class="eyebrow">月结</p>
           <h2>月度收入与老师结算成本</h2>
-          <div class="tag-row" style="margin-bottom: 12px;">
-            <span class="tag" id="periodReviewStatus">草稿</span>
-          </div>
+          <div class="tag-row" style="margin-bottom: 12px;"><span class="tag" id="periodReviewStatus">草稿</span></div>
           <form id="monthlyForm" class="form-grid">
-            <label class="field">
-              课时总收入
-              <input name="lessonIncome" type="number" min="0" step="0.01" placeholder="例如 120000">
-            </label>
-            <label class="field">
-              其他收入
-              <input name="otherIncome" type="number" min="0" step="0.01" placeholder="报名杂费/资料收入等">
-            </label>
-            <label class="field">
-              分红比例（%）
-              <input name="dividendRate" type="number" min="0" max="100" step="0.01">
-            </label>
-            <label class="field">
-              基础工资
-              <input name="baseSalary" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              社保
-              <input name="socialInsurance" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              公积金
-              <input name="housingFund" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              课时提成
-              <input name="teachingCommission" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              补课提成
-              <input name="makeupCommission" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              答疑提成
-              <input name="qaCommission" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              补贴
-              <input name="subsidy" type="number" min="0" step="0.01">
-            </label>
-            <label class="field">
-              其他老师结算成本
-              <input name="otherTeacherCost" type="number" min="0" step="0.01" placeholder="人工调整/特殊项">
-            </label>
-            <label class="field">
-              课时剩余（Excel 原值，可选）
-              <input name="classHourBalance" type="number" step="0.01" placeholder="用于和老表核对">
-            </label>
+            <label class="field">课时总收入<input name="lessonIncome" type="number" min="0" step="0.01"></label>
+            <label class="field">其他收入<input name="otherIncome" type="number" min="0" step="0.01"></label>
+            <label class="field">分红比例（%）<input name="dividendRate" type="number" min="0" max="100" step="0.01"></label>
+            <label class="field">基础工资<input name="baseSalary" type="number" min="0" step="0.01"></label>
+            <label class="field">社保<input name="socialInsurance" type="number" min="0" step="0.01"></label>
+            <label class="field">公积金<input name="housingFund" type="number" min="0" step="0.01"></label>
+            <label class="field">课时提成<input name="teachingCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">补课提成<input name="makeupCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">答疑提成<input name="qaCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">补贴<input name="subsidy" type="number" min="0" step="0.01"></label>
+            <label class="field">其他老师结算成本<input name="otherTeacherCost" type="number" min="0" step="0.01"></label>
+            <label class="field">课时剩余（Excel 原值）<input name="classHourBalance" type="number" step="0.01"></label>
           </form>
-          <div class="actions">
-            <button class="button" type="button" id="saveMonthlyButton">保存本月数据</button>
-            <button class="button secondary" type="button" id="confirmMonthlyReviewButton">确认本月复核</button>
-            <button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button>
-          </div>
-          <div class="auth-note" id="financeSaveMessage">财务数据保存后默认进入“待复核”，复核前不作为正式工资、课销和分红依据。</div>
+          <div class="actions"><button class="button" type="button" id="saveMonthlyButton">保存本月数据</button><button class="button secondary" type="button" id="confirmMonthlyReviewButton">确认本月复核</button><button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button></div>
+          <div class="auth-note" id="financeSaveMessage">财务数据保存后默认进入“待复核”。</div>
         </article>
-
-        <aside class="card">
-          <p class="eyebrow">口径</p>
-          <h2>月结口径</h2>
-          <div class="mini-list">
-            <div class="mini-item">
-              <strong>收入</strong>
-              <p>课时总收入、其他收入、课时剩余。</p>
-            </div>
-            <div class="mini-item">
-              <strong>成本</strong>
-              <p>工资、社保、公积金、提成、补贴、日常支出。</p>
-            </div>
-            <div class="mini-item">
-              <strong>分红</strong>
-              <p>按经营毛利润计算分红池和留存利润。</p>
-            </div>
-          </div>
-        </aside>
+        <aside class="card"><p class="eyebrow">口径</p><h2>月结口径</h2><div class="mini-list"><div class="mini-item"><strong>收入</strong><p>课时总收入、其他收入、课时剩余。</p></div><div class="mini-item"><strong>成本</strong><p>工资、社保、公积金、提成、补贴、日常支出。</p></div><div class="mini-item"><strong>分红</strong><p>按经营毛利润计算分红池和留存利润。</p></div></div></aside>
       </section>
 
       <section class="card" id="expenseSection">
         <p class="eyebrow">支出</p>
         <h2>日常支出 / 报销 / 工作成本</h2>
-        <p style="margin-top: 8px;">待审核支出不计入毛利润；已确认、已支付才进入成本合计。</p>
         <form id="expenseForm" class="form-grid">
-          <label class="field">
-            日期
-            <input name="date" type="date">
-          </label>
-          <label class="field">
-            类别
-            <select name="category">
-              <option value="老师报销">老师报销</option>
-              <option value="教材资料">教材资料</option>
-              <option value="办公用品">办公用品</option>
-              <option value="房租物业">房租物业</option>
-              <option value="水电网络">水电网络</option>
-              <option value="招生成本">招生成本</option>
-              <option value="活动支出">活动支出</option>
-              <option value="其他">其他</option>
-            </select>
-          </label>
-          <label class="field">
-            金额
-            <input name="amount" type="number" min="0" step="0.01" required>
-          </label>
-          <label class="field">
-            经办/报销人
-            <input name="operator" placeholder="例如 陈雨晴">
-          </label>
-          <label class="field">
-            状态
-            <select name="status">
-              <option value="待审核">待审核</option>
-              <option value="已确认">已确认</option>
-              <option value="已支付">已支付</option>
-            </select>
-          </label>
-          <label class="field">
-            支付方式
-            <select name="paymentMethod">
-              <option value="未填">未填</option>
-              <option value="微信">微信</option>
-              <option value="支付宝">支付宝</option>
-              <option value="银行卡">银行卡</option>
-              <option value="现金">现金</option>
-              <option value="其他">其他</option>
-            </select>
-          </label>
-          <label class="field span-3">
-            说明
-            <textarea name="notes" placeholder="写清楚用途、对应班级/老师/活动，方便月底核对"></textarea>
-          </label>
+          <label class="field">日期<input name="date" type="date"></label>
+          <label class="field">类别<select name="category"><option value="老师报销">老师报销</option><option value="教材资料">教材资料</option><option value="办公用品">办公用品</option><option value="房租物业">房租物业</option><option value="水电网络">水电网络</option><option value="招生成本">招生成本</option><option value="活动支出">活动支出</option><option value="其他">其他</option></select></label>
+          <label class="field">金额<input name="amount" type="number" min="0" step="0.01" required></label>
+          <label class="field">经办/报销人<input name="operator"></label>
+          <label class="field">状态<select name="status"><option value="待审核">待审核</option><option value="已确认">已确认</option><option value="已支付">已支付</option></select></label>
+          <label class="field">支付方式<select name="paymentMethod"><option value="未填">未填</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="银行卡">银行卡</option><option value="现金">现金</option><option value="其他">其他</option></select></label>
+          <label class="field span-3">说明<textarea name="notes"></textarea></label>
         </form>
-        <div class="actions">
-          <button class="button" type="button" id="addExpenseButton">新增支出</button>
-          <button class="button secondary" type="button" id="exportExpensesButton">导出支出 CSV</button>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>类别</th>
-                <th>金额</th>
-                <th>经办/报销人</th>
-                <th>状态</th>
-                <th>复核</th>
-                <th>说明</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="expenseTableBody"></tbody>
-          </table>
-        </div>
+        <div class="actions"><button class="button" type="button" id="addExpenseButton">新增支出</button><button class="button secondary" type="button" id="exportExpensesButton">导出支出 CSV</button></div>
+        <div class="table-wrap"><table><thead><tr><th>日期</th><th>类别</th><th>金额</th><th>经办/报销人</th><th>状态</th><th>复核</th><th>说明</th><th>操作</th></tr></thead><tbody id="expenseTableBody"></tbody></table></div>
       </section>
+      </details>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
@@ -3222,11 +3077,245 @@
         `).join("");
       }
 
+      function financeSummaryRowsForCurrentPeriod() {
+        const bundle = readPreimportBundle();
+        const mode = byId("financeStatementMode")?.value || "all";
+        const keyword = String(byId("financeTeacherKeyword")?.value || "").trim().toLowerCase();
+        const summaryRows = (bundle.teacherFinanceSummaryRows || [])
+          .filter((row) => row.period === currentPeriod)
+          .filter((row) => {
+            const departed = row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacherNameOf(row));
+            if (mode === "active" && departed) return false;
+            if (mode === "departed" && !departed) return false;
+            const haystack = [teacherNameOf(row), row["姓名"], row.financeRoleType, row.employmentStatus].join(" ").toLowerCase();
+            return !keyword || haystack.includes(keyword);
+          });
+        const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
+        const teachersFromSalary = Array.from(new Set(salaryRows.map(teacherNameOf).filter(Boolean)));
+        const existing = new Set(summaryRows.map(teacherNameOf).filter(Boolean));
+        const supplementRows = teachersFromSalary
+          .filter((teacher) => !existing.has(teacher))
+          .map((teacher) => {
+            const rows = salaryRows.filter((row) => teacherNameOf(row) === teacher);
+            const departed = rows.some((row) => row.employmentStatus === "departed") || isDepartedFinanceTeacher(teacher);
+            return {
+              period: currentPeriod,
+              teacherName: teacher,
+              姓名: teacher,
+              课时总收入: null,
+              基础工资: null,
+              社保: null,
+              课时提成: rows.reduce((sum, row) => sum + salaryRowAmount(row), 0),
+              补课提成: null,
+              答疑提成: null,
+              补贴: null,
+              课时剩余: null,
+              employmentStatus: departed ? "departed" : "active",
+              fromSalaryRowsOnly: true
+            };
+          })
+          .filter((row) => {
+            const departed = row.employmentStatus === "departed";
+            if (mode === "active" && departed) return false;
+            if (mode === "departed" && !departed) return false;
+            const haystack = [teacherNameOf(row), row["姓名"]].join(" ").toLowerCase();
+            return !keyword || haystack.includes(keyword);
+          });
+        return [...summaryRows, ...supplementRows].sort((a, b) => {
+          const departedA = a.employmentStatus === "departed" || isDepartedFinanceTeacher(teacherNameOf(a));
+          const departedB = b.employmentStatus === "departed" || isDepartedFinanceTeacher(teacherNameOf(b));
+          if (departedA !== departedB) return departedA ? 1 : -1;
+          return teacherNameOf(a).localeCompare(teacherNameOf(b), "zh-Hans-CN");
+        });
+      }
+
+      function setupFinanceTeacherSelect() {
+        const select = byId("financeTeacherSelect");
+        if (!select) return;
+        const bundle = readPreimportBundle();
+        const names = Array.from(new Set([
+          ...(bundle.teacherFinanceSummaryRows || []).filter((row) => row.period === currentPeriod).map(teacherNameOf),
+          ...(bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod).map(teacherNameOf)
+        ].filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+        const current = select.value || (names.includes(employeeName) ? employeeName : names[0] || "");
+        select.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+        if (names.includes(current)) select.value = current;
+      }
+
+      function renderFinanceExcelSummary(rows) {
+        const holder = byId("financeExcelSummary");
+        if (!holder) return;
+        const revenue = rows.reduce((sum, row) => sum + toNumber(row["课时总收入"]), 0);
+        const baseSalary = rows.reduce((sum, row) => sum + toNumber(row["基础工资"]), 0);
+        const commission = rows.reduce((sum, row) => sum + toNumber(row["课时提成"]) + toNumber(row["补课提成"]) + toNumber(row["答疑提成"]) + toNumber(row["补贴"]), 0);
+        const balance = rows.reduce((sum, row) => sum + toNumber(row["课时剩余"]), 0);
+        holder.innerHTML = `
+          <div class="excel-finance-card"><span>老师数</span><strong>${rows.length}</strong></div>
+          <div class="excel-finance-card"><span>课时总收入</span><strong>${money(revenue)}</strong></div>
+          <div class="excel-finance-card"><span>基础工资</span><strong>${money(baseSalary)}</strong></div>
+          <div class="excel-finance-card"><span>提成补贴</span><strong>${money(commission)}</strong></div>
+          <div class="excel-finance-card"><span>课时剩余</span><strong>${money(balance)}</strong></div>
+        `;
+      }
+
+      function renderFinanceExcelStatement() {
+        const body = byId("financeExcelStatementBody");
+        if (!body) return;
+        const rows = financeSummaryRowsForCurrentPeriod();
+        renderFinanceExcelSummary(rows);
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="11" class="muted">当前月份还没有小课产值总表。五月已有完整总表；六月目前主要是老师工资明细，等六月产值表补齐后这里会显示完整总表。</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row, index) => {
+          const teacher = teacherNameOf(row);
+          const departed = row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacher);
+          const status = departed ? "离职历史" : row.fromSalaryRowsOnly ? "明细已读/待总表" : "可核对";
+          return `
+            <tr data-finance-teacher-row="${escapeHtml(teacher)}">
+              <td>${escapeHtml(row["序号"] || index + 1)}</td>
+              <td>${escapeHtml(teacher || "-")}</td>
+              <td class="money-cell">${row["课时总收入"] == null ? "-" : money(row["课时总收入"])}</td>
+              <td class="money-cell">${row["基础工资"] == null ? "-" : money(row["基础工资"])}</td>
+              <td class="money-cell">${row["社保"] == null ? "-" : money(row["社保"])}</td>
+              <td class="money-cell">${row["课时提成"] == null ? "-" : money(row["课时提成"])}</td>
+              <td class="money-cell">${row["补课提成"] == null ? "-" : money(row["补课提成"])}</td>
+              <td class="money-cell">${row["答疑提成"] == null ? "-" : money(row["答疑提成"])}</td>
+              <td class="money-cell">${row["补贴"] == null ? "-" : money(row["补贴"])}</td>
+              <td class="money-cell">${row["课时剩余"] == null ? "-" : money(row["课时剩余"])}</td>
+              <td><span class="status-pill ${departed ? "pending" : ""}">${escapeHtml(status)}</span></td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function teacherDetailRows() {
+        const teacher = byId("financeTeacherSelect")?.value || "";
+        const keyword = String(byId("financeTeacherKeyword")?.value || "").trim().toLowerCase();
+        const bundle = readPreimportBundle();
+        const map = new Map();
+        (bundle.salaryAttendance || [])
+          .filter((row) => row.period === currentPeriod)
+          .filter((row) => !teacher || teacherNameOf(row) === teacher)
+          .filter((row) => {
+            const haystack = [teacherNameOf(row), row.studentName, row.raw, row.cell, row.status, row.sourceSheet].join(" ").toLowerCase();
+            return !keyword || haystack.includes(keyword);
+          })
+          .forEach((row) => {
+            const key = [
+              teacherNameOf(row),
+              row.studentName,
+              row.date,
+              row.lessonNo,
+              row.cell,
+              row.courseFee,
+              row.commission
+            ].map((value) => String(value ?? "").trim()).join("|");
+            const existing = map.get(key);
+            if (!existing || row.sourceWorkbook) map.set(key, row);
+          });
+        return [...map.values()].sort((a, b) => (
+            String(a.date || "").localeCompare(String(b.date || "")) ||
+            String(a.studentName || "").localeCompare(String(b.studentName || ""), "zh-Hans-CN")
+          ));
+      }
+
+      function teacherDetailGroups(rows) {
+        const map = new Map();
+        rows.forEach((row) => {
+          const key = [
+            teacherNameOf(row),
+            row.studentName || "未填学生",
+            row.courseFee ?? "",
+            row.commission ?? "",
+            row.sourceSection || ""
+          ].map((value) => String(value).trim()).join("|");
+          if (!map.has(key)) {
+            map.set(key, {
+              teacherName: teacherNameOf(row),
+              studentName: row.studentName || "未填学生",
+              courseFee: row.courseFee,
+              commission: row.commission,
+              rows: [],
+              statuses: new Set(),
+              sources: new Set(),
+              needsReview: false,
+              amount: 0
+            });
+          }
+          const group = map.get(key);
+          group.rows.push(row);
+          group.statuses.add(row.status || "待对账");
+          group.needsReview = group.needsReview || Boolean(row.needsReview) || String(row.status || "").includes("复核");
+          group.amount += salaryRowAmount(row);
+          const source = [row.sourceSheet, row.cell].filter(Boolean).join("!");
+          if (source) group.sources.add(source);
+        });
+        return [...map.values()].sort((a, b) => (
+          String(a.studentName || "").localeCompare(String(b.studentName || ""), "zh-Hans-CN") ||
+          String(a.courseFee || "").localeCompare(String(b.courseFee || ""))
+        ));
+      }
+
+      function renderFinanceTeacherDetail() {
+        const body = byId("financeTeacherDetailBody");
+        const title = byId("financeTeacherDetailTitle");
+        const summary = byId("financeTeacherDetailSummary");
+        if (!body) return;
+        const teacher = byId("financeTeacherSelect")?.value || "";
+        const rows = teacherDetailRows();
+        const groups = teacherDetailGroups(rows);
+        if (title) title.textContent = teacher ? `${teacher}｜工资明细` : "老师工资明细";
+        const amount = rows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
+        const students = groups.length;
+        const reviewCount = rows.filter((row) => row.needsReview || String(row.status || "").includes("复核")).length;
+        if (summary) {
+          summary.innerHTML = `
+            <div class="excel-finance-card"><span>上课记录</span><strong>${rows.length}</strong></div>
+            <div class="excel-finance-card"><span>学生/班级</span><strong>${students}</strong></div>
+            <div class="excel-finance-card"><span>提成/应发合计</span><strong>${money(amount)}</strong></div>
+            <div class="excel-finance-card"><span>待复核</span><strong>${reviewCount}</strong></div>
+            <div class="excel-finance-card"><span>月份</span><strong>${escapeHtml(currentPeriod)}</strong></div>
+          `;
+        }
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="7" class="muted">当前老师/月份没有工资明细。请切换月份或老师；如果原 Excel 有数据，请继续导入工资表。</td></tr>`;
+          return;
+        }
+        body.innerHTML = groups.map((group) => {
+          const sortedRows = group.rows.slice().sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+          const lessonChips = sortedRows.map((row) => `
+            <span class="lesson-date-chip">${escapeHtml([row.date, row.lessonNo ? `第${row.lessonNo}次` : ""].filter(Boolean).join(" "))}</span>
+          `).join("");
+          const statuses = [...group.statuses].filter(Boolean).join("、") || "待对账";
+          return `
+          <tr>
+            <td>${escapeHtml(group.studentName || "-")}</td>
+            <td class="money-cell">${group.courseFee == null ? "-" : money(group.courseFee)}</td>
+            <td class="money-cell">${group.commission == null ? "-" : money(group.commission)}</td>
+            <td>${group.rows.length}</td>
+            <td><div class="lesson-date-list">${lessonChips || "-"}</div></td>
+            <td class="money-cell">${money(group.amount)}</td>
+            <td><div class="finance-source-note">${escapeHtml([...group.sources].slice(0, 4).join("、") || "-")}</div></td>
+            <td><span class="status-pill ${group.needsReview ? "pending" : ""}">${escapeHtml(statuses)}</span></td>
+          </tr>
+        `;
+        }).join("");
+      }
+
+      function renderFinanceExcelWorkbooks() {
+        setupFinanceTeacherSelect();
+        renderFinanceExcelStatement();
+        renderFinanceTeacherDetail();
+      }
+
       function render() {
         const period = getPeriod();
         const reviewNode = byId("periodReviewStatus");
         if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
+        renderFinanceExcelWorkbooks();
         renderFinanceCommandCenter(period);
         renderFinanceWorkbench(period);
         renderMySettlementCard();
@@ -3470,7 +3559,15 @@
         const canEdit = window.jrcHasPermission ? window.jrcHasPermission("finance.edit") : true;
         byId("editWarning").hidden = canEdit;
         document.querySelectorAll("main input, main select, main textarea, main button").forEach((node) => {
-          const keepEnabled = ["periodInput", "exportSummaryButton", "exportExpensesButton"].includes(node.id);
+          const keepEnabled = [
+            "periodInput",
+            "financeTeacherSelect",
+            "financeTeacherKeyword",
+            "financeStatementMode",
+            "financeQuickJump",
+            "exportSummaryButton",
+            "exportExpensesButton"
+          ].includes(node.id);
           if (!canEdit && !keepEnabled) node.disabled = true;
         });
       }
@@ -3479,6 +3576,30 @@
         currentPeriod = event.target.value || "2026-06";
         getPeriod(currentPeriod);
         syncFormFromPeriod();
+      });
+      ["financeTeacherSelect", "financeTeacherKeyword", "financeStatementMode"].forEach((id) => {
+        byId(id)?.addEventListener("input", render);
+        byId(id)?.addEventListener("change", render);
+      });
+      byId("financeQuickJump")?.addEventListener("change", (event) => {
+        const value = event.target.value;
+        if (value === "detail") {
+          byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        } else if (value === "admin") {
+          const details = byId("financeAdminDetails");
+          if (details) details.open = true;
+          details?.scrollIntoView({ block: "start", behavior: "smooth" });
+        } else {
+          byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      });
+      byId("financeExcelStatementBody")?.addEventListener("click", (event) => {
+        const row = event.target.closest("[data-finance-teacher-row]");
+        if (!row) return;
+        const teacher = row.getAttribute("data-finance-teacher-row") || "";
+        if (byId("financeTeacherSelect")) byId("financeTeacherSelect").value = teacher;
+        renderFinanceTeacherDetail();
+        byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
       byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());
       byId("saveMonthlyButton").addEventListener("click", () => syncPeriodFromForm({ log: true }));
