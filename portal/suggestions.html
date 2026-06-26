@@ -1043,9 +1043,22 @@
           return;
         }
         const context = options.replaceMode ? { replaceMode: options.replaceMode } : {};
-        window.JRC_CLOUD?.writeModuleData?.(STORAGE_KEY, "suggestions", suggestions, context).catch((error) => {
-          console.warn("Failed to sync suggestions to cloud", error);
-        });
+        const writeMerged = (remoteRows = []) => {
+          suggestions = mergeSuggestionsById([...remoteRows, ...suggestions]);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(suggestions));
+          return window.JRC_CLOUD.writeModuleData(STORAGE_KEY, "suggestions", suggestions, context).catch((error) => {
+            console.warn("Failed to sync suggestions to cloud", error);
+            return { ok: false, error };
+          });
+        };
+        if (!window.JRC_CLOUD?.writeModuleData) return;
+        if (window.JRC_CLOUD.readModuleData && !options.replaceMode) {
+          window.JRC_CLOUD.readModuleData(STORAGE_KEY)
+            .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+            .catch(() => writeMerged([]));
+          return;
+        }
+        writeMerged([]);
       }
 
       function buildModuleOwnerTask(task) {
@@ -1234,9 +1247,22 @@
       function writeSiteFeedbackRows() {
         siteFeedbackRows = mergeById(siteFeedbackRows);
         localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(siteFeedbackRows));
-        window.JRC_CLOUD?.writeModuleData?.(FEEDBACK_STORAGE_KEY, "siteFeedback", siteFeedbackRows).catch((error) => {
-          console.warn("Failed to sync site feedback to cloud", error);
-        });
+        const writeMerged = (remoteRows = []) => {
+          siteFeedbackRows = mergeById([...remoteRows, ...siteFeedbackRows]);
+          localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(siteFeedbackRows));
+          return window.JRC_CLOUD.writeModuleData(FEEDBACK_STORAGE_KEY, "siteFeedback", siteFeedbackRows).catch((error) => {
+            console.warn("Failed to sync site feedback to cloud", error);
+            return { ok: false, error };
+          });
+        };
+        if (!window.JRC_CLOUD?.writeModuleData) return;
+        if (window.JRC_CLOUD.readModuleData) {
+          window.JRC_CLOUD.readModuleData(FEEDBACK_STORAGE_KEY)
+            .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+            .catch(() => writeMerged([]));
+          return;
+        }
+        writeMerged([]);
       }
 
       async function hydrateSiteFeedback() {
