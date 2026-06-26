@@ -94,6 +94,14 @@
       .attendance-summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fff; }
       .attendance-summary-card span { color: var(--muted); font-size: 12px; }
       .attendance-summary-card strong { display: block; margin-top: 6px; font-size: 22px; color: var(--ink); }
+      .my-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      .my-service-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: rgba(255,255,255,0.82); }
+      .my-service-card span { color: var(--muted); font-size: 12px; }
+      .my-service-card strong { display: block; margin-top: 6px; font-size: 24px; color: var(--ink); }
+      .my-service-card p { margin-top: 6px; font-size: 13px; }
+      .my-service-list { display: grid; gap: 8px; margin-top: 12px; }
+      .my-service-item { padding: 11px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.6; }
+      .my-service-item strong { color: var(--ink); }
       .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
@@ -102,7 +110,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) {
         .topbar { align-items: flex-start; flex-direction: column; }
-        .metrics, .form-grid, .attendance-summary-grid { grid-template-columns: 1fr; }
+        .metrics, .form-grid, .attendance-summary-grid, .my-service-grid { grid-template-columns: 1fr; }
         .span-3 { grid-column: auto; }
         .attendance-touch-actions { min-width: 520px; }
         .attendance-touch-actions .button { min-height: 46px; }
@@ -144,6 +152,19 @@
             <div class="mini-item"><strong>缺席追踪</strong><p>缺席学生必须落实不销课、补课、视频课或录播核销。</p></div>
           </div>
         </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">我的</p>
+            <h2>我的服务工作台</h2>
+            <p>优先显示和当前登录账号有关的点名、反馈和待追踪事项。</p>
+          </div>
+          <span class="status-chip">按账号汇总</span>
+        </div>
+        <div class="my-service-grid" id="myServiceGrid"></div>
+        <div class="my-service-list" id="myServiceList"></div>
       </section>
 
       <section class="card">
@@ -453,6 +474,8 @@
         const scoreMetricAlerts = document.getElementById("scoreMetricAlerts");
         const scoreMetricRecords = document.getElementById("scoreMetricRecords");
         const studentProfileSummaryBody = document.getElementById("studentProfileSummaryBody");
+        const myServiceGrid = document.getElementById("myServiceGrid");
+        const myServiceList = document.getElementById("myServiceList");
         if (!rosterBody || !historyBody || !buildButton || !importButton || !templateButton || !importInput || !saveButton || !exportButton) return;
 
         let draftRows = [];
@@ -606,6 +629,7 @@
             renderFollowups();
             renderScoreAnalytics();
             renderStudentProfileSummary();
+            renderMyServiceWorkbench();
             setMessage("已同步云端点名和出门测记录。");
           }).catch((error) => {
             console.warn("点名数据云端读取失败", error);
@@ -1192,6 +1216,7 @@
           renderFollowups();
           renderScoreAnalytics();
           renderStudentProfileSummary();
+          renderMyServiceWorkbench();
           if (updatedSession) {
             const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([updatedSession]) || [];
             window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session: updatedSession, linkedRows } }));
@@ -1459,6 +1484,33 @@
             `;
           }).join("");
         };
+        const renderMyServiceWorkbench = () => {
+          if (!myServiceGrid || !myServiceList) return;
+          const employee = currentEmployee();
+          const name = employee?.name || "当前账号";
+          const sessions = readVisibleRows();
+          const followups = deriveFollowupRows();
+          const latestSessions = sessions.slice(0, 3);
+          const monthText = new Date().toISOString().slice(0, 7);
+          const monthSessions = sessions.filter((session) => String(session.date || "").startsWith(monthText));
+          const presentCount = monthSessions.reduce((sum, session) => sum + (session.rows || []).filter(isEffectivePresent).length, 0);
+          const feedbackCount = Number(localStorage.getItem("jrc-my-feedback-visible-count") || 0);
+          myServiceGrid.innerHTML = `
+            <div class="my-service-card"><span>本月点名课次</span><strong>${monthSessions.length}</strong><p>${escapeHtml(name)}相关课程</p></div>
+            <div class="my-service-card"><span>本月有效到课</span><strong>${presentCount}</strong><p>含出门测修正到课</p></div>
+            <div class="my-service-card"><span>待追踪学生</span><strong>${followups.length}</strong><p>缺席、请假、待核对</p></div>
+            <div class="my-service-card"><span>课堂反馈归档</span><strong>${feedbackCount}</strong><p>AI 助手已归档反馈</p></div>
+          `;
+          myServiceList.innerHTML = latestSessions.length ? latestSessions.map((session) => {
+            const unresolved = (session.rows || []).filter(needsFollowup).length;
+            return `
+              <div class="my-service-item">
+                <strong>${escapeHtml(session.date || "-")}｜${escapeHtml(session.className || "未填课程")}</strong>
+                <br>${escapeHtml(session.teacher || "-")}｜${(session.rows || []).length} 人｜${unresolved ? `待追踪 ${unresolved} 人` : "无待追踪"}
+              </div>
+            `;
+          }).join("") : `<div class="my-service-item"><strong>暂无最近点名</strong><br>保存点名后，这里会显示最近课程和待追踪情况。</div>`;
+        };
         const renderAll = () => {
           if (!canUseAttendance()) {
             buildButton.disabled = true;
@@ -1472,6 +1524,7 @@
           renderFollowups();
           renderScoreAnalytics();
           renderStudentProfileSummary();
+          renderMyServiceWorkbench();
           renderPreimportOptions();
         };
         const confirmAttendanceSession = (sessionId) => {
@@ -1606,6 +1659,7 @@
           renderFollowups();
           renderScoreAnalytics();
           renderStudentProfileSummary();
+          renderMyServiceWorkbench();
           const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([session]) || [];
           window.dispatchEvent(new CustomEvent("jrc-attendance-saved", { detail: { session, linkedRows } }));
           const unresolved = session.rows.filter(needsFollowup).length;
@@ -1683,6 +1737,7 @@
           draftRows[index].followup = select.value;
           renderRoster();
         });
+        window.addEventListener("jrc-feedback-timeline-rendered", renderMyServiceWorkbench);
         renderAll();
         hydrateCloudRows();
         hydrateScheduleSources();
@@ -1833,6 +1888,8 @@
           }).join("") : `<tr><td colspan="5">暂无可查看的课堂反馈。老师在 AI 助手生成并归档后，会自动进入这里。</td></tr>`;
           if (message) {
             const total = rows.filter(isClassFeedback).filter(belongsToCurrentUser).length;
+            localStorage.setItem("jrc-my-feedback-visible-count", String(total));
+            window.dispatchEvent(new CustomEvent("jrc-feedback-timeline-rendered", { detail: { total } }));
             message.textContent = canViewAll()
               ? `已读取 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`
               : `已读取本人 ${total} 条课堂反馈；当前列表最多显示最近 50 条。`;
