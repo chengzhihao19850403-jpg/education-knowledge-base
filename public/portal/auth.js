@@ -40,6 +40,21 @@ const JRC_DATA_CONTRACTS = {
     owner: "招生管理系统",
     feeds: ["排课系统", "学生服务系统", "财务系统"],
     keyFields: ["studentName", "parentPhone", "channel", "owner", "trialTeacher", "enrolledAmount"]
+  },
+  attendance: {
+    owner: "学生服务系统",
+    feeds: ["财务系统", "学生服务系统", "家长沟通"],
+    keyFields: ["date", "teacherName", "studentName", "className", "attendanceStatus", "exitScore", "followupStatus"]
+  },
+  aiAssistant: {
+    owner: "AI 助手",
+    feeds: ["学生服务系统", "招生管理系统", "教研与课程产品系统", "财务系统", "建议与任务协同系统"],
+    keyFields: ["mode", "target", "studentName", "teacherName", "createdBy", "archiveTarget", "createdAt"]
+  },
+  siteFeedback: {
+    owner: "全站反馈问题",
+    feeds: ["建议与任务协同系统", "模块负责人任务", "管理员整改台账"],
+    keyFields: ["feedbackId", "userName", "system", "type", "severity", "status", "taskId", "resolution"]
   }
 };
 const JRC_QUALITY_COEFFICIENTS = { S: 1.1, A: 1, B: 0.9, C: 0.8 };
@@ -94,6 +109,34 @@ const JRC_DATA_LINK_RULES = [
     from: "招生管理系统",
     to: "财务系统",
     rule: "实收金额、渠道、招生顾问、试听老师、转介绍人进入收入归因和提成结算草表；程志豪、海滢滢、姚老师名下学生单独核算，不进入财务系统自动结算。",
+    status: "foundation"
+  },
+  {
+    id: "attendance-to-student-service",
+    from: "点名出门测",
+    to: "学生服务系统",
+    rule: "每节课点名、缺席处理和出门测成绩自动沉淀到学生服务台账，供学管追踪补课、视频课、销课和家长沟通。",
+    status: "foundation"
+  },
+  {
+    id: "attendance-to-finance",
+    from: "点名出门测",
+    to: "财务系统",
+    rule: "有效到课、迟到和出门测修正后的到课人次进入课时费与课销候选；缺席未处理不直接进入正式结算。",
+    status: "foundation"
+  },
+  {
+    id: "ai-feedback-to-student-service",
+    from: "AI 助手",
+    to: "学生服务系统",
+    rule: "老师语音或文字课堂反馈经 AI 整理后，必须由老师确认归档，再进入学生服务系统，供学管查看、复制和复盘。",
+    status: "foundation"
+  },
+  {
+    id: "feedback-to-task",
+    from: "全站反馈问题",
+    to: "建议与任务协同系统",
+    rule: "老师提交的问题先进入反馈台账；需要执行的由管理员转为任务，负责人提交完成反馈，提出人复核是否真正解决。",
     status: "foundation"
   }
 ];

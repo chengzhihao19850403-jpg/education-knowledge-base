@@ -8,8 +8,12 @@
     { key: "paike-system-prototype-meta-v1", label: "排课系统·暑假状态", shape: "object" },
     { key: "paike-summer-import-review-v1", label: "排课系统·待确认项", shape: "array" },
     { key: "jrc-paike-legacy-cloud-transition-v1", label: "排课系统·数据同步索引", shape: "paikeBridge" },
+    { key: "jrc-paike-finance-preimport-2026-06-22", label: "排课财务·预导入数据包", shape: "preimportBundle" },
+    { key: "jrc-class-attendance-v1", label: "学生服务·点名出门测", shape: "attendance" },
     { key: "advice-system-stage-prototype", label: "招生系统", shape: "admissions" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", shape: "array" },
+    { key: "jrc-site-feedback-v1", label: "全站反馈问题", shape: "array" },
+    { key: "jrc-ai-assistant-drafts-v1", label: "AI助手·课堂反馈草稿", shape: "array" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", shape: "finance" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", shape: "object" },
     { key: "jrc-student-service-v2", label: "学生服务", shape: "array" },
@@ -74,6 +78,21 @@
     }
     if (store.shape === "paikeBridge") {
       return Object.keys(store.parsed.stores || {}).length;
+    }
+    if (store.shape === "preimportBundle") {
+      return [
+        store.parsed.scheduleSessions?.length || 0,
+        store.parsed.salaryAttendance?.length || 0,
+        store.parsed.expenseRows?.length || 0,
+        store.parsed.reconciliationIssues?.length || 0,
+        store.parsed.teacherMonthPrecheck?.length || 0
+      ].reduce((sum, count) => sum + count, 0);
+    }
+    if (store.shape === "attendance") {
+      return (store.parsed || []).reduce((sum, session) => {
+        const rows = Array.isArray(session?.rows) ? session.rows.length : 0;
+        return sum + 1 + rows;
+      }, 0);
     }
     if (store.shape === "admissions") {
       return [

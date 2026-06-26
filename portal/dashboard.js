@@ -764,6 +764,23 @@
     ].map((value) => String(value || "").trim()).join("|");
   }
 
+  function normalizePersonName(value) {
+    return String(value || "").trim().replace(/\s+/g, "");
+  }
+
+  function studentServiceNameSet(rows) {
+    const names = new Set();
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const student = normalizePersonName(row?.student || row?.studentName || row?.name);
+      if (student) names.add(student);
+    });
+    return names;
+  }
+
+  function siteFeedbackIsClosed(row) {
+    return ["已处理", "已转任务", "已确认解决"].includes(row?.status || "");
+  }
+
   function isEffectiveAttendance(row) {
     return ["到课", "迟到"].includes(row?.status) || String(row?.exitScore ?? "").trim() !== "";
   }
@@ -878,11 +895,16 @@
     `;
     const foundation = window.JRC_DATA_FOUNDATION;
     const derived = foundation?.deriveSystemLinks?.() || { scheduleRows: [], counts: {} };
-    const [paikeRegular, attendanceSessions, studentRows, financeState] = await Promise.all([
+    const [paikeRegular, attendanceSessions, studentRows, financeState, admissionsState, qualityState, feedbackRows, aiDraftRows, suggestionRows] = await Promise.all([
       readLinkedStore("paike-june-system-v1", {}),
       readLinkedStore("jrc-class-attendance-v1", []),
       readLinkedStore("jrc-student-service-v2", []),
-      readLinkedStore("jrc-finance-ledger-v1", {})
+      readLinkedStore("jrc-finance-ledger-v1", {}),
+      readLinkedStore("advice-system-stage-prototype", {}),
+      readLinkedStore("jrc-teaching-quality-system-v2-demo", {}),
+      readLinkedStore("jrc-site-feedback-v1", []),
+      readLinkedStore("jrc-ai-assistant-drafts-v1", []),
+      readLinkedStore("jrc-suggestion-management-v2", [])
     ]);
     const regularEntries = Array.isArray(paikeRegular?.scheduleEntries) ? paikeRegular.scheduleEntries : [];
     const scheduleRows = Array.isArray(derived.scheduleRows) && derived.scheduleRows.length
@@ -921,6 +943,30 @@
     const attendanceWithoutService = [...attendanceStudentKeys].filter((key) => key && !serviceLinkedKeys.has(key)).length;
     const financePeriods = financeState?.periods && typeof financeState.periods === "object" ? Object.keys(financeState.periods).length : 0;
     const hasFinanceAttendance = sessions.length > 0;
+    const leads = Array.isArray(admissionsState?.leads) ? admissionsState.leads : [];
+    const enrolledLeads = leads.filter((lead) => lead.status === "定金 / 已报名" || Number(lead.enrolledAmount || 0) > 0);
+    const trialLeads = leads.filter((lead) => String(lead.status || "").includes("试听") || lead.trialTeacher || lead.trialTime);
+    const serviceNames = studentServiceNameSet(studentServiceRows);
+    const enrolledWithoutService = enrolledLeads.filter((lead) => {
+      const name = normalizePersonName(lead.studentName);
+      return name && !serviceNames.has(name);
+    }).length;
+    const aiDrafts = Array.isArray(aiDraftRows) ? aiDraftRows : [];
+    const aiClassFeedbackDrafts = aiDrafts.filter((row) => {
+      const modeText = `${row?.mode || ""} ${row?.modeLabel || ""} ${row?.title || ""}`;
+      return /classFeedback|feedback|课后反馈|课堂反馈/.test(modeText);
+    });
+    const aiArchivedRows = studentServiceRows.filter((row) => row.sourceModule === "aiAssistant" || row.parentMessage);
+    const feedbackList = Array.isArray(feedbackRows) ? feedbackRows : [];
+    const openFeedback = feedbackList.filter((row) => !siteFeedbackIsClosed(row));
+    const feedbackTasks = Array.isArray(suggestionRows) ? suggestionRows.filter((row) => row.sourceFeedbackId || String(row.id || "").startsWith("t-feedback-")) : [];
+    const qualityTeachers = new Set();
+    (Array.isArray(qualityState?.inspections) ? qualityState.inspections : []).forEach((row) => row.teacher && qualityTeachers.add(row.teacher));
+    (Array.isArray(qualityState?.studentSurveys) ? qualityState.studentSurveys : []).forEach((row) => row.teacher && qualityTeachers.add(row.teacher));
+    (Array.isArray(qualityState?.parentSurveys) ? qualityState.parentSurveys : []).forEach((row) => row.teacher && qualityTeachers.add(row.teacher));
+    (Array.isArray(qualityState?.objectiveMetrics) ? qualityState.objectiveMetrics : []).forEach((row) => row.teacher && qualityTeachers.add(row.teacher));
+    const teachingTeacherNames = new Set(scheduleRows.map((row) => row.teacherName || row.teacher).filter(Boolean));
+    const qualityMissingTeachers = [...teachingTeacherNames].filter((name) => !qualityTeachers.has(name)).length;
 
     const cards = [
       linkHealthCard(
@@ -962,6 +1008,46 @@
           : "还没有月结草表，先用点名和原 Excel 对照，确认后再补月结数据。",
         "./finance.html",
         "看月结"
+      ),
+      linkHealthCard(
+        "招生 → 学生服务",
+        enrolledLeads.length ? (enrolledWithoutService ? "待建档" : "已建档") : "待报名",
+        enrolledLeads.length && !enrolledWithoutService ? "status-ok" : "status-warn",
+        enrolledLeads.length
+          ? `招生已报名/有实收 ${enrolledLeads.length} 人；约 ${enrolledWithoutService} 人还没在学生服务台账里形成档案。`
+          : `当前招生线索 ${leads.length} 条，试听候选 ${trialLeads.length} 条；报名后应进入学生服务。`,
+        "./student-service.html",
+        "看学生档案"
+      ),
+      linkHealthCard(
+        "AI课堂反馈 → 学生服务",
+        aiClassFeedbackDrafts.length ? (aiArchivedRows.length ? "有归档" : "待归档") : "待使用",
+        aiArchivedRows.length ? "status-ok" : "status-warn",
+        aiClassFeedbackDrafts.length
+          ? `AI课堂反馈草稿 ${aiClassFeedbackDrafts.length} 条；学生服务已归档 ${aiArchivedRows.length} 条。老师整理后要点“归档学生服务”。`
+          : "还没有检测到 AI 课堂反馈草稿；老师开始用 AI 后，这里会检查是否归档到学生服务。",
+        "./ai-assistant.html",
+        "看AI助手"
+      ),
+      linkHealthCard(
+        "反馈问题 → 任务闭环",
+        feedbackList.length ? (openFeedback.length ? "有待处理" : "已闭环") : "待反馈",
+        feedbackList.length && !openFeedback.length ? "status-ok" : "status-warn",
+        feedbackList.length
+          ? `全站反馈 ${feedbackList.length} 条；待处理/继续反馈 ${openFeedback.length} 条；已转任务 ${feedbackTasks.length} 条。`
+          : "老师提交反馈后，应由管理员判断是否转任务、处理并让提出人复核。",
+        "./suggestions.html",
+        "看反馈"
+      ),
+      linkHealthCard(
+        "教学质量 → 财务候选",
+        qualityTeachers.size ? (qualityMissingTeachers ? "部分缺质控" : "已采集") : "待采集",
+        qualityTeachers.size && !qualityMissingTeachers ? "status-ok" : "status-warn",
+        qualityTeachers.size
+          ? `教学质量已有 ${qualityTeachers.size} 位老师数据；排课涉及老师中约 ${qualityMissingTeachers} 位还没有质控记录。财务只使用内部候选，不公开排名。`
+          : "教学质量数据还在采集中；后续会作为财务绩效候选，需要权限隔离。",
+        "./teaching-quality.html",
+        "看教学质量"
       )
     ];
     holder.innerHTML = cards.join("");
