@@ -194,11 +194,42 @@
         color: var(--muted);
         text-align: center;
       }
+      .my-paike-card {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid rgba(13,148,136,0.18);
+        border-radius: 18px;
+        background: rgba(13,148,136,0.06);
+      }
+      .my-paike-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .my-paike-cell {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.84);
+      }
+      .my-paike-cell span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .my-paike-cell strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--ink);
+        font-size: 22px;
+      }
       @media (max-width: 960px) {
         .hero,
         .quick-grid,
         .status-grid,
-        .path-grid {
+        .path-grid,
+        .my-paike-summary {
           grid-template-columns: 1fr;
         }
       }
@@ -263,6 +294,12 @@
         <p class="eyebrow">核对台</p>
         <h2>云端排课数据状态</h2>
         <div class="status-grid" id="paikeStatusGrid"></div>
+      </section>
+
+      <section class="card" id="myPaikeSection">
+        <p class="eyebrow">我的课表</p>
+        <h2>我的排课核对</h2>
+        <div id="myPaikeCard"></div>
       </section>
 
       <section class="card">
@@ -339,6 +376,74 @@
         return Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
       }
 
+      function normalizedScheduleRows({ regularEntries, scheduleSessions }) {
+        const regularRows = regularEntries.map((row) => ({
+          source: "平时模式",
+          period: row.period || String(row.date || "").slice(0, 7) || "-",
+          date: row.date || "-",
+          teacher: row.teacher || row.teacherName || "-",
+          student: row.studentName || row.student || row.className || "-",
+          time: row.time || row.startTime || row.hours || "-",
+          status: row.status || "已读取"
+        }));
+        const preimportRows = scheduleSessions.map((row) => ({
+          source: row.sourceFile || "Excel",
+          period: row.period || "-",
+          date: row.date || "-",
+          teacher: row.teacherName || row.teacher || "-",
+          student: Array.isArray(row.studentNames) ? row.studentNames.join("、") : row.studentName || row.lessonTypeRaw || "-",
+          time: row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || row.hours || "-",
+          status: row.status || row.importConfidence || "已读取"
+        }));
+        return [...regularRows, ...preimportRows]
+          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      }
+
+      function renderMyPaike({ regularEntries, scheduleSessions }) {
+        const holder = byId("myPaikeCard");
+        if (!holder) return;
+        const employee = window.JRC_CURRENT_EMPLOYEE || {};
+        const teacherName = String(employee.name || "").trim();
+        if (!teacherName) {
+          holder.innerHTML = `<div class="empty">当前没有识别到登录老师，无法生成我的课表核对。</div>`;
+          return;
+        }
+        const rows = normalizedScheduleRows({ regularEntries, scheduleSessions })
+          .filter((row) => String(row.teacher || "").trim() === teacherName);
+        const periodCount = new Set(rows.map((row) => row.period).filter(Boolean)).size;
+        const studentCount = new Set(rows.flatMap((row) => String(row.student || "").split(/[、,，/]/).map((item) => item.trim()).filter(Boolean))).size;
+        const nextRows = rows.slice(0, 30);
+        holder.innerHTML = `
+          <div class="my-paike-card">
+            <strong>${escapeHtml(teacherName)}｜我的排课核对</strong>
+            <p style="margin-top:8px;">只显示当前登录老师的排课明细。若你本月有课但这里为空，请反馈“排课系统未显示本人课表”，并写清月份和班级。</p>
+            <div class="my-paike-summary">
+              <div class="my-paike-cell"><span>已读到课次</span><strong>${rows.length}</strong></div>
+              <div class="my-paike-cell"><span>涉及月份</span><strong>${periodCount}</strong></div>
+              <div class="my-paike-cell"><span>学生/班级</span><strong>${studentCount}</strong></div>
+              <div class="my-paike-cell"><span>最近显示</span><strong>${nextRows.length}</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>月份</th><th>日期</th><th>学生/班级</th><th>时间/课时</th><th>来源</th><th>状态</th></tr></thead>
+                <tbody>
+                  ${nextRows.length ? nextRows.map((row) => `
+                    <tr>
+                      <td>${escapeHtml(row.period)}</td>
+                      <td>${escapeHtml(row.date)}</td>
+                      <td>${escapeHtml(row.student)}</td>
+                      <td>${escapeHtml(row.time)}</td>
+                      <td>${escapeHtml(row.source)}</td>
+                      <td>${escapeHtml(row.status)}</td>
+                    </tr>
+                  `).join("") : `<tr><td colspan="6"><div class="empty">当前月份和云端数据里暂未匹配到你的课表。</div></td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
       function renderStatus({ reviewRows, regularEntries, scheduleSessions }) {
         const grid = byId("paikeStatusGrid");
         const juneRows = scheduleSessions.filter((row) => row.period === "2026-06").length + regularEntries.length;
@@ -362,26 +467,7 @@
 
       function renderPreview({ regularEntries, scheduleSessions }) {
         const body = byId("paikePreviewBody");
-        const regularRows = regularEntries.slice(0, 20).map((row) => ({
-          source: "平时模式",
-          period: row.period || String(row.date || "").slice(0, 7) || "-",
-          date: row.date || "-",
-          teacher: row.teacher || row.teacherName || "-",
-          student: row.studentName || row.student || row.className || "-",
-          time: row.time || row.startTime || row.hours || "-",
-          status: row.status || "已读取"
-        }));
-        const preimportRows = scheduleSessions.slice(0, 40).map((row) => ({
-          source: row.sourceFile || "Excel",
-          period: row.period || "-",
-          date: row.date || "-",
-          teacher: row.teacherName || "-",
-          student: Array.isArray(row.studentNames) ? row.studentNames.join("、") : row.lessonTypeRaw || "-",
-          time: row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.hours || "-",
-          status: row.status || row.importConfidence || "已读取"
-        }));
-        const rows = [...regularRows, ...preimportRows]
-          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+        const rows = normalizedScheduleRows({ regularEntries, scheduleSessions })
           .slice(0, 40);
         if (!rows.length) {
           body.innerHTML = `<tr><td colspan="7"><div class="empty">当前页面还没有读到排课明细。请先检查上传总表、平时模式和暑假模式；如果旧版里有数据但这里没有，请反馈“旧版有、核对台没有”。</div></td></tr>`;
@@ -410,6 +496,7 @@
         const regularEntries = scheduleEntriesFromRegular(regularData);
         const scheduleSessions = scheduleSessionsFromPreimport(preimportData);
         renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
+        renderMyPaike({ regularEntries, scheduleSessions });
         renderPreview({ regularEntries, scheduleSessions });
       }
 
