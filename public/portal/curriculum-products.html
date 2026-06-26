@@ -54,11 +54,15 @@
       .resource-tree-item { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fff; }
       .resource-tree-item strong { color: var(--ink); }
       .resource-tree-item span { color: var(--muted); line-height: 1.5; }
+      .outline-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .outline-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; color: var(--ink); cursor: pointer; }
+      .outline-card strong { display: block; margin-bottom: 5px; }
+      .outline-card span { color: var(--muted); font-size: 12px; line-height: 1.55; }
       .file-note { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.55; }
       .file-preview { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; line-height: 1.5; }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-      table { width: 100%; min-width: 860px; border-collapse: collapse; }
+      table { width: 100%; min-width: 980px; border-collapse: collapse; }
       th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; color: var(--muted); line-height: 1.6; }
       th { background: rgba(37,99,235,0.05); color: var(--ink); font-weight: 800; }
       tr:last-child td { border-bottom: 0; }
@@ -67,8 +71,9 @@
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
       .span-3 { grid-column: 1 / -1; }
-      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics, .outline-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+      @media (max-width: 720px) { .outline-board { grid-template-columns: 1fr; } }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260623j">
   </head>
@@ -103,6 +108,7 @@
           <div class="resource-tree">
             <div class="resource-tree-item"><strong>小学 1-6</strong><span>课内体系 / 培优体系 / 奥数体系</span></div>
             <div class="resource-tree-item"><strong>初中 7-9</strong><span>课内体系 / 培优体系 / 强基重高选拔体系</span></div>
+            <div class="resource-tree-item"><strong>授课大纲</strong><span>程老师 / 科学老师 / 小课老师，按春夏秋冬和年级归档</span></div>
             <div class="resource-tree-item"><strong>资料类型</strong><span>PDF、Word、图片、老师版答案、板书照片</span></div>
           </div>
         </article>
@@ -124,6 +130,21 @@
         </div>
       </section>
 
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>授课大纲</h2>
+            <p>按大纲类型、季节和年级保存，方便老师备课、查找公式和打印资料。</p>
+          </div>
+          <span class="status-chip">大纲库</span>
+        </div>
+        <div class="outline-board">
+          <button class="outline-card" type="button" data-outline-filter="程老师授课大纲"><strong>程老师授课大纲</strong><span>统一课型、课堂节奏、核心题型和讲解重点。</span></button>
+          <button class="outline-card" type="button" data-outline-filter="科学老师授课大纲"><strong>科学老师授课大纲</strong><span>按科学年级、实验主题、公式定义和易错点归档。</span></button>
+          <button class="outline-card" type="button" data-outline-filter="小课老师授课大纲"><strong>小课老师授课大纲</strong><span>按春季、暑假、秋季、寒假和不同年级归档。</span></button>
+        </div>
+      </section>
+
       <section class="grid">
         <article class="card">
           <div class="section-head">
@@ -134,6 +155,9 @@
           </div>
           <div class="actions" style="margin:0 0 14px;">
             <input id="curriculumFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索课程 / 年级 / 体系 / 文件 / 负责人">
+            <select id="curriculumOutlineFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部大纲板块</option><option>程老师授课大纲</option><option>科学老师授课大纲</option><option>小课老师授课大纲</option><option>普通课程资料</option></select>
+            <select id="curriculumSeasonFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部季节</option><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select>
+            <select id="curriculumGradeFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部年级</option></select>
             <select id="curriculumSortSelect" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="status">待处理优先</option></select>
             <button class="button secondary" id="curriculumImportButton" type="button">导入数据</button>
             <input id="curriculumImportInput" type="file" accept="application/json,text/csv,text/tab-separated-values,text/plain,.json,.csv,.tsv,.txt" hidden>
@@ -141,7 +165,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>年级 / 体系</th><th>课程资料</th><th>资料类型</th><th>课次 / 版本</th><th>文件</th><th>负责人</th><th>说明</th><th>操作</th></tr>
+                <tr><th>年级 / 季节</th><th>大纲板块</th><th>课程资料</th><th>资料类型</th><th>课次 / 版本</th><th>文件</th><th>负责人</th><th>公式 / 说明</th><th>操作</th></tr>
               </thead>
               <tbody id="curriculumTableBody"></tbody>
             </table>
@@ -155,6 +179,8 @@
             <label class="field"><span>资料名称</span><input id="curriculumNameInput" placeholder="不填时自动使用文件名"></label>
             <label class="field"><span>学科 / 年级</span><input id="curriculumSubjectInput" placeholder="例如：数学 / 五年级"></label>
             <label class="field"><span>年级</span><select id="curriculumGradeInput"><option>一年级</option><option>二年级</option><option>三年级</option><option>四年级</option><option>五年级</option><option>六年级</option><option>初一</option><option>初二</option><option>初三</option></select></label>
+            <label class="field"><span>大纲板块</span><select id="curriculumOutlineCategoryInput"><option>普通课程资料</option><option>程老师授课大纲</option><option>科学老师授课大纲</option><option>小课老师授课大纲</option></select></label>
+            <label class="field"><span>季节</span><select id="curriculumSeasonInput"><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select></label>
             <label class="field"><span>课程体系</span><select id="curriculumTrackInput"><option>课内体系</option><option>培优体系</option><option>奥数体系</option><option>强基重高选拔体系</option></select></label>
             <label class="field"><span>资料类型</span><select id="curriculumTypeInput"><option>课程大纲</option><option>课件PDF</option><option>讲义Word</option><option>题目图片</option><option>老师版答案</option><option>板书照片</option><option>题库</option><option>备课资料</option><option>其他</option></select></label>
             <label class="field"><span>适用班型</span><select id="curriculumClassTypeInput"><option>暑假班</option><option>平时班</option><option>试听课</option><option>一对一</option><option>小班课</option></select></label>
@@ -162,6 +188,7 @@
             <label class="field"><span>当前版本</span><input id="curriculumVersionInput" placeholder="V1.0"></label>
             <label class="field"><span>负责人</span><input id="curriculumOwnerInput" placeholder="填写负责人"></label>
             <label class="field span-3"><span>上传文件</span><input id="curriculumFileInput" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.heic,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="file-note">可批量选择；重复文件会更新版本，不会重复生成多条。</div><div class="file-preview" id="curriculumFilePreview">尚未选择文件。</div></label>
+            <label class="field span-3"><span>公式 / 定义 / 核心重点</span><textarea id="curriculumFormulaInput" placeholder="例如：平行四边形性质、判定方法、面积公式、实验公式、易错提醒等。"></textarea></label>
             <label class="field span-3"><span>版本说明</span><textarea id="curriculumNoteInput" placeholder="说明适用对象、重点难点和老师使用注意事项。"></textarea></label>
           </div>
           <div class="actions">
