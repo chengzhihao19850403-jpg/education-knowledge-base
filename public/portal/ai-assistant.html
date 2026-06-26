@@ -479,12 +479,36 @@
         return textarea ? textarea.value : fallback;
       }
 
+      function archivedFeedbackListKey(row) {
+        const existing = String(row?.archiveKey || "").trim();
+        if (existing) return existing;
+        const draftId = String(row?.sourceDraftId || "").trim();
+        if (draftId) return `draft:${draftId}`;
+        const clean = (value) => String(value || "").trim().replace(/\s+/g, "");
+        const student = clean(row?.student);
+        const teacher = clean(row?.teacher || row?.createdBy);
+        const season = clean(row?.lessonSeason);
+        const lessonNumber = clean(row?.lessonNumber);
+        if (student && teacher && (season || lessonNumber)) return `lesson:${student}|${teacher}|${season}|${lessonNumber}`;
+        return String(row?.id || row?.rowId || "").trim();
+      }
+
       function archivedFeedbackRowsFrom(rows) {
-        return (Array.isArray(rows) ? rows : [])
+        const map = new Map();
+        (Array.isArray(rows) ? rows : [])
           .filter((row) => row && typeof row === "object")
           .filter((row) => String(row.type || "").includes("课后反馈") || row.parentMessage)
           .filter((row) => String(row.sourceModule || "") === "aiAssistant" || row.parentMessage)
           .filter((row) => rowBelongsToCurrentUser(row))
+          .forEach((row) => {
+            const key = archivedFeedbackListKey(row);
+            if (!key) return;
+            const existing = map.get(key);
+            if (!existing || String(row.updatedAt || row.createdAt || "").localeCompare(String(existing.updatedAt || existing.createdAt || "")) >= 0) {
+              map.set(key, row);
+            }
+          });
+        return [...map.values()]
           .sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 

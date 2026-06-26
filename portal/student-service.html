@@ -1819,8 +1819,6 @@
           return (username && usernames.includes(username)) || (name && names.includes(name));
         };
         const rowId = (row) => {
-          const existing = normalize(row?.id || row?.rowId);
-          if (existing) return existing;
           const archiveKey = normalize(row?.archiveKey);
           if (archiveKey) return archiveKey;
           const sourceDraftId = normalize(row?.sourceDraftId);
@@ -1830,6 +1828,8 @@
           const season = compact(row?.lessonSeason);
           const lessonNumber = compact(row?.lessonNumber);
           if (student && teacher && (season || lessonNumber)) return `lesson:${student}|${teacher}|${season}|${lessonNumber}`;
+          const existing = normalize(row?.id || row?.rowId);
+          if (existing) return existing;
           return [
             row?.student,
             row?.teacher,
