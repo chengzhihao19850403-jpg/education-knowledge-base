@@ -245,6 +245,9 @@
         border-color: rgba(185, 28, 28, 0.28);
         background: rgba(185, 28, 28, 0.045);
       }
+      .suggestion-card.is-closed {
+        opacity: 0.76;
+      }
       .suggestion-head {
         display: flex;
         align-items: flex-start;
@@ -260,6 +263,23 @@
         margin-top: 8px;
         color: var(--muted);
         font-size: 13px;
+      }
+      .suggestion-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .suggestion-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 9px;
+        border-radius: 999px;
+        background: rgba(13, 148, 136, 0.08);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 800;
       }
       .suggestion-meta strong,
       .suggestion-content strong {
@@ -1567,16 +1587,21 @@
           const contentHtml = item.moduleOwnerTask
             ? renderModuleGuide(item)
             : `<p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>`;
+          const voteCount = Number(item.votes || 0);
           return `
-          <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""}" data-id="${escapeHtml(item.id)}">
+          <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""} ${closed ? "is-closed" : ""}" data-id="${escapeHtml(item.id)}">
             <div class="suggestion-head">
               <div>
                 <div class="suggestion-title">${escapeHtml(item.title)}</div>
                 <div class="suggestion-meta">
                   <strong>建议人：</strong>${escapeHtml(authorLabel)}｜${escapeHtml(item.category)}｜${escapeHtml(item.createdAt)}
-                  ${item.entryType === "task" ? "｜直接任务" : "｜建议"}
                   ${item.owner ? `｜负责人 ${escapeHtml(item.owner)}` : "｜未分配负责人"}
                   ${item.dueDate ? `｜截止 ${escapeHtml(item.dueDate)}` : ""}
+                </div>
+                <div class="suggestion-meta-row">
+                  <span class="suggestion-meta-chip">支持 ${voteCount}</span>
+                  <span class="suggestion-meta-chip">${escapeHtml(statusMap[item.status] || item.status)}</span>
+                  ${item.entryType === "task" ? `<span class="suggestion-meta-chip">已派任务</span>` : ""}
                 </div>
               </div>
               <div class="card-tools">
@@ -1587,7 +1612,7 @@
             </div>
             ${contentHtml}
             <div class="card-tools">
-              <button class="button secondary" type="button" data-action="vote">${(item.votedBy || []).includes(currentUsername) ? "已支持" : "支持"} ${Number(item.votes || 0)}</button>
+              <button class="button secondary" type="button" data-action="vote">${(item.votedBy || []).includes(currentUsername) ? "已支持" : "支持"} ${voteCount}</button>
               ${!closed ? `<button class="button secondary" type="button" data-action="comment">添加跟进</button>` : ""}
               ${["assigned", "doing"].includes(item.status) ? `<button class="button secondary" type="button" data-action="complete-report">提交完成反馈</button>` : ""}
               ${canManage && item.status === "new" ? `<button class="button" type="button" data-action="convert-task">派任务</button>` : ""}
