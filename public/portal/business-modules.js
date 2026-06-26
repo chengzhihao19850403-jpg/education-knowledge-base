@@ -1020,6 +1020,31 @@
       setText("studentSaveButton", "保存服务记录");
     }
 
+    function previewText(value, maxLength = 88) {
+      const text = normalizeText(value);
+      if (text.length <= maxLength) return text;
+      return `${text.slice(0, maxLength)}...`;
+    }
+
+    function studentFeedbackCell(row, index) {
+      const sourceTags = [
+        row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : "",
+        row.sourceModule === "admissions" ? "<br><span style=\"color:#1d4ed8;font-size:12px;font-weight:800;\">招生转入</span>" : "",
+        row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""
+      ].join("");
+      const parentMessage = String(row.parentMessage || "").trim();
+      const content = String(row.content || "").trim();
+      if (!parentMessage) return `${escapeHtml(row.type)}${sourceTags}<br>${escapeHtml(content || "-")}`;
+      return `
+        ${escapeHtml(row.type)}${sourceTags}
+        <details class="feedback-details" style="margin-top:6px;">
+          <summary>${escapeHtml(previewText(parentMessage || content, 96) || "查看家长版反馈")}</summary>
+          <pre class="feedback-preview">${escapeHtml(parentMessage || content || "-")}</pre>
+        </details>
+        <button type="button" data-action="copy-parent-message" data-index="${index}" style="margin-top:6px; min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(13,148,136,0.28); background:rgba(13,148,136,0.08); color:#0f766e; cursor:pointer;">复制家长文案</button>
+      `;
+    }
+
     function render() {
       const keyword = $("studentFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("studentSortSelect")?.value || "newest";
@@ -1030,7 +1055,7 @@
             <td>${escapeHtml(row.student)}</td>
             <td>${escapeHtml(row.className)}</td>
             <td>${escapeHtml(row.teacher)}</td>
-            <td>${escapeHtml(row.type)}${row.sourceModule === "attendance" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">点名流转</span>" : ""}${row.sourceModule === "admissions" ? "<br><span style=\"color:#1d4ed8;font-size:12px;font-weight:800;\">招生转入</span>" : ""}${row.sourceModule === "aiAssistant" ? "<br><span style=\"color:#0f766e;font-size:12px;font-weight:800;\">AI 课堂反馈</span>" : ""}<br>${escapeHtml(row.content)}${row.parentMessage ? `<br><strong style=\"color:#172132;\">发家长版：</strong>${escapeHtml(row.parentMessage)}<br><button type="button" data-action="copy-parent-message" data-index="${index}" style="margin-top:6px; min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(13,148,136,0.28); background:rgba(13,148,136,0.08); color:#0f766e; cursor:pointer;">复制家长文案</button>` : ""}</td>
+            <td>${studentFeedbackCell(row, index)}</td>
             <td>${escapeHtml(row.createdAt || "-")}</td>
             <td>${riskTag(row.risk)}</td>
             <td>${escapeHtml(row.next)}</td>

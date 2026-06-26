@@ -1302,6 +1302,9 @@
         localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
         markEditingDraftArchived(serviceRow);
+        window.dispatchEvent(new CustomEvent("jrc-student-service-linked", {
+          detail: { rows: [serviceRow], source: "aiAssistant", updated: updatedExisting }
+        }));
         window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
           source: "AI 助手",
           target: "学生服务系统",

@@ -763,13 +763,95 @@
     return payload;
   }
 
+  function linkedRowTime(row) {
+    const value = String(row?.updatedAt || row?.createdAt || row?.at || row?.time || row?.date || row?.courseDate || "").trim();
+    const parsed = Date.parse(value.replace(/\./g, "/").replace(" ", "T"));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function linkedRowKey(row) {
+    if (!row || typeof row !== "object") return "";
+    const explicit = [
+      row.archiveKey,
+      row.id,
+      row.rowId,
+      row.taskId,
+      row.leadId,
+      row.followupId,
+      row.auditId,
+      row.sourceFeedbackId,
+      row.fileStorageKey
+    ].map((value) => String(value || "").trim()).find(Boolean);
+    if (explicit) return explicit;
+    const sourceDraftId = String(row.sourceDraftId || "").trim();
+    if (sourceDraftId) return `draft:${sourceDraftId}`;
+    return [
+      row.student || row.studentName || row.name,
+      row.teacher || row.teacherName || row.owner,
+      row.className || row.courseName || row.title,
+      row.date || row.courseDate || row.sourceDate,
+      row.lessonSeason,
+      row.lessonNumber,
+      row.createdAt || row.at
+    ].map((value) => String(value || "").trim().replace(/\s+/g, "")).filter(Boolean).join("|");
+  }
+
+  function mergeLinkedRows(...groups) {
+    const map = new Map();
+    groups.flat().forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const key = linkedRowKey(row);
+      if (!key) return;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { ...row });
+        return;
+      }
+      const incomingIsNewer = linkedRowTime(row) >= linkedRowTime(existing);
+      map.set(key, incomingIsNewer ? { ...existing, ...row } : { ...row, ...existing });
+    });
+    return [...map.values()].sort((left, right) => String(right.updatedAt || right.createdAt || right.at || "").localeCompare(String(left.updatedAt || left.createdAt || left.at || "")));
+  }
+
+  function mergeLinkedObjects(localValue, remoteValue) {
+    const localObject = localValue && typeof localValue === "object" && !Array.isArray(localValue) ? localValue : {};
+    const remoteObject = remoteValue && typeof remoteValue === "object" && !Array.isArray(remoteValue) ? remoteValue : {};
+    const result = { ...localObject, ...remoteObject };
+    new Set([...Object.keys(localObject), ...Object.keys(remoteObject)]).forEach((key) => {
+      const localPart = localObject[key];
+      const remotePart = remoteObject[key];
+      if (Array.isArray(localPart) || Array.isArray(remotePart)) {
+        result[key] = mergeLinkedRows(
+          Array.isArray(localPart) ? localPart : [],
+          Array.isArray(remotePart) ? remotePart : []
+        );
+        return;
+      }
+      if (localPart && remotePart && typeof localPart === "object" && typeof remotePart === "object") {
+        result[key] = mergeLinkedObjects(localPart, remotePart);
+      }
+    });
+    return result;
+  }
+
+  function mergeLinkedStoreValue(localValue, remoteValue) {
+    if (Array.isArray(localValue) || Array.isArray(remoteValue)) {
+      return mergeLinkedRows(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : []);
+    }
+    if (localValue && remoteValue && typeof localValue === "object" && typeof remoteValue === "object") {
+      return mergeLinkedObjects(localValue, remoteValue);
+    }
+    return remoteValue ?? localValue;
+  }
+
   async function readLinkedStore(key, fallback) {
     let value = readStore(key, fallback);
     if (window.JRC_CLOUD?.readModuleData) {
       try {
         const result = await window.JRC_CLOUD.readModuleData(key);
         if (result?.ok && result.data?.found) {
-          value = normalizeCloudStorePayload(result.data.payload);
+          const remoteValue = normalizeCloudStorePayload(result.data.payload);
+          value = mergeLinkedStoreValue(value, remoteValue);
           localStorage.setItem(key, JSON.stringify(value));
         }
       } catch (error) {
