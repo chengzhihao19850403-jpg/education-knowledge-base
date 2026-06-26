@@ -271,9 +271,32 @@
         return Array.isArray(rows) ? rows : [];
       }
 
+      function mergeDraftRows(rows) {
+        const map = new Map();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const id = String(row.id || row.rowId || "").trim() || `ai-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          const existing = map.get(id) || {};
+          map.set(id, { ...existing, ...row, id });
+        });
+        return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
+      }
+
       function writeDrafts(rows) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(rows.slice(0, 80)));
-        window.JRC_CLOUD?.writeModuleData?.(DRAFT_KEY, "ai", rows.slice(0, 80)).catch(() => {});
+        const localRows = mergeDraftRows(rows).slice(0, 120);
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(localRows.slice(0, 80)));
+        if (!window.JRC_CLOUD?.writeModuleData) return;
+        (async () => {
+          let nextRows = localRows;
+          try {
+            const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
+            if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+              nextRows = mergeDraftRows([...remote.data.payload, ...localRows]).slice(0, 120);
+              localStorage.setItem(DRAFT_KEY, JSON.stringify(nextRows.slice(0, 80)));
+            }
+            await window.JRC_CLOUD.writeModuleData(DRAFT_KEY, "ai", nextRows);
+          } catch (_) {}
+        })();
       }
 
       function canViewAllAiHistory() {
@@ -463,7 +486,7 @@
           const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
           if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
             const localRows = safeParse(localStorage.getItem(DRAFT_KEY), []);
-            const mergedRows = mergeRowsById([...remote.data.payload, ...(Array.isArray(localRows) ? localRows : [])]);
+            const mergedRows = mergeDraftRows([...remote.data.payload, ...(Array.isArray(localRows) ? localRows : [])]);
             localStorage.setItem(DRAFT_KEY, JSON.stringify(mergedRows.slice(0, 120)));
             renderDrafts(mergedRows);
           }
