@@ -276,6 +276,37 @@
         color: var(--ink);
         font-size: 14px;
       }
+      .teacher-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .teacher-card {
+        display: grid;
+        gap: 6px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.82);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .teacher-card.active,
+      .teacher-card:hover {
+        border-color: rgba(13,148,136,0.36);
+        background: rgba(13,148,136,0.08);
+      }
+      .teacher-card strong {
+        color: var(--ink);
+        font-size: 15px;
+      }
+      .teacher-card span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
       .table-wrap {
         overflow-x: auto;
         margin-top: 16px;
@@ -589,6 +620,7 @@
           <div class="read-guide-item"><strong>空格可排</strong>显示“可排”表示该老师此时间没有课。</div>
           <div class="read-guide-item"><strong>先核教室</strong>排新课还要再看下方教室使用表。</div>
         </div>
+        <div class="teacher-card-grid" id="teacherSheetTeacherCards" aria-label="老师课表入口"></div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="notice" id="teacherSheetMessage" hidden></div>
         <div class="table-wrap">
@@ -1173,6 +1205,49 @@
         if (optionDates.includes(current)) select.value = current;
       }
 
+      function teacherSheetTeacherStats() {
+        const period = selectedPeriod();
+        const map = new Map();
+        paikeRows
+          .filter((row) => row.period === period && row.teacher)
+          .forEach((row) => {
+            if (!map.has(row.teacher)) {
+              map.set(row.teacher, {
+                teacher: row.teacher,
+                courseCount: 0,
+                students: new Set(),
+                roomMissing: 0
+              });
+            }
+            const item = map.get(row.teacher);
+            item.courseCount += 1;
+            String(row.student || "").split(/[、,，/+]/).map((name) => name.trim()).filter(Boolean).forEach((name) => item.students.add(name));
+            if (!String(row.room || "").trim() || row.room === "-") item.roomMissing += 1;
+          });
+        return Array.from(map.values()).sort((a, b) => (
+          b.courseCount - a.courseCount ||
+          a.teacher.localeCompare(b.teacher, "zh-Hans-CN")
+        ));
+      }
+
+      function renderTeacherSheetTeacherCards() {
+        const holder = byId("teacherSheetTeacherCards");
+        if (!holder) return;
+        const stats = teacherSheetTeacherStats();
+        const activeTeacher = selectedTeacher();
+        if (!stats.length) {
+          holder.innerHTML = `<div class="empty">当前月份还没有老师课表入口。</div>`;
+          return;
+        }
+        holder.innerHTML = stats.map((item) => `
+          <button class="teacher-card ${item.teacher === activeTeacher ? "active" : ""}" type="button" data-teacher-card="${escapeHtml(item.teacher)}">
+            <strong>${escapeHtml(item.teacher)}</strong>
+            <span>${item.courseCount} 节课｜${item.students.size} 个学生/班级</span>
+            <span>${item.roomMissing ? `${item.roomMissing} 节未写教室` : "教室信息完整"}</span>
+          </button>
+        `).join("");
+      }
+
       function renderTeacherSheetSummary(rows) {
         const holder = byId("teacherSheetSummary");
         if (!holder) return;
@@ -1197,6 +1272,7 @@
         if (!table) return;
         const rows = currentTeacherSheetRows();
         setupRoomUsageDateFilter(rows);
+        renderTeacherSheetTeacherCards();
         renderTeacherSheetSummary(rows);
         if (!rows.length) {
           table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请先确认月份、老师姓名是否和原 Excel 一致。</div></td></tr></tbody>`;
@@ -1483,14 +1559,32 @@
         return false;
       }
 
+      function selectTeacherSheetTeacher(teacher, { scroll = true } = {}) {
+        const select = byId("teacherSheetTeacher");
+        if (!teacher || !select) return false;
+        const hasTeacher = Array.from(select.options || []).some((option) => option.value === teacher);
+        if (!hasTeacher) return false;
+        select.value = teacher;
+        const mode = byId("teacherSheetMode");
+        if (mode) mode.value = "month";
+        renderTeacherSheet();
+        setTeacherSheetMessage(`已打开 ${teacher} 的月课表。`);
+        if (scroll) byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        return true;
+      }
+
       function applyTeacherSheetQuick(action) {
         const mode = byId("teacherSheetMode");
         if (action === "mine") {
-          const selectedMine = selectCurrentEmployeeTeacher();
+          const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+          const selectedMine = employeeName ? selectTeacherSheetTeacher(employeeName) : false;
+          if (!selectedMine) selectCurrentEmployeeTeacher();
           if (mode) mode.value = "month";
-          renderTeacherSheet();
-          setTeacherSheetMessage(selectedMine ? "已切换到你的老师课表。" : "当前登录姓名没有匹配到老师课表，已保留当前老师选择。");
-          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          if (!selectedMine) {
+            renderTeacherSheet();
+            setTeacherSheetMessage("当前登录姓名没有匹配到老师课表，已保留当前老师选择。");
+            byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          }
           return;
         }
         if (action === "today" || action === "week") {
@@ -1774,6 +1868,11 @@
       byId("roomUsageDate")?.addEventListener("change", () => {
         renderTeacherDayAvailability();
         renderRoomUsage();
+      });
+      byId("teacherSheetTeacherCards")?.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-teacher-card]");
+        if (!card) return;
+        selectTeacherSheetTeacher(card.getAttribute("data-teacher-card") || "");
       });
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);

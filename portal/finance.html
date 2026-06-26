@@ -709,6 +709,37 @@
         color: var(--ink);
         font-size: 14px;
       }
+      .finance-teacher-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .finance-teacher-card {
+        display: grid;
+        gap: 6px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.82);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .finance-teacher-card.active,
+      .finance-teacher-card:hover {
+        border-color: rgba(13,148,136,0.36);
+        background: rgba(13,148,136,0.08);
+      }
+      .finance-teacher-card strong {
+        color: var(--ink);
+        font-size: 15px;
+      }
+      .finance-teacher-card span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
       .teacher-wage-overview {
         margin-top: 16px;
         display: grid;
@@ -999,6 +1030,7 @@
           <div class="read-guide-item"><strong>核对三列</strong>重点看上课次数、单次提成、应发小计。</div>
           <div class="read-guide-item"><strong>不一致再查</strong>金额不一致再进管理员核对区。</div>
         </div>
+        <div class="finance-teacher-card-grid" id="financeTeacherCards" aria-label="老师工资单入口"></div>
         <div class="excel-finance-summary" id="financeExcelSummary"></div>
         <div class="table-wrap">
           <table class="finance-statement-table">
@@ -3346,10 +3378,35 @@
         `;
       }
 
+      function renderFinanceTeacherCards(rows) {
+        const holder = byId("financeTeacherCards");
+        if (!holder) return;
+        const selectedTeacher = byId("financeTeacherSelect")?.value || "";
+        if (!rows.length) {
+          holder.innerHTML = `<div class="empty">当前筛选下没有老师工资单入口。</div>`;
+          return;
+        }
+        holder.innerHTML = rows.map((row) => {
+          const teacher = teacherNameOf(row);
+          const detailRows = (readPreimportBundle().salaryAttendance || []).filter((item) => item.period === currentPeriod && teacherNameOf(item) === teacher);
+          const detailAmount = detailRows.reduce((sum, item) => sum + salaryRowAmount(item), 0);
+          const status = row.fromSalaryRowsOnly ? "缺产值总表" : "总表已读";
+          const departed = row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacher);
+          return `
+            <button class="finance-teacher-card ${teacher === selectedTeacher ? "active" : ""}" type="button" data-finance-teacher-card="${escapeHtml(teacher)}">
+              <strong>${escapeHtml(teacher || "-")}</strong>
+              <span>${detailRows.length} 条明细｜应发 ${money(detailAmount)}</span>
+              <span>${escapeHtml(departed ? "离职历史" : status)}</span>
+            </button>
+          `;
+        }).join("");
+      }
+
       function renderFinanceExcelStatement() {
         const body = byId("financeExcelStatementBody");
         if (!body) return;
         const rows = financeSummaryRowsForCurrentPeriod();
+        renderFinanceTeacherCards(rows);
         renderFinanceExcelSummary(rows);
         if (!rows.length) {
           body.innerHTML = `<tr><td colspan="11" class="muted">当前月份还没有小课产值总表。五月已有完整总表；六月目前主要是老师工资明细，等六月产值表补齐后这里会显示完整总表。</td></tr>`;
@@ -3902,7 +3959,8 @@
             "exportTeacherWageButton"
           ].includes(node.id);
           const keepQuickButton = Boolean(node.dataset?.financeQuick);
-          if (!canEdit && !keepEnabled && !keepQuickButton) node.disabled = true;
+          const keepTeacherCard = Boolean(node.dataset?.financeTeacherCard);
+          if (!canEdit && !keepEnabled && !keepQuickButton && !keepTeacherCard) node.disabled = true;
         });
       }
 
@@ -3918,11 +3976,29 @@
         return false;
       }
 
+      function selectFinanceTeacher(teacher, { scroll = true } = {}) {
+        const select = byId("financeTeacherSelect");
+        if (!teacher || !select) return false;
+        const hasTeacher = Array.from(select.options || []).some((option) => option.value === teacher);
+        if (!hasTeacher) return false;
+        select.value = teacher;
+        renderFinanceExcelStatement();
+        renderFinanceTeacherDetail();
+        setFinanceMessage(`已打开 ${teacher} ${currentPeriod} 工资明细。`);
+        if (scroll) byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        return true;
+      }
+
       function applyFinanceQuick(action) {
         if (action === "mine") {
           setFinancePeriod(currentMonthValue());
-          const selectedMine = selectCurrentFinanceTeacher();
-          renderFinanceTeacherDetail();
+          const employeeName = String(window.JRC_CURRENT_EMPLOYEE?.name || "").trim();
+          const selectedMine = employeeName ? selectFinanceTeacher(employeeName) : false;
+          if (!selectedMine) {
+            selectCurrentFinanceTeacher();
+            renderFinanceExcelStatement();
+            renderFinanceTeacherDetail();
+          }
           setFinanceMessage(selectedMine
             ? `已切换到你的 ${currentPeriod} 工资明细。`
             : "当前登录姓名没有匹配到老师工资单，已显示当前选择老师。");
@@ -3980,11 +4056,12 @@
       byId("financeExcelStatementBody")?.addEventListener("click", (event) => {
         const row = event.target.closest("[data-finance-teacher-row]");
         if (!row) return;
-        const teacher = row.getAttribute("data-finance-teacher-row") || "";
-        if (byId("financeTeacherSelect")) byId("financeTeacherSelect").value = teacher;
-        renderFinanceTeacherDetail();
-        setFinanceMessage(`已切换到 ${teacher} 工资明细。`);
-        byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        selectFinanceTeacher(row.getAttribute("data-finance-teacher-row") || "");
+      });
+      byId("financeTeacherCards")?.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-finance-teacher-card]");
+        if (!card) return;
+        selectFinanceTeacher(card.getAttribute("data-finance-teacher-card") || "");
       });
       byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());
       byId("saveMonthlyButton").addEventListener("click", () => syncPeriodFromForm({ log: true }));
