@@ -2110,8 +2110,10 @@ function bindEnrollmentCreate() {
     );
     logAudit("登记报名", target.studentName, `实收 ${amount}，锁定归属链 ${formatAttributionSnapshot(target.attributionSnapshot)}。`);
     renderAll();
-    setInlineMessage("createEnrollmentMessage", `已登记报名：${name} / 实收 ${amount}`, "success");
-    showToast("报名登记已保存，归属链已锁定");
+    const linkedRows = window.JRC_BUSINESS_MODULES?.syncAdmissionsIntoStudentService?.([target]) || [];
+    const linkText = linkedRows.length ? "，已同步到学生服务入学交接" : "，学生服务稍后会自动读取";
+    setInlineMessage("createEnrollmentMessage", `已登记报名：${name} / 实收 ${amount}${linkText}`, "success");
+    showToast(`报名登记已保存，归属链已锁定${linkText}`);
   });
 }
 
