@@ -361,7 +361,7 @@
       }
       .excel-summary {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 10px;
         margin-top: 14px;
       }
@@ -1176,13 +1176,19 @@
       function renderTeacherSheetSummary(rows) {
         const holder = byId("teacherSheetSummary");
         if (!holder) return;
+        const periodRows = paikeRows.filter((row) => row.period === selectedPeriod());
+        const monthTeacherCount = new Set(periodRows.map((row) => row.teacher).filter(Boolean)).size;
+        const monthCourseCount = periodRows.length;
         const studentCount = new Set(rows.flatMap((row) => String(row.student || "").split(/[、,，/+]/).map((item) => item.trim()).filter(Boolean))).size;
         const roomMissing = rows.filter((row) => !String(row.room || "").trim() || row.room === "-").length;
+        const monthRoomMissing = periodRows.filter((row) => !String(row.room || "").trim() || row.room === "-").length;
         holder.innerHTML = `
           <div class="excel-summary-card"><span>当前老师</span><strong>${escapeHtml(selectedTeacher() || "-")}</strong></div>
           <div class="excel-summary-card"><span>已排课程</span><strong>${rows.length}</strong></div>
           <div class="excel-summary-card"><span>学生/班级</span><strong>${studentCount}</strong></div>
-          <div class="excel-summary-card"><span>未写教室</span><strong>${roomMissing}</strong></div>
+          <div class="excel-summary-card"><span>本月老师/课程</span><strong>${monthTeacherCount} / ${monthCourseCount}</strong></div>
+          <div class="excel-summary-card"><span>当前未写教室</span><strong>${roomMissing}</strong></div>
+          <div class="excel-summary-card"><span>本月未写教室</span><strong>${monthRoomMissing}</strong></div>
         `;
       }
 

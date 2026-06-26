@@ -668,7 +668,7 @@
       }
       .excel-finance-summary {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 10px;
         margin-top: 14px;
       }
@@ -3323,12 +3323,22 @@
       function renderFinanceExcelSummary(rows) {
         const holder = byId("financeExcelSummary");
         if (!holder) return;
+        const bundle = readPreimportBundle();
+        const summaryRows = (bundle.teacherFinanceSummaryRows || []).filter((row) => row.period === currentPeriod);
+        const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
+        const summaryTeachers = new Set(summaryRows.map(teacherNameOf).filter(Boolean));
+        const salaryTeachers = new Set(salaryRows.map(teacherNameOf).filter(Boolean));
+        const missingSummaryCount = Array.from(salaryTeachers).filter((teacher) => !summaryTeachers.has(teacher)).length;
         const revenue = rows.reduce((sum, row) => sum + toNumber(row["课时总收入"]), 0);
         const baseSalary = rows.reduce((sum, row) => sum + toNumber(row["基础工资"]), 0);
         const commission = rows.reduce((sum, row) => sum + toNumber(row["课时提成"]) + toNumber(row["补课提成"]) + toNumber(row["答疑提成"]) + toNumber(row["补贴"]), 0);
         const balance = rows.reduce((sum, row) => sum + toNumber(row["课时剩余"]), 0);
         holder.innerHTML = `
-          <div class="excel-finance-card"><span>老师数</span><strong>${rows.length}</strong></div>
+          <div class="excel-finance-card"><span>当前显示老师</span><strong>${rows.length}</strong></div>
+          <div class="excel-finance-card"><span>产值总表老师</span><strong>${summaryTeachers.size}</strong></div>
+          <div class="excel-finance-card"><span>工资明细老师</span><strong>${salaryTeachers.size}</strong></div>
+          <div class="excel-finance-card"><span>工资明细条数</span><strong>${salaryRows.length}</strong></div>
+          <div class="excel-finance-card"><span>缺产值总表</span><strong>${missingSummaryCount}</strong></div>
           <div class="excel-finance-card"><span>课时总收入</span><strong>${money(revenue)}</strong></div>
           <div class="excel-finance-card"><span>基础工资</span><strong>${money(baseSalary)}</strong></div>
           <div class="excel-finance-card"><span>提成补贴</span><strong>${money(commission)}</strong></div>
