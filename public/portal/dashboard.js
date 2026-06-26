@@ -387,6 +387,30 @@
     `;
   }
 
+  function feedbackReviewTaskDetailHtml(task) {
+    const rows = Array.isArray(task.feedbackReviewRows) ? task.feedbackReviewRows : [];
+    const previewRows = rows.slice(0, 5);
+    return `
+      <div class="task-guide-card">
+        <section class="task-guide-block">
+          <span>复核方法</span>
+          <p>请回到对应系统重新测试。已经解决的，到“我的反馈问题”里点“确认已解决”；仍有问题的，点“仍有问题”并补充页面、设备、操作步骤和截图。</p>
+        </section>
+        ${previewRows.map((row) => `
+          <section class="task-guide-block">
+            <span>${escapeHtml(`第${row.seq}条｜${row.system}｜${row.status}`)}</span>
+            <p><strong>处理说明：</strong>${escapeHtml(row.resolution)}</p>
+            <p><strong>请复核：</strong>${escapeHtml(row.action)}</p>
+          </section>
+        `).join("")}
+        ${rows.length > previewRows.length ? `<section class="task-guide-block"><span>还有 ${escapeHtml(rows.length - previewRows.length)} 条</span><p>进入“我的反馈问题”查看并逐条确认。</p></section>` : ""}
+        <div class="task-guide-actions">
+          <a class="task-guide-button" href="./suggestions.html#siteFeedbackTitle">打开我的反馈问题</a>
+        </div>
+      </div>
+    `;
+  }
+
   function isOpenTask(item) {
     return ["assigned", "doing"].includes(item?.status);
   }
@@ -497,6 +521,102 @@
     return { rows: list, changed };
   }
 
+  function buildFeedbackReviewTask(group) {
+    const rows = Array.isArray(group?.rows) ? group.rows : [];
+    const total = rows.length;
+    const date = "2026-06-27";
+    return {
+      id: `feedback-review-${group.username || group.teacher}`,
+      entryType: "task",
+      title: `【反馈复核】${group.teacher}试用问题复核`,
+      category: "技术工具",
+      impact: "high",
+      content: `责任人：${group.teacher}\n复核范围：${total} 条本人提交的试用反馈\n\n复核方法：请回到对应系统重新测试。已经解决的，到“我的反馈问题”里点“确认已解决”；仍有问题的，点“仍有问题”并补充页面、设备、操作步骤和截图。`,
+      author: "系统分派",
+      authorUsername: "",
+      anonymous: false,
+      createdAt: date,
+      status: "assigned",
+      owner: group.teacher,
+      ownerUsername: group.username || "",
+      dueDate: "",
+      verifier: "程志豪",
+      taskId: `task-feedback-review-${group.username || group.teacher}`,
+      taskStandard: "逐条复核自己提交的试用反馈，已解决就本人确认闭环；仍有问题就继续补充反馈，不再让已解决问题反复进入下轮台账。",
+      subtasks: [
+        "1. 打开主页“我的反馈”，先看待我复核的条目。",
+        "2. 按任务里的复核动作回到对应模块重新测试。",
+        "3. 已经解决的，在“我的反馈问题”里点“确认已解决”。",
+        "4. 仍有问题的，点“仍有问题”，补充设备、账号、页面、操作步骤和截图。",
+        "5. 已确认解决的反馈，下次导出待整改台账时不再反复处理。"
+      ].join("\n"),
+      completionReport: "",
+      rewardLevel: "none",
+      rewardAmount: "",
+      rewardReason: "",
+      rewardStatus: "none",
+      votes: 0,
+      votedBy: [],
+      liked: false,
+      decision: `${group.teacher}需要复核自己提交的 ${total} 条试用反馈。`,
+      comments: [{ author: "系统", text: "试用反馈复核任务已自动生成。", time: date }],
+      feedbackReviewTask: true,
+      feedbackReviewCount: total,
+      feedbackReviewRows: rows.map(({ row, plan }) => ({
+        seq: plan.seq,
+        feedbackId: row?.id || "",
+        system: row?.system || plan.system,
+        status: plan.status,
+        resolution: plan.resolution,
+        action: plan.action,
+        content: row?.content || ""
+      }))
+    };
+  }
+
+  function mergeFeedbackReviewTasks(rows, feedbackRows) {
+    const planner = window.JRC_FEEDBACK_REVIEW_PLAN;
+    if (!planner?.groupRowsByReviewer) return { rows: Array.isArray(rows) ? rows : [], changed: false };
+    const list = Array.isArray(rows) ? [...rows] : [];
+    let changed = false;
+    const byId = new Map(list.map((item) => [String(item?.id || ""), item]));
+    const groups = planner.groupRowsByReviewer(feedbackRows);
+    groups.forEach((group) => {
+      if (!group.rows.length) return;
+      const seed = buildFeedbackReviewTask(group);
+      const current = byId.get(seed.id);
+      if (!current) {
+        list.unshift(seed);
+        changed = true;
+        return;
+      }
+      const updated = {
+        ...current,
+        title: seed.title,
+        category: seed.category,
+        impact: seed.impact,
+        content: seed.content,
+        owner: seed.owner,
+        ownerUsername: seed.ownerUsername,
+        verifier: seed.verifier,
+        taskId: current.taskId || seed.taskId,
+        taskStandard: seed.taskStandard,
+        subtasks: seed.subtasks,
+        decision: seed.decision,
+        entryType: "task",
+        feedbackReviewTask: true,
+        feedbackReviewCount: seed.feedbackReviewCount,
+        feedbackReviewRows: seed.feedbackReviewRows,
+        status: ["review", "launched", "paused"].includes(current.status) ? current.status : (current.status || seed.status)
+      };
+      if (JSON.stringify(updated) !== JSON.stringify(current)) {
+        Object.assign(current, updated);
+        changed = true;
+      }
+    });
+    return { rows: list, changed };
+  }
+
   function mergeTaskRows(...groups) {
     const map = new Map();
     groups.flat().forEach((row) => {
@@ -580,7 +700,54 @@
         console.warn("Failed to read site feedback", error);
       }
     }
-    return Array.isArray(rows) ? rows : [];
+    rows = Array.isArray(rows) ? rows : [];
+    const planned = applyFeedbackReviewPlanToRows(rows);
+    if (planned.changed) {
+      rows = planned.rows;
+      localStorage.setItem(siteFeedbackKey, JSON.stringify(rows));
+      syncSiteFeedbackRowsToCloud(rows);
+    }
+    return rows;
+  }
+
+  function applyFeedbackReviewPlanToRows(rows) {
+    const planner = window.JRC_FEEDBACK_REVIEW_PLAN;
+    if (!planner?.findReviewPlan) return { rows: Array.isArray(rows) ? rows : [], changed: false };
+    const usedSeqs = new Set();
+    let changed = false;
+    const nextRows = (Array.isArray(rows) ? rows : []).map((row) => {
+      const next = { ...(row || {}) };
+      const plan = planner.findReviewPlan(next, usedSeqs);
+      if (!plan) return next;
+      usedSeqs.add(plan.seq);
+      next.reviewPlanSeq = plan.seq;
+      next.reviewPlanStatus = plan.status;
+      next.reviewAction = plan.action;
+      if (!planner.shouldFeedbackEnterReview(next.status)) return next;
+      const nextResolution = `${plan.resolution}\n请复核：${plan.action}`;
+      if (next.status !== "已整改待复核" || next.resolution !== nextResolution) {
+        next.status = "已整改待复核";
+        next.resolution = nextResolution;
+        next.processedAt = next.processedAt || new Date().toISOString();
+        next.processedBy = next.processedBy || "系统复核清单";
+        next.updatedAt = new Date().toISOString();
+        next.reviewNotes = Array.isArray(next.reviewNotes) ? next.reviewNotes : [];
+        const noteText = `复核清单：${plan.status}。${plan.resolution} 请复核：${plan.action}`;
+        if (!next.reviewNotes.some((note) => note.text === noteText)) {
+          next.reviewNotes.push({ author: "系统复核清单", text: noteText, time: new Date().toISOString().slice(0, 10) });
+        }
+        changed = true;
+      }
+      return next;
+    });
+    return { rows: nextRows, changed };
+  }
+
+  function syncSiteFeedbackRowsToCloud(rows) {
+    if (!window.JRC_CLOUD?.writeModuleData) return;
+    window.JRC_CLOUD.writeModuleData(siteFeedbackKey, "siteFeedback", rows).catch((error) => {
+      console.warn("Failed to sync site feedback review plan", error);
+    });
   }
 
   async function syncSuggestionTasksToCloud(rows) {
@@ -603,6 +770,7 @@
 
   async function readSuggestionTasks() {
     let rows = readStore(suggestionsKey, []);
+    const feedbackRows = await readSiteFeedbackRows();
     if (window.JRC_CLOUD?.readModuleData) {
       try {
         const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
@@ -615,11 +783,13 @@
       }
     }
     const merged = mergeModuleOwnerTasks(rows);
-    if (merged.changed) {
-      rows = merged.rows;
+    rows = merged.rows;
+    const feedbackReviewMerged = mergeFeedbackReviewTasks(rows, feedbackRows);
+    rows = feedbackReviewMerged.rows;
+    if (merged.changed || feedbackReviewMerged.changed) {
       localStorage.setItem(suggestionsKey, JSON.stringify(rows));
       syncSuggestionTasksToCloud(rows).catch((error) => {
-        console.warn("Failed to queue module owner task sync", error);
+        console.warn("Failed to queue generated task sync", error);
       });
     }
     return Array.isArray(rows) ? rows : [];
@@ -647,9 +817,12 @@
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
       const href = task.moduleOwnerTask && task.moduleHref ? task.moduleHref : "./suggestions.html";
-      const actionText = task.moduleOwnerTask ? "打开系统" : "处理任务";
+      const actionText = task.moduleOwnerTask ? "打开系统" : task.feedbackReviewTask ? "去复核" : "处理任务";
       if (task.moduleOwnerTask) {
         return todoItemHtml(level, title, moduleTaskDetailHtml(task, dueText), href, actionText);
+      }
+      if (task.feedbackReviewTask) {
+        return todoItemHtml(level, title, feedbackReviewTaskDetailHtml(task), "./suggestions.html#siteFeedbackTitle", actionText);
       }
       const detail = taskDetailText(task, dueText);
       return todoItem(level, title, detail, href, actionText);

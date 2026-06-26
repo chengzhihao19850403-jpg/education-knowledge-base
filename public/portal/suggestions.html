@@ -773,6 +773,7 @@
 
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260626g"></script>
+    <script src="/jrcedu/portal/feedback-review-plan.js?v=20260627a"></script>
     <script>
       const STORAGE_KEY = "jrc-suggestion-management-v2";
       const DELETED_STORAGE_KEY = "jrc-suggestion-deleted-v1";
@@ -964,6 +965,7 @@
         normalized.votedBy = Array.isArray(normalized.votedBy) ? normalized.votedBy : [];
         normalized.ownerUsername = normalized.ownerUsername || "";
         normalized.moduleOwnerTask = Boolean(normalized.moduleOwnerTask);
+        normalized.feedbackReviewTask = Boolean(normalized.feedbackReviewTask);
         normalized.moduleKey = normalized.moduleKey || "";
         normalized.moduleHref = normalized.moduleHref || "";
         return normalized;
@@ -1169,6 +1171,113 @@
         return changed;
       }
 
+      function buildFeedbackReviewTask(group) {
+        const rows = Array.isArray(group?.rows) ? group.rows : [];
+        const total = rows.length;
+        const date = "2026-06-27";
+        const lines = rows.map(({ row, plan }) => {
+          const feedbackId = row?.id ? `反馈ID：${row.id}` : "反馈ID：待匹配云端原记录";
+          const origin = row?.content || "原反馈记录暂未在当前设备匹配到，但已按导出台账列入复核。";
+          return [
+            `【${plan.seq}】${plan.status}`,
+            `系统：${row?.system || plan.system}`,
+            `原反馈：${origin}`,
+            `处理说明：${plan.resolution}`,
+            `复核动作：${plan.action}`,
+            feedbackId
+          ].join("\n");
+        }).join("\n\n");
+        return {
+          id: `feedback-review-${group.username || group.teacher}`,
+          entryType: "task",
+          title: `【反馈复核】${group.teacher}试用问题复核`,
+          category: "技术工具",
+          impact: "high",
+          content: `责任人：${group.teacher}\n复核范围：${total} 条本人提交的试用反馈\n\n${lines}\n\n复核方法：请回到对应系统重新测试。已经解决的，到“我的反馈问题”里点“确认已解决”；仍有问题的，点“仍有问题”并补充页面、设备、操作步骤和截图。`,
+          author: "系统分派",
+          authorUsername: "",
+          anonymous: false,
+          createdAt: date,
+          status: "assigned",
+          owner: group.teacher,
+          ownerUsername: group.username || usernameForName(group.teacher),
+          dueDate: "",
+          verifier: "程志豪",
+          taskId: `task-feedback-review-${group.username || group.teacher}`,
+          taskStandard: "逐条复核自己提交的试用反馈，已解决就本人确认闭环；仍有问题就继续补充反馈，不再让已解决问题反复进入下轮台账。",
+          subtasks: [
+            "1. 打开主页“我的反馈”，先看待我复核的条目。",
+            "2. 按任务里的复核动作回到对应模块重新测试。",
+            "3. 已经解决的，在“我的反馈问题”里点“确认已解决”。",
+            "4. 仍有问题的，点“仍有问题”，补充设备、账号、页面、操作步骤和截图。",
+            "5. 已确认解决的反馈，下次导出待整改台账时不再反复处理。"
+          ].join("\n"),
+          completionReport: "",
+          rewardLevel: "none",
+          rewardAmount: "",
+          rewardReason: "",
+          rewardStatus: "none",
+          votes: 0,
+          liked: false,
+          decision: `${group.teacher}需要复核自己提交的 ${total} 条试用反馈。`,
+          comments: [{ author: "系统", text: "试用反馈复核任务已自动生成。", time: date }],
+          feedbackReviewTask: true,
+          feedbackReviewCount: total,
+          feedbackReviewRows: rows.map(({ row, plan }) => ({
+            seq: plan.seq,
+            feedbackId: row?.id || "",
+            system: row?.system || plan.system,
+            status: plan.status,
+            resolution: plan.resolution,
+            action: plan.action,
+            content: row?.content || ""
+          }))
+        };
+      }
+
+      function ensureFeedbackReviewTasks() {
+        const planner = window.JRC_FEEDBACK_REVIEW_PLAN;
+        if (!planner?.groupRowsByReviewer) return false;
+        const groups = planner.groupRowsByReviewer(siteFeedbackRows);
+        let changed = false;
+        const existing = new Map(suggestions.map((item) => [String(item.id || ""), item]));
+        groups.forEach((group) => {
+          if (!group.rows.length) return;
+          const seed = buildFeedbackReviewTask(group);
+          const current = existing.get(seed.id);
+          if (!current) {
+            suggestions.unshift(seed);
+            changed = true;
+            return;
+          }
+          const merged = {
+            ...current,
+            title: seed.title,
+            category: seed.category,
+            impact: seed.impact,
+            content: seed.content,
+            owner: seed.owner,
+            ownerUsername: seed.ownerUsername,
+            verifier: seed.verifier,
+            taskId: current.taskId || seed.taskId,
+            taskStandard: seed.taskStandard,
+            subtasks: seed.subtasks,
+            decision: seed.decision,
+            entryType: "task",
+            feedbackReviewTask: true,
+            feedbackReviewCount: seed.feedbackReviewCount,
+            feedbackReviewRows: seed.feedbackReviewRows,
+            status: ["review", "launched", "paused"].includes(current.status) ? current.status : (current.status || seed.status)
+          };
+          if (JSON.stringify(merged) !== JSON.stringify(current)) {
+            Object.assign(current, merged);
+            changed = true;
+          }
+        });
+        if (changed) writeSuggestions({ replaceMode: "replace" });
+        return changed;
+      }
+
       async function hydrateCloudSuggestions() {
         suggestionsCloudHydrated = false;
         const deletedIds = await hydrateDeletedSuggestionIds();
@@ -1318,6 +1427,38 @@
         } catch (error) {
           console.warn("Failed to hydrate site feedback from cloud", error);
         }
+      }
+
+      function applyFeedbackReviewPlanToRows() {
+        const planner = window.JRC_FEEDBACK_REVIEW_PLAN;
+        if (!planner?.findReviewPlan) return false;
+        const usedSeqs = new Set();
+        let changed = false;
+        siteFeedbackRows.forEach((row) => {
+          const plan = planner.findReviewPlan(row, usedSeqs);
+          if (!plan) return;
+          usedSeqs.add(plan.seq);
+          row.reviewPlanSeq = plan.seq;
+          row.reviewPlanStatus = plan.status;
+          row.reviewAction = plan.action;
+          if (!planner.shouldFeedbackEnterReview(row.status)) return;
+          const nextResolution = `${plan.resolution}\n请复核：${plan.action}`;
+          if (row.status !== "已整改待复核" || row.resolution !== nextResolution) {
+            row.status = "已整改待复核";
+            row.resolution = nextResolution;
+            row.processedAt = row.processedAt || new Date().toISOString();
+            row.processedBy = row.processedBy || "系统复核清单";
+            row.updatedAt = new Date().toISOString();
+            row.reviewNotes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
+            const noteText = `复核清单：${plan.status}。${plan.resolution} 请复核：${plan.action}`;
+            if (!row.reviewNotes.some((note) => note.text === noteText)) {
+              row.reviewNotes.push({ author: "系统复核清单", text: noteText, time: today() });
+            }
+            changed = true;
+          }
+        });
+        if (changed) writeSiteFeedbackRows();
+        return changed;
       }
 
       function isDueSoon(item) {
@@ -1587,6 +1728,37 @@
         `;
       }
 
+      function renderFeedbackReviewGuide(item) {
+        const rows = Array.isArray(item.feedbackReviewRows) ? item.feedbackReviewRows : [];
+        return `
+          <div class="module-guide-card">
+            <section class="module-guide-block">
+              <span>复核负责人</span>
+              <p>${escapeHtml(item.owner || "未分配")}｜共 ${escapeHtml(rows.length || item.feedbackReviewCount || 0)} 条反馈需要复核</p>
+            </section>
+            <section class="module-guide-block">
+              <span>复核方法</span>
+              <ol class="module-guide-steps">
+                <li>回到对应系统重新测试。</li>
+                <li>已经解决的，到“我的反馈问题”里点“确认已解决”。</li>
+                <li>仍有问题的，点“仍有问题”，补充页面、设备、操作步骤和截图。</li>
+              </ol>
+            </section>
+            ${rows.map((row) => `
+              <section class="module-guide-block">
+                <span>${escapeHtml(`第${row.seq}条｜${row.system}｜${row.status}`)}</span>
+                ${row.content ? `<p><strong>原反馈：</strong>${escapeHtml(row.content)}</p>` : ""}
+                <p><strong>处理说明：</strong>${escapeHtml(row.resolution)}</p>
+                <p><strong>请复核：</strong>${escapeHtml(row.action)}</p>
+              </section>
+            `).join("")}
+            <div class="module-guide-actions">
+              <a class="button secondary" href="#siteFeedbackSection">打开我的反馈问题</a>
+            </div>
+          </div>
+        `;
+      }
+
       function renderList() {
         const list = filteredSuggestions();
         byId("suggestionList").innerHTML = list.length ? list.map((item) => {
@@ -1594,9 +1766,11 @@
           const noteCount = (item.comments || []).length + (item.decision ? 1 : 0) + (item.completionReport ? 1 : 0);
           const managerOpen = canManage && activeManagementId === item.id;
           const closed = isClosedSuggestion(item);
-          const contentHtml = item.moduleOwnerTask
-            ? renderModuleGuide(item)
-            : `<p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>`;
+          const contentHtml = item.feedbackReviewTask
+            ? renderFeedbackReviewGuide(item)
+            : item.moduleOwnerTask
+              ? renderModuleGuide(item)
+              : `<p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>`;
           const voteCount = Number(item.votes || 0);
           return `
           <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""} ${closed ? "is-closed" : ""}" data-id="${escapeHtml(item.id)}">
@@ -2167,6 +2341,8 @@
         await hydrateCloudSuggestions();
         ensureModuleOwnerTasks();
         await hydrateSiteFeedback();
+        applyFeedbackReviewPlanToRows();
+        ensureFeedbackReviewTasks();
         renderAll();
         scrollToFeedbackIfRequested();
       })();
