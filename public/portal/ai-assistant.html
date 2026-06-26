@@ -1519,7 +1519,9 @@
         }
       });
       byId("aiDraftList")?.addEventListener("toggle", (event) => {
-        if (event.target?.matches?.("details") && event.target.open) autoGrowTextareas(event.target);
+        if (event.target?.matches?.("details") && event.target.open) {
+          requestAnimationFrame(() => autoGrowTextareas(event.target));
+        }
       });
       byId("archivedFeedbackList")?.addEventListener("click", async (event) => {
         const button = event.target.closest("button[data-archive-action]");
