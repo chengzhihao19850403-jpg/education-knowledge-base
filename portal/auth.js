@@ -2,6 +2,7 @@ const JRC_AUTH_STORAGE_KEY = "jrc-portal-auth-session";
 const JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY = "jrc-employee-directory-extra";
 const JRC_DATA_FOUNDATION_RESET_KEY = "jrc-data-foundation-reset-20260622a";
 const JRC_TEMP_AUTO_LOGIN_USERNAME = "";
+const JRC_INITIAL_PASSWORD = "10281028";
 const JRC_LEGACY_BUSINESS_DATA_KEYS = [
   "advice-system-stage-prototype",
   "jrc-finance-ledger-v1",
@@ -577,7 +578,8 @@ function jrcWriteSession(employee, extras = {}) {
     loginAt: new Date().toISOString(),
     cloudApiToken: extras.cloudApiToken || "",
     cloudTokenExpiresAt: extras.cloudTokenExpiresAt || null,
-    cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : ""
+    cloudLoginAt: extras.cloudApiToken ? new Date().toISOString() : "",
+    mustChangePassword: Boolean(extras.mustChangePassword)
   };
   const serialized = JSON.stringify(session);
   const stored = jrcSafeStorageSet(JRC_AUTH_STORAGE_KEY, serialized);
@@ -1188,7 +1190,8 @@ function jrcShowPasswordChangeDialog(currentEmployee) {
       }
       jrcWriteSession(result.data.employee || currentEmployee, {
         cloudApiToken: result.data.token || jrcReadSession()?.cloudApiToken || "",
-        cloudTokenExpiresAt: result.data.expiresAt || null
+        cloudTokenExpiresAt: result.data.expiresAt || null,
+        mustChangePassword: false
       });
       window.JRC_CURRENT_EMPLOYEE = result.data.employee || currentEmployee;
       setMessage("密码已修改，下次请使用新密码登录。", true);
@@ -1205,6 +1208,7 @@ function jrcShowPasswordChangeDialog(currentEmployee) {
 }
 
 function jrcEnsureTopbar(currentEmployee) {
+  const session = jrcReadSession() || {};
   const topbar = document.createElement("div");
   topbar.className = "jrc-auth-bar";
   topbar.innerHTML = `
@@ -1218,11 +1222,20 @@ function jrcEnsureTopbar(currentEmployee) {
         <button type="button" id="jrcLogoutButton">退出登录</button>
       </div>
     </div>
+    ${session.mustChangePassword ? `
+      <div class="jrc-password-reminder">
+        <strong>请尽快修改初始密码</strong>
+        <span>当前账号仍在使用统一初始密码。为避免其他人误登，请点击右侧修改。</span>
+        <button type="button" id="jrcPasswordReminderButton">立即修改密码</button>
+      </div>
+    ` : ""}
   `;
   document.body.prepend(topbar);
-  document.getElementById("jrcChangePasswordButton")?.addEventListener("click", () => {
+  const openPasswordDialog = () => {
     jrcShowPasswordChangeDialog(currentEmployee);
-  });
+  };
+  document.getElementById("jrcChangePasswordButton")?.addEventListener("click", openPasswordDialog);
+  document.getElementById("jrcPasswordReminderButton")?.addEventListener("click", openPasswordDialog);
   document.getElementById("jrcLogoutButton")?.addEventListener("click", () => {
     jrcClearSession();
     window.location.reload();
@@ -1563,6 +1576,38 @@ function jrcInjectStyles() {
       cursor: pointer;
       font: inherit;
     }
+    .jrc-password-reminder {
+      width: min(1380px, calc(100vw - 28px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 4px 10px;
+      color: rgba(255,255,255,0.86);
+      font-size: 12px;
+      line-height: 1.45;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .jrc-password-reminder strong {
+      color: #fff;
+      white-space: nowrap;
+    }
+    .jrc-password-reminder span {
+      flex: 1;
+      min-width: 0;
+    }
+    .jrc-password-reminder button {
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 0;
+      background: #fff;
+      color: #0f766e;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .jrc-password-overlay {
       position: fixed;
       inset: 0;
@@ -1674,6 +1719,16 @@ function jrcInjectStyles() {
       border: 1px solid rgba(23,33,50,0.12);
       background: #fff;
       color: #172132;
+    }
+    @media (max-width: 760px) {
+      .jrc-password-reminder {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .jrc-password-reminder button {
+        width: 100%;
+        min-height: 40px;
+      }
     }
     .jrc-login-overlay {
       position: fixed;
@@ -2141,7 +2196,8 @@ function jrcShowLoginOverlay() {
         const localEmployee = jrcFindEmployeeByUsername(username);
         jrcWriteSession(localEmployee || cloudResult.data.employee, {
           cloudApiToken: cloudResult.data.token,
-          cloudTokenExpiresAt: cloudResult.data.expiresAt || null
+          cloudTokenExpiresAt: cloudResult.data.expiresAt || null,
+          mustChangePassword: Boolean(cloudResult.data.mustChangePassword ?? (password === JRC_INITIAL_PASSWORD))
         });
         document.body.classList.remove("jrc-auth-required");
         window.location.href = "/jrcedu/portal/index.html?login=ok";
@@ -2166,7 +2222,7 @@ function jrcShowLoginOverlay() {
         errorBox.textContent = "登录成功，正在进入工作台...";
         errorBox.classList.add("jrc-login-error--success");
       }
-      jrcWriteSession(employee);
+      jrcWriteSession(employee, { mustChangePassword: password === JRC_INITIAL_PASSWORD });
       document.body.classList.remove("jrc-auth-required");
       window.location.href = "/jrcedu/portal/index.html?login=ok";
       return false;

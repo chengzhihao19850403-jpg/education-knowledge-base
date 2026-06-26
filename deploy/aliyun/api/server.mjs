@@ -618,7 +618,7 @@ async function handleLogin(req, res, headers) {
     role: employee.role,
     exp: expiresAt
   });
-  send(res, 200, { ok: true, siteId, employee, token, expiresAt }, headers);
+  send(res, 200, { ok: true, siteId, employee, token, expiresAt, mustChangePassword: password === "10281028" }, headers);
 }
 
 async function handleChangePassword(req, res, headers, authorization) {
