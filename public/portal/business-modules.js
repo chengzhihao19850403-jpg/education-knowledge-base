@@ -136,6 +136,17 @@
     writeDeletedRowIds(key, ids);
   }
 
+  function restoreDeletedRows(key, rows) {
+    const ids = readDeletedRowIds(key);
+    if (!ids.size) return;
+    let changed = false;
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const rowId = String(ensureRowId(row, key)?.rowId || "").trim();
+      if (rowId && ids.delete(rowId)) changed = true;
+    });
+    if (changed) writeDeletedRowIds(key, ids);
+  }
+
   function filterDeletedRows(key, rows) {
     const ids = readDeletedRowIds(key);
     if (!ids.size) return rows;
@@ -427,7 +438,8 @@
     return incoming;
   }
 
-  function writeStore(key, rows) {
+  function writeStore(key, rows, options = {}) {
+    if (options.restoreDeleted !== false) restoreDeletedRows(key, rows);
     const mergedRows = filterDeletedRows(key, mergeRowsById(rows, key));
     localStorage.setItem(key, JSON.stringify(mergedRows));
     if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], mergedRows);
@@ -1092,7 +1104,7 @@
       }
       markRowsDeleted(key, rows);
       rows = [];
-      writeStore(key, rows);
+      writeStore(key, rows, { restoreDeleted: false });
       recordAudit(moduleKey, "清空", "学生服务台账", "0 条");
       resetForm();
       render();
@@ -1109,7 +1121,7 @@
         const removed = rows[index];
         markRowDeleted(key, removed);
         rows.splice(index, 1);
-        writeStore(key, rows);
+        writeStore(key, rows, { restoreDeleted: false });
         recordAudit(moduleKey, "删除", removed.student, removed.type);
         if (editingIndex === index) resetForm();
         render();
@@ -1837,7 +1849,7 @@
       }
       markRowsDeleted(key, rows);
       rows = [];
-      writeStore(key, rows);
+      writeStore(key, rows, { restoreDeleted: false });
       recordAudit(moduleKey, "清空", "教研课程台账", "0 条");
       resetForm();
       render();
@@ -1854,7 +1866,7 @@
         const removed = rows[index];
         markRowDeleted(key, removed);
         rows.splice(index, 1);
-        writeStore(key, rows);
+        writeStore(key, rows, { restoreDeleted: false });
         recordAudit(moduleKey, "删除", removed.name, removed.type);
         if (editingIndex === index) resetForm();
         render();
@@ -2109,7 +2121,7 @@
       }
       markRowsDeleted(key, rows);
       rows = [];
-      writeStore(key, rows);
+      writeStore(key, rows, { restoreDeleted: false });
       recordAudit(moduleKey, "清空", "人事培训台账", "0 条");
       resetForm();
       render();
@@ -2126,7 +2138,7 @@
         const removed = rows[index];
         markRowDeleted(key, removed);
         rows.splice(index, 1);
-        writeStore(key, rows);
+        writeStore(key, rows, { restoreDeleted: false });
         recordAudit(moduleKey, "删除", removed.employee, removed.type);
         if (editingIndex === index) resetForm();
         render();
@@ -2301,7 +2313,7 @@
       }
       markRowsDeleted(key, rows);
       rows = [];
-      writeStore(key, rows);
+      writeStore(key, rows, { restoreDeleted: false });
       recordAudit(moduleKey, "清空", "校区运营台账", "0 条");
       resetForm();
       render();
@@ -2318,7 +2330,7 @@
         const removed = rows[index];
         markRowDeleted(key, removed);
         rows.splice(index, 1);
-        writeStore(key, rows);
+        writeStore(key, rows, { restoreDeleted: false });
         recordAudit(moduleKey, "删除", removed.title, removed.type);
         if (editingIndex === index) resetForm();
         render();
