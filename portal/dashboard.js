@@ -518,15 +518,31 @@
     return String(item.owner || "") === name || String(item.ownerUsername || "").trim().toLowerCase() === username;
   }
 
+  async function syncSuggestionTasksToCloud(rows) {
+    if (!window.JRC_CLOUD?.writeModuleData) return;
+    let nextRows = Array.isArray(rows) ? rows : [];
+    if (window.JRC_CLOUD?.readModuleData) {
+      try {
+        const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
+        const remoteRows = Array.isArray(result?.data?.payload) ? result.data.payload : [];
+        nextRows = mergeTaskRows(remoteRows, nextRows);
+      } catch (error) {
+        console.warn("Failed to re-read suggestion tasks before sync", error);
+      }
+    }
+    localStorage.setItem(suggestionsKey, JSON.stringify(nextRows));
+    window.JRC_CLOUD.writeModuleData(suggestionsKey, "suggestions", nextRows, { replaceMode: "replace" }).catch((error) => {
+      console.warn("Failed to sync module owner tasks", error);
+    });
+  }
+
   async function readSuggestionTasks() {
     let rows = readStore(suggestionsKey, []);
-    let cloudHydrated = false;
     if (window.JRC_CLOUD?.readModuleData) {
       try {
         const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
         if (result?.ok && result.data?.found && Array.isArray(result.data.payload)) {
           rows = mergeTaskRows(result.data.payload, rows);
-          cloudHydrated = true;
           localStorage.setItem(suggestionsKey, JSON.stringify(rows));
         }
       } catch (error) {
@@ -537,11 +553,9 @@
     if (merged.changed) {
       rows = merged.rows;
       localStorage.setItem(suggestionsKey, JSON.stringify(rows));
-      if (window.JRC_CLOUD?.writeModuleData && (!window.JRC_CLOUD?.readModuleData || cloudHydrated)) {
-        window.JRC_CLOUD.writeModuleData(suggestionsKey, "suggestions", rows, { replaceMode: "replace" }).catch((error) => {
-          console.warn("Failed to sync module owner tasks", error);
-        });
-      }
+      syncSuggestionTasksToCloud(rows).catch((error) => {
+        console.warn("Failed to queue module owner task sync", error);
+      });
     }
     return Array.isArray(rows) ? rows : [];
   }
@@ -861,30 +875,47 @@
     return value ?? fallback;
   }
 
+  function normalizeLinkPart(value) {
+    return String(value || "").trim().replace(/\s+/g, "").replace(/[，,、;；]+/g, "+");
+  }
+
+  function compactLinkKey(...values) {
+    return values.map(normalizeLinkPart).filter(Boolean).join("|");
+  }
+
   function attendanceSessionKey(session) {
-    return [
+    return compactLinkKey(
       session?.date,
       session?.teacher,
       session?.className
-    ].map((value) => String(value || "").trim()).join("|");
+    );
   }
 
   function attendanceStudentKey(session, row) {
-    return [
+    return compactLinkKey(
       session?.date,
       session?.teacher,
       session?.className,
       row?.studentName || row?.student
-    ].map((value) => String(value || "").trim()).join("|");
+    );
   }
 
   function scheduleStudentKey(row) {
-    return [
+    return compactLinkKey(
       row?.date || row?.courseDate,
       row?.teacherName || row?.teacher,
       row?.className,
       row?.studentName || row?.student
-    ].map((value) => String(value || "").trim()).join("|");
+    );
+  }
+
+  function studentServiceAttendanceKey(row) {
+    return compactLinkKey(
+      row?.sourceDate || row?.date || row?.createdAt,
+      row?.teacher || row?.teacherName,
+      row?.className || row?.courseName,
+      row?.student || row?.studentName || row?.name
+    );
   }
 
   function normalizePersonName(value) {
@@ -1105,12 +1136,7 @@
     const serviceLinkedKeys = new Set(
       studentServiceRows
         .filter((row) => row.sourceModule === "attendance" || row.sourceSessionId)
-        .map((row) => [
-          row.sourceDate,
-          row.teacher,
-          row.className,
-          row.student
-        ].map((value) => String(value || "").trim()).join("|"))
+        .map(studentServiceAttendanceKey)
         .filter(Boolean)
     );
     const attendanceSessionKeys = new Set(sessions.map(attendanceSessionKey).filter(Boolean));
@@ -1160,8 +1186,8 @@
     const qualityMissingTeacherSamples = [...teachingTeacherNames].filter((name) => !qualityTeachers.has(name)).slice(0, 3);
     const passedChecks = [
       scheduleRows.length > 0 && scheduleWithoutAttendance === 0,
-      sessions.length > 0 && attendanceWithoutService === 0,
-      hasFinanceAttendance,
+      sessions.length > 0 && unresolvedCount === 0,
+      hasFinanceAttendance && effectiveCount > 0,
       financePeriods > 0,
       enrolledLeads.length > 0 && enrolledWithoutServiceCount === 0,
       aiClassFeedbackDrafts.length > 0 && aiArchivedRows.length > 0,
@@ -1176,8 +1202,8 @@
     } else if (scheduleWithoutAttendance) {
       priorityActions.push(`补齐约 ${scheduleWithoutAttendance} 人次点名，优先处理排课已存在但未点名的课程。`);
     }
-    if (sessions.length && attendanceWithoutService) {
-      priorityActions.push(`把约 ${attendanceWithoutService} 人次点名记录沉淀到学生服务，方便学管追踪和课销核对。`);
+    if (sessions.length && unresolvedCount) {
+      priorityActions.push(`点名里还有约 ${unresolvedCount} 人次缺席、请假或待联系家长，需要落实补课、视频课或不销课口径。`);
     }
     if (enrolledWithoutServiceCount) {
       priorityActions.push(`招生已报名学生还有约 ${enrolledWithoutServiceCount} 人未建学生服务档案，先补档案再排服务流程。`);
@@ -1214,21 +1240,21 @@
         "看排课"
       ),
       linkHealthCard(
-        "点名 → 学生服务",
-        sessions.length ? (attendanceWithoutService ? "待沉淀" : "已沉淀") : "待点名",
-        sessions.length && !attendanceWithoutService ? "status-ok" : "status-warn",
+        "点名 → 学生服务 / 课销",
+        sessions.length ? (unresolvedCount ? "有待追踪" : "已闭环") : "待点名",
+        sessions.length && !unresolvedCount ? "status-ok" : "status-warn",
         sessions.length
-          ? `已保存点名 ${sessions.length} 节 / ${attendanceStudentKeys.size} 人次；约 ${attendanceWithoutService} 人次未进入学生服务台账。${sampleList(attendanceWithoutServiceSamples, ({ session, row }) => `${session.date || "-"} ${session.teacher || "-"} ${row.studentName || row.student || "-"}`)}`
-          : "还没有点名记录。老师保存点名后会自动流入学生服务。",
+          ? `已保存点名 ${sessions.length} 节 / ${attendanceStudentKeys.size} 人次；有效到课 ${effectiveCount} 人次，待追踪 ${unresolvedCount} 人次；已沉淀学生服务 ${Math.max(0, attendanceStudentKeys.size - attendanceWithoutService)} 人次。${sampleList(attendanceWithoutServiceSamples, ({ session, row }) => `${session.date || "-"} ${session.teacher || "-"} ${row.studentName || row.student || "-"}`)}`
+          : "还没有点名记录。老师保存点名后，会进入学生服务、课销和课时费核对链路。",
         "./student-service.html",
         "看学生服务"
       ),
       linkHealthCard(
         "点名 → 财务",
-        hasFinanceAttendance ? "已接入" : "待点名",
-        hasFinanceAttendance ? "status-ok" : "status-warn",
+        hasFinanceAttendance && effectiveCount ? "已接入" : "待点名",
+        hasFinanceAttendance && effectiveCount ? "status-ok" : "status-warn",
         hasFinanceAttendance
-          ? `财务可读取 ${sessions.length} 节点名，当前有效到课 ${effectiveCount} 人次，待追踪 ${unresolvedCount} 人次。`
+          ? `财务可读取 ${sessions.length} 节点名，当前有效到课 ${effectiveCount} 人次，待追踪 ${unresolvedCount} 人次；最终仍需财务复核。`
           : "财务等待学生服务系统保存点名后生成结算草表。",
         "./finance.html#attendanceFinanceSection",
         "看财务"
