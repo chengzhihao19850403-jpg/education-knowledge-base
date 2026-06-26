@@ -1325,21 +1325,93 @@
       let state = readState();
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
-      function mergePreimportBundle(baseBundle, overrideBundle) {
-        const base = baseBundle && typeof baseBundle === "object" ? baseBundle : {};
-        const override = overrideBundle && typeof overrideBundle === "object" ? overrideBundle : {};
-        return {
+
+      function preimportRowTime(row) {
+        const value = String(row?.updatedAt || row?.importedAt || row?.createdAt || row?.date || row?.generatedAt || "").trim();
+        const parsed = Date.parse(value.replace(/\./g, "/").replace(" ", "T"));
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+
+      function preimportRowKey(row, fallbackPrefix = "row") {
+        if (!row || typeof row !== "object") return "";
+        const explicit = [
+          row.id,
+          row.rowId,
+          row.sourceId,
+          row.importSourceId,
+          row.cell && row.sourceWorkbook && row.sourceSheet ? `${row.sourceWorkbook}|${row.sourceSheet}|${row.cell}` : "",
+          row.period && row.teacherName && row.studentName && row.date && row.lessonNo ? `${row.period}|${row.teacherName}|${row.studentName}|${row.date}|${row.lessonNo}` : "",
+          row.period && row.teacherName && row.sourceWorkbook && row.sourceSheet ? `${row.period}|${row.teacherName}|${row.sourceWorkbook}|${row.sourceSheet}` : ""
+        ].map((value) => String(value || "").trim()).find(Boolean);
+        if (explicit) return explicit;
+        return [
+          fallbackPrefix,
+          row.period,
+          row.date,
+          row.teacherName || row.teacher,
+          row.studentName || row.className || row.category,
+          row.amount || row.courseFee || row.hours,
+          row.sourceFileName || row.sourceWorkbook
+        ].map((value) => String(value || "").trim().replace(/\s+/g, "")).filter(Boolean).join("|");
+      }
+
+      function mergePreimportRows(key, ...groups) {
+        const map = new Map();
+        groups.flat().forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const rowKey = preimportRowKey(row, key);
+          if (!rowKey) return;
+          const existing = map.get(rowKey);
+          if (!existing) {
+            map.set(rowKey, { ...row });
+            return;
+          }
+          const incomingIsNewer = preimportRowTime(row) >= preimportRowTime(existing);
+          map.set(rowKey, incomingIsNewer ? { ...existing, ...row } : { ...row, ...existing });
+        });
+        return [...map.values()].sort((left, right) => {
+          const periodDiff = String(right.period || "").localeCompare(String(left.period || ""));
+          if (periodDiff) return periodDiff;
+          return String(right.date || right.updatedAt || right.createdAt || "").localeCompare(String(left.date || left.updatedAt || left.createdAt || ""));
+        });
+      }
+
+      function mergePreimportBundle(...bundles) {
+        const safeBundles = bundles
+          .map((bundle) => bundle && typeof bundle === "object" ? bundle : {})
+          .filter((bundle) => Object.keys(bundle).length);
+        const base = safeBundles.reduce((acc, bundle) => ({ ...acc, ...bundle }), {});
+        const arrayKeys = [
+          "scheduleSessions",
+          "salaryAttendance",
+          "salaryRevenueAttendance",
+          "expenseRows",
+          "reconciliationIssues",
+          "teacherMonthPrecheck",
+          "teacherFinanceSummaryRows"
+        ];
+        const merged = {
           ...base,
-          ...override,
           summary: {
             ...(base.summary || {}),
-            ...(override.summary || {})
-          },
-          scheduleSessions: Array.isArray(override.scheduleSessions) ? override.scheduleSessions : Array.isArray(base.scheduleSessions) ? base.scheduleSessions : [],
-          salaryAttendance: Array.isArray(override.salaryAttendance) ? override.salaryAttendance : Array.isArray(base.salaryAttendance) ? base.salaryAttendance : [],
-          expenseRows: Array.isArray(override.expenseRows) ? override.expenseRows : Array.isArray(base.expenseRows) ? base.expenseRows : [],
-          reconciliationIssues: Array.isArray(override.reconciliationIssues) ? override.reconciliationIssues : Array.isArray(base.reconciliationIssues) ? base.reconciliationIssues : [],
-          teacherMonthPrecheck: Array.isArray(override.teacherMonthPrecheck) ? override.teacherMonthPrecheck : Array.isArray(base.teacherMonthPrecheck) ? base.teacherMonthPrecheck : []
+            ...safeBundles.reduce((acc, bundle) => ({ ...acc, ...(bundle.summary || {}) }), {})
+          }
+        };
+        arrayKeys.forEach((key) => {
+          merged[key] = mergePreimportRows(
+            key,
+            ...safeBundles.map((bundle) => Array.isArray(bundle[key]) ? bundle[key] : [])
+          );
+        });
+        return {
+          ...merged,
+          summary: {
+            ...merged.summary,
+            scheduleSessionCount: merged.scheduleSessions.length,
+            salaryAttendanceCount: merged.salaryAttendance.length,
+            expenseRowCount: merged.expenseRows.length,
+            issueCount: merged.reconciliationIssues.length || merged.summary.issueCount || 0
+          }
         };
       }
 
@@ -1500,7 +1572,7 @@
       }
 
       function writePreimportBundle(nextBundle) {
-        financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, nextBundle);
+        financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, financePreimportBundle, nextBundle);
         window.JRC_PREIMPORT_BUNDLE = financePreimportBundle;
         localStorage.setItem(PREIMPORT_STORE_KEY, JSON.stringify(financePreimportBundle));
         return window.JRC_CLOUD?.writeModuleData
@@ -1523,8 +1595,9 @@
         }
         window.JRC_CLOUD?.readModuleData?.(PREIMPORT_STORE_KEY).then((result) => {
           if (!result.ok || !result.data?.found || !result.data.payload) return;
-          financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, result.data.payload);
+          financePreimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, financePreimportBundle, result.data.payload);
           window.JRC_PREIMPORT_BUNDLE = financePreimportBundle;
+          localStorage.setItem(PREIMPORT_STORE_KEY, JSON.stringify(financePreimportBundle));
           render();
         }).catch((error) => {
           console.warn("财务预导入数据云端读取失败", error);

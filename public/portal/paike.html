@@ -356,12 +356,88 @@
         return safeParse(localStorage.getItem(key), fallback);
       }
 
+      function rowTime(row) {
+        const value = String(row?.updatedAt || row?.importedAt || row?.createdAt || row?.date || row?.courseDate || "").trim();
+        const parsed = Date.parse(value.replace(/\./g, "/").replace(" ", "T"));
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+
+      function rowKey(row, prefix = "row") {
+        if (!row || typeof row !== "object") return "";
+        const explicit = [
+          row.id,
+          row.rowId,
+          row.sourceId,
+          row.cell && row.sourceWorkbook && row.sourceSheet ? `${row.sourceWorkbook}|${row.sourceSheet}|${row.cell}` : "",
+          row.period && row.teacherName && row.studentName && row.date && row.lessonNo ? `${row.period}|${row.teacherName}|${row.studentName}|${row.date}|${row.lessonNo}` : ""
+        ].map((value) => String(value || "").trim()).find(Boolean);
+        if (explicit) return explicit;
+        return [
+          prefix,
+          row.period,
+          row.date || row.courseDate,
+          row.teacherName || row.teacher,
+          row.studentName || row.student || row.className,
+          row.startTime || row.time || row.hours,
+          row.sourceFile || row.sourceWorkbook
+        ].map((value) => String(value || "").trim().replace(/\s+/g, "")).filter(Boolean).join("|");
+      }
+
+      function mergeRows(prefix, ...groups) {
+        const map = new Map();
+        groups.flat().forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const key = rowKey(row, prefix);
+          if (!key) return;
+          const existing = map.get(key);
+          if (!existing) {
+            map.set(key, { ...row });
+            return;
+          }
+          const incomingIsNewer = rowTime(row) >= rowTime(existing);
+          map.set(key, incomingIsNewer ? { ...existing, ...row } : { ...row, ...existing });
+        });
+        return [...map.values()].sort((left, right) => {
+          const periodDiff = String(right.period || "").localeCompare(String(left.period || ""));
+          if (periodDiff) return periodDiff;
+          return String(right.date || right.courseDate || "").localeCompare(String(left.date || left.courseDate || ""));
+        });
+      }
+
+      function mergeObjects(localValue, remoteValue) {
+        const localObject = localValue && typeof localValue === "object" && !Array.isArray(localValue) ? localValue : {};
+        const remoteObject = remoteValue && typeof remoteValue === "object" && !Array.isArray(remoteValue) ? remoteValue : {};
+        const result = { ...localObject, ...remoteObject, summary: { ...(localObject.summary || {}), ...(remoteObject.summary || {}) } };
+        new Set([...Object.keys(localObject), ...Object.keys(remoteObject)]).forEach((key) => {
+          const localPart = localObject[key];
+          const remotePart = remoteObject[key];
+          if (Array.isArray(localPart) || Array.isArray(remotePart)) {
+            result[key] = mergeRows(key, Array.isArray(localPart) ? localPart : [], Array.isArray(remotePart) ? remotePart : []);
+          }
+        });
+        return result;
+      }
+
+      function mergeCloudValue(localValue, remoteValue) {
+        if (Array.isArray(localValue) || Array.isArray(remoteValue)) {
+          return mergeRows("cloud", Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : []);
+        }
+        if (localValue && remoteValue && typeof localValue === "object" && typeof remoteValue === "object") {
+          return mergeObjects(localValue, remoteValue);
+        }
+        return remoteValue ?? localValue;
+      }
+
       async function readCloud(key, fallback) {
         const local = readLocal(key, fallback);
         if (!window.JRC_CLOUD?.readModuleData) return local;
         try {
           const result = await window.JRC_CLOUD.readModuleData(key);
-          if (result?.ok && result.data?.found) return result.data.payload ?? local;
+          if (result?.ok && result.data?.found) {
+            const merged = mergeCloudValue(local, result.data.payload);
+            localStorage.setItem(key, JSON.stringify(merged));
+            return merged;
+          }
         } catch (error) {
           console.warn("读取排课云端数据失败", key, error);
         }
