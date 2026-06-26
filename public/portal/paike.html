@@ -255,6 +255,27 @@
         color: #1d4ed8;
         line-height: 1.7;
       }
+      .read-guide {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .read-guide-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.78);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .read-guide-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+        font-size: 14px;
+      }
       .table-wrap {
         overflow-x: auto;
         margin-top: 16px;
@@ -466,7 +487,8 @@
         .my-paike-summary,
         .excel-toolbar,
         .excel-summary,
-        .teacher-quick-actions {
+        .teacher-quick-actions,
+        .read-guide {
           grid-template-columns: 1fr;
         }
       }
@@ -560,6 +582,12 @@
           <button class="button secondary" type="button" data-teacher-sheet-quick="today">今天课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="week">本周课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
+        </div>
+        <div class="read-guide" aria-label="排课读表说明">
+          <div class="read-guide-item"><strong>横向看日期</strong>每一列是一天下的排课。</div>
+          <div class="read-guide-item"><strong>纵向看时间</strong>每一行是一个上课时间段。</div>
+          <div class="read-guide-item"><strong>空格可排</strong>显示“可排”表示该老师此时间没有课。</div>
+          <div class="read-guide-item"><strong>先核教室</strong>排新课还要再看下方教室使用表。</div>
         </div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="notice" id="teacherSheetMessage" hidden></div>

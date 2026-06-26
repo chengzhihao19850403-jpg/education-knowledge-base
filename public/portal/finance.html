@@ -688,6 +688,27 @@
         margin-top: 5px;
         font-size: 21px;
       }
+      .read-guide {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .read-guide-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.78);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .read-guide-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+        font-size: 14px;
+      }
       .teacher-wage-overview {
         margin-top: 16px;
         display: grid;
@@ -753,6 +774,22 @@
       .finance-teacher-detail-table td {
         background: rgba(255,255,255,0.92);
       }
+      .finance-statement-table tr[data-finance-teacher-row] {
+        cursor: pointer;
+      }
+      .finance-statement-table tr[data-finance-teacher-row]:hover td {
+        background: rgba(13,148,136,0.07);
+      }
+      .teacher-link-cell strong {
+        display: block;
+        color: var(--brand-dark);
+      }
+      .teacher-link-cell span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
       .finance-statement-table td:first-child,
       .finance-teacher-detail-table td:first-child {
         font-weight: 800;
@@ -804,7 +841,8 @@
         .finance-command-grid,
         .excel-finance-toolbar,
         .excel-finance-summary,
-        .teacher-wage-grid {
+        .teacher-wage-grid,
+        .read-guide {
           grid-template-columns: 1fr;
         }
         .teacher-wage-header {
@@ -954,6 +992,12 @@
               <option value="admin">管理员核对区</option>
             </select>
           </label>
+        </div>
+        <div class="read-guide" aria-label="财务读表说明">
+          <div class="read-guide-item"><strong>先看总表</strong>总表对应你们原来的小课产值表。</div>
+          <div class="read-guide-item"><strong>点老师姓名</strong>点击某位老师，下面自动展开工资明细。</div>
+          <div class="read-guide-item"><strong>核对三列</strong>重点看上课次数、单次提成、应发小计。</div>
+          <div class="read-guide-item"><strong>不一致再查</strong>金额不一致再进管理员核对区。</div>
         </div>
         <div class="excel-finance-summary" id="financeExcelSummary"></div>
         <div class="table-wrap">
@@ -3308,7 +3352,7 @@
           return `
             <tr data-finance-teacher-row="${escapeHtml(teacher)}">
               <td>${escapeHtml(row["序号"] || index + 1)}</td>
-              <td>${escapeHtml(teacher || "-")}</td>
+              <td class="teacher-link-cell"><strong>${escapeHtml(teacher || "-")}</strong><span>点姓名看明细</span></td>
               <td class="money-cell">${row["课时总收入"] == null ? "-" : money(row["课时总收入"])}</td>
               <td class="money-cell">${row["基础工资"] == null ? "-" : money(row["基础工资"])}</td>
               <td class="money-cell">${row["社保"] == null ? "-" : money(row["社保"])}</td>
