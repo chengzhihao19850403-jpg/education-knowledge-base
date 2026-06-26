@@ -149,9 +149,9 @@
               <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称，可不填">
             </label>
             <label class="field" id="feedbackSeasonField">
-              课程阶段
+              课程季节
               <select id="feedbackSeasonInput">
-                <option value="">自动识别</option>
+                <option value="">自动识别 / 手动可选</option>
                 <option value="春季">春季</option>
                 <option value="暑假">暑假</option>
                 <option value="秋季">秋季</option>
@@ -305,6 +305,48 @@
         return row?.result?.parentMessage || row?.result?.polishedText || row?.sourceText || resultToText(row?.result) || "";
       }
 
+      function cleanFeedbackStudentName(value) {
+        const first = String(value || "").trim().split(/[｜|，,、\s/]+/).filter(Boolean)[0] || "";
+        return first
+          .replace(/^(.*?)(爸爸|妈妈|父亲|母亲|父母)$/, "$1")
+          .replace(/的家长.*$/, "")
+          .replace(/家长您好.*$/, "")
+          .replace(/课堂反馈.*$/, "")
+          .replace(/课后反馈.*$/, "")
+          .trim();
+      }
+
+      function parseFeedbackMetaFromText(value) {
+        const text = String(value || "");
+        const lessonMatch = text.match(/这是\s*(春季|暑假|秋季|寒假|通用)?\s*小课第\s*([一二三四五六七八九十百\d]+|__|＿+|[xX])\s*次课程反馈/);
+        return {
+          student: cleanFeedbackStudentName((text.match(/^(.{1,16}?)(?:的家长|家长)您好/) || [])[1] || ""),
+          lessonSeason: lessonMatch?.[1] || "",
+          lessonNumber: lessonMatch?.[2] || ""
+        };
+      }
+
+      function feedbackCourseLabel(row = {}, text = "") {
+        const parsed = parseFeedbackMetaFromText(text);
+        const season = row.lessonSeason || row.result?.lessonSeason || parsed.lessonSeason || "";
+        const lessonNumber = row.lessonNumber || row.result?.lessonNumber || parsed.lessonNumber || "";
+        const seasonText = season ? `${season}小课` : "课程";
+        return `${seasonText}${lessonNumber ? `第${lessonNumber}次` : ""}课堂反馈`;
+      }
+
+      function feedbackHistoryTitle(row = {}, text = "") {
+        const displayText = text || row.parentMessage || row.content || draftDisplayText(row);
+        const parsed = parseFeedbackMetaFromText(displayText);
+        const student = cleanFeedbackStudentName(row.student || row.target || row.result?.studentName || row.result?.target || parsed.student) || "未填学生";
+        return `${student}｜${feedbackCourseLabel(row, displayText)}`;
+      }
+
+      function draftHistoryTitle(row) {
+        const text = draftDisplayText(row);
+        if (row?.mode === "classFeedback" || /课程反馈|小课第/.test(text)) return feedbackHistoryTitle(row, text);
+        return row?.title || row?.modeLabel || "AI 草稿";
+      }
+
       function resultFromDraftText(row, text) {
         const result = row?.result && typeof row.result === "object" ? { ...row.result } : {};
         const value = String(text || "").trim();
@@ -372,7 +414,7 @@
         rows = visibleDraftRows(rows).slice(0, 50);
         byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
           <div class="draft-item history-item">
-            <strong>${escapeHtml(row.title || row.modeLabel || "AI 草稿")}</strong>
+            <strong>${escapeHtml(draftHistoryTitle(row))}</strong>
             <span>${escapeHtml(row.modeLabel || "-")}｜${escapeHtml(row.target || "-")}｜${escapeHtml(row.createdAt || "")}</span>
             <details>
               <summary>查看草稿内容</summary>
@@ -436,7 +478,7 @@
           .slice(0, 50);
         list.innerHTML = filtered.length ? filtered.map((row) => `
           <div class="draft-item history-item">
-            <strong>${escapeHtml(row.student || "未填学生")}｜${escapeHtml(row.className || "课堂反馈")}</strong>
+            <strong>${escapeHtml(feedbackHistoryTitle(row, archivedFeedbackText(row)))}</strong>
             <span>${escapeHtml(row.teacher || row.createdBy || "-")}｜${escapeHtml(row.createdAt || row.updatedAt || "")}</span>
             <details>
               <summary>查看已归档反馈</summary>
@@ -944,12 +986,21 @@
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
+        const currentMode = byId("aiModeInput").value;
+        const currentTarget = byId("aiTargetInput").value.trim();
+        const currentTitle = draftHistoryTitle({
+          mode: currentMode,
+          modeLabel: modeLabel(currentMode),
+          target: currentTarget,
+          result: latestResult,
+          title: latestResult.title
+        });
         if (editingDraftId) {
           const updated = updateDraftRow(editingDraftId, (current) => ({
-            title: latestResult.title || current.title || modeLabel(byId("aiModeInput").value),
-            mode: byId("aiModeInput").value,
-            modeLabel: modeLabel(byId("aiModeInput").value),
-            target: byId("aiTargetInput").value.trim(),
+            title: currentTitle || current.title || modeLabel(currentMode),
+            mode: currentMode,
+            modeLabel: modeLabel(currentMode),
+            target: currentTarget,
             sourceText: current.sourceText || byId("aiInputText").value.trim(),
             result: latestResult,
             createdBy: current.createdBy || currentName,
@@ -966,10 +1017,10 @@
         }
         const row = {
           id: `ai-${Date.now()}`,
-          title: latestResult.title || modeLabel(byId("aiModeInput").value),
-          mode: byId("aiModeInput").value,
-          modeLabel: modeLabel(byId("aiModeInput").value),
-          target: byId("aiTargetInput").value.trim(),
+          title: currentTitle || latestResult.title || modeLabel(currentMode),
+          mode: currentMode,
+          modeLabel: modeLabel(currentMode),
+          target: currentTarget,
           sourceText: byId("aiInputText").value.trim(),
           result: latestResult,
           createdBy: currentName,
@@ -1068,6 +1119,12 @@
         }
         const mode = byId("aiModeInput").value;
         const feedbackText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
+        const parsedFeedbackMeta = parseFeedbackMetaFromText(feedbackText);
+        const resolvedLessonSeason = latestResult.lessonSeason || parsedFeedbackMeta.lessonSeason || feedbackMeta(student, byId("aiInputText").value.trim()).lessonSeason;
+        const resolvedLessonNumber = latestResult.lessonNumber || parsedFeedbackMeta.lessonNumber || feedbackMeta(student, byId("aiInputText").value.trim()).lessonNumber;
+        const resolvedCourseName = ["feedback", "classFeedback"].includes(mode)
+          ? feedbackCourseLabel({ lessonSeason: resolvedLessonSeason, lessonNumber: resolvedLessonNumber }, feedbackText).replace(/课堂反馈$/, "")
+          : latestResult.className || latestResult.courseName || "-";
         const missingItems = ["feedback", "classFeedback"].includes(mode) ? missingCompletionItems(feedbackText) : [];
         if (missingItems.length) {
           byId("aiMessage").textContent = `还有未补完整内容：${missingItems.join("、")}。请在右侧整理结果里补齐后再归档。`;
@@ -1077,7 +1134,7 @@
         const serviceRow = {
           id: `ai-feedback-${Date.now()}`,
           student,
-          className: latestResult.className || latestResult.courseName || "-",
+          className: resolvedCourseName,
           teacher: currentName,
           teacherUsername: currentUsername,
           type: mode === "attendanceFollowup" ? "缺勤跟进" : ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : mode === "parentCommunication" ? "家长沟通" : "学习跟踪",
@@ -1087,8 +1144,8 @@
           next: latestResult.suggestedAction || (Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("；") : "") || "学管跟进家长反馈",
           sourceModule: "aiAssistant",
           sourceText: byId("aiInputText").value.trim(),
-          lessonSeason: latestResult.lessonSeason || feedbackMeta(student, byId("aiInputText").value.trim()).lessonSeason,
-          lessonNumber: latestResult.lessonNumber || feedbackMeta(student, byId("aiInputText").value.trim()).lessonNumber,
+          lessonSeason: resolvedLessonSeason,
+          lessonNumber: resolvedLessonNumber,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           createdBy: currentName,
@@ -1410,11 +1467,14 @@
         }
         const text = draftEditorTextFromButton(button, draftDisplayText(row));
         if (button.dataset.draftAction === "save-inline") {
-          const updated = updateDraftRow(button.dataset.draftId, (current) => ({
-            result: resultFromDraftText(current, text),
-            sourceText: current.sourceText || "",
-            title: current.title || current.modeLabel || "AI 草稿"
-          }));
+          const updated = updateDraftRow(button.dataset.draftId, (current) => {
+            const nextResult = resultFromDraftText(current, text);
+            return {
+              result: nextResult,
+              sourceText: current.sourceText || "",
+              title: draftHistoryTitle({ ...current, result: nextResult }) || current.title || current.modeLabel || "AI 草稿"
+            };
+          });
           if (updated && editingDraftId === String(button.dataset.draftId)) {
             latestResult = updated.result;
             renderResult(latestResult);
