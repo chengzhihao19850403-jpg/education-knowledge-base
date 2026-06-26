@@ -1473,6 +1473,7 @@
           const done = closedStatuses.includes(row.status);
           const canVerify = mine && ["已处理", "已转任务"].includes(row.status || "");
           const reviewNotes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
+          const feedbackUrl = String(row.url || "").trim();
           return `
             <article class="feedback-card ${done ? "is-done" : ""} ${mine ? "is-mine" : ""}" data-feedback-id="${escapeHtml(row.id)}">
               <div class="suggestion-head">
@@ -1490,7 +1491,7 @@
               ${row.resolution ? `<div class="comment-item"><strong>处理结果：</strong>${escapeHtml(row.resolution)}</div>` : ""}
               ${reviewNotes.length ? `<details class="comment-details"><summary>复核记录 ${reviewNotes.length}</summary><div class="comment-list">${reviewNotes.map((note) => `<div class="comment-item"><strong>${escapeHtml(note.author || "反馈人")}：</strong>${escapeHtml(note.text || "")} <span class="muted">${escapeHtml(note.time || "")}</span></div>`).join("")}</div></details>` : ""}
               <div class="card-tools">
-                <a class="button secondary" href="${escapeHtml(row.url || "#")}" target="_blank" rel="noreferrer">打开页面</a>
+                ${feedbackUrl ? `<a class="button secondary" href="${escapeHtml(feedbackUrl)}" target="_blank" rel="noreferrer">打开页面</a>` : ""}
                 ${canManage && !done ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
                 ${canManage && !["已处理", "已确认解决"].includes(row.status || "") ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
                 ${canVerify ? `<button class="button" type="button" data-feedback-action="confirm">确认已解决</button>` : ""}
@@ -1666,6 +1667,13 @@
         renderPipeline();
         renderList();
         renderSiteFeedback();
+      }
+
+      function scrollToFeedbackIfRequested() {
+        if (!["#siteFeedbackTitle", "#siteFeedbackSection"].includes(window.location.hash)) return;
+        window.setTimeout(() => {
+          byId("siteFeedbackSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }, 120);
       }
 
       function applyFormPermission() {
@@ -2148,6 +2156,7 @@
         ensureModuleOwnerTasks();
         await hydrateSiteFeedback();
         renderAll();
+        scrollToFeedbackIfRequested();
       })();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623k"></script>
