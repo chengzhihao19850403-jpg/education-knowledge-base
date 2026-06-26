@@ -328,6 +328,36 @@
         color: var(--muted);
         font-size: 12px;
       }
+      .my-settlement-card {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid rgba(13, 148, 136, 0.18);
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.06);
+      }
+      .my-settlement-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .my-settlement-cell {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.84);
+      }
+      .my-settlement-cell span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .my-settlement-cell strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--ink);
+        font-size: 20px;
+      }
       .section-muted {
         opacity: 0.88;
       }
@@ -551,6 +581,9 @@
         .workbench-strip {
           grid-template-columns: 1fr;
         }
+        .my-settlement-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .teacher-settlement-card {
           grid-template-columns: 1fr 1fr;
         }
@@ -569,6 +602,7 @@
         .summary-grid,
         .compare-grid,
         .form-grid,
+        .my-settlement-grid,
         .settlement-summary-grid {
           grid-template-columns: 1fr;
         }
@@ -683,6 +717,7 @@
         <p class="eyebrow">老师结算</p>
         <h2>老师结算结果</h2>
         <p style="margin-top: 8px;">先按老师看本月有没有工资行、排课行和待核差异；需要追查时再点下面的差异核对或逐条明细。</p>
+        <div class="my-settlement-card" id="mySettlementCard" hidden></div>
         <div class="teacher-settlement-list" id="teacherSettlementList"></div>
         <div class="quick-actions">
           <a class="button secondary" href="#teacherDiffSection">查看老师差异表</a>
@@ -1971,6 +2006,37 @@
         `).join("");
       }
 
+      function renderMySettlementCard() {
+        const card = byId("mySettlementCard");
+        if (!card) return;
+        const employee = window.JRC_CURRENT_EMPLOYEE || {};
+        const teacherName = String(employee.name || "").trim();
+        if (!teacherName) {
+          card.hidden = true;
+          return;
+        }
+        const rows = teacherSettlementRows();
+        const row = rows.find((item) => String(item.teacherName || "").trim() === teacherName);
+        card.hidden = false;
+        if (!row) {
+          card.innerHTML = `
+            <strong>我的本月结算核对</strong>
+            <p style="margin-top:8px;">${escapeHtml(teacherName)}老师，当前 ${escapeHtml(currentPeriod)} 暂未读到你的结算草算数据。请先确认月份是否切对；如果你本月有课但这里为空，请在反馈问题里写清“财务系统未显示本人结算”。</p>
+          `;
+          return;
+        }
+        card.innerHTML = `
+          <strong>我的本月结算核对｜${escapeHtml(teacherName)}</strong>
+          <p style="margin-top:8px;">这是系统按当前导入数据生成的试运行草算，只用于和人工 Excel 对照，不直接作为最终发薪依据。</p>
+          <div class="my-settlement-grid">
+            <div class="my-settlement-cell"><span>工资/课时金额</span><strong>${money(row.salaryAmount)}</strong></div>
+            <div class="my-settlement-cell"><span>工资/课时行</span><strong>${row.salaryRows}</strong></div>
+            <div class="my-settlement-cell"><span>排课学生人次</span><strong>${row.scheduleCount}</strong></div>
+            <div class="my-settlement-cell"><span>待核差异</span><strong>${row.issueCount}${row.highPriority ? ` / 高 ${row.highPriority}` : ""}</strong></div>
+          </div>
+        `;
+      }
+
       function renderExpenses(period) {
         const body = byId("expenseTableBody");
         const expenses = [...(period.expenses || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -2822,6 +2888,7 @@
         if (reviewNode) reviewNode.textContent = period.reviewStatus || "草稿";
         renderSummary(period);
         renderFinanceWorkbench(period);
+        renderMySettlementCard();
         renderTeacherSettlementList();
         renderExpenses(period);
         renderTrialCompareSummary();
