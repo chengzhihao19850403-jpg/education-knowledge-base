@@ -602,7 +602,7 @@
           return Promise.resolve(window.JRC_CLOUD?.readModuleData?.(STORE_KEY))
             .then((remote) => {
               const remoteRows = Array.isArray(remote?.data?.payload) ? remote.data.payload : [];
-              mergedRows = mergeAttendanceSessions(mergedRows, remoteRows);
+              mergedRows = mergeAttendanceSessions(remoteRows, mergedRows);
               localStorage.setItem(STORE_KEY, JSON.stringify(mergedRows));
               return window.JRC_CLOUD.writeModuleData(STORE_KEY, "studentService", mergedRows);
             })
@@ -1202,14 +1202,16 @@
               const safeRow = ensureAttendanceRowId(session, row);
               if (String(safeRow.rowId) !== String(rowId)) return safeRow;
               updatedStudent = safeRow.studentName || safeRow.student || "";
+              const handledAt = new Date().toISOString();
               return {
                 ...safeRow,
                 ...updates,
-                followupHandledAt: new Date().toISOString(),
+                updatedAt: handledAt,
+                followupHandledAt: handledAt,
                 followupHandledBy: currentEmployee()?.name || "未登录"
               };
             });
-            updatedSession = { ...session, rows };
+            updatedSession = { ...session, rows, updatedAt: new Date().toISOString() };
             return updatedSession;
           });
           const saveResult = saveRows(nextSessions);
@@ -1541,8 +1543,9 @@
           const rows = readRows();
           const target = rows.find((session) => session.id === sessionId);
           if (!target) return;
+          target.updatedAt = new Date().toISOString();
           target.reviewStatus = "已确认";
-          target.reviewedAt = new Date().toISOString();
+          target.reviewedAt = target.updatedAt;
           target.reviewedBy = currentEmployee()?.name || "未登录";
           window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
             source: "学生服务点名",
@@ -1667,6 +1670,7 @@
             operatorName: currentEmployee()?.name || "未登录",
             reviewStatus: "待复核",
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             rows: draftRows.map((row) => ({ ...row, teacher }))
           };
           const sessions = readRows();
