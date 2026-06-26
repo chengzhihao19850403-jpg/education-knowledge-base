@@ -57,6 +57,20 @@
       .result-item strong { display: block; margin-bottom: 8px; color: var(--ink); }
       .result-item p, .result-item li { color: var(--muted); line-height: 1.7; }
       .result-text { white-space: pre-wrap; color: var(--muted); line-height: 1.85; margin: 0; }
+      .result-edit {
+        width: 100%;
+        min-height: 220px;
+        border: 1px solid rgba(13, 148, 136, 0.18);
+        border-radius: 12px;
+        padding: 12px;
+        color: var(--ink);
+        background: #fff;
+        line-height: 1.8;
+        resize: vertical;
+        outline: none;
+      }
+      .result-edit:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+      .result-hint { margin-top: 6px; color: var(--muted); font-size: 12px; }
       .draft-list { display: grid; gap: 10px; margin-top: 12px; }
       .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
       .draft-item strong { display: block; }
@@ -411,6 +425,32 @@
         return sections.map(([label, value]) => `${label}：\n${Array.isArray(value) ? value.join("\n") : value}`).join("\n\n");
       }
 
+      function editableResultTextarea(field, value, label) {
+        return `
+          <textarea class="result-edit" data-result-field="${escapeHtml(field)}" aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
+          <div class="result-hint">可直接修改，修改后再保存草稿、复制或归档。</div>
+        `;
+      }
+
+      function syncEditableResultFields() {
+        document.querySelectorAll("[data-result-field]").forEach((textarea) => {
+          textarea.dataset.previousValue = textarea.value;
+          textarea.addEventListener("input", () => {
+            if (!latestResult) return;
+            const field = textarea.dataset.resultField;
+            const previousValue = textarea.dataset.previousValue || "";
+            const nextValue = textarea.value;
+            latestResult[field] = nextValue;
+            if (field === "parentMessage" && isClassFeedbackMode()) {
+              if (!latestResult.polishedText || latestResult.polishedText === previousValue) {
+                latestResult.polishedText = nextValue;
+              }
+            }
+            textarea.dataset.previousValue = nextValue;
+          });
+        });
+      }
+
       function isClassFeedbackMode() {
         return byId("aiModeInput")?.value === "classFeedback";
       }
@@ -623,13 +663,14 @@
         const classFeedback = isClassFeedbackMode();
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
-          ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong><pre class="result-text">${escapeHtml(result.parentMessage)}</pre></div>` : ""}
-          ${result.polishedText && (!classFeedback || result.polishedText !== result.parentMessage) ? `<div class="result-item"><strong>整理正文</strong><pre class="result-text">${escapeHtml(result.polishedText)}</pre></div>` : ""}
+          ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版")}</div>` : ""}
+          ${result.polishedText && (!classFeedback || result.polishedText !== result.parentMessage) ? `<div class="result-item"><strong>整理正文</strong>${editableResultTextarea("polishedText", result.polishedText, "整理正文")}</div>` : ""}
           ${todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
           ${tags.length ? `<div class="result-item"><strong>标签</strong><p>${tags.map((item) => escapeHtml(item)).join("、")}</p></div>` : ""}
           ${structuredText ? `<div class="result-item"><strong>结构化信息</strong><pre class="result-text">${escapeHtml(structuredText)}</pre></div>` : ""}
           ${result.internalNote ? `<div class="result-item"><strong>内部备注</strong><pre class="result-text">${escapeHtml(result.internalNote)}</pre></div>` : ""}
         `;
+        syncEditableResultFields();
         updateActionButtons();
       }
 
@@ -931,7 +972,7 @@
           teacherUsername: currentUsername,
           type: mode === "attendanceFollowup" ? "缺勤跟进" : ["feedback", "classFeedback"].includes(mode) ? "课后反馈" : mode === "parentCommunication" ? "家长沟通" : "学习跟踪",
           risk: latestResult.riskLevel || "正常",
-          content: latestResult.internalNote || latestResult.polishedText || resultToText(latestResult),
+          content: mode === "classFeedback" ? (latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult)) : (latestResult.internalNote || latestResult.polishedText || resultToText(latestResult)),
           parentMessage: latestResult.parentMessage || "",
           next: latestResult.suggestedAction || (Array.isArray(latestResult.todoItems) ? latestResult.todoItems.join("；") : "") || "学管跟进家长反馈",
           sourceModule: "aiAssistant",
