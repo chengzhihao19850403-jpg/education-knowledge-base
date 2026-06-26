@@ -119,6 +119,21 @@
         background: rgba(185,28,28,0.1);
         color: var(--danger);
       }
+      .section-heading-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .section-heading-row h2 {
+        margin-top: 0;
+      }
+      .section-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
       .quick-grid,
       .status-grid,
       .workbench-grid,
@@ -457,6 +472,12 @@
           align-items: flex-start;
           flex-direction: column;
         }
+        .section-heading-row {
+          flex-direction: column;
+        }
+        .section-actions {
+          width: 100%;
+        }
         .card { padding: 18px; border-radius: 18px; }
         .button,
         .nav-link { width: 100%; }
@@ -501,7 +522,12 @@
 
       <section class="card">
         <p class="eyebrow">老师课表</p>
-        <h2>每位老师一张月课表</h2>
+        <div class="section-heading-row">
+          <h2>每位老师一张月课表</h2>
+          <div class="section-actions">
+            <button class="button secondary" type="button" id="exportTeacherSheetButton">导出当前课表</button>
+          </div>
+        </div>
         <div class="excel-toolbar">
           <label>月份
             <select id="teacherSheetPeriod"></select>
@@ -528,7 +554,12 @@
 
       <section class="card">
         <p class="eyebrow">当天空档</p>
-        <h2>当天老师空档表</h2>
+        <div class="section-heading-row">
+          <h2>当天老师空档表</h2>
+          <div class="section-actions">
+            <button class="button secondary" type="button" id="exportTeacherDayButton">导出空档表</button>
+          </div>
+        </div>
         <p class="hero-text">排新课时先看这里：同一天里，每位老师每个时间段有没有课。空格显示“可排”，有课程就显示学生/班级。</p>
         <div id="teacherDaySummary" class="excel-summary"></div>
         <div class="table-wrap">
@@ -538,7 +569,12 @@
 
       <section class="card">
         <p class="eyebrow">教室</p>
-        <h2>教室使用表</h2>
+        <div class="section-heading-row">
+          <h2>教室使用表</h2>
+          <div class="section-actions">
+            <button class="button secondary" type="button" id="exportRoomUsageButton">导出教室表</button>
+          </div>
+        </div>
         <p class="hero-text">先选日期，再看每个教室的占用。空格显示“可排”；有课程的格子会显示老师和学生，排课时就按这个表找空教室。</p>
         <div class="excel-toolbar">
           <label>查看日期
@@ -659,6 +695,24 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#039;");
+      }
+
+      function csvEscape(value) {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      }
+
+      function downloadCsv(filename, rows) {
+        const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
       }
 
       function safeParse(raw, fallback) {
@@ -895,6 +949,16 @@
 
       function timeSlotLabel(row) {
         return row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || "未填时间";
+      }
+
+      function lessonExportText(row) {
+        const status = scheduleStatus(row).label;
+        return [
+          row.student || row.lessonType || "未填学生",
+          row.lessonType || row.rawText || "",
+          row.room && row.room !== "-" ? row.room : "未写教室",
+          status
+        ].filter(Boolean).join("｜");
       }
 
       function timeSlotSortValue(label) {
@@ -1212,6 +1276,96 @@
         `;
       }
 
+      function teacherSheetExportRows() {
+        const rows = currentTeacherSheetRows();
+        const dates = currentVisibleDates();
+        const periodRows = paikeRows.filter((row) => row.period === selectedPeriod());
+        const slots = visibleTimeSlots(rows, periodRows);
+        const byCell = new Map();
+        rows.forEach((row) => {
+          const key = `${timeSlotLabel(row)}|${row.date}`;
+          if (!byCell.has(key)) byCell.set(key, []);
+          byCell.get(key).push(row);
+        });
+        return [
+          [`${selectedTeacher() || "老师"} ${selectedPeriod()} 课表`],
+          ["时间段", ...dates.map(dateLabel)],
+          ...slots.map((slot) => [
+            slot,
+            ...dates.map((date) => {
+              const cellRows = byCell.get(`${slot}|${date}`) || [];
+              return cellRows.map(lessonExportText).join("\n") || "可排";
+            })
+          ])
+        ];
+      }
+
+      function teacherDayExportRows() {
+        const period = selectedPeriod();
+        const date = selectedRoomDate();
+        const rows = paikeRows.filter((row) => row.period === period);
+        const dayRows = rows.filter((row) => !date || row.date === date);
+        const teachers = Array.from(new Set(rows.map((row) => row.teacher).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const slots = visibleTimeSlots(dayRows, rows);
+        const byTeacherSlot = new Map();
+        dayRows.forEach((row) => {
+          const key = `${row.teacher}|${timeSlotLabel(row)}`;
+          if (!byTeacherSlot.has(key)) byTeacherSlot.set(key, []);
+          byTeacherSlot.get(key).push(row);
+        });
+        return [
+          [`${period} ${date ? dateLabel(date) : ""} 老师空档表`],
+          ["老师", ...slots],
+          ...teachers.map((teacher) => [
+            teacher,
+            ...slots.map((slot) => {
+              const cellRows = byTeacherSlot.get(`${teacher}|${slot}`) || [];
+              return cellRows.map(lessonExportText).join("\n") || "可排";
+            })
+          ])
+        ];
+      }
+
+      function roomUsageExportRows() {
+        const period = selectedPeriod();
+        const date = selectedRoomDate();
+        const rows = paikeRows.filter((row) => row.period === period);
+        const dayRows = rows.filter((row) => !date || row.date === date);
+        const roomRows = rows.filter((row) => row.room && row.room !== "-");
+        const dayRoomRows = dayRows.filter((row) => row.room && row.room !== "-");
+        const rooms = Array.from(new Set(roomRows.map((row) => row.room))).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+        const slots = visibleTimeSlots(dayRows, rows);
+        const byRoomSlot = new Map();
+        dayRoomRows.forEach((row) => {
+          const key = `${row.room}|${timeSlotLabel(row)}`;
+          if (!byRoomSlot.has(key)) byRoomSlot.set(key, []);
+          byRoomSlot.get(key).push(row);
+        });
+        return [
+          [`${period} ${date ? dateLabel(date) : ""} 教室使用表`],
+          ["教室", ...slots],
+          ...rooms.map((room) => [
+            room,
+            ...slots.map((slot) => {
+              const cellRows = byRoomSlot.get(`${room}|${slot}`) || [];
+              return cellRows.map((row) => `${row.teacher}｜${lessonExportText(row)}`).join("\n") || "可排";
+            })
+          ])
+        ];
+      }
+
+      function exportTeacherSheet() {
+        downloadCsv(`排课-${selectedPeriod()}-${selectedTeacher() || "老师课表"}.csv`, teacherSheetExportRows());
+      }
+
+      function exportTeacherDay() {
+        downloadCsv(`排课-${selectedPeriod()}-${selectedRoomDate() || "当天"}-老师空档.csv`, teacherDayExportRows());
+      }
+
+      function exportRoomUsage() {
+        downloadCsv(`排课-${selectedPeriod()}-${selectedRoomDate() || "当天"}-教室使用.csv`, roomUsageExportRows());
+      }
+
       function fillSelectOptions(id, values, allLabel) {
         const select = byId(id);
         if (!select) return;
@@ -1480,6 +1634,9 @@
         renderTeacherDayAvailability();
         renderRoomUsage();
       });
+      byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
+      byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);
+      byId("exportRoomUsageButton")?.addEventListener("click", exportRoomUsage);
 
       initPaikeDashboard();
     </script>

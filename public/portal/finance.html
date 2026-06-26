@@ -232,6 +232,21 @@
         gap: 10px;
         margin-top: 18px;
       }
+      .section-heading-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .section-heading-row h2 {
+        margin-top: 0;
+      }
+      .section-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
       .quick-actions {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -814,6 +829,12 @@
           align-items: flex-start;
           flex-direction: column;
         }
+        .section-heading-row {
+          flex-direction: column;
+        }
+        .section-actions {
+          width: 100%;
+        }
         .summary-grid,
         .compare-grid,
         .form-grid,
@@ -947,7 +968,12 @@
 
       <section class="card" id="financeTeacherDetailSection">
         <p class="eyebrow">老师明细</p>
-        <h2 id="financeTeacherDetailTitle">老师工资明细</h2>
+        <div class="section-heading-row">
+          <h2 id="financeTeacherDetailTitle">老师工资明细</h2>
+          <div class="section-actions">
+            <button class="button secondary" type="button" id="exportTeacherWageButton">导出当前老师工资单</button>
+          </div>
+        </div>
         <p class="hero-text">这里按老师原工资明细页展示：学生、课时费、提成、上课日期/第几次。老师看这个最接近原来的工资表。</p>
         <div class="teacher-wage-overview" id="financeTeacherWageOverview"></div>
         <div class="excel-finance-summary" id="financeTeacherDetailSummary"></div>
@@ -3699,6 +3725,49 @@
         downloadCsv(`日常支出明细-${currentPeriod}.csv`, rows);
       }
 
+      function exportTeacherWage() {
+        const teacher = byId("financeTeacherSelect")?.value || "";
+        const rows = teacherDetailRows();
+        const groups = teacherDetailGroups(rows);
+        const data = teacherWageOverviewData(teacher, rows, groups);
+        const summary = data.summaryRow || {};
+        const detailRows = groups.map((group) => {
+          const sortedRows = group.rows.slice().sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+          const lessonDates = sortedRows
+            .map((row) => [row.date, row.lessonNo ? `第${row.lessonNo}次` : ""].filter(Boolean).join(" "))
+            .filter(Boolean)
+            .join("；");
+          return [
+            group.studentName || "-",
+            group.courseFee ?? "",
+            group.commission ?? "",
+            group.rows.length,
+            lessonDates,
+            group.amount,
+            [...group.sources].join("、"),
+            [...group.statuses].filter(Boolean).join("、") || "待对账"
+          ];
+        });
+        downloadCsv(`财务-${currentPeriod}-${teacher || "老师"}-工资单.csv`, [
+          [`${teacher || "老师"} ${currentPeriod} 工资单`],
+          ["状态", data.status],
+          ["工资明细应发", data.detailAmount],
+          ["课时总收入", summary["课时总收入"] ?? data.revenueAmount],
+          ["基础工资", summary["基础工资"] ?? ""],
+          ["社保", summary["社保"] ?? ""],
+          ["课时提成", summary["课时提成"] ?? ""],
+          ["补课提成", summary["补课提成"] ?? ""],
+          ["答疑提成", summary["答疑提成"] ?? ""],
+          ["补贴", summary["补贴"] ?? ""],
+          ["课时剩余", summary["课时剩余"] ?? ""],
+          ["明细条数", data.rowsCount],
+          ["学生/班级数", data.studentCount],
+          [],
+          ["学生/班级", "课时费", "单次提成", "上课次数", "上课日期/第几次", "应发小计", "来源", "状态"],
+          ...detailRows
+        ]);
+      }
+
       function applyEditPermission() {
         const canEdit = window.jrcHasPermission ? window.jrcHasPermission("finance.edit") : true;
         byId("editWarning").hidden = canEdit;
@@ -3751,6 +3820,7 @@
       byId("addExpenseButton").addEventListener("click", addExpense);
       byId("exportSummaryButton").addEventListener("click", exportSummary);
       byId("exportExpensesButton").addEventListener("click", exportExpenses);
+      byId("exportTeacherWageButton")?.addEventListener("click", exportTeacherWage);
       byId("financeImportButton").addEventListener("click", importFinanceSheets);
       byId("financeAutofillButton").addEventListener("click", applyFinanceAutofill);
       byId("financeCommandGrid")?.addEventListener("click", (event) => {
