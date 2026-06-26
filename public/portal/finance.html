@@ -1297,17 +1297,29 @@
 
       let cloudFinanceReady = false;
 
-      function writeState(nextState) {
+      async function writeState(nextState) {
         const normalizedState = mergeFinanceStates(nextState);
         state = normalizedState;
         localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(normalizedState));
         if (!cloudFinanceReady || !window.JRC_CLOUD?.writeModuleData) {
           return Promise.resolve({ ok: false, localOnly: true });
         }
-        return window.JRC_CLOUD.writeModuleData(FINANCE_STORAGE_KEY, "finance", normalizedState).catch((error) => {
+        let mergedState = normalizedState;
+        try {
+          if (window.JRC_CLOUD?.readModuleData) {
+            const result = await window.JRC_CLOUD.readModuleData(FINANCE_STORAGE_KEY);
+            if (result.ok && result.data?.found && result.data.payload?.periods) {
+              const remoteState = mergeFinanceStates(result.data.payload);
+              mergedState = mergeFinanceStates(remoteState, normalizedState);
+              state = mergedState;
+              localStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(mergedState));
+            }
+          }
+          return await window.JRC_CLOUD.writeModuleData(FINANCE_STORAGE_KEY, "finance", mergedState);
+        } catch (error) {
           console.warn("财务数据云端保存失败", error);
           return { ok: false, error };
-        });
+        }
       }
 
       let state = readState();
