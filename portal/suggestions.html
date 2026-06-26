@@ -385,6 +385,24 @@
         line-height: 1.75;
         white-space: pre-wrap;
       }
+      .module-guide-list,
+      .module-guide-steps {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: var(--ink);
+        line-height: 1.75;
+        font-size: 13px;
+      }
+      .module-guide-list li + li,
+      .module-guide-steps li + li {
+        margin-top: 5px;
+      }
+      .module-guide-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 2px;
+      }
       .module-owner-link {
         margin-top: 12px;
       }
@@ -1433,6 +1451,28 @@
           });
       }
 
+      function moduleGuideValueHtml(label, value) {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+        if (label === "使用逻辑" && raw.includes("→")) {
+          const steps = raw.split("→").map((item) => item.trim()).filter(Boolean);
+          return `<ol class="module-guide-steps">${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`;
+        }
+        const numberedParts = raw
+          .replace(/\s*(\d+\.)\s*/g, "\n$1 ")
+          .split(/\n+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (numberedParts.length > 1 && numberedParts.some((item) => /^\d+\./.test(item))) {
+          return `<ul class="module-guide-list">${numberedParts.map((item) => `<li>${escapeHtml(item.replace(/^\d+\.\s*/, ""))}</li>`).join("")}</ul>`;
+        }
+        const parts = raw.split(/；|;|\n/).map((item) => item.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          return `<ul class="module-guide-list">${parts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+        }
+        return `<p>${escapeHtml(raw)}</p>`;
+      }
+
       function renderModuleGuide(item) {
         const sections = [
           { label: "责任人", value: `${item.owner || "未分配"}｜${item.dueDate ? `截止 ${item.dueDate}` : "未设截止时间"}` },
@@ -1446,9 +1486,13 @@
             ${sections.map((section) => `
               <section class="module-guide-block">
                 <span>${escapeHtml(section.label)}</span>
-                <p>${escapeHtml(section.value)}</p>
+                ${moduleGuideValueHtml(section.label, section.value)}
               </section>
             `).join("")}
+            <div class="module-guide-actions">
+              ${item.moduleHref ? `<a class="button secondary" href="${escapeHtml(item.moduleHref)}">进入负责模块</a>` : ""}
+              <a class="button secondary" href="#siteFeedbackSection">查看反馈问题</a>
+            </div>
           </div>
         `;
       }
@@ -1481,7 +1525,6 @@
               </div>
             </div>
             ${contentHtml}
-            ${item.moduleOwnerTask && item.moduleHref ? `<div class="module-owner-link"><a class="button secondary" href="${escapeHtml(item.moduleHref)}">进入负责模块</a></div>` : ""}
             <div class="card-tools">
               <button class="button secondary" type="button" data-action="vote">${(item.votedBy || []).includes(currentUsername) ? "已支持" : "支持"} ${Number(item.votes || 0)}</button>
               <button class="button secondary" type="button" data-action="comment">添加跟进</button>
@@ -1710,8 +1753,13 @@
           dueDate: dueDate || createdDate,
           verifier: "",
           taskId: `task-feedback-${Date.now()}`,
-          taskStandard: "",
-          subtasks: "",
+          taskStandard: "处理人需要说明具体改了什么、在哪个页面验证过、是否需要反馈人复核；不能只写“已处理”。",
+          subtasks: [
+            "1. 先打开来源页面复现反馈问题。",
+            "2. 判断是使用说明问题、数据问题、权限问题还是功能缺陷。",
+            "3. 完成修改或给出明确处理说明。",
+            "4. 在任务里提交完成反馈，让提出人到“我的反馈问题”里确认是否解决。"
+          ].join("\n"),
           completionReport: "",
           rewardLevel: "none",
           rewardAmount: "",
