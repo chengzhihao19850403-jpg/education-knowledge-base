@@ -1184,6 +1184,13 @@
         return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 
+      function mergeBundleRows(rows) {
+        return mergeRowsById(rows).map((row) => {
+          const { id, ...rest } = row;
+          return { id, ...rest };
+        });
+      }
+
       function compactArchivePart(value) {
         return String(value || "").trim().replace(/\s+/g, "");
       }
@@ -1343,8 +1350,48 @@
         return state;
       }
 
-      function buildLeadDraft(studentName) {
+      function mergeAdmissionsStateBase(...states) {
+        const merged = admissionStateBase({});
+        const mergeByKey = (rows, keyField, fallbackBuilder) => {
+          const map = new Map();
+          (Array.isArray(rows) ? rows : []).forEach((row) => {
+            if (!row || typeof row !== "object") return;
+            const key = String(row[keyField] || fallbackBuilder(row) || "").trim();
+            if (!key) return;
+            const existing = map.get(key) || {};
+            map.set(key, { ...existing, ...row, [keyField]: key });
+          });
+          return [...map.values()].sort((left, right) => String(right.updatedAt || right.createdAt || right.time || "").localeCompare(String(left.updatedAt || left.createdAt || left.time || "")));
+        };
+        states.forEach((candidate) => {
+          const state = admissionStateBase(candidate);
+          Object.assign(merged, state);
+          merged.leads = mergeByKey([...(merged.leads || []), ...(state.leads || [])], "leadId", (row) => [row.studentName, row.parentPhone, row.createdAt].filter(Boolean).join("|"));
+          merged.followups = mergeByKey([...(merged.followups || []), ...(state.followups || [])], "followupId", (row) => [row.studentName, row.time, row.text].filter(Boolean).join("|"));
+          merged.auditLogs = mergeByKey([...(merged.auditLogs || []), ...(state.auditLogs || [])], "auditId", (row) => [row.time, row.operator, row.action, row.studentName].filter(Boolean).join("|")).slice(0, 160);
+        });
+        return admissionStateBase(merged);
+      }
+
+      function mergeFinancePreimportBundle(baseBundle, overrideBundle) {
+        const base = baseBundle && typeof baseBundle === "object" ? baseBundle : {};
+        const override = overrideBundle && typeof overrideBundle === "object" ? overrideBundle : {};
         return {
+          ...base,
+          ...override,
+          summary: { ...(base.summary || {}), ...(override.summary || {}) },
+          scheduleSessions: Array.isArray(override.scheduleSessions) ? override.scheduleSessions : Array.isArray(base.scheduleSessions) ? base.scheduleSessions : [],
+          salaryAttendance: Array.isArray(override.salaryAttendance) ? override.salaryAttendance : Array.isArray(base.salaryAttendance) ? base.salaryAttendance : [],
+          expenseRows: Array.isArray(override.expenseRows) ? override.expenseRows : Array.isArray(base.expenseRows) ? base.expenseRows : [],
+          reconciliationIssues: mergeBundleRows([...(base.reconciliationIssues || []), ...(override.reconciliationIssues || [])]),
+          teacherMonthPrecheck: Array.isArray(override.teacherMonthPrecheck) ? override.teacherMonthPrecheck : Array.isArray(base.teacherMonthPrecheck) ? base.teacherMonthPrecheck : []
+        };
+      }
+
+      function buildLeadDraft(studentName) {
+        const createdAt = new Date().toISOString();
+        return {
+          leadId: `ai-lead-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
           studentName,
           parentPhone: structuredValue("parentPhone", "phone") || "待补电话",
           grade: structuredValue("grade") || "待补年级",
@@ -1366,7 +1413,7 @@
           trialTeacher: structuredValue("trialTeacher"),
           trialTime: structuredValue("trialTime"),
           enrolledAmount: 0,
-          createdAt: new Date().toISOString()
+          createdAt
         };
       }
 
@@ -1429,7 +1476,7 @@
         try {
           const remote = await window.JRC_CLOUD?.readModuleData?.(ADMISSIONS_STORE_KEY);
           if (remote?.ok && remote.data?.found && remote.data?.payload && typeof remote.data.payload === "object") {
-            state = admissionStateBase(remote.data.payload);
+            state = mergeAdmissionsStateBase(remote.data.payload, state);
           }
         } catch (_) {}
         const nextState = mergeAdmissionsState(state, studentName, latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult));
@@ -1478,10 +1525,10 @@
         try {
           const remote = await window.JRC_CLOUD?.readModuleData?.(CURRICULUM_STORE_KEY);
           if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
-            rows = remote.data.payload;
+            rows = mergeRowsById([...remote.data.payload, ...(Array.isArray(rows) ? rows : [])]);
           }
         } catch (_) {}
-        const nextRows = [curriculumRowDraft(), ...(Array.isArray(rows) ? rows : [])].slice(0, 500);
+        const nextRows = mergeRowsById([curriculumRowDraft(), ...(Array.isArray(rows) ? rows : [])]).slice(0, 500);
         localStorage.setItem(CURRICULUM_STORE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(CURRICULUM_STORE_KEY, "curriculum", nextRows, { replaceMode: "replace" });
         byId("aiMessage").textContent = result?.ok
@@ -1494,11 +1541,11 @@
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
-        let bundle = safeParse(localStorage.getItem(FINANCE_PREIMPORT_KEY), window.JRC_PREIMPORT_BUNDLE || {});
+        let bundle = mergeFinancePreimportBundle(window.JRC_PREIMPORT_BUNDLE || {}, safeParse(localStorage.getItem(FINANCE_PREIMPORT_KEY), {}));
         try {
           const remote = await window.JRC_CLOUD?.readModuleData?.(FINANCE_PREIMPORT_KEY);
           if (remote?.ok && remote.data?.found && remote.data?.payload && typeof remote.data.payload === "object") {
-            bundle = remote.data.payload;
+            bundle = mergeFinancePreimportBundle(remote.data.payload, bundle);
           }
         } catch (_) {}
         bundle = bundle && typeof bundle === "object" ? bundle : {};
