@@ -336,6 +336,28 @@
       });
   }
 
+  function guideValueHtml(label, value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (label === "使用逻辑" && raw.includes("→")) {
+      const steps = raw.split("→").map((item) => item.trim()).filter(Boolean);
+      return `<ol class="task-guide-steps">${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`;
+    }
+    const numberedParts = raw
+      .replace(/\s*(\d+\.)\s*/g, "\n$1 ")
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (numberedParts.length > 1 && numberedParts.some((item) => /^\d+\./.test(item))) {
+      return `<ul class="task-guide-list">${numberedParts.map((item) => `<li>${escapeHtml(item.replace(/^\d+\.\s*/, ""))}</li>`).join("")}</ul>`;
+    }
+    const parts = raw.split(/；|;|\n/).map((item) => item.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      return `<ul class="task-guide-list">${parts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+    return `<p>${escapeHtml(raw)}</p>`;
+  }
+
   function moduleTaskDetailHtml(task, dueText) {
     const sections = [
       { label: "负责人", value: `${task.owner || "未分配"}｜${dueText}` },
@@ -352,9 +374,13 @@
         ${sections.filter((section) => section.value).map((section) => `
           <section class="task-guide-block">
             <span>${escapeHtml(section.label)}</span>
-            <p>${escapeHtml(section.value)}</p>
+            ${guideValueHtml(section.label, section.value)}
           </section>
         `).join("")}
+        <div class="task-guide-actions">
+          <a class="task-guide-button" href="${escapeHtml(task.moduleHref || "./suggestions.html")}">打开负责系统</a>
+          <a class="task-guide-button secondary" href="./suggestions.html">提交/查看反馈</a>
+        </div>
       </div>
     `;
   }
@@ -796,6 +822,19 @@
     `;
   }
 
+  function linkHealthActionCard(actions) {
+    const list = (Array.isArray(actions) ? actions : []).filter(Boolean).slice(0, 5);
+    return `
+      <div class="data-state-card link-health-priority">
+        <strong>下一步优先处理</strong>
+        <span class="badge ${list.length ? "status-warn" : "status-ok"}">${list.length ? `${list.length} 项` : "暂无断点"}</span>
+        ${list.length
+          ? `<ol class="link-action-list">${list.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>`
+          : "<p>当前关键链路没有明显断点。后续继续让老师用真实数据录入、归档、点名和反馈，系统会自动继续体检。</p>"}
+      </div>
+    `;
+  }
+
   function sampleList(rows, formatter, limit = 3) {
     const list = (Array.isArray(rows) ? rows : []).slice(0, limit).map(formatter).filter(Boolean);
     return list.length ? ` 样例：${list.join("；")}` : "";
@@ -996,8 +1035,30 @@
     ].filter(Boolean).length;
     const totalChecks = 8;
     const warningChecks = totalChecks - passedChecks;
+    const priorityActions = [];
+    if (!scheduleRows.length) {
+      priorityActions.push("先到排课系统确认六月/暑假排课明细是否已导入，排课为空会影响点名、财务和教学质量。");
+    } else if (scheduleWithoutAttendance) {
+      priorityActions.push(`补齐约 ${scheduleWithoutAttendance} 人次点名，优先处理排课已存在但未点名的课程。`);
+    }
+    if (sessions.length && attendanceWithoutService) {
+      priorityActions.push(`把约 ${attendanceWithoutService} 人次点名记录沉淀到学生服务，方便学管追踪和课销核对。`);
+    }
+    if (enrolledWithoutServiceCount) {
+      priorityActions.push(`招生已报名学生还有约 ${enrolledWithoutServiceCount} 人未建学生服务档案，先补档案再排服务流程。`);
+    }
+    if (aiClassFeedbackDrafts.length && !aiArchivedRows.length) {
+      priorityActions.push("AI 课堂反馈已有草稿但还没有归档到学生服务，提醒老师整理后点“归档学生服务”。");
+    }
+    if (openFeedback.length) {
+      priorityActions.push(`全站还有 ${openFeedback.length} 条反馈未闭环，先判断是否转任务，再让提出人复核。`);
+    }
+    if (qualityMissingTeachers) {
+      priorityActions.push(`排课涉及老师中约 ${qualityMissingTeachers} 位缺教学质量记录，后续补巡课/问卷/整改数据。`);
+    }
 
     const cards = [
+      linkHealthActionCard(priorityActions),
       linkHealthCard(
         "链路体检总览",
         warningChecks ? `${warningChecks} 项待处理` : "全部通过",

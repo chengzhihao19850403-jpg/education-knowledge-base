@@ -259,11 +259,15 @@
         const status = row.status || "待处理";
         const createdAt = String(row.createdAt || "").replace("T", " ").slice(0, 16);
         const contentText = String(row.content || "").slice(0, 44);
+        const notes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
+        const latestNote = notes[notes.length - 1];
+        const progressText = row.resolution || latestNote?.text || "";
         return `
           <div class="jrc-feedback-history__item">
             <span class="jrc-feedback-history__status ${statusTone(status)}">${status}</span>
             <strong>${row.type || "试用反馈"}｜${row.system || "未知页面"}</strong>
             <p>${contentText}${String(row.content || "").length > 44 ? "..." : ""}</p>
+            ${progressText ? `<p><b>进展：</b>${String(progressText).slice(0, 54)}${String(progressText).length > 54 ? "..." : ""}</p>` : ""}
             <small>${createdAt || "刚刚"}</small>
           </div>
         `;
