@@ -58,6 +58,13 @@
       .outline-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; color: var(--ink); cursor: pointer; }
       .outline-card strong { display: block; margin-bottom: 5px; }
       .outline-card span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .inline-preview { display: grid; gap: 7px; }
+      .inline-preview img { width: 150px; max-height: 110px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+      .preview-modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.72); }
+      .preview-modal[aria-hidden="false"] { display: flex; }
+      .preview-dialog { width: min(980px, 96vw); max-height: 92vh; overflow: auto; border-radius: 18px; background: #fff; box-shadow: var(--shadow); padding: 16px; }
+      .preview-dialog img { width: 100%; max-height: 78vh; object-fit: contain; background: #fff; }
+      .preview-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
       .file-note { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.55; }
       .file-preview { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-dark); font-size: 12px; line-height: 1.5; }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
@@ -156,6 +163,7 @@
           <div class="actions" style="margin:0 0 14px;">
             <input id="curriculumFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索课程 / 年级 / 体系 / 文件 / 负责人">
             <select id="curriculumOutlineFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部大纲板块</option><option>程老师授课大纲</option><option>科学老师授课大纲</option><option>小课老师授课大纲</option><option>普通课程资料</option></select>
+            <select id="curriculumTeacherFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部授课老师</option></select>
             <select id="curriculumSeasonFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部季节</option><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select>
             <select id="curriculumGradeFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部年级</option></select>
             <select id="curriculumSortSelect" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="status">待处理优先</option></select>
@@ -165,7 +173,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>年级 / 季节</th><th>大纲板块</th><th>课程资料</th><th>资料类型</th><th>课次 / 版本</th><th>文件</th><th>负责人</th><th>公式 / 说明</th><th>操作</th></tr>
+                <tr><th>年级 / 季节</th><th>大纲板块</th><th>课程资料</th><th>资料类型</th><th>课次 / 版本</th><th>文件</th><th>授课老师 / 负责人</th><th>公式 / 说明</th><th>操作</th></tr>
               </thead>
               <tbody id="curriculumTableBody"></tbody>
             </table>
@@ -180,6 +188,7 @@
             <label class="field"><span>学科 / 年级</span><input id="curriculumSubjectInput" placeholder="例如：数学 / 五年级"></label>
             <label class="field"><span>年级</span><select id="curriculumGradeInput"><option>一年级</option><option>二年级</option><option>三年级</option><option>四年级</option><option>五年级</option><option>六年级</option><option>初一</option><option>初二</option><option>初三</option></select></label>
             <label class="field"><span>大纲板块</span><select id="curriculumOutlineCategoryInput"><option>普通课程资料</option><option>程老师授课大纲</option><option>科学老师授课大纲</option><option>小课老师授课大纲</option></select></label>
+            <label class="field"><span>授课老师</span><select id="curriculumTeacherInput"><option value="">按负责人 / 不指定</option></select></label>
             <label class="field"><span>季节</span><select id="curriculumSeasonInput"><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select></label>
             <label class="field"><span>课程体系</span><select id="curriculumTrackInput"><option>课内体系</option><option>培优体系</option><option>奥数体系</option><option>强基重高选拔体系</option></select></label>
             <label class="field"><span>资料类型</span><select id="curriculumTypeInput"><option>课程大纲</option><option>课件PDF</option><option>讲义Word</option><option>题目图片</option><option>老师版答案</option><option>板书照片</option><option>题库</option><option>备课资料</option><option>其他</option></select></label>
@@ -216,11 +225,20 @@
           </table>
         </div>
       </section>
+      <div class="preview-modal" id="curriculumPreviewModal" aria-hidden="true">
+        <div class="preview-dialog" role="dialog" aria-modal="true" aria-label="图片预览">
+          <div class="preview-head">
+            <strong id="curriculumPreviewTitle">图片预览</strong>
+            <button class="button secondary" id="curriculumPreviewCloseButton" type="button">关闭</button>
+          </div>
+          <img id="curriculumPreviewImage" alt="课程资料图片预览">
+        </div>
+      </div>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260626a"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
   </body>
 </html>
