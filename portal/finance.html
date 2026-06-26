@@ -1845,7 +1845,7 @@
         render();
       }
 
-      function syncPeriodFromForm() {
+      function syncPeriodFromForm(options = {}) {
         const period = getPeriod();
         const form = byId("monthlyForm");
         MONEY_FIELDS.forEach((field) => {
@@ -1854,12 +1854,14 @@
         period.reviewStatus = "待复核";
         period.updatedAt = new Date().toISOString();
         period.updatedBy = window.JRC_CURRENT_EMPLOYEE?.name || "未登录";
-        recordFinanceLink(
-          "月结草算保存",
-          1,
-          [currentPeriod],
-          "财务月结保存为待复核状态，后续继续和排课、点名、工资表进行对照。"
-        );
+        if (options.log === true) {
+          recordFinanceLink(
+            "月结草算保存",
+            1,
+            [currentPeriod],
+            "财务月结保存为待复核状态，后续继续和排课、点名、工资表进行对照。"
+          );
+        }
         writeState(state).then((result) => {
           setFinanceMessage(result?.ok
             ? `已保存到云端：${currentPeriod} 月结数据已进入“待复核”。`
@@ -3176,8 +3178,8 @@
         getPeriod(currentPeriod);
         syncFormFromPeriod();
       });
-      byId("monthlyForm").addEventListener("input", syncPeriodFromForm);
-      byId("saveMonthlyButton").addEventListener("click", syncPeriodFromForm);
+      byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());
+      byId("saveMonthlyButton").addEventListener("click", () => syncPeriodFromForm({ log: true }));
       byId("confirmMonthlyReviewButton").addEventListener("click", confirmCurrentPeriodReview);
       byId("addExpenseButton").addEventListener("click", addExpense);
       byId("exportSummaryButton").addEventListener("click", exportSummary);
