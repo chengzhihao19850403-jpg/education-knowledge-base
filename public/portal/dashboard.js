@@ -2,6 +2,7 @@
   const admissionsKey = "advice-system-stage-prototype";
   const auditKey = "jrc-business-audit-log-v1";
   const suggestionsKey = "jrc-suggestion-management-v2";
+  const siteFeedbackKey = "jrc-site-feedback-v1";
   const moduleOwnerTasks = [
     {
       key: "admissions",
@@ -518,6 +519,67 @@
     return String(item.owner || "") === name || String(item.ownerUsername || "").trim().toLowerCase() === username;
   }
 
+  function feedbackRelatedToCurrentUser(item) {
+    const employee = currentEmployee();
+    const name = String(employee?.name || "").trim();
+    const username = String(employee?.username || "").trim().toLowerCase();
+    if (!name && !username) return false;
+    return String(item?.userName || item?.name || "").trim() === name ||
+      String(item?.username || "").trim().toLowerCase() === username;
+  }
+
+  function feedbackRowTime(row) {
+    const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+    const noteTime = notes.map((note) => Date.parse(note?.time || "") || 0).reduce((max, value) => Math.max(max, value), 0);
+    return Math.max(
+      Date.parse(row?.updatedAt || "") || 0,
+      Date.parse(row?.processedAt || "") || 0,
+      Date.parse(row?.confirmedAt || "") || 0,
+      Date.parse(row?.reopenedAt || "") || 0,
+      Date.parse(row?.createdAt || "") || 0,
+      noteTime
+    );
+  }
+
+  function mergeFeedbackRows(...groups) {
+    const map = new Map();
+    groups.flat().forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const id = String(row.id || "").trim();
+      if (!id) return;
+      const existing = map.get(id);
+      if (!existing || feedbackRowTime(row) >= feedbackRowTime(existing)) {
+        map.set(id, { ...existing, ...row, id });
+      } else {
+        map.set(id, { ...row, ...existing, id });
+      }
+    });
+    return [...map.values()]
+      .sort((left, right) => feedbackRowTime(right) - feedbackRowTime(left))
+      .slice(0, 300);
+  }
+
+  function feedbackProgressText(row) {
+    const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+    const latestNote = notes[notes.length - 1];
+    return row?.resolution || latestNote?.text || (siteFeedbackIsClosed(row) ? "已处理，等待本人复核。" : "已提交，等待管理员处理。");
+  }
+
+  async function readSiteFeedbackRows() {
+    let rows = readStore(siteFeedbackKey, []);
+    if (window.JRC_CLOUD?.readModuleData) {
+      try {
+        const result = await window.JRC_CLOUD.readModuleData(siteFeedbackKey);
+        const remoteRows = Array.isArray(result?.data?.payload) ? result.data.payload : [];
+        rows = mergeFeedbackRows(remoteRows, rows);
+        localStorage.setItem(siteFeedbackKey, JSON.stringify(rows));
+      } catch (error) {
+        console.warn("Failed to read site feedback", error);
+      }
+    }
+    return Array.isArray(rows) ? rows : [];
+  }
+
   async function syncSuggestionTasksToCloud(rows) {
     if (!window.JRC_CLOUD?.writeModuleData) return;
     let nextRows = Array.isArray(rows) ? rows : [];
@@ -594,6 +656,43 @@
       "有新任务时会显示在这里。",
       "./suggestions.html",
       "进入建议任务"
+    );
+  }
+
+  async function renderMyFeedback() {
+    const listHolder = $("portalMyFeedbackList");
+    const statsHolder = $("portalMyFeedbackStats");
+    if (!listHolder) return;
+    const rows = (await readSiteFeedbackRows()).filter(feedbackRelatedToCurrentUser);
+    const closedRows = rows.filter(siteFeedbackIsClosed);
+    const reopenRows = rows.filter((row) => row.status === "继续反馈");
+    const pendingRows = rows.filter((row) => !siteFeedbackIsClosed(row));
+    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = String(rows.length);
+    if (statsHolder) {
+      statsHolder.innerHTML = `
+        <div class="workbench-kpi-card"><span>已提交</span><strong>${rows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>已处理</span><strong>${closedRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>待处理</span><strong>${pendingRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>继续反馈</span><strong>${reopenRows.length}</strong></div>
+      `;
+    }
+    listHolder.innerHTML = rows.length ? rows.slice(0, 4).map((row) => {
+      const done = siteFeedbackIsClosed(row);
+      const level = row.status === "继续反馈" ? "提醒" : done ? "正常" : "提醒";
+      const title = `${row.type || "反馈"}｜${row.system || "未知页面"}`;
+      const progressText = feedbackProgressText(row);
+      const detail = [
+        `状态：${row.status || "待处理"}`,
+        `问题：${String(row.content || "").slice(0, 72)}${String(row.content || "").length > 72 ? "..." : ""}`,
+        `进展：${progressText.slice(0, 86)}${progressText.length > 86 ? "..." : ""}`
+      ].join("\n");
+      return todoItem(level, title, detail, "./suggestions.html#siteFeedbackTitle", done ? "去复核" : "看进展");
+    }).join("") : todoItem(
+      "正常",
+      "暂无个人反馈",
+      "试用时发现不好用、看不懂、数据不对，可以点右下角“反馈问题”。",
+      "./suggestions.html#siteFeedbackTitle",
+      "查看反馈"
     );
   }
 
@@ -723,6 +822,7 @@
     const holder = $("portalTodoList");
     if (holder) holder.innerHTML = todos.join("");
     renderMyTasks();
+    renderMyFeedback();
 
     renderDataStates();
     renderCloudReadiness();
