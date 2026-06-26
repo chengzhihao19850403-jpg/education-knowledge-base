@@ -362,6 +362,29 @@
         line-height: 1.7;
         white-space: pre-wrap;
       }
+      .module-guide-card {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .module-guide-block {
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(13, 148, 136, 0.05);
+      }
+      .module-guide-block span {
+        display: block;
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .module-guide-block p {
+        margin-top: 6px;
+        color: var(--ink);
+        line-height: 1.75;
+        white-space: pre-wrap;
+      }
       .module-owner-link {
         margin-top: 12px;
       }
@@ -1032,6 +1055,8 @@
           comments: [{ author: "系统", text: "模块负责人任务已自动分派。", time: date }],
           moduleOwnerTask: true,
           moduleKey: task.key,
+          moduleSystem: task.system,
+          moduleGuide: task.guide,
           moduleHref: task.href
         };
       }
@@ -1062,6 +1087,8 @@
             decision: seed.decision,
             moduleOwnerTask: true,
             moduleKey: seed.moduleKey,
+            moduleSystem: seed.moduleSystem,
+            moduleGuide: seed.moduleGuide,
             moduleHref: seed.moduleHref,
             entryType: "task"
           };
@@ -1393,6 +1420,39 @@
         }).join("");
       }
 
+      function splitModuleGuideSections(text) {
+        const knownLabels = ["使用逻辑", "试用重点", "当前口径", "联动重点", "反馈要求", "试用闭环"];
+        return String(text || "")
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const match = line.match(/^([^：:]{2,8})[：:](.*)$/);
+            if (!match || !knownLabels.includes(match[1])) return { label: "说明", value: line };
+            return { label: match[1], value: match[2].trim() };
+          });
+      }
+
+      function renderModuleGuide(item) {
+        const sections = [
+          { label: "责任人", value: `${item.owner || "未分配"}｜${item.dueDate ? `截止 ${item.dueDate}` : "未设截止时间"}` },
+          { label: "负责模块", value: item.moduleSystem || String(item.title || "").replace(/^【模块负责人】/, "").replace(/试用监管$/, "") },
+          ...splitModuleGuideSections(item.moduleGuide || item.content),
+          item.taskStandard ? { label: "完成标准", value: item.taskStandard } : null,
+          item.subtasks ? { label: "试用步骤", value: item.subtasks } : null
+        ].filter((section) => section?.value);
+        return `
+          <div class="module-guide-card">
+            ${sections.map((section) => `
+              <section class="module-guide-block">
+                <span>${escapeHtml(section.label)}</span>
+                <p>${escapeHtml(section.value)}</p>
+              </section>
+            `).join("")}
+          </div>
+        `;
+      }
+
       function renderList() {
         const list = filteredSuggestions();
         byId("suggestionList").innerHTML = list.length ? list.map((item) => {
@@ -1400,7 +1460,7 @@
           const noteCount = (item.comments || []).length + (item.decision ? 1 : 0) + (item.completionReport ? 1 : 0);
           const managerOpen = canManage && activeManagementId === item.id;
           const contentHtml = item.moduleOwnerTask
-            ? `<div class="module-guide">${escapeHtml(item.content)}</div>`
+            ? renderModuleGuide(item)
             : `<p class="suggestion-content"><strong>建议内容：</strong>${escapeHtml(item.content)}</p>`;
           return `
           <article class="suggestion-card ${isOverdue(item) ? "overdue" : ""}" data-id="${escapeHtml(item.id)}">
