@@ -852,6 +852,17 @@
         return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`;
       }
 
+      function localDateText(date = new Date()) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function localMonthText(date = new Date()) {
+        return localDateText(date).slice(0, 7);
+      }
+
       function startOfWeek(date) {
         const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const day = d.getDay() || 7;
@@ -865,8 +876,8 @@
         if (!key) return range !== "today" && range !== "week";
         const rowDate = new Date(`${key}T00:00:00`);
         const now = new Date();
-        if (range === "today") return key === dateKey(now.toISOString());
-        if (range === "month") return key.slice(0, 7) === dateKey(now.toISOString()).slice(0, 7);
+        if (range === "today") return key === localDateText(now);
+        if (range === "month") return key.slice(0, 7) === localMonthText(now);
         const weekStart = startOfWeek(now);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
@@ -1023,7 +1034,7 @@
 
       function dateMatchesMode(date, mode) {
         const weekday = weekdayName(date);
-        if (mode === "today") return dateKey(date) === dateKey(new Date().toISOString());
+        if (mode === "today") return dateKey(date) === localDateText();
         if (mode === "week") return isInRange({ date }, "week");
         if (mode === "weekend") return ["周五", "周六", "周日"].includes(weekday);
         if (mode === "weekday") return ["周一", "周二", "周三", "周四"].includes(weekday);
@@ -1056,7 +1067,7 @@
       }
 
       function currentMonthValue() {
-        return dateKey(new Date().toISOString()).slice(0, 7);
+        return localMonthText();
       }
 
       function setTeacherSheetPeriod(period) {
@@ -1079,7 +1090,7 @@
           if (period && row.period !== period) return false;
           if (teacher && row.teacher !== teacher) return false;
           const weekday = weekdayName(row.date);
-          if (mode === "today" && dateKey(row.date) !== dateKey(new Date().toISOString())) return false;
+          if (mode === "today" && dateKey(row.date) !== localDateText()) return false;
           if (mode === "week" && !isInRange(row, "week")) return false;
           if (mode === "weekend" && !["周五", "周六", "周日"].includes(weekday)) return false;
           if (mode === "weekday" && !["周一", "周二", "周三", "周四"].includes(weekday)) return false;

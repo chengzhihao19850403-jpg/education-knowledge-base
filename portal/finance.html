@@ -1201,7 +1201,14 @@
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : 0;
       };
-      const todayText = () => new Date().toISOString().slice(0, 10);
+      const localDateText = (date = new Date()) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+      const localMonthText = (date = new Date()) => localDateText(date).slice(0, 7);
+      const todayText = () => localDateText();
       const salaryRowAmount = (row) => {
         const commission = toNumber(row?.commission);
         const explicitAmount = toNumber(row?.amount);
@@ -1359,7 +1366,7 @@
       }
 
       function currentMonthValue() {
-        return new Date().toISOString().slice(0, 7);
+        return localMonthText();
       }
 
       function periodHasFinanceRows(periodName, teacher = "") {
