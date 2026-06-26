@@ -58,8 +58,6 @@
       .outline-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; color: var(--ink); cursor: pointer; }
       .outline-card strong { display: block; margin-bottom: 5px; }
       .outline-card span { color: var(--muted); font-size: 12px; line-height: 1.55; }
-      .inline-preview { display: grid; gap: 7px; }
-      .inline-preview img { width: 150px; max-height: 110px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
       .preview-modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.72); }
       .preview-modal[aria-hidden="false"] { display: flex; }
       .preview-dialog { width: min(980px, 96vw); max-height: 92vh; overflow: auto; border-radius: 18px; background: #fff; box-shadow: var(--shadow); padding: 16px; }
@@ -147,8 +145,8 @@
         </div>
         <div class="outline-board">
           <button class="outline-card" type="button" data-outline-filter="程老师授课大纲"><strong>程老师授课大纲</strong><span>统一课型、课堂节奏、核心题型和讲解重点。</span></button>
-          <button class="outline-card" type="button" data-outline-filter="科学老师授课大纲"><strong>科学老师授课大纲</strong><span>按科学年级、实验主题、公式定义和易错点归档。</span></button>
           <button class="outline-card" type="button" data-outline-filter="小课老师授课大纲"><strong>小课老师授课大纲</strong><span>按春季、暑假、秋季、寒假和不同年级归档。</span></button>
+          <button class="outline-card" type="button" data-outline-filter="科学老师授课大纲"><strong>科学老师授课大纲</strong><span>按科学年级、实验主题、公式定义和易错点归档。</span></button>
         </div>
       </section>
 
@@ -161,14 +159,9 @@
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
-            <input id="curriculumFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索课程 / 年级 / 体系 / 文件 / 负责人">
-            <select id="curriculumOutlineFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部大纲板块</option><option>程老师授课大纲</option><option>科学老师授课大纲</option><option>小课老师授课大纲</option><option>普通课程资料</option></select>
-            <select id="curriculumTeacherFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部授课老师</option></select>
+            <select id="curriculumTeacherFilter" hidden style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部授课老师</option></select>
             <select id="curriculumSeasonFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部季节</option><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select>
             <select id="curriculumGradeFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部年级</option></select>
-            <select id="curriculumSortSelect" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="status">待处理优先</option></select>
-            <button class="button secondary" id="curriculumImportButton" type="button">导入数据</button>
-            <input id="curriculumImportInput" type="file" accept="application/json,text/csv,text/tab-separated-values,text/plain,.json,.csv,.tsv,.txt" hidden>
           </div>
           <div class="table-wrap">
             <table>
@@ -238,7 +231,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260626a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260626c"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
   </body>
 </html>

@@ -1120,6 +1120,14 @@
       }
     }
 
+    function updateCurriculumFilterControls() {
+      const teacherFilter = $("curriculumTeacherFilter");
+      if (!teacherFilter) return;
+      const shouldShowTeacherFilter = activeOutlineFilter === "小课老师授课大纲";
+      teacherFilter.hidden = !shouldShowTeacherFilter;
+      if (!shouldShowTeacherFilter) teacherFilter.value = "";
+    }
+
     function isImageFile(row = {}) {
       const fileType = String(row.fileType || "").toLowerCase();
       const fileName = String(row.fileName || "").toLowerCase();
@@ -1165,9 +1173,8 @@
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
+    let activeOutlineFilter = "";
     let curriculumPreviewObjectUrl = "";
-    const curriculumThumbObjectUrls = new Map();
-    const hydratingCurriculumThumbs = new Set();
 
     function gradeScopeText() {
       if (!isGradeRestricted) return "当前账号可查看全部年级课程资料。";
@@ -1320,8 +1327,8 @@
     }
 
     function rowMatchesCurriculumFilters(row) {
-      const outlineFilter = $("curriculumOutlineFilter")?.value || "";
-      const teacherFilter = $("curriculumTeacherFilter")?.value || "";
+      const outlineFilter = activeOutlineFilter || $("curriculumOutlineFilter")?.value || "";
+      const teacherFilter = activeOutlineFilter === "小课老师授课大纲" ? ($("curriculumTeacherFilter")?.value || "") : "";
       const seasonFilter = $("curriculumSeasonFilter")?.value || "";
       const gradeFilter = $("curriculumGradeFilter")?.value || "";
       if (outlineFilter && normalizeOutlineCategory(row.outlineCategory, row.type) !== outlineFilter) return false;
@@ -1394,16 +1401,9 @@
       const canDownload = row.fileDataUrl || row.fileStorageKey || row.fileUrl;
       if (!canDownload) return `<div style="display:grid; gap:6px;">${tag("待上传", "warn")}<span>${escapeHtml(row.fileName)}</span></div>`;
       if (isImageFile(row)) {
-        const thumbKey = String(row.rowId || index);
-        const thumbnailSrc = row.fileDataUrl || curriculumThumbObjectUrls.get(thumbKey) || "";
-        const thumbnail = `<img ${thumbnailSrc ? `src="${escapeHtml(thumbnailSrc)}"` : ""} data-curriculum-thumb="${index}" loading="lazy" alt="${escapeHtml(row.fileName)}">`;
         return `
-          <div class="inline-preview">
-            ${thumbnail}
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button type="button" data-preview-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(15,118,110,0.18); background:rgba(15,118,110,0.10); color:#0f766e; cursor:pointer;">预览图片</button>
-              <button type="button" data-download-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">下载</button>
-            </div>
+          <div style="display:grid; gap:6px;">
+            <button type="button" data-preview-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">打开图片</button>
             <span>${escapeHtml(row.fileName)}</span>
             <small>${formatFileSize(row.fileSize)}</small>
           </div>
@@ -1416,35 +1416,6 @@
           <small>${formatFileSize(row.fileSize)}</small>
         </div>
       `;
-    }
-
-    function hydrateCurriculumThumbnails(entries) {
-      if (!window.JRC_CLOUD?.downloadCurriculumFile) return;
-      entries.forEach(({ row, index }) => {
-        if (!isImageFile(row) || row.fileDataUrl || (!row.fileStorageKey && !row.fileUrl)) return;
-        const thumbKey = String(row.rowId || index);
-        const node = document.querySelector(`[data-curriculum-thumb="${index}"]`);
-        if (!node) return;
-        const cachedUrl = curriculumThumbObjectUrls.get(thumbKey);
-        if (cachedUrl) {
-          node.src = cachedUrl;
-          return;
-        }
-        if (hydratingCurriculumThumbs.has(thumbKey)) return;
-        hydratingCurriculumThumbs.add(thumbKey);
-        window.JRC_CLOUD.downloadCurriculumFile(row).then((result) => {
-          if (!result.ok || !result.blob) return;
-          const objectUrl = URL.createObjectURL(result.blob);
-          curriculumThumbObjectUrls.set(thumbKey, objectUrl);
-          document.querySelectorAll(`[data-curriculum-thumb="${index}"]`).forEach((image) => {
-            image.src = objectUrl;
-          });
-        }).catch((error) => {
-          console.warn("课程图片缩略图加载失败", error);
-        }).finally(() => {
-          hydratingCurriculumThumbs.delete(thumbKey);
-        });
-      });
     }
 
     function render() {
@@ -1477,7 +1448,6 @@
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
         `).join("") : `<tr><td colspan="9">${isGradeRestricted && !allowedGrades.length ? "当前账号还没有配置负责年级。" : "当前负责范围内暂无课程资料。"}</td></tr>`;
-      hydrateCurriculumThumbnails(entries);
       setText("curriculumMetricOutline", scopedRows.filter((row) => row.type === "课程大纲" || isTeachingOutline(row)).length);
       setText("curriculumMetricMaterials", scopedRows.filter((row) => ["课件PDF", "讲义Word", "题目图片", "老师版答案", "题库"].includes(row.type)).length);
       setText("curriculumMetricProducts", new Set(scopedRows.map((row) => `${row.grade || ""}|${row.track || ""}`).filter(Boolean)).size);
@@ -1586,6 +1556,7 @@
       setText("curriculumMessage", `已保存：新增 ${addedCount} 条，更新 ${updatedCount} 条。重复资料已自动升级版本。`);
       writeStore(key, rows);
       applyTeacherOptions();
+      updateCurriculumFilterControls();
       resetForm();
       render();
     });
@@ -1593,11 +1564,12 @@
     document.querySelectorAll("[data-outline-filter]").forEach((button) => {
       button.addEventListener("click", () => {
         const category = normalizeOutlineCategory(button.getAttribute("data-outline-filter"), "课程大纲");
-        if ($("curriculumOutlineFilter")) $("curriculumOutlineFilter").value = category;
+        activeOutlineFilter = category;
+        updateCurriculumFilterControls();
         if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = category;
         if ($("curriculumTypeInput")) $("curriculumTypeInput").value = "课程大纲";
         render();
-        setText("curriculumMessage", `已切换到：${category}。可继续按季节和年级筛选，或直接上传大纲。`);
+        setText("curriculumMessage", `已切换到：${category}。可继续按季节和年级查看，或在右侧上传大纲。`);
       });
     });
     $("curriculumOutlineFilter")?.addEventListener("change", render);
@@ -1717,6 +1689,7 @@
         rows = nextRows;
         writeStore(key, rows);
         applyTeacherOptions();
+        updateCurriculumFilterControls();
         resetForm();
         render();
       },
@@ -1769,6 +1742,7 @@
     });
     applyGradeOptions();
     applyTeacherOptions();
+    updateCurriculumFilterControls();
     resetForm();
     render();
     setText("curriculumMessage", gradeScopeText());
@@ -1776,6 +1750,7 @@
       rows = mergeRowsById(sanitizeRows(cloudRows), key);
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       applyTeacherOptions();
+      updateCurriculumFilterControls();
       resetForm();
       render();
       setText("curriculumMessage", "已同步云端教研课程台账。");
