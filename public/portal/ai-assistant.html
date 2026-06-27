@@ -71,9 +71,11 @@
         outline: none;
       }
       .result-edit:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
-      .result-edit.needs-completion { border-color: rgba(180,83,9,0.55); background: #fff7ed; }
+      .result-edit.needs-completion { border-color: rgba(180,83,9,0.55); box-shadow: 0 0 0 3px rgba(180,83,9,0.10); }
       .result-hint { margin-top: 6px; color: var(--muted); font-size: 12px; }
-      .completion-warning { margin-top: 8px; padding: 9px 10px; border-radius: 12px; background: rgba(180,83,9,0.12); color: var(--amber); font-size: 12px; line-height: 1.55; font-weight: 800; }
+      .completion-warning { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(180,83,9,0.10); color: var(--amber); font-size: 12px; line-height: 1.6; font-weight: 800; }
+      .completion-warning ul { margin: 6px 0 0; padding-left: 18px; }
+      .completion-warning li + li { margin-top: 3px; }
       .draft-list { display: grid; gap: 10px; margin-top: 12px; }
       .draft-item { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
       .draft-item strong { display: block; }
@@ -257,6 +259,48 @@
         try { return JSON.parse(raw || "null") ?? fallback; } catch { return fallback; }
       }
 
+      function parseJsonLikeText(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return null;
+        const candidates = [raw];
+        const firstBrace = raw.indexOf("{");
+        const lastBrace = raw.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          candidates.push(raw.slice(firstBrace, lastBrace + 1));
+        }
+        for (const candidate of candidates) {
+          try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed === "object") return parsed;
+          } catch (_) {}
+        }
+        return null;
+      }
+
+      function normalizeAiResultPayload(value) {
+        if (!value) return value;
+        let result = value;
+        if (typeof result === "string") {
+          result = parseJsonLikeText(result) || { parentMessage: result, polishedText: result };
+        }
+        if (!result || typeof result !== "object") return result;
+        const parsedParent = parseJsonLikeText(result.parentMessage);
+        const parsedPolished = parseJsonLikeText(result.polishedText);
+        const parsedSummary = parseJsonLikeText(result.summary);
+        const nested = parsedParent || parsedPolished || parsedSummary;
+        if (nested) {
+          result = { ...result, ...nested };
+        }
+        const parentMessage = String(result.parentMessage || "").trim();
+        const polishedText = String(result.polishedText || "").trim();
+        const fallbackText = parentMessage || polishedText || String(result.summary || "").trim();
+        return {
+          ...result,
+          parentMessage: parentMessage || fallbackText,
+          polishedText: polishedText && polishedText !== parentMessage ? polishedText : (parentMessage || fallbackText)
+        };
+      }
+
       function mergeSuggestionRows(rows) {
         const map = new Map();
         (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -420,17 +464,39 @@
         } else {
           result.polishedText = value;
         }
-        return result;
+        return normalizeAiResultPayload(result);
       }
 
       function missingCompletionItems(value) {
         const text = String(value || "");
         const items = [];
-        if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|《\s*[_＿xX\s]*\s*》/.test(text)) items.push("横线或空白占位");
-        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|某某|待(老师)?(补充|确认|填写)|未补|空缺|待定/.test(text)) items.push("待补内容");
-        if (/第\s*(?:__|＿+|[xX])\s*次/.test(text)) items.push("第几次课");
-        if (/《\s*(?:__|＿+|[xX]+|待补充)?\s*》做完/.test(text)) items.push("课后作业");
-        if (/(本次课上课内容：\s*(?:\n\s*)?(?:__|＿+|待补充)|\n\s*\d+\.\s*(?:__|＿+|待补充)\s*(?:\n|$))/.test(text)) items.push("上课内容");
+        const add = (label) => {
+          if (label && !items.includes(label)) items.push(label);
+        };
+        if (/某某的家长|^某某/.test(text)) add("开头学生姓名还是“某某”，需要改成真实学生姓名");
+        if (/第\s*(?:__|＿+|[xX])\s*次/.test(text)) add("开头第几次课没有补完整");
+        const homeworkMatch = text.match(/五、课后作业：([\s\S]*)$/);
+        const homeworkText = homeworkMatch ? homeworkMatch[1] : "";
+        if (/《\s*(?:__|＿+|[xX]+|待补充)?\s*》做完|待补充|待确认|待填写|未补|空缺|待定/.test(homeworkText)) add("五、课后作业没有补完整");
+        const contentSection = extractTemplateSection(text, "二、本次课上课内容：", ["三、知识点要点：", "四、学习掌握情况：", "五、课后作业："]);
+        const knowledgeSection = extractTemplateSection(text, "三、知识点要点：", ["四、学习掌握情况：", "五、课后作业："]);
+        const masterySection = extractTemplateSection(text, "四、学习掌握情况：", ["五、课后作业："]);
+        [
+          ["二、本次课上课内容", contentSection],
+          ["三、知识点要点", knowledgeSection],
+          ["四、学习掌握情况", masterySection]
+        ].forEach(([sectionName, sectionText]) => {
+          String(sectionText || "").split(/\n+/).forEach((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            const number = (trimmed.match(/^(\d+)\./) || [])[1];
+            if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|待(老师)?(补充|确认|填写)|未补|空缺|待定|本节课上课内容待老师补充|知识点待老师补充/.test(trimmed)) {
+              add(`${sectionName}${number ? `第 ${number} 条` : ""}需要补充`);
+            }
+          });
+        });
+        if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|《\s*[_＿xX\s]*\s*》/.test(text)) add("正文里还有横线、空白或占位符");
+        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|待(老师)?(补充|确认|填写)|未补|空缺|待定/.test(text) && !items.length) add("正文里还有待补内容");
         return [...new Set(items)];
       }
 
@@ -440,7 +506,12 @@
 
       function completionWarningHtml(value) {
         const items = missingCompletionItems(value);
-        return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? `还有未补完整内容：${escapeHtml(items.join("、"))}。补齐后再归档。` : ""}</div>`;
+        return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? completionWarningContent(items) : ""}</div>`;
+      }
+
+      function completionWarningContent(items) {
+        const list = (Array.isArray(items) ? items : []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+        return `还有未补完整内容，补齐后再归档：<ul>${list}</ul>`;
       }
 
       function updateCompletionWarning(textarea) {
@@ -450,7 +521,7 @@
         const warning = textarea.parentElement?.querySelector("[data-completion-warning]");
         if (warning) {
           warning.hidden = items.length === 0;
-          warning.textContent = items.length ? `还有未补完整内容：${items.join("、")}。补齐后再归档。` : "";
+          warning.innerHTML = items.length ? completionWarningContent(items) : "";
         }
         return items;
       }
@@ -485,6 +556,23 @@
         return updated;
       }
 
+      function deleteDraftRow(id) {
+        const targetId = String(id || "");
+        if (!targetId) return false;
+        const rows = readDrafts();
+        const nextRows = rows.filter((row) => String(row.id || row.rowId || "") !== targetId);
+        if (nextRows.length === rows.length) return false;
+        writeDrafts(nextRows);
+        if (editingDraftId === targetId) {
+          setEditingDraft("");
+          latestResult = null;
+          latestBatchResults = [];
+          byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
+        }
+        renderDrafts(nextRows);
+        return true;
+      }
+
       function shortDateTime(value) {
         return String(value || "").replace("T", " ").slice(0, 16);
       }
@@ -510,6 +598,7 @@
                 <button class="button" type="button" data-draft-action="save-inline" data-draft-id="${escapeHtml(row.id || "")}">保存草稿内容</button>
                 <button class="button secondary" type="button" data-draft-action="copy" data-draft-id="${escapeHtml(row.id || "")}">复制草稿</button>
                 <button class="button secondary" type="button" data-draft-action="reuse" data-draft-id="${escapeHtml(row.id || "")}">带到右侧精修</button>
+                <button class="button warn" type="button" data-draft-action="delete" data-draft-id="${escapeHtml(row.id || "")}">删除草稿</button>
               </div>
             </details>
           </div>
@@ -879,6 +968,7 @@
       }
 
       function ensureClassFeedbackTemplate(result, payload = {}) {
+        result = normalizeAiResultPayload(result);
         if (!result || !isClassFeedbackMode()) return result;
         const target = payload.target ?? byId("aiTargetInput")?.value ?? "";
         const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
@@ -2068,6 +2158,13 @@
         if (button.dataset.draftAction === "copy") {
           await navigator.clipboard?.writeText(text);
           byId("aiMessage").textContent = "已复制草稿内容。";
+          return;
+        }
+        if (button.dataset.draftAction === "delete") {
+          const title = draftHistoryTitle(row);
+          if (!confirm(`确定删除「${title}」这条草稿吗？`)) return;
+          const deleted = deleteDraftRow(button.dataset.draftId);
+          byId("aiMessage").textContent = deleted ? "已删除这条草稿。" : "草稿删除失败，请刷新后重试。";
           return;
         }
         byId("aiModeInput").value = row.mode || "classFeedback";
