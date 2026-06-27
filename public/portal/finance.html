@@ -373,6 +373,82 @@
         margin-bottom: 4px;
         color: var(--ink);
       }
+      .finance-teacher-workbench-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.72fr);
+        gap: 14px;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid rgba(13, 148, 136, 0.18);
+        border-radius: 18px;
+        background: rgba(13, 148, 136, 0.06);
+      }
+      .finance-teacher-workbench-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .finance-teacher-workbench-head strong {
+        display: block;
+        color: var(--ink);
+        font-size: 20px;
+      }
+      .finance-teacher-workbench-head span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .finance-teacher-workbench-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .finance-teacher-workbench-stat,
+      .finance-next-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.86);
+      }
+      .finance-teacher-workbench-stat span,
+      .finance-next-item span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .finance-teacher-workbench-stat strong {
+        display: block;
+        margin-top: 5px;
+        color: var(--ink);
+        font-size: 22px;
+      }
+      .finance-teacher-workbench-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .finance-next-list {
+        display: grid;
+        gap: 8px;
+      }
+      .finance-next-item strong {
+        display: block;
+        margin-top: 3px;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .finance-next-item em {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        line-height: 1.45;
+      }
       .workbench-strip {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1079,6 +1155,8 @@
         }
         .finance-path-grid,
         .finance-review-path,
+        .finance-teacher-workbench-panel,
+        .finance-teacher-workbench-stats,
         .workbench-strip,
         .finance-command-grid,
         .attendance-decision-grid,
@@ -1191,6 +1269,7 @@
           <button class="button secondary" type="button" data-finance-quick="review">只看待对账</button>
           <button class="button secondary" type="button" data-finance-quick="admin">管理员核对区</button>
         </div>
+        <div class="finance-teacher-workbench-panel" id="financeTeacherWorkbenchPanel" aria-label="老师工资工作台"></div>
         <div class="finance-review-path" aria-label="财务核对路径">
           <div class="finance-review-path-item"><strong>1. 选月份</strong>先确认 2026-05 / 2026-06，避免跨月看错。</div>
           <div class="finance-review-path-item"><strong>2. 点老师</strong>每位老师一张工资单，先看合计。</div>
@@ -4419,6 +4498,90 @@
         };
       }
 
+      function renderFinanceTeacherWorkbench(teacher, rows = null, groups = null) {
+        const holder = byId("financeTeacherWorkbenchPanel");
+        if (!holder) return;
+        if (!teacher) {
+          holder.innerHTML = `
+            <div>
+              <div class="finance-teacher-workbench-head">
+                <div>
+                  <strong>老师工资工作台</strong>
+                  <span>先选择月份和老师，再看本月工资单、待对账和点名课销。</span>
+                </div>
+                <span class="status-pill pending">待选择</span>
+              </div>
+            </div>
+            <div class="finance-next-list">
+              <div class="finance-next-item"><span>下一步</span><strong>请选择老师</strong><em>选择后会自动显示这位老师的工资单状态。</em></div>
+            </div>
+          `;
+          return;
+        }
+        const detailRows = Array.isArray(rows) ? rows : teacherDetailRows();
+        const detailGroups = Array.isArray(groups) ? groups : teacherDetailGroups(detailRows);
+        const data = teacherWageOverviewData(teacher, detailRows, detailGroups);
+        const reviewStatus = teacherWageReviewStatus(teacher, data);
+        const attendanceRows = deriveAttendanceSettlementRows().filter((row) => row.teacher === teacher);
+        const attendanceLessons = attendanceRows.reduce((sum, row) => sum + row.lessons, 0);
+        const attendanceFollowups = attendanceRows.reduce((sum, row) => sum + row.followupCount, 0);
+        const amountLabel = data.summaryRow ? money(data.teacherCost) : money(data.detailAmount);
+        const nextItems = [
+          {
+            label: "工资单",
+            title: data.rowsCount || data.summaryRow ? "先核本月应发合计" : "当前老师暂无明细",
+            detail: data.rowsCount || data.summaryRow
+              ? `应发/成本 ${amountLabel}，明细 ${data.rowsCount} 条。`
+              : "请先确认月份是否正确，或检查原工资表是否已导入。"
+          },
+          {
+            label: "待对账",
+            title: data.reviewCount ? `${data.reviewCount} 条需要重点看` : "暂无明显待核明细",
+            detail: data.reviewCount ? "点“只看待对账”，先处理金额、课次、来源不一致的地方。" : "先核总额；金额不一致时再展开逐课次明细。"
+          },
+          {
+            label: "点名课销",
+            title: attendanceLessons ? `${attendanceLessons} 节点名流入` : "暂无点名流入",
+            detail: attendanceFollowups ? `${attendanceFollowups} 人次暂缓，先等缺勤/请假闭环。` : "点名正常后再进入课销和课时费确认。"
+          }
+        ];
+        holder.innerHTML = `
+          <div>
+            <div class="finance-teacher-workbench-head">
+              <div>
+                <strong>${escapeHtml(teacher)}｜工资工作台</strong>
+                <span>先看合计和待对账；只有金额不一致时，再展开后面的逐课次明细。</span>
+              </div>
+              <span class="status-pill ${reviewStatus.className}">${escapeHtml(reviewStatus.label)}</span>
+            </div>
+            <div class="finance-teacher-workbench-stats">
+              <div class="finance-teacher-workbench-stat"><span>本月应发/成本</span><strong>${amountLabel}</strong></div>
+              <div class="finance-teacher-workbench-stat"><span>明细/学生</span><strong>${data.rowsCount} / ${data.studentCount}</strong></div>
+              <div class="finance-teacher-workbench-stat"><span>待对账</span><strong>${data.reviewCount}</strong></div>
+              <div class="finance-teacher-workbench-stat"><span>点名课销</span><strong>${attendanceLessons}</strong></div>
+            </div>
+            <div class="finance-teacher-workbench-actions">
+              <button class="button secondary" type="button" data-finance-workbench-action="detail">看工资单</button>
+              <button class="button secondary" type="button" data-finance-workbench-action="review">只看待对账</button>
+              <button class="button secondary" type="button" data-finance-workbench-action="export">导出工资单</button>
+              <button class="button secondary" type="button" data-finance-workbench-action="attendance">看点名课销</button>
+            </div>
+          </div>
+          <div>
+            <p class="eyebrow">核对顺序</p>
+            <div class="finance-next-list">
+              ${nextItems.map((item) => `
+                <div class="finance-next-item">
+                  <span>${escapeHtml(item.label)}</span>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <em>${escapeHtml(item.detail)}</em>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }
+
       function confirmTeacherWageReview() {
         if (!canEditFinance()) {
           setFinanceMessage("当前账号没有财务确认权限，不能确认工资单核对。");
@@ -4542,6 +4705,7 @@
         const amount = rows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
         const students = groups.length;
         const reviewCount = rows.filter((row) => row.needsReview || /待|核|复核/.test(String(row.status || ""))).length;
+        renderFinanceTeacherWorkbench(teacher, rows, groups);
         renderFinanceTeacherWageOverview(teacher, rows, groups);
         if (summary) {
           summary.innerHTML = `
@@ -4988,9 +5152,10 @@
             "exportTeacherWageButton"
           ].includes(node.id);
           const keepQuickButton = Boolean(node.dataset?.financeQuick);
+          const keepWorkbenchButton = Boolean(node.dataset?.financeWorkbenchAction);
           const keepTeacherCard = Boolean(node.dataset?.financeTeacherCard);
           const keepAttendanceDecision = Boolean(node.dataset?.attendanceView);
-          if (!canEdit && !keepEnabled && !keepQuickButton && !keepTeacherCard && !keepAttendanceDecision) node.disabled = true;
+          if (!canEdit && !keepEnabled && !keepQuickButton && !keepWorkbenchButton && !keepTeacherCard && !keepAttendanceDecision) node.disabled = true;
         });
       }
 
@@ -5070,6 +5235,30 @@
         byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
       }
 
+      function applyFinanceWorkbenchAction(action) {
+        const teacher = byId("financeTeacherSelect")?.value || "";
+        if (action === "detail") {
+          applyFinanceQuick("detail");
+          return;
+        }
+        if (action === "review") {
+          applyFinanceQuick("review");
+          return;
+        }
+        if (action === "export") {
+          exportTeacherWage();
+          return;
+        }
+        if (action === "attendance") {
+          attendanceFinanceTeacherFilter = teacher || "";
+          attendanceFinanceViewFilter = "all";
+          renderAttendanceSettlementPreview();
+          renderAttendanceDetailPreview();
+          setFinanceMessage(teacher ? `已打开 ${teacher} 的点名课销核对。` : "已打开点名课销核对。");
+          byId("attendanceFinanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+
       byId("periodInput").addEventListener("change", (event) => {
         currentPeriod = event.target.value || "2026-06";
         getPeriod(currentPeriod);
@@ -5134,6 +5323,11 @@
         const button = event.target.closest("#confirmTeacherWageReviewButton");
         if (!button || button.disabled) return;
         confirmTeacherWageReview();
+      });
+      byId("financeTeacherWorkbenchPanel")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-finance-workbench-action]");
+        if (!button) return;
+        applyFinanceWorkbenchAction(button.getAttribute("data-finance-workbench-action") || "");
       });
       byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());
       byId("saveMonthlyButton").addEventListener("click", () => syncPeriodFromForm({ log: true }));

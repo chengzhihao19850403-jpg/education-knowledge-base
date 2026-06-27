@@ -140,6 +140,81 @@
         gap: 10px;
         margin-top: 16px;
       }
+      .teacher-workbench-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.72fr);
+        gap: 14px;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid rgba(13,148,136,0.18);
+        border-radius: 18px;
+        background: rgba(13,148,136,0.06);
+      }
+      .teacher-workbench-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .teacher-workbench-head strong {
+        display: block;
+        color: var(--ink);
+        font-size: 20px;
+      }
+      .teacher-workbench-head span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .teacher-workbench-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .teacher-workbench-stat,
+      .teacher-next-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.86);
+      }
+      .teacher-workbench-stat span,
+      .teacher-next-item span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .teacher-workbench-stat strong {
+        display: block;
+        margin-top: 5px;
+        color: var(--ink);
+        font-size: 22px;
+      }
+      .teacher-workbench-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .teacher-next-list {
+        display: grid;
+        gap: 8px;
+      }
+      .teacher-next-item strong {
+        display: block;
+        margin-top: 3px;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .teacher-next-item a {
+        display: inline-flex;
+        margin-top: 6px;
+        color: var(--brand-dark);
+        font-weight: 800;
+        text-decoration: none;
+      }
       .schedule-workflow {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -609,6 +684,8 @@
         .excel-toolbar,
         .excel-summary,
         .teacher-quick-actions,
+        .teacher-workbench-panel,
+        .teacher-workbench-stats,
         .schedule-workflow,
         .read-guide,
         .admission-link-item {
@@ -710,6 +787,7 @@
           <button class="button secondary" type="button" data-teacher-sheet-quick="missing-room">未写教室</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
         </div>
+        <div class="teacher-workbench-panel" id="teacherWorkbenchPanel" aria-label="老师排课工作台"></div>
         <div class="schedule-workflow" aria-label="排课负责人核对路径">
           <div class="schedule-workflow-item"><strong>老师能不能上</strong>先看当前老师课表，空格才可能排。</div>
           <div class="schedule-workflow-item"><strong>教室能不能用</strong>再点“看教室表”，确认同时间教室空着。</div>
@@ -1718,6 +1796,62 @@
         `;
       }
 
+      function renderTeacherWorkbench(rows) {
+        const holder = byId("teacherWorkbenchPanel");
+        if (!holder) return;
+        const teacher = selectedTeacher();
+        const period = selectedPeriod();
+        const teacherMonthRows = paikeRows.filter((row) => row.period === period && (!teacher || row.teacher === teacher));
+        const todayRows = teacherMonthRows.filter((row) => dateKey(row.date) === localDateText());
+        const weekRows = teacherMonthRows.filter((row) => isInRange(row, "week"));
+        const missingRoomRows = teacherMonthRows.filter((row) => !String(row.room || "").trim() || row.room === "-");
+        const pendingAttendanceRows = teacherMonthRows.filter((row) => /待点名|异常|待处理|待核对/.test(scheduleStatus(row).label));
+        const upcomingRows = teacherMonthRows
+          .filter((row) => dateKey(row.date) >= localDateText())
+          .sort((left, right) => (
+            String(left.date || "").localeCompare(String(right.date || "")) ||
+            timeMinutes(left.startTime || left.time) - timeMinutes(right.startTime || right.time)
+          ))
+          .slice(0, 3);
+        const nextItems = upcomingRows.length
+          ? upcomingRows.map((row) => `
+            <div class="teacher-next-item">
+              <span>${escapeHtml(dateLabel(row.date))}｜${escapeHtml(timeSlotLabel(row))}</span>
+              <strong>${escapeHtml(row.student || row.lessonType || "未填学生/班级")}</strong>
+              <span>${escapeHtml(row.room && row.room !== "-" ? row.room : "未写教室")}｜${escapeHtml(scheduleStatus(row).label)}</span>
+              <a href="${escapeHtml(attendanceHrefForRow(row))}">去点名</a>
+            </div>
+          `).join("")
+          : `<div class="teacher-next-item"><span>${escapeHtml(period)}</span><strong>暂无后续课程</strong><span>请切换月份或老师查看。</span></div>`;
+        holder.innerHTML = `
+          <div>
+            <div class="teacher-workbench-head">
+              <div>
+                <strong>${escapeHtml(teacher || "当前老师")}｜排课工作台</strong>
+                <span>先看今天和本周；排新课时再看未写教室、老师空档和教室表。</span>
+              </div>
+              <span class="status-pill">${escapeHtml(period || "-")}</span>
+            </div>
+            <div class="teacher-workbench-stats">
+              <div class="teacher-workbench-stat"><span>今天课程</span><strong>${todayRows.length}</strong></div>
+              <div class="teacher-workbench-stat"><span>本周课程</span><strong>${weekRows.length}</strong></div>
+              <div class="teacher-workbench-stat"><span>待点名/异常</span><strong>${pendingAttendanceRows.length}</strong></div>
+              <div class="teacher-workbench-stat"><span>未写教室</span><strong>${missingRoomRows.length}</strong></div>
+            </div>
+            <div class="teacher-workbench-actions">
+              <button class="button secondary" type="button" data-teacher-workbench-action="today">看今天</button>
+              <button class="button secondary" type="button" data-teacher-workbench-action="week">看本周</button>
+              <button class="button secondary" type="button" data-teacher-workbench-action="missing-room">补教室</button>
+              <button class="button secondary" type="button" data-teacher-workbench-action="rooms">看教室空档</button>
+            </div>
+          </div>
+          <div>
+            <p class="eyebrow">下一步</p>
+            <div class="teacher-next-list">${nextItems}</div>
+          </div>
+        `;
+      }
+
       function renderTeacherSheet() {
         const table = byId("teacherSheetTable");
         if (!table) return;
@@ -1725,6 +1859,7 @@
         setupRoomUsageDateFilter(rows);
         renderTeacherSheetTeacherCards();
         renderTeacherSheetSummary(rows);
+        renderTeacherWorkbench(rows);
         if (!rows.length) {
           table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请先确认月份、老师姓名是否和原 Excel 一致。</div></td></tr></tbody>`;
           renderTeacherDayAvailability();
@@ -2407,6 +2542,11 @@
         const button = event.target.closest("[data-admission-schedule-action]");
         if (!button) return;
         applyAdmissionScheduleAction(button);
+      });
+      byId("teacherWorkbenchPanel")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-teacher-workbench-action]");
+        if (!button) return;
+        applyTeacherSheetQuick(button.getAttribute("data-teacher-workbench-action") || "");
       });
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);

@@ -72,6 +72,14 @@ const checks = [
     detail: "排课负责人可在新排课页导入 CSV/XLSX 正式明细，并写入云端正式排课 store。"
   },
   {
+    title: "排课与财务老师工作台入口",
+    pass: /teacherWorkbenchPanel/.test(files.paike)
+      && /renderTeacherWorkbench/.test(files.paike)
+      && /financeTeacherWorkbenchPanel/.test(files.finance)
+      && /renderFinanceTeacherWorkbench/.test(files.finance),
+    detail: "排课页和财务页都有老师优先的工作台入口，先显示今天/本周课程、工资单合计、待点名和待对账。"
+  },
+  {
     title: "学生服务读取排课并生成点名名单",
     pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student)
       && /renderPreimportOptions/.test(files.student)
