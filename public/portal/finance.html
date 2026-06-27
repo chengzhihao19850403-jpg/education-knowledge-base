@@ -918,6 +918,31 @@
         border-top: 1px solid var(--line);
         border-radius: 0;
       }
+      .finance-import-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .finance-import-filter {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.86);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .finance-import-filter input {
+        width: 16px;
+        height: 16px;
+        margin: 0 7px 0 0;
+        accent-color: var(--brand);
+      }
       .admin-details {
         margin-top: 18px;
       }
@@ -1217,6 +1242,9 @@
           <div class="source-explain-card"><strong>这里看什么</strong>这里是原始表流水，不是最终工资单。默认收起，避免长明细干扰核对。</div>
           <div class="source-explain-card"><strong>什么时候展开</strong>当某个老师总额、课次或来源文件不对时，再展开对应明细查原表行。</div>
           <div class="source-explain-card"><strong>最终以谁为准</strong>试运行阶段以原 Excel 和财务人工确认结果为准，系统负责帮助发现差异。</div>
+        </div>
+        <div class="finance-import-toolbar">
+          <label class="finance-import-filter"><input id="financeImportPendingOnly" type="checkbox" checked>只看待对账/待复核</label>
         </div>
         <div class="finance-import-groups">
           <details class="finance-import-group" id="importedExpenseGroup">
@@ -2866,6 +2894,7 @@
         const grid = byId("financeImportGrid");
         const expenseSummary = byId("importedExpenseSummary");
         const salarySummary = byId("importedSalarySummary");
+        const pendingOnly = byId("financeImportPendingOnly")?.checked !== false;
         const expenseRows = (bundle.expenseRows || []).filter((row) => row.period === currentPeriod);
         const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
         const revenueRows = (bundle.salaryRevenueAttendance || []).filter((row) => row.period === currentPeriod);
@@ -2873,6 +2902,9 @@
         const salarySources = new Set(salaryRows.map(importedRowSourceName).filter((value) => value && value !== "-"));
         const expenseSources = new Set(expenseRows.map(importedRowSourceName).filter((value) => value && value !== "-"));
         const pendingSalaryRows = salaryRows.filter((row) => row.needsReview || /待|核|复核/.test(String(row.status || "")));
+        const pendingExpenseRows = expenseRows.filter((row) => /待|核|审核|复核/.test(String(row.status || "待审核")));
+        const visibleExpenseRows = pendingOnly ? pendingExpenseRows : expenseRows;
+        const visibleSalaryRows = pendingOnly ? pendingSalaryRows : salaryRows;
         if (grid) {
           const totalExpense = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
           const totalSalary = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
@@ -2891,18 +2923,18 @@
         if (expenseSummary) {
           const totalExpense = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
           expenseSummary.textContent = expenseRows.length
-            ? `${expenseRows.length} 条，合计 ${money(totalExpense)}，来源 ${expenseSources.size || 1} 个文件。`
+            ? `${expenseRows.length} 条，合计 ${money(totalExpense)}，来源 ${expenseSources.size || 1} 个文件；当前显示 ${visibleExpenseRows.length} 条。`
             : "当前月份暂无支出原始表。";
         }
         if (salarySummary) {
           const totalSalary = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
           salarySummary.textContent = salaryRows.length
-            ? `${salaryRows.length} 条，${salaryTeachers.size} 位老师，合计 ${money(totalSalary)}，待对账 ${pendingSalaryRows.length} 条。`
+            ? `${salaryRows.length} 条，${salaryTeachers.size} 位老师，合计 ${money(totalSalary)}，待对账 ${pendingSalaryRows.length} 条；当前显示 ${visibleSalaryRows.length} 条。`
             : "当前月份暂无工资/课时原始表。";
         }
         if (expenseBody) {
-          expenseBody.innerHTML = expenseRows.length
-            ? expenseRows.map((row) => `
+          expenseBody.innerHTML = visibleExpenseRows.length
+            ? visibleExpenseRows.map((row) => `
                 <tr>
                   <td>${escapeHtml(row.date || "-")}</td>
                   <td>${escapeHtml(row.category || "-")}</td>
@@ -2913,11 +2945,11 @@
                   <td>${escapeHtml(row.notes || "-")}</td>
                 </tr>
               `).join("")
-            : `<tr><td colspan="7" class="muted">当前月份还没有导入财务支出原始表。</td></tr>`;
+            : `<tr><td colspan="7" class="muted">${expenseRows.length ? "当前筛选下没有待对账/待复核支出。取消勾选可查看全部原始支出。" : "当前月份还没有导入财务支出原始表。"}</td></tr>`;
         }
         if (salaryBody) {
-          salaryBody.innerHTML = salaryRows.length
-            ? salaryRows.map((row) => `
+          salaryBody.innerHTML = visibleSalaryRows.length
+            ? visibleSalaryRows.map((row) => `
                 <tr>
                   <td>${escapeHtml(row.date || "-")}</td>
                   <td>${escapeHtml(row.teacherName || "-")}</td>
@@ -2929,7 +2961,7 @@
                   <td>${escapeHtml(row.notes || row.raw || "-")}</td>
                 </tr>
               `).join("")
-            : `<tr><td colspan="8" class="muted">当前月份还没有导入工资/课时原始表。</td></tr>`;
+            : `<tr><td colspan="8" class="muted">${salaryRows.length ? "当前筛选下没有待对账/待复核工资课时明细。取消勾选可查看全部原始明细。" : "当前月份还没有导入工资/课时原始表。"}</td></tr>`;
         }
       }
 
@@ -4228,6 +4260,7 @@
             "financeTeacherKeyword",
             "financeStatementMode",
             "financeQuickJump",
+            "financeImportPendingOnly",
             "exportSummaryButton",
             "exportExpensesButton",
             "exportTeacherWageButton"
@@ -4311,6 +4344,7 @@
         byId(id)?.addEventListener("input", render);
         byId(id)?.addEventListener("change", render);
       });
+      byId("financeImportPendingOnly")?.addEventListener("change", renderFinanceImportPreview);
       byId("financeQuickJump")?.addEventListener("change", (event) => {
         const value = event.target.value;
         if (value === "detail") {
