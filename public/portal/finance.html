@@ -1805,6 +1805,12 @@
       let attendanceFinanceTeacherFilter = "";
       let attendanceFinanceViewFilter = "all";
       let attendanceFinanceSort = "pending-first";
+      const financeDeepLinkParams = new URLSearchParams(window.location.search || "");
+      const attendanceDeepLink = {
+        period: String(financeDeepLinkParams.get("period") || "").trim(),
+        teacher: String(financeDeepLinkParams.get("attendanceTeacher") || financeDeepLinkParams.get("teacher") || "").trim(),
+        view: String(financeDeepLinkParams.get("attendanceView") || "").trim()
+      };
       const DEPARTED_FINANCE_TEACHERS = new Set(["万盈盈", "何建军", "张艳"]);
 
       function teacherNameOf(row) {
@@ -2088,6 +2094,7 @@
         attendanceSessions = mergeAttendanceSessions(readLocalAttendance());
         localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(attendanceSessions));
         render();
+        scrollAttendanceDeepLink();
         window.JRC_CLOUD?.readModuleData?.(ATTENDANCE_STORAGE_KEY).then((result) => {
           if (!result.ok) return;
           const remoteRows = Array.isArray(result.data?.payload) ? result.data.payload : [];
@@ -2099,6 +2106,7 @@
             });
           }
           render();
+          scrollAttendanceDeepLink();
         }).catch((error) => {
           console.warn("点名结算数据云端读取失败", error);
         });
@@ -3833,15 +3841,42 @@
         const teacherSelect = byId("attendanceFinanceTeacherFilter");
         if (teacherSelect) {
           const teachers = [...new Set(rows.map((row) => row.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
-          const current = teachers.includes(attendanceFinanceTeacherFilter) ? attendanceFinanceTeacherFilter : "";
+          const displayTeachers = attendanceFinanceTeacherFilter && !teachers.includes(attendanceFinanceTeacherFilter)
+            ? [attendanceFinanceTeacherFilter, ...teachers]
+            : teachers;
+          const current = displayTeachers.includes(attendanceFinanceTeacherFilter) ? attendanceFinanceTeacherFilter : "";
           if (current !== attendanceFinanceTeacherFilter) attendanceFinanceTeacherFilter = current;
-          teacherSelect.innerHTML = `<option value="">全部老师</option>${teachers.map((teacher) => `<option value="${escapeHtml(teacher)}">${escapeHtml(teacher)}</option>`).join("")}`;
+          teacherSelect.innerHTML = `<option value="">全部老师</option>${displayTeachers.map((teacher) => `<option value="${escapeHtml(teacher)}">${escapeHtml(teacher)}</option>`).join("")}`;
           teacherSelect.value = attendanceFinanceTeacherFilter;
         }
         const viewSelect = byId("attendanceFinanceViewFilter");
         if (viewSelect) viewSelect.value = attendanceFinanceViewFilter;
         const sortSelect = byId("attendanceFinanceSort");
         if (sortSelect) sortSelect.value = attendanceFinanceSort;
+      }
+
+      function applyAttendanceDeepLinkFilters() {
+        if (attendanceDeepLink.period) {
+          currentPeriod = attendanceDeepLink.period;
+          const periodInput = byId("periodInput");
+          if (periodInput) periodInput.value = currentPeriod;
+        }
+        if (attendanceDeepLink.teacher) attendanceFinanceTeacherFilter = attendanceDeepLink.teacher;
+        if (["all", "pending", "regular", "special", "review"].includes(attendanceDeepLink.view)) {
+          attendanceFinanceViewFilter = attendanceDeepLink.view;
+        }
+      }
+
+      function scrollAttendanceDeepLink() {
+        if (!attendanceDeepLink.period && !attendanceDeepLink.teacher && !attendanceDeepLink.view) return;
+        byId("attendanceFinanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        const viewText = {
+          pending: "待追踪异常",
+          review: "待财务确认",
+          regular: "普通财务计费",
+          special: "单独结算"
+        }[attendanceFinanceViewFilter] || "点名财务";
+        setFinanceMessage(`已从点名系统定位到 ${currentPeriod} ${attendanceFinanceTeacherFilter || "全部老师"} 的${viewText}。`);
       }
 
       function renderAttendanceDecisionGrid(rows = deriveAttendanceSettlementRows()) {
@@ -5137,6 +5172,7 @@
         deleteExpense(button.getAttribute("data-delete-expense"));
       });
 
+      applyAttendanceDeepLinkFilters();
       getPeriod(currentPeriod);
       syncFormFromPeriod();
       hydrateCloudFinance();

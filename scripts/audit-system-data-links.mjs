@@ -76,8 +76,10 @@ const checks = [
     pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student)
       && /renderPreimportOptions/.test(files.student)
       && /attendanceNextPanel/.test(files.student)
-      && /renderAttendanceNextStep/.test(files.student),
-    detail: "学生服务会按日期、老师、班级从排课源生成点名候选，保存后提示异常处理、财务核对和回排课确认。"
+      && /renderAttendanceNextStep/.test(files.student)
+      && /attendanceFinanceLink/.test(files.student)
+      && /attendanceTeacher/.test(files.student),
+    detail: "学生服务会按日期、老师、班级从排课源生成点名候选，保存后提示异常处理、财务核对和回排课确认，并可直达对应财务筛选。"
   },
   {
     title: "点名保存后写入云端",
@@ -104,8 +106,10 @@ const checks = [
       && /confirmAttendanceSettlementById/.test(files.finance)
       && /data-confirm-attendance-settlement/.test(files.finance)
       && /attendanceDecisionGrid/.test(files.finance)
-      && /filteredAttendanceDetailRows/.test(files.finance),
-    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，支持判断卡筛选与财务确认留痕。"
+      && /filteredAttendanceDetailRows/.test(files.finance)
+      && /applyAttendanceDeepLinkFilters/.test(files.finance)
+      && /scrollAttendanceDeepLink/.test(files.finance),
+    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，支持判断卡筛选、深链定位与财务确认留痕。"
   },
   {
     title: "排课点名财务操作闭环",

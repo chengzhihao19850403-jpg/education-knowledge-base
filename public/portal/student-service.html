@@ -321,7 +321,7 @@
           </div>
           <div class="attendance-next-actions">
             <a class="button secondary" href="#attendanceFollowupSection">处理异常</a>
-            <a class="button secondary" href="./finance.html#attendanceFinanceSection">看财务课销</a>
+            <a class="button secondary" id="attendanceFinanceLink" href="./finance.html#attendanceFinanceSection">看财务课销</a>
             <a class="button secondary" href="./paike.html">回排课表</a>
           </div>
         </div>
@@ -636,6 +636,7 @@
         const attendanceNextPanel = document.getElementById("attendanceNextPanel");
         const attendanceNextTitle = document.getElementById("attendanceNextTitle");
         const attendanceNextText = document.getElementById("attendanceNextText");
+        const attendanceFinanceLink = document.getElementById("attendanceFinanceLink");
         const sourceStatus = document.getElementById("attendanceSourceStatus");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
@@ -2018,6 +2019,13 @@
           const unresolved = rows.filter(needsFollowup).length;
           const present = rows.filter(isEffectivePresent).length;
           const sourceText = session.sourceScheduleKey ? "已绑定排课来源，排课和财务可追溯。" : "本节课为手动点名，后续按老师、日期、班级做核对。";
+          if (attendanceFinanceLink) {
+            const params = new URLSearchParams();
+            if (session.date) params.set("period", String(session.date).slice(0, 7));
+            if (session.teacher) params.set("attendanceTeacher", session.teacher);
+            params.set("attendanceView", unresolved ? "pending" : "review");
+            attendanceFinanceLink.href = `./finance.html?${params.toString()}#attendanceFinanceSection`;
+          }
           attendanceNextPanel.hidden = false;
           attendanceNextTitle.textContent = unresolved
             ? `点名已保存，还有 ${unresolved} 人需要处理`
