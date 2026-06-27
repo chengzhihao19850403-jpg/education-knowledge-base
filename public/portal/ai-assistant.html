@@ -84,7 +84,8 @@
       .draft-item .draft-status.archived { background: rgba(22, 163, 74, 0.12); color: #15803d; }
       .draft-edit { min-height: 170px; margin-top: 8px; }
       .history-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-      .history-tools input { flex: 1 1 180px; min-height: 38px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+      .history-tools input,
+      .history-tools select { flex: 1 1 180px; min-height: 38px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; background: #fff; color: var(--ink); }
       .history-item details { margin-top: 8px; }
       .history-item summary { cursor: pointer; color: var(--brand-dark); font-weight: 800; }
       .history-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -203,6 +204,15 @@
           <div class="result-panel">
             <h3>课堂反馈草稿库</h3>
             <p style="margin-top:6px;">普通账号仅显示本人草稿，保留最近 50 条，方便回看和继续编辑。</p>
+            <div class="history-tools">
+              <input id="draftSearchInput" type="search" placeholder="搜索学生 / 课程 / 草稿内容">
+              <select id="draftStatusFilter">
+                <option value="">全部草稿</option>
+                <option value="open">未归档</option>
+                <option value="archived">已归档</option>
+                <option value="needs">待补完整</option>
+              </select>
+            </div>
             <div class="draft-list" id="aiDraftList"></div>
           </div>
           <div class="result-panel">
@@ -623,7 +633,19 @@
       }
 
       function renderDrafts(rows = readDrafts()) {
-        rows = visibleDraftRows(rows).slice(0, 50);
+        const keyword = byId("draftSearchInput")?.value.trim().toLowerCase() || "";
+        const statusFilter = byId("draftStatusFilter")?.value || "";
+        rows = visibleDraftRows(rows)
+          .filter((row) => {
+            const text = draftDisplayText(row);
+            const haystack = [draftHistoryTitle(row), row.modeLabel, row.target, row.createdBy, text].join(" ").toLowerCase();
+            if (keyword && !haystack.includes(keyword)) return false;
+            if (statusFilter === "archived") return Boolean(row.archivedAt || row.archivedStudentServiceId);
+            if (statusFilter === "open") return !row.archivedAt && !row.archivedStudentServiceId;
+            if (statusFilter === "needs") return missingCompletionItems(text).length > 0;
+            return true;
+          })
+          .slice(0, 50);
         byId("aiDraftList").innerHTML = rows.length ? rows.map((row) => `
           <div class="draft-item history-item">
             <strong>${escapeHtml(draftHistoryTitle(row))}</strong>
@@ -2280,6 +2302,8 @@
         byId("aiMessage").textContent = "已带入已归档反馈，可以参考上一节内容继续整理。";
       });
       byId("archivedFeedbackSearchInput")?.addEventListener("input", () => renderArchivedFeedbacks());
+      byId("draftSearchInput")?.addEventListener("input", () => renderDrafts());
+      byId("draftStatusFilter")?.addEventListener("change", () => renderDrafts());
       byId("refreshArchivedFeedbackButton")?.addEventListener("click", hydrateArchivedFeedbacks);
       byId("saveDraftButton").addEventListener("click", saveDraft);
       byId("saveBatchDraftsButton")?.addEventListener("click", saveBatchDrafts);

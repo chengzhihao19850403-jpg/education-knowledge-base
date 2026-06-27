@@ -834,6 +834,26 @@
         line-height: 1.7;
         font-size: 13px;
       }
+      .teacher-wage-checklist {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .teacher-wage-checkitem {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(13, 148, 136, 0.05);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .teacher-wage-checkitem strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+      }
       .finance-statement-table,
       .finance-teacher-detail-table {
         min-width: 1120px;
@@ -1002,6 +1022,7 @@
         .excel-finance-toolbar,
         .excel-finance-summary,
         .teacher-wage-grid,
+        .teacher-wage-checklist,
         .read-guide {
           grid-template-columns: 1fr;
         }
@@ -4242,6 +4263,11 @@
             <div class="teacher-wage-cell"><span>老师结算成本</span><strong>${summary ? money(data.teacherCost) : money(data.detailAmount)}</strong></div>
             <div class="teacher-wage-cell"><span>课时剩余</span><strong>${classHourBalance == null ? "-" : money(classHourBalance)}</strong></div>
             <div class="teacher-wage-cell"><span>明细/学生</span><strong>${data.rowsCount} 条 / ${data.studentCount} 个</strong></div>
+          </div>
+          <div class="teacher-wage-checklist">
+            <div class="teacher-wage-checkitem"><strong>先核总额</strong>工资明细应发是否和原工资表/人工结算接近。</div>
+            <div class="teacher-wage-checkitem"><strong>再核课次</strong>明细条数和学生/班级数是否明显缺少或重复。</div>
+            <div class="teacher-wage-checkitem"><strong>有差异再展开</strong>只有金额或课次不对时，再打开下面逐课次明细。</div>
           </div>
           <p class="teacher-wage-note">${escapeHtml(note)}</p>
           <div class="actions" style="margin-top: 12px;">
