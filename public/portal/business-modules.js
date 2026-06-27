@@ -2123,9 +2123,18 @@
       if (!body) return;
       const canEdit = canEditSummerSchedule();
       const editor = $("hrSummerEditorPanel");
-      if (editor) editor.hidden = !canEdit;
+      const editorToggle = $("hrSummerEditorToggle");
+      if (editor) editor.hidden = true;
+      if (editorToggle) {
+        editorToggle.hidden = !canEdit;
+        editorToggle.addEventListener("click", () => {
+          if (!editor) return;
+          editor.hidden = !editor.hidden;
+          setText("hrSummerEditorToggle", editor.hidden ? "编辑排班" : "收起编辑");
+        });
+      }
       const editorMessage = canEdit
-        ? "你可以新增、修改和删除岗位排班。"
+        ? "当前为展示模式；需要维护时点击“编辑排班”。"
         : "岗位排班表对全员开放查看；只有陈雨晴和程志豪可以修改。";
       setText("hrSummerMessage", editorMessage);
       let summerRows = mergeRowsById(readStore(summerScheduleKey, []), summerScheduleKey);
@@ -2234,6 +2243,8 @@
           $("hrSummerLocationInput").value = row.location || "";
           $("hrSummerNoteInput").value = row.note || "";
           editingSummerIndex = index;
+          if (editor) editor.hidden = false;
+          setText("hrSummerEditorToggle", "收起编辑");
           setText("hrSummerSaveButton", "保存修改");
           setText("hrSummerMessage", `正在编辑 ${row.employee || "员工"} 的岗位排班。`);
         },
@@ -2254,7 +2265,7 @@
       readCloudStore(summerScheduleKey, (cloudRows) => {
         summerRows = mergeRowsById(cloudRows, summerScheduleKey);
         renderSummerSchedule();
-        setText("hrSummerMessage", canEdit ? "已同步云端岗位排班表，可继续维护。" : "已同步云端岗位排班表。");
+        setText("hrSummerMessage", canEdit ? "已同步云端岗位排班表；需要维护时点击“编辑排班”。" : "已同步云端岗位排班表。");
       });
     }
 
@@ -2268,6 +2279,18 @@
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
+    const canEditCampus = capabilities.create || capabilities.update || capabilities.delete || capabilities.import || capabilities.reset;
+    const campusEditor = $("campusEditorPanel");
+    const campusEditorToggle = $("campusEditorToggle");
+    if (campusEditor) campusEditor.hidden = true;
+    if (campusEditorToggle) {
+      campusEditorToggle.hidden = !canEditCampus;
+      campusEditorToggle.addEventListener("click", () => {
+        if (!campusEditor) return;
+        campusEditor.hidden = !campusEditor.hidden;
+        setText("campusEditorToggle", campusEditor.hidden ? "编辑校区运营" : "收起编辑");
+      });
+    }
 
     function fillForm(row) {
       $("hrTypeInput").value = row.type || "培训记录";
@@ -2491,7 +2514,7 @@
             <td>${workStatusTag(row.status)}</td>
             <td>${escapeHtml(row.due)}</td>
             <td>${escapeHtml(row.note)}</td>
-            <td>${actionButtons(index, capabilities)}</td>
+            <td>${canEditCampus ? actionButtons(index, capabilities) : tag("仅查看", "neutral")}</td>
           </tr>
         `).join("") : `<tr><td colspan="8">暂无校区运营事项。可以新增教室、值班、卫生、安全检查或异常记录。</td></tr>`;
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
@@ -2565,6 +2588,8 @@
       onEdit(index) {
         editingIndex = index;
         fillForm(rows[index]);
+        if (campusEditor) campusEditor.hidden = false;
+        setText("campusEditorToggle", "收起编辑");
         setText("campusSaveButton", "保存修改");
         setText("campusMessage", `正在编辑 ${rows[index].title}。`);
       },
@@ -2622,7 +2647,7 @@
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
-      setText("campusMessage", "已同步云端校区运营台账。");
+      setText("campusMessage", canEditCampus ? "已同步云端校区运营台账；需要维护时点击“编辑校区运营”。" : "已同步云端校区运营台账。");
     });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,

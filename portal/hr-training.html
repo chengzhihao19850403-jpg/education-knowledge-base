@@ -50,6 +50,9 @@
       .mini-list { display: grid; gap: 12px; margin-top: 14px; }
       .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
       .mini-item strong { display: block; margin-bottom: 6px; }
+      .module-link { display: grid; gap: 6px; color: inherit; text-decoration: none; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; }
+      .module-link:hover { transform: translateY(-1px); border-color: rgba(124,58,237,0.28); box-shadow: 0 10px 28px rgba(23,33,50,0.08); }
+      .module-link span { color: var(--brand-dark); font-size: 12px; font-weight: 800; }
       .process-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
       .process-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.65; }
       .process-list strong { color: var(--ink); }
@@ -66,6 +69,7 @@
       .span-3 { grid-column: 1 / -1; }
       .schedule-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
       .schedule-toolbar input { flex: 1; min-width: 220px; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+      .admin-editor-toggle[hidden] { display: none !important; }
       .schedule-editor[hidden], [data-hr-private][hidden] { display: none !important; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
@@ -101,9 +105,21 @@
         <article class="card">
           <h2>三大工作模块</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>校区运营</strong><p>教室、卫生、安全检查、值班和异常事项集中记录。</p></div>
-            <div class="mini-item"><strong>岗位排班</strong><p>全员可查自己的值班、校区支持和临时排班安排。</p></div>
-            <div class="mini-item"><strong>人事管理</strong><p>员工档案、岗位权限、入职转正、培训记录和提成档位。</p></div>
+            <a class="mini-item module-link" href="./campus-operations.html">
+              <strong>校区运营</strong>
+              <p>教室、卫生、安全检查、值班和异常事项集中记录。</p>
+              <span>进入校区运营</span>
+            </a>
+            <a class="mini-item module-link" href="#summerScheduleSection">
+              <strong>岗位排班</strong>
+              <p>全员可查自己的值班、校区支持和临时排班安排。</p>
+              <span>查看岗位排班</span>
+            </a>
+            <a class="mini-item module-link" data-requires-permission="hr.access" href="#hrManagementSection">
+              <strong>人事管理</strong>
+              <p>员工档案、岗位权限、入职转正、培训记录和提成档位。</p>
+              <span>进入人事管理</span>
+            </a>
           </div>
         </article>
       </section>
@@ -137,6 +153,7 @@
         <div class="schedule-toolbar">
           <input id="hrSummerFilterInput" placeholder="搜索姓名 / 日期 / 时间 / 岗位 / 备注">
           <button class="button secondary" id="hrSummerExportButton" type="button">导出排班表</button>
+          <button class="button secondary admin-editor-toggle" id="hrSummerEditorToggle" type="button" hidden>编辑排班</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -147,7 +164,7 @@
           </table>
         </div>
         <div class="notice" id="hrSummerMessage">岗位排班表对全员开放查看；只有陈雨晴和程志豪可以修改。</div>
-        <div class="schedule-editor" id="hrSummerEditorPanel">
+        <div class="schedule-editor" id="hrSummerEditorPanel" hidden>
           <h3 style="margin-top:18px;">新增 / 修改岗位排班</h3>
           <div class="form-grid">
             <label class="field"><span>日期</span><input id="hrSummerDateInput" type="date"></label>
@@ -164,7 +181,7 @@
         </div>
       </section>
 
-      <section class="card" data-hr-private hidden>
+      <section class="card" id="hrManagementSection" data-hr-private hidden>
         <div class="section-head">
           <div>
             <h2>人事管理</h2>
