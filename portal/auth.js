@@ -427,7 +427,8 @@ const JRC_EMPLOYEES = [
   }
 ];
 
-const JRC_SUPER_ADMIN_USERNAMES = ["chengzhihao", "chenyuqing", "haiyingying"];
+const JRC_SUPER_ADMIN_USERNAMES = ["chengzhihao", "czh", "chenyuqing", "haiyingying"];
+const JRC_SUPER_ADMIN_NAMES = ["程志豪", "陈雨晴", "海滢滢"];
 const JRC_FINANCE_ADMIN_USERNAMES = ["chenyuqing", "liudajun", "chengzhihao"];
 const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
@@ -947,8 +948,23 @@ function jrcExposeDataFoundation() {
   };
 }
 
+function jrcNormalizeUsername(username) {
+  return String(username || "").trim().toLowerCase();
+}
+
+function jrcNormalizeName(name) {
+  return String(name || "").trim();
+}
+
+function jrcIsSuperAdmin(subject) {
+  if (!subject) return false;
+  const username = jrcNormalizeUsername(typeof subject === "string" ? subject : subject.username);
+  const name = jrcNormalizeName(typeof subject === "string" ? "" : subject.name);
+  return JRC_SUPER_ADMIN_USERNAMES.includes(username) || JRC_SUPER_ADMIN_NAMES.includes(name);
+}
+
 function jrcFindEmployeeByUsername(username) {
-  const normalizedUsername = String(username || "").trim().toLowerCase();
+  const normalizedUsername = jrcNormalizeUsername(username);
   return jrcGetAllEmployees().find((employee) => employee.username === normalizedUsername);
 }
 
@@ -965,7 +981,7 @@ function jrcGetPermissions(subject) {
   }
 
   const permissions = new Set(JRC_ROLE_PERMISSIONS[subject.role] || []);
-  const username = subject.username;
+  const username = jrcNormalizeUsername(subject.username);
 
   if (!username) return Array.from(permissions);
 
@@ -1006,7 +1022,7 @@ function jrcGetPermissions(subject) {
     permissions.add("campus.edit");
   }
 
-  if (JRC_SUPER_ADMIN_USERNAMES.includes(username)) {
+  if (jrcIsSuperAdmin(subject)) {
     [
       "portal.access",
       "paike.access",
@@ -1110,8 +1126,7 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
 }
 
 function jrcCanManageEmployees(employee = jrcResolveCurrentEmployee()) {
-  if (!employee?.username) return false;
-  return JRC_SUPER_ADMIN_USERNAMES.includes(employee.username);
+  return jrcIsSuperAdmin(employee);
 }
 
 function jrcShowPasswordChangeDialog(currentEmployee) {
