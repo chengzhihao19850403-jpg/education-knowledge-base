@@ -1253,14 +1253,6 @@
         "/jrcedu/advice-system/index.html",
         "处理招生"
       ));
-    } else if (hasPermission("admissions.access")) {
-      todos.push(todoItem(
-        "正常",
-        "招生系统暂无紧急待办",
-        "继续录入真实线索后，首页会自动显示需要跟进的客户。",
-        "/jrcedu/advice-system/index.html",
-        "进入招生"
-      ));
     }
 
     if (hasPermission("paike.access") && paikeReviewCount > 0) {
@@ -1293,43 +1285,13 @@
       ));
     }
 
-    if (isAdminLike() && auditCount === 0) {
-      todos.push(todoItem(
-        "提醒",
-        "操作日志还没有形成记录",
-        "多人使用时，请尽量通过系统新增、修改、导入，不要只在群里口头改。",
-        "./suggestions.html",
-        "看日志"
-      ));
-    }
-
-    if (hasPermission("finance.access")) {
-      todos.push(todoItem(
-        "提醒",
-        "财务系统可继续补录收入、支出和结算数据",
-        "今天如果有课时费、报销、成本或分红口径调整，建议先录进财务系统，接云库时更容易迁移。",
-        "./finance.html",
-        "进入财务"
-      ));
-    }
-
-    if (hasPermission("suggestions.access")) {
-      todos.push(todoItem(
-        "正常",
-        "有想法可以随时丢进建议系统",
-        "哪里不好用、哪里看不懂、哪里和老师习惯不一致，都可以先记下来。",
-        "./suggestions.html",
-        "提交建议"
-      ));
-    }
-
     if (todos.length === 0) {
       todos.push(todoItem(
         "正常",
-        "今天没有必须处理的系统提醒",
-        "可以从下面的系统入口进入自己的工作模块；如果发现不好用，先到建议系统留一条。",
+        "今天没有必须处理的系统断点",
+        "先看“我的任务”和“我的反馈”；日常工作从下面对应系统进入。管理员诊断区只在排查异常时打开。",
         "./suggestions.html",
-        "写建议"
+        "查看任务"
       ));
     }
 
