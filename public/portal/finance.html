@@ -173,6 +173,69 @@
         color: var(--ink);
         font-size: 22px;
       }
+      .attendance-decision-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .attendance-decision-card {
+        display: grid;
+        gap: 7px;
+        min-height: 126px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.82);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .attendance-decision-card.primary {
+        border-color: rgba(13, 148, 136, 0.34);
+        background: rgba(13, 148, 136, 0.08);
+      }
+      .attendance-decision-card.warn {
+        border-color: rgba(180, 83, 9, 0.3);
+        background: rgba(180, 83, 9, 0.08);
+      }
+      .attendance-decision-card span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .attendance-decision-card strong {
+        color: var(--ink);
+        font-size: 26px;
+        line-height: 1;
+      }
+      .attendance-decision-card em {
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        line-height: 1.5;
+      }
+      .attendance-filter-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .attendance-filter-bar label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .attendance-filter-bar select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        background: #fff;
+        color: var(--ink);
+      }
       .summary-label {
         color: var(--muted);
         font-size: 13px;
@@ -1018,6 +1081,8 @@
         .finance-review-path,
         .workbench-strip,
         .finance-command-grid,
+        .attendance-decision-grid,
+        .attendance-filter-bar,
         .source-explain,
         .excel-finance-toolbar,
         .excel-finance-summary,
@@ -1058,6 +1123,8 @@
         .compare-grid,
         .form-grid,
         .my-settlement-grid,
+        .attendance-decision-grid,
+        .attendance-filter-bar,
         .settlement-summary-grid {
           grid-template-columns: 1fr;
         }
@@ -1404,6 +1471,22 @@
           <div class="settlement-summary-card"><span>单独结算</span><strong id="attendanceFinanceSpecial">0</strong></div>
           <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
         </div>
+        <div class="attendance-decision-grid" id="attendanceDecisionGrid"></div>
+        <div class="attendance-filter-bar">
+          <label>筛选老师<select id="attendanceFinanceTeacherFilter"><option value="">全部老师</option></select></label>
+          <label>查看类型<select id="attendanceFinanceViewFilter">
+            <option value="all">全部点名明细</option>
+            <option value="pending">只看待追踪</option>
+            <option value="regular">只看普通财务计费</option>
+            <option value="special">只看单独结算</option>
+            <option value="review">只看待复核</option>
+          </select></label>
+          <label>处理顺序<select id="attendanceFinanceSort">
+            <option value="pending-first">异常优先</option>
+            <option value="date-desc">日期最新在前</option>
+            <option value="teacher">按老师</option>
+          </select></label>
+        </div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>财务确认</th><th>操作</th></tr></thead><tbody id="attendanceSettlementFinanceBody"></tbody></table></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>流转状态</th><th>说明</th><th>财务处理</th></tr></thead><tbody id="attendanceFlowFinanceBody"></tbody></table></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程来源</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
@@ -1719,6 +1802,9 @@
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
       let financeReviewOnly = false;
+      let attendanceFinanceTeacherFilter = "";
+      let attendanceFinanceViewFilter = "all";
+      let attendanceFinanceSort = "pending-first";
       const DEPARTED_FINANCE_TEACHERS = new Set(["万盈盈", "何建军", "张艳"]);
 
       function teacherNameOf(row) {
@@ -3672,6 +3758,21 @@
         return Array.from(groups.values()).sort((a, b) => a.teacher.localeCompare(b.teacher, "zh-CN"));
       }
 
+      function attendanceReviewPending(row) {
+        return !String(row?.reviewStatus || "").includes("已");
+      }
+
+      function filteredAttendanceSettlementRows(rows = deriveAttendanceSettlementRows()) {
+        return rows.filter((row) => {
+          if (attendanceFinanceTeacherFilter && row.teacher !== attendanceFinanceTeacherFilter) return false;
+          if (attendanceFinanceViewFilter === "pending") return row.followupCount > 0;
+          if (attendanceFinanceViewFilter === "regular") return row.financePresent > 0;
+          if (attendanceFinanceViewFilter === "special") return row.specialPresent > 0;
+          if (attendanceFinanceViewFilter === "review") return attendanceSettlementReviewStatus(row).label !== "已确认";
+          return true;
+        });
+      }
+
       function deriveAttendanceDetailRows() {
         return attendanceSessions
           .filter((session) => attendancePeriod(session.date) === currentPeriod)
@@ -3697,6 +3798,101 @@
             };
           }))
           .sort((a, b) => `${b.date}${b.teacher}${b.studentName}`.localeCompare(`${a.date}${a.teacher}${a.studentName}`, "zh-CN"));
+      }
+
+      function filteredAttendanceDetailRows(rows = deriveAttendanceDetailRows()) {
+        const filtered = rows.filter((row) => {
+          if (attendanceFinanceTeacherFilter && row.teacher !== attendanceFinanceTeacherFilter) return false;
+          if (attendanceFinanceViewFilter === "pending") return !["正常", "已处理"].includes(row.exceptionStatus);
+          if (attendanceFinanceViewFilter === "regular") return row.financeStatus === "计 1";
+          if (attendanceFinanceViewFilter === "special") return row.specialStatus === "计 1";
+          if (attendanceFinanceViewFilter === "review") return attendanceReviewPending(row);
+          return true;
+        });
+        return filtered.sort((left, right) => {
+          if (attendanceFinanceSort === "teacher") {
+            return (
+              String(left.teacher || "").localeCompare(String(right.teacher || ""), "zh-CN") ||
+              String(right.date || "").localeCompare(String(left.date || ""))
+            );
+          }
+          if (attendanceFinanceSort === "date-desc") {
+            return String(right.date || "").localeCompare(String(left.date || ""));
+          }
+          const leftPending = ["正常", "已处理"].includes(left.exceptionStatus) ? 0 : 1;
+          const rightPending = ["正常", "已处理"].includes(right.exceptionStatus) ? 0 : 1;
+          return (
+            rightPending - leftPending ||
+            String(right.date || "").localeCompare(String(left.date || "")) ||
+            String(left.teacher || "").localeCompare(String(right.teacher || ""), "zh-CN")
+          );
+        });
+      }
+
+      function syncAttendanceFinanceFilters(rows = deriveAttendanceSettlementRows()) {
+        const teacherSelect = byId("attendanceFinanceTeacherFilter");
+        if (teacherSelect) {
+          const teachers = [...new Set(rows.map((row) => row.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+          const current = teachers.includes(attendanceFinanceTeacherFilter) ? attendanceFinanceTeacherFilter : "";
+          if (current !== attendanceFinanceTeacherFilter) attendanceFinanceTeacherFilter = current;
+          teacherSelect.innerHTML = `<option value="">全部老师</option>${teachers.map((teacher) => `<option value="${escapeHtml(teacher)}">${escapeHtml(teacher)}</option>`).join("")}`;
+          teacherSelect.value = attendanceFinanceTeacherFilter;
+        }
+        const viewSelect = byId("attendanceFinanceViewFilter");
+        if (viewSelect) viewSelect.value = attendanceFinanceViewFilter;
+        const sortSelect = byId("attendanceFinanceSort");
+        if (sortSelect) sortSelect.value = attendanceFinanceSort;
+      }
+
+      function renderAttendanceDecisionGrid(rows = deriveAttendanceSettlementRows()) {
+        const holder = byId("attendanceDecisionGrid");
+        if (!holder) return;
+        const pendingTeachers = rows.filter((row) => row.followupCount > 0);
+        const confirmableRows = rows.filter((row) => row.followupCount === 0 && attendanceSettlementReviewStatus(row).label !== "已确认");
+        const regularCount = rows.reduce((sum, row) => sum + row.financePresent, 0);
+        const specialCount = rows.reduce((sum, row) => sum + row.specialPresent, 0);
+        const cards = [
+          {
+            view: "pending",
+            tone: pendingTeachers.length ? "warn" : "",
+            label: "先处理",
+            value: pendingTeachers.reduce((sum, row) => sum + row.followupCount, 0),
+            title: "缺勤/请假/未点名",
+            detail: pendingTeachers.length ? `${pendingTeachers.length} 位老师存在待追踪，先别确认课销。` : "当前异常已清空。"
+          },
+          {
+            view: "review",
+            tone: confirmableRows.length ? "primary" : "",
+            label: "可确认",
+            value: confirmableRows.length,
+            title: "老师结算候选",
+            detail: confirmableRows.length ? "这些老师的点名结算可以进入财务复核。" : "当前没有待确认老师。"
+          },
+          {
+            view: "regular",
+            tone: regularCount ? "primary" : "",
+            label: "普通计费",
+            value: regularCount,
+            title: "普通课时费人次",
+            detail: "普通老师有效到课人次，进入课时费草算。"
+          },
+          {
+            view: "special",
+            tone: specialCount ? "primary" : "",
+            label: "单独结算",
+            value: specialCount,
+            title: "海/姚单独核对",
+            detail: "不并入普通老师课时费，单独核对。"
+          }
+        ];
+        holder.innerHTML = cards.map((card) => `
+          <button class="attendance-decision-card ${escapeHtml(card.tone)}" type="button" data-attendance-view="${escapeHtml(card.view)}">
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <b>${escapeHtml(card.title)}</b>
+            <em>${escapeHtml(card.detail)}</em>
+          </button>
+        `).join("");
       }
 
       function attendanceSettlementReviewFor(row) {
@@ -3775,6 +3971,9 @@
         const body = byId("attendanceSettlementFinanceBody");
         if (!body) return;
         const rows = deriveAttendanceSettlementRows();
+        syncAttendanceFinanceFilters(rows);
+        renderAttendanceDecisionGrid(rows);
+        const visibleRows = filteredAttendanceSettlementRows(rows);
         const totals = rows.reduce((acc, row) => {
           acc.lessons += row.lessons;
           acc.totalStudents += row.totalStudents;
@@ -3794,7 +3993,11 @@
           body.innerHTML = `<tr><td colspan="10" class="muted">当前月份还没有点名结算数据。老师保存点名后，这里会自动出现课时费和课销核对依据。</td></tr>`;
           return;
         }
-        body.innerHTML = rows.map((row) => {
+        if (!visibleRows.length) {
+          body.innerHTML = `<tr><td colspan="10" class="muted">当前筛选下没有点名结算记录。可以切回“全部点名明细”或选择其他老师。</td></tr>`;
+          return;
+        }
+        body.innerHTML = visibleRows.map((row) => {
           const status = attendanceSettlementReviewStatus(row);
           const rowId = attendanceSettlementId(row);
           const blocked = row.followupCount > 0;
@@ -3819,9 +4022,14 @@
       function renderAttendanceDetailPreview() {
         const body = byId("attendanceDetailFinanceBody");
         if (!body) return;
-        const rows = deriveAttendanceDetailRows();
-        if (!rows.length) {
+        const allRows = deriveAttendanceDetailRows();
+        const rows = filteredAttendanceDetailRows(allRows);
+        if (!allRows.length) {
           body.innerHTML = `<tr><td colspan="9" class="muted">当前月份暂无逐学生点名明细。</td></tr>`;
+          return;
+        }
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="9" class="muted">当前筛选下没有逐学生明细。可以切换老师、查看类型或处理顺序。</td></tr>`;
           return;
         }
         body.innerHTML = rows.slice(0, 80).map((row) => {
@@ -4401,6 +4609,16 @@
         if (!button || button.disabled) return;
         confirmAttendanceSettlementById(button.getAttribute("data-confirm-attendance-settlement") || "");
       });
+      byId("attendanceDecisionGrid")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-attendance-view]");
+        if (!button) return;
+        attendanceFinanceViewFilter = button.getAttribute("data-attendance-view") || "all";
+        if (byId("attendanceFinanceViewFilter")) byId("attendanceFinanceViewFilter").value = attendanceFinanceViewFilter;
+        renderAttendanceSettlementPreview();
+        renderAttendanceDetailPreview();
+        setFinanceMessage(`已切换点名财务视图：${button.querySelector("b")?.textContent || "点名明细"}`);
+        byId("attendanceFinanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
 
       async function importFinanceSheets() {
         const input = byId("financeImportInput");
@@ -4727,13 +4945,17 @@
             "financeStatementMode",
             "financeQuickJump",
             "financeImportPendingOnly",
+            "attendanceFinanceTeacherFilter",
+            "attendanceFinanceViewFilter",
+            "attendanceFinanceSort",
             "exportSummaryButton",
             "exportExpensesButton",
             "exportTeacherWageButton"
           ].includes(node.id);
           const keepQuickButton = Boolean(node.dataset?.financeQuick);
           const keepTeacherCard = Boolean(node.dataset?.financeTeacherCard);
-          if (!canEdit && !keepEnabled && !keepQuickButton && !keepTeacherCard) node.disabled = true;
+          const keepAttendanceDecision = Boolean(node.dataset?.attendanceView);
+          if (!canEdit && !keepEnabled && !keepQuickButton && !keepTeacherCard && !keepAttendanceDecision) node.disabled = true;
         });
       }
 
@@ -4829,6 +5051,20 @@
         });
       });
       byId("financeImportPendingOnly")?.addEventListener("change", renderFinanceImportPreview);
+      byId("attendanceFinanceTeacherFilter")?.addEventListener("change", (event) => {
+        attendanceFinanceTeacherFilter = event.target.value || "";
+        renderAttendanceSettlementPreview();
+        renderAttendanceDetailPreview();
+      });
+      byId("attendanceFinanceViewFilter")?.addEventListener("change", (event) => {
+        attendanceFinanceViewFilter = event.target.value || "all";
+        renderAttendanceSettlementPreview();
+        renderAttendanceDetailPreview();
+      });
+      byId("attendanceFinanceSort")?.addEventListener("change", (event) => {
+        attendanceFinanceSort = event.target.value || "pending-first";
+        renderAttendanceDetailPreview();
+      });
       byId("financeQuickJump")?.addEventListener("change", (event) => {
         const value = event.target.value;
         if (value === "detail") {

@@ -99,8 +99,10 @@ const checks = [
       && /attendanceDetailFinanceBody/.test(files.finance)
       && /attendanceSettlementReviews/.test(files.finance)
       && /confirmAttendanceSettlementById/.test(files.finance)
-      && /data-confirm-attendance-settlement/.test(files.finance),
-    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，并支持财务确认留痕。"
+      && /data-confirm-attendance-settlement/.test(files.finance)
+      && /attendanceDecisionGrid/.test(files.finance)
+      && /filteredAttendanceDetailRows/.test(files.finance),
+    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，支持判断卡筛选与财务确认留痕。"
   },
   {
     title: "排课点名财务操作闭环",
