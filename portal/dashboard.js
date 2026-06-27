@@ -8,6 +8,10 @@
   const attendanceKey = "jrc-class-attendance-v1";
   const studentServiceKey = "jrc-student-service-v2";
   const financeKey = "jrc-finance-ledger-v1";
+  const specialDelegatedTeachers = ["程志豪", "海滢滢", "姚老师"];
+  const studentServiceFallbackOwner = { name: "高芳燕", username: "gaofangyan" };
+  const primarySchoolServiceOwner = { name: "颜雨涵", username: "yanyuhan" };
+  const juniorSchoolServiceOwner = { name: "高芳燕", username: "gaofangyan" };
   const moduleOwnerTasks = [
     {
       key: "admissions",
@@ -300,6 +304,38 @@
     return String(employee?.username || "").trim().toLowerCase();
   }
 
+  function gradeNumberFromText(...values) {
+    const text = values.map((value) => String(value || "")).join(" ");
+    const direct = text.match(/([1-9])\s*(?:年级|年|级)/);
+    if (direct) return Number(direct[1]);
+    const chineseMap = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    const chinese = text.match(/([一二三四五六七八九])\s*(?:年级|年|级)/);
+    if (chinese) return chineseMap[chinese[1]] || 0;
+    if (/初一|七年级/.test(text)) return 7;
+    if (/初二|八年级/.test(text)) return 8;
+    if (/初三|九年级/.test(text)) return 9;
+    return 0;
+  }
+
+  function delegatedAcademicOwner(teacherName, context = {}) {
+    const teacher = normalizePersonName(teacherName);
+    if (!specialDelegatedTeachers.includes(teacher)) return null;
+    if (teacher === "海滢滢" || teacher === "姚老师") return studentServiceFallbackOwner;
+    const grade = gradeNumberFromText(context.grade, context.className, context.studentName, context.courseName, context.content, context.sample);
+    if (grade >= 1 && grade <= 6) return primarySchoolServiceOwner;
+    if (grade >= 7 && grade <= 9) return juniorSchoolServiceOwner;
+    return juniorSchoolServiceOwner;
+  }
+
+  function resolveAcademicFlowOwner(teacherName, context = {}) {
+    const delegated = delegatedAcademicOwner(teacherName, context);
+    if (delegated) return delegated;
+    return {
+      name: teacherName || studentServiceFallbackOwner.name,
+      username: employeeUsernameByName(teacherName) || ""
+    };
+  }
+
   function normalizeScheduleRowsFromRegular(data) {
     const entries = Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
     return entries.map((entry, index) => ({
@@ -439,69 +475,103 @@
       });
     }
     teacherTodayGroups.forEach((rows, teacher) => {
-      tasks.push({
-        id: `flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}`,
-        entryType: "task",
-        title: `【今日点名】${teacher} 今天 ${rows.length} 条排课待点名`,
-        category: "点名闭环",
-        impact: "high",
-        content: `今天 ${today} 已有排课，但系统还没检测到对应点名记录。请老师课前或课中进入学生服务系统完成点名；如果课程取消或调课，请让排课负责人同步修改。\n\n课程样例：${rows.slice(0, 8).map((row) => `${row.startTime || "-"} ${row.className || row.studentName || "-"} ${row.roomName ? `｜${row.roomName}` : ""}`).join("；")}`,
-        author: "系统联动",
-        authorUsername: "",
-        anonymous: false,
-        createdAt: today,
-        updatedAt: new Date().toISOString(),
-        status: "assigned",
-        owner: teacher,
-        ownerUsername: employeeUsernameByName(teacher),
-        dueDate: today,
-        verifier: "高芳燕",
-        taskId: `task-flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}`,
-        taskStandard: "当天课程必须保存点名；未到、请假、迟到、出门测修正都要有明确记录。",
-        subtasks: [
-          "1. 打开学生与家长服务系统。",
-          "2. 选择对应课程系统、日期、时间、老师和班级。",
-          "3. 逐个点名，不默认全到。",
-          "4. 保存本节点名，缺勤学生继续补处理口径。"
-        ].join("\n"),
-        completionReport: "",
-        decision: "排课生成当天点名任务，防止老师忘记点名，影响课销和课时费。",
-        systemFlowTask: true,
-        flowKey: "schedule-to-attendance",
-        moduleHref: "./student-service.html"
+      const ownerGroups = new Map();
+      rows.forEach((row) => {
+        const owner = resolveAcademicFlowOwner(teacher, {
+          grade: row.grade,
+          className: row.className,
+          studentName: row.studentName,
+          courseName: row.courseName,
+          content: `${row.className || ""} ${row.studentName || ""} ${row.courseName || ""}`
+        });
+        const key = owner.username || owner.name || "unassigned";
+        if (!ownerGroups.has(key)) ownerGroups.set(key, { owner, rows: [] });
+        ownerGroups.get(key).rows.push(row);
+      });
+      ownerGroups.forEach(({ owner, rows: ownerRows }) => {
+        const delegated = normalizePersonName(owner.name) !== normalizePersonName(teacher);
+        const ownerKey = owner.username || normalizePersonName(owner.name);
+        tasks.push({
+          id: `flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}-${ownerKey}`,
+          entryType: "task",
+          title: `【今日点名】${teacher} 今天 ${ownerRows.length} 条排课待点名`,
+          category: "点名闭环",
+          impact: "high",
+          content: `今天 ${today} 已有排课，但系统还没检测到对应点名记录。${delegated ? `该老师教务流程由${owner.name}主要管理，请学管确认点名或转授课老师补充。` : "请老师课前或课中进入学生服务系统完成点名；如果课程取消或调课，请让排课负责人同步修改。"}\n\n课程样例：${ownerRows.slice(0, 8).map((row) => `${row.startTime || "-"} ${row.className || row.studentName || "-"} ${row.roomName ? `｜${row.roomName}` : ""}`).join("；")}`,
+          author: "系统联动",
+          authorUsername: "",
+          anonymous: false,
+          createdAt: today,
+          updatedAt: new Date().toISOString(),
+          status: "assigned",
+          owner: owner.name,
+          ownerUsername: owner.username,
+          dueDate: today,
+          verifier: "高芳燕",
+          taskId: `task-flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}-${ownerKey}`,
+          taskStandard: "当天课程必须保存点名；未到、请假、迟到、出门测修正都要有明确记录。",
+          subtasks: [
+            "1. 打开学生与家长服务系统。",
+            "2. 选择对应课程系统、日期、时间、老师和班级。",
+            "3. 逐个点名，不默认全到。",
+            "4. 保存本节点名，缺勤学生继续补处理口径。"
+          ].join("\n"),
+          completionReport: "",
+          decision: "排课生成当天点名任务，防止老师忘记点名，影响课销和课时费。",
+          systemFlowTask: true,
+          flowKey: "schedule-to-attendance",
+          flowTeacher: teacher,
+          delegatedAcademicOwner: delegated,
+          moduleHref: "./student-service.html"
+        });
       });
     });
     if (unresolvedRows.length) {
-      tasks.push({
-        id: "flow-attendance-exceptions",
-        entryType: "task",
-        title: `【缺勤闭环】${unresolvedRows.length} 人次点名异常待处理`,
-        category: "课销闭环",
-        impact: "high",
-        content: `点名系统里还有 ${unresolvedRows.length} 人次未点名、缺勤、请假或待联系家长。财务系统会把这些人次作为暂缓项，不直接进入正式课时费/课销确认。\n\n样例：${unresolvedRows.slice(0, 8).map(({ session, row }) => `${session.date || "-"}｜${session.teacher || "-"}｜${row.studentName || row.student || "-"}｜${row.status || "未点名"}`).join("；")}`,
-        author: "系统联动",
-        authorUsername: "",
-        anonymous: false,
-        createdAt: today,
-        updatedAt: new Date().toISOString(),
-        status: "assigned",
-        owner: "高芳燕",
-        ownerUsername: "gaofangyan",
-        dueDate: "",
-        verifier: "程志豪",
-        taskId: "task-flow-attendance-exceptions",
-        taskStandard: "每个未到/异常学生都必须落实处理口径：不销课、正常销课、线下补课、视频补课、录播核销、请假顺延或待联系家长。",
-        subtasks: [
-          "1. 打开学生服务系统的缺勤异常处理。",
-          "2. 按日期、时间、老师、班级筛选。",
-          "3. 给每个学生选择处理方式并保存。",
-          "4. 再回财务系统确认暂缓项是否下降。"
-        ].join("\n"),
-        completionReport: "",
-        decision: "缺勤异常未闭环前不进入正式课销和普通财务结算。",
-        systemFlowTask: true,
-        flowKey: "attendance-exception-to-finance-hold",
-        moduleHref: "./student-service.html"
+      const exceptionGroups = new Map();
+      unresolvedRows.forEach(({ session, row }) => {
+        const delegated = delegatedAcademicOwner(session.teacher, {
+          grade: session.grade,
+          className: session.className || session.courseName,
+          studentName: row.studentName || row.student,
+          content: `${session.className || ""} ${session.courseName || ""} ${row.studentName || row.student || ""}`
+        });
+        const owner = delegated || studentServiceFallbackOwner;
+        const key = owner.username || owner.name;
+        if (!exceptionGroups.has(key)) exceptionGroups.set(key, { owner, rows: [] });
+        exceptionGroups.get(key).rows.push({ session, row });
+      });
+      exceptionGroups.forEach(({ owner, rows }) => {
+        tasks.push({
+          id: `flow-attendance-exceptions-${owner.username || normalizePersonName(owner.name)}`,
+          entryType: "task",
+          title: `【缺勤闭环】${rows.length} 人次点名异常待处理`,
+          category: "课销闭环",
+          impact: "high",
+          content: `点名系统里还有 ${rows.length} 人次未点名、缺勤、请假或待联系家长。财务系统会把这些人次作为暂缓项，不直接进入正式课时费/课销确认。\n\n样例：${rows.slice(0, 8).map(({ session, row }) => `${session.date || "-"}｜${session.teacher || "-"}｜${row.studentName || row.student || "-"}｜${row.status || "未点名"}`).join("；")}`,
+          author: "系统联动",
+          authorUsername: "",
+          anonymous: false,
+          createdAt: today,
+          updatedAt: new Date().toISOString(),
+          status: "assigned",
+          owner: owner.name,
+          ownerUsername: owner.username,
+          dueDate: "",
+          verifier: "程志豪",
+          taskId: `task-flow-attendance-exceptions-${owner.username || normalizePersonName(owner.name)}`,
+          taskStandard: "每个未到/异常学生都必须落实处理口径：不销课、正常销课、线下补课、视频补课、录播核销、请假顺延或待联系家长。",
+          subtasks: [
+            "1. 打开学生服务系统的缺勤异常处理。",
+            "2. 按日期、时间、老师、班级筛选。",
+            "3. 给每个学生选择处理方式并保存。",
+            "4. 再回财务系统确认暂缓项是否下降。"
+          ].join("\n"),
+          completionReport: "",
+          decision: "缺勤异常未闭环前不进入正式课销和普通财务结算。",
+          systemFlowTask: true,
+          flowKey: "attendance-exception-to-finance-hold",
+          moduleHref: "./student-service.html"
+        });
       });
     }
     return tasks;
@@ -956,6 +1026,32 @@
     return String(item.owner || "") === name || String(item.ownerUsername || "").trim().toLowerCase() === username;
   }
 
+  function isOperationalFlowTask(item) {
+    return Boolean(item?.systemFlowTask || String(item?.id || "").startsWith("flow-") || String(item?.flowKey || ""));
+  }
+
+  function isFeedbackReviewTask(item) {
+    return Boolean(item?.feedbackReviewTask || String(item?.id || "").startsWith("feedback-review-"));
+  }
+
+  function isFeedbackExecutionTask(item) {
+    return Boolean(item?.sourceFeedbackId || String(item?.id || "").startsWith("t-feedback-"));
+  }
+
+  function isHumanSuggestionTask(item) {
+    return !isOperationalFlowTask(item) && !isFeedbackReviewTask(item);
+  }
+
+  function suggestionTaskHref(task) {
+    const id = encodeURIComponent(task.id || task.taskId || "");
+    return id ? `./suggestions.html?task=${id}` : "./suggestions.html";
+  }
+
+  function feedbackHref(row) {
+    const id = encodeURIComponent(row?.id || "");
+    return id ? `./suggestions.html?feedback=${id}#siteFeedbackSection` : "./suggestions.html#siteFeedbackSection";
+  }
+
   function feedbackRelatedToCurrentUser(item) {
     const employee = currentEmployee();
     const name = String(employee?.name || "").trim();
@@ -1088,6 +1184,7 @@
   async function readSuggestionTasks() {
     let rows = readStore(suggestionsKey, []);
     const feedbackRows = await readSiteFeedbackRows();
+    let flowRows = [];
     if (window.JRC_CLOUD?.readModuleData) {
       try {
         const result = await window.JRC_CLOUD.readModuleData(suggestionsKey);
@@ -1099,31 +1196,43 @@
         console.warn("Failed to read cloud suggestion tasks", error);
       }
     }
+    rows = (Array.isArray(rows) ? rows : []).filter((row) => !isOperationalFlowTask(row));
     const merged = mergeModuleOwnerTasks(rows);
     rows = merged.rows;
     const feedbackReviewMerged = mergeFeedbackReviewTasks(rows, feedbackRows);
     rows = feedbackReviewMerged.rows;
-    const systemFlowMerged = mergeSystemFlowTasks(rows, await buildSystemFlowTasks());
-    rows = systemFlowMerged.rows;
-    if (merged.changed || feedbackReviewMerged.changed || systemFlowMerged.changed) {
+    flowRows = await buildSystemFlowTasks();
+    if (merged.changed || feedbackReviewMerged.changed) {
       localStorage.setItem(suggestionsKey, JSON.stringify(rows));
       syncSuggestionTasksToCloud(rows).catch((error) => {
         console.warn("Failed to queue generated task sync", error);
       });
     }
-    return Array.isArray(rows) ? rows : [];
+    return mergeTaskRows(Array.isArray(rows) ? rows : [], flowRows);
   }
 
   async function renderMyTasks() {
     const holder = $("portalMyTaskList");
+    const flowHolder = $("portalMyFlowList");
     if (!holder) return;
     if (!hasPermission("suggestions.access")) {
       holder.innerHTML = todoItem("正常", "当前账号未开通任务入口", "需要使用任务协同时，由管理员在校区运营与人事系统里开通建议任务权限。", "./index.html", "返回工作台");
+      if (flowHolder) flowHolder.innerHTML = todoItem("正常", "当前账号暂无流程提醒入口", "流程提醒会按责任人分派；需要权限时由管理员开通。", "./index.html", "返回工作台");
       return;
     }
     const rows = await readSuggestionTasks();
-    const tasks = rows
-      .filter((item) => isOpenTask(item) && taskRelatedToCurrentUser(item))
+    const myOpenRows = rows
+      .filter((item) => isOpenTask(item) && taskRelatedToCurrentUser(item));
+    const tasks = myOpenRows
+      .filter(isHumanSuggestionTask)
+      .sort((left, right) => {
+        const levelRank = { "紧急": 0, "提醒": 1, "正常": 2 };
+        const levelDiff = levelRank[taskDueLevel(left)] - levelRank[taskDueLevel(right)];
+        if (levelDiff !== 0) return levelDiff;
+        return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
+      });
+    const flowTasks = myOpenRows
+      .filter(isOperationalFlowTask)
       .sort((left, right) => {
         const levelRank = { "紧急": 0, "提醒": 1, "正常": 2 };
         const levelDiff = levelRank[taskDueLevel(left)] - levelRank[taskDueLevel(right)];
@@ -1131,30 +1240,40 @@
         return String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"));
       });
     if ($("portalMyTaskBadge")) $("portalMyTaskBadge").textContent = String(tasks.length);
+    if ($("portalMyFlowBadge")) $("portalMyFlowBadge").textContent = String(flowTasks.length);
     holder.innerHTML = tasks.length ? tasks.slice(0, 6).map((task) => {
       const level = taskDueLevel(task);
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
-      const href = (task.moduleOwnerTask || task.systemFlowTask) && task.moduleHref ? task.moduleHref : "./suggestions.html";
-      const actionText = task.moduleOwnerTask ? "打开系统" : task.feedbackReviewTask ? "去复核" : task.systemFlowTask ? "去处理" : "处理任务";
+      const href = task.moduleOwnerTask && task.moduleHref ? task.moduleHref : suggestionTaskHref(task);
+      const actionText = task.moduleOwnerTask ? "打开系统" : isFeedbackExecutionTask(task) ? "处理反馈任务" : "处理任务";
       if (task.moduleOwnerTask) {
         return todoItemHtml(level, title, moduleTaskDetailHtml(task, dueText), href, actionText);
-      }
-      if (task.feedbackReviewTask) {
-        return todoItemHtml(level, title, feedbackReviewTaskDetailHtml(task), "./suggestions.html#siteFeedbackTitle", actionText);
-      }
-      if (task.systemFlowTask) {
-        return todoItemHtml(level, title, systemFlowTaskDetailHtml(task, dueText), href, actionText);
       }
       const detail = taskDetailText(task, dueText);
       return todoItem(level, title, detail, href, actionText);
     }).join("") : todoItem(
       "正常",
-      "暂无待办任务",
-      "有新任务时会显示在这里。",
+      "暂无建议任务",
+      "别人派给你的建议任务、模块试用监管会显示在这里。",
       "./suggestions.html",
       "进入建议任务"
     );
+    if (flowHolder) {
+      flowHolder.innerHTML = flowTasks.length ? flowTasks.slice(0, 5).map((task) => {
+        const level = taskDueLevel(task);
+        const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
+        const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名流程提醒"}`;
+        const href = task.moduleHref || "./index.html";
+        return todoItemHtml(level, title, systemFlowTaskDetailHtml(task, dueText), href, "去处理");
+      }).join("") : todoItem(
+        "正常",
+        "暂无流程提醒",
+        "今日点名、缺勤闭环、报名未排课等会按责任人显示在这里。",
+        "./student-service.html",
+        "进入学生服务"
+      );
+    }
   }
 
   async function renderMyFeedback() {
@@ -1166,7 +1285,9 @@
     const reviewRows = rows.filter(siteFeedbackNeedsReview);
     const reopenRows = rows.filter((row) => row.status === "继续反馈");
     const pendingRows = rows.filter((row) => !siteFeedbackIsClosed(row) && !siteFeedbackNeedsReview(row));
-    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = String(rows.length);
+    const prioritizedRows = [...reviewRows, ...reopenRows, ...pendingRows, ...closedRows]
+      .filter((row, index, list) => list.findIndex((candidate) => candidate.id === row.id) === index);
+    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = String(reviewRows.length);
     if (statsHolder) {
       statsHolder.innerHTML = `
         <div class="workbench-kpi-card"><span>已提交</span><strong>${rows.length}</strong></div>
@@ -1176,7 +1297,7 @@
         <div class="workbench-kpi-card"><span>继续反馈</span><strong>${reopenRows.length}</strong></div>
       `;
     }
-    listHolder.innerHTML = rows.length ? rows.slice(0, 4).map((row) => {
+    listHolder.innerHTML = prioritizedRows.length ? prioritizedRows.slice(0, 4).map((row) => {
       const done = siteFeedbackIsClosed(row);
       const needsReview = siteFeedbackNeedsReview(row);
       const level = row.status === "继续反馈" || needsReview ? "紧急" : done ? "正常" : "提醒";
@@ -1187,7 +1308,7 @@
         `问题：${String(row.content || "").slice(0, 72)}${String(row.content || "").length > 72 ? "..." : ""}`,
         `进展：${progressText.slice(0, 86)}${progressText.length > 86 ? "..." : ""}`
       ].join("\n");
-      return todoItem(level, title, detail, "./suggestions.html#siteFeedbackTitle", needsReview ? "去确认" : done ? "查看结果" : "看进展");
+      return todoItem(level, title, detail, feedbackHref(row), needsReview ? "去确认" : done ? "查看结果" : "看进展");
     }).join("") : todoItem(
       "正常",
       "暂无个人反馈",

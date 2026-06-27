@@ -235,6 +235,18 @@
         gap: 14px;
         margin-top: 16px;
       }
+      .list-utility-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .list-utility-row strong {
+        color: var(--ink);
+      }
       .suggestion-card {
         border: 1px solid var(--line);
         border-radius: 20px;
@@ -247,6 +259,11 @@
       }
       .suggestion-card.is-closed {
         opacity: 0.76;
+      }
+      .suggestion-card.target-highlight,
+      .feedback-card.target-highlight {
+        border-color: rgba(13, 148, 136, 0.72);
+        box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.14);
       }
       .suggestion-head {
         display: flex;
@@ -681,7 +698,7 @@
 
         <article class="card">
           <p class="eyebrow">筛选</p>
-          <h2>建议与任务筛选</h2>
+          <h2>员工建议池</h2>
           <div class="filters">
             <input id="searchInput" type="search" placeholder="搜索标题、内容、负责人">
             <select id="statusFilter">
@@ -712,6 +729,10 @@
               <option value="校区运营">校区运营</option>
             </select>
           </div>
+          <div class="list-utility-row">
+            <span>默认只看员工建议、人工任务和模块负责人任务；流程提醒、反馈复核已移出本列表。</span>
+            <strong id="suggestionListCount">0 条</strong>
+          </div>
           <div class="suggestion-list" id="suggestionList"></div>
         </article>
       </section>
@@ -723,7 +744,7 @@
       </section>
 
       <section class="card" id="siteFeedbackSection" hidden>
-        <p class="eyebrow">试用反馈</p>
+        <p class="eyebrow">试用反馈整改台账</p>
         <h2 id="siteFeedbackTitle">我的反馈问题</h2>
         <div class="feedback-summary" id="siteFeedbackSummary"></div>
         <div class="feedback-rank-grid" id="siteFeedbackRanks"></div>
@@ -731,7 +752,7 @@
           <input id="siteFeedbackSearch" type="search" placeholder="搜索老师、系统、问题内容">
           <select id="siteFeedbackStatusFilter">
             <option value="">全部状态</option>
-            <option value="待处理">待处理</option>
+            <option value="待处理">新问题待讨论</option>
             <option value="已转任务">已转任务</option>
             <option value="已整改待复核">已整改待复核</option>
             <option value="已处理">已处理（旧状态）</option>
@@ -744,7 +765,12 @@
             <option value="普通">普通</option>
             <option value="可后置">可后置</option>
           </select>
-          <button class="button secondary" type="button" id="exportFeedbackButton">导出待整改 CSV</button>
+          <button class="button secondary" type="button" id="exportFeedbackButton">导出本轮待讨论 CSV</button>
+          <button class="button secondary" type="button" id="exportAllFeedbackButton">导出全部归档 CSV</button>
+        </div>
+        <div class="list-utility-row">
+          <span>这里统一放试运行问题、新反馈、整改复核和仍有问题的追问，不进入上方员工建议池。</span>
+          <strong id="siteFeedbackListCount">0 条</strong>
         </div>
         <div class="feedback-grid" id="siteFeedbackList"></div>
       </section>
@@ -793,6 +819,7 @@
       const feedbackReviewStatuses = ["已整改待复核", "已处理"];
       const feedbackTaskStatuses = ["已转任务"];
       const feedbackDoneLikeStatuses = [...feedbackClosedStatuses, ...feedbackReviewStatuses, ...feedbackTaskStatuses];
+      const feedbackDiscussionStatuses = ["待处理", "继续反馈"];
       const impactMap = {
         high: "高影响",
         medium: "中影响",
@@ -805,6 +832,14 @@
       const currentName = currentEmployee?.name || "员工";
       const currentUsername = currentEmployee?.username || currentName;
       const canManage = window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
+      const pageParams = new URLSearchParams(window.location.search || "");
+      const targetSuggestionId = pageParams.get("task") || pageParams.get("suggestion") || "";
+      const targetFeedbackId = pageParams.get("feedback") || "";
+
+      function selectorValue(value) {
+        const text = String(value || "");
+        return window.CSS?.escape ? CSS.escape(text) : text.replace(/["\\\]]/g, "\\$&");
+      }
 
       function recordSuggestionLink(action, count = 1, samples = [], note = "", source = "建议与任务协同系统", target = "建议与任务协同系统") {
         window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
@@ -1484,6 +1519,22 @@
         return completedStatuses.has(item?.status) || item?.status === "paused";
       }
 
+      function isOperationalFlowTask(item) {
+        return Boolean(item?.systemFlowTask || String(item?.id || "").startsWith("flow-") || String(item?.flowKey || ""));
+      }
+
+      function isFeedbackReviewTask(item) {
+        return Boolean(item?.feedbackReviewTask || String(item?.id || "").startsWith("feedback-review-"));
+      }
+
+      function isFeedbackExecutionTask(item) {
+        return Boolean(item?.sourceFeedbackId || String(item?.id || "").startsWith("t-feedback-"));
+      }
+
+      function isVisibleSuggestionPoolItem(item) {
+        return !isOperationalFlowTask(item) && !isFeedbackReviewTask(item);
+      }
+
       function matchesTaskView(item, view) {
         if (!view) return true;
         const mineByName = [item.owner, item.author].some((value) => String(value || "") === currentName);
@@ -1501,7 +1552,8 @@
         const status = byId("statusFilter").value;
         const category = byId("categoryFilter").value;
         const taskView = byId("taskViewFilter").value;
-        return suggestions.filter((item) => {
+        return suggestions.filter(isVisibleSuggestionPoolItem).filter((item) => {
+          if (targetSuggestionId && String(item.id || item.taskId || "") === targetSuggestionId) return true;
           const haystack = [item.title, item.content, item.owner, item.author, item.category].join(" ").toLowerCase();
           return (!keyword || haystack.includes(keyword)) &&
             (!status || item.status === status) &&
@@ -1519,12 +1571,13 @@
       }
 
       function renderStats() {
-        byId("statTotal").textContent = suggestions.length;
-        byId("statNew").textContent = suggestions.filter((item) => item.status === "new").length;
-        byId("statTask").textContent = suggestions.filter((item) => item.status === "assigned").length;
-        byId("statReview").textContent = suggestions.filter((item) => item.status === "doing").length;
-        byId("statLaunched").textContent = suggestions.filter((item) => completedStatuses.has(item.status)).length;
-        byId("statReward").textContent = suggestions.reduce((sum, item) => sum + Number(item.votes || 0), 0);
+        const visibleRows = suggestions.filter(isVisibleSuggestionPoolItem);
+        byId("statTotal").textContent = visibleRows.length;
+        byId("statNew").textContent = visibleRows.filter((item) => item.status === "new").length;
+        byId("statTask").textContent = visibleRows.filter((item) => item.status === "assigned").length;
+        byId("statReview").textContent = visibleRows.filter((item) => item.status === "doing").length;
+        byId("statLaunched").textContent = visibleRows.filter((item) => completedStatuses.has(item.status)).length;
+        byId("statReward").textContent = visibleRows.reduce((sum, item) => sum + Number(item.votes || 0), 0);
       }
 
       function renderSiteFeedback() {
@@ -1540,7 +1593,7 @@
         const feedbackTitle = byId("siteFeedbackTitle");
         const visibleBaseRows = canManage ? siteFeedbackRows : siteFeedbackRows.filter(personMatchesNameOrUsername);
         const closedStatuses = feedbackDoneLikeStatuses;
-        if (feedbackTitle) feedbackTitle.textContent = canManage ? "全站反馈问题" : "我的反馈问题";
+        if (feedbackTitle) feedbackTitle.textContent = canManage ? "试用反馈整改台账" : "我的反馈复核与问题";
         const exportButton = byId("exportFeedbackButton");
         if (exportButton) exportButton.hidden = !canManage;
         const pendingRows = visibleBaseRows.filter((row) => !closedStatuses.includes(row.status));
@@ -1597,8 +1650,9 @@
           `;
           ranksNode.innerHTML = renderRank("试用贡献记录（全量）", teacherRows) + renderRank("系统反馈分布", systemRows);
         }
-        const rows = [...visibleBaseRows]
+        let rows = [...visibleBaseRows]
           .filter((row) => {
+            if (targetFeedbackId && String(row.id || "") === targetFeedbackId) return true;
             const status = row.status || "待处理";
             const haystack = [row.userName, row.username, row.role, row.system, row.type, row.content, row.url, row.resolution]
               .join(" ")
@@ -1612,8 +1666,14 @@
             if (leftDone !== rightDone) return leftDone ? 1 : -1;
             if (left.severity !== right.severity) return left.severity === "紧急" ? -1 : right.severity === "紧急" ? 1 : 0;
             return String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
-          })
-          .slice(0, 40);
+          });
+        if (targetFeedbackId) {
+          const targetRow = visibleBaseRows.find((row) => String(row.id || "") === targetFeedbackId);
+          if (targetRow) rows = [targetRow, ...rows.filter((row) => String(row.id || "") !== targetFeedbackId)];
+        }
+        rows = rows.slice(0, 40);
+        const listCount = byId("siteFeedbackListCount");
+        if (listCount) listCount.textContent = `${rows.length} 条`;
         if (!rows.length) {
           list.innerHTML = `<div class="empty">${canManage ? "暂无符合条件的反馈。" : "你还没有提交过反馈；在任意模块右下角点“反馈问题”即可提交。"}</div>`;
           return;
@@ -1653,11 +1713,12 @@
       }
 
       function renderPipeline() {
+        const visibleRows = suggestions.filter(isVisibleSuggestionPoolItem);
         byId("pipelineBoard").innerHTML = statusOrder.map((status) => {
-          const items = suggestions.filter((item) => item.status === status).slice(0, 4);
+          const items = visibleRows.filter((item) => item.status === status).slice(0, 4);
           return `
             <section class="pipeline-column">
-              <h3>${statusMap[status]} <span>${suggestions.filter((item) => item.status === status).length}</span></h3>
+              <h3>${statusMap[status]} <span>${visibleRows.filter((item) => item.status === status).length}</span></h3>
               ${items.length ? items.map((item) => `
                 <div class="pipeline-item">
                   <strong>${escapeHtml(item.title)}</strong>
@@ -1761,6 +1822,8 @@
 
       function renderList() {
         const list = filteredSuggestions();
+        const countNode = byId("suggestionListCount");
+        if (countNode) countNode.textContent = `${list.length} 条`;
         byId("suggestionList").innerHTML = list.length ? list.map((item) => {
           const authorLabel = item.anonymous ? "匿名" : item.author || "未记录";
           const noteCount = (item.comments || []).length + (item.decision ? 1 : 0) + (item.completionReport ? 1 : 0);
@@ -1842,7 +1905,7 @@
             ` : ""}
           </article>
         `;
-        }).join("") : `<div class="empty">没有符合筛选条件的建议。</div>`;
+        }).join("") : `<div class="empty">没有符合筛选条件的员工建议或人工任务。</div>`;
       }
 
       function renderAll() {
@@ -1853,6 +1916,25 @@
       }
 
       function scrollToFeedbackIfRequested() {
+        if (targetSuggestionId) {
+          window.setTimeout(() => {
+            const node = document.querySelector(`[data-id="${selectorValue(targetSuggestionId)}"]`);
+            if (!node) return;
+            node.classList.add("target-highlight");
+            node.scrollIntoView({ block: "center", behavior: "smooth" });
+          }, 160);
+          return;
+        }
+        if (targetFeedbackId) {
+          window.setTimeout(() => {
+            byId("siteFeedbackSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+            const node = document.querySelector(`[data-feedback-id="${selectorValue(targetFeedbackId)}"]`);
+            if (!node) return;
+            node.classList.add("target-highlight");
+            node.scrollIntoView({ block: "center", behavior: "smooth" });
+          }, 180);
+          return;
+        }
         if (!["#siteFeedbackTitle", "#siteFeedbackSection"].includes(window.location.hash)) return;
         window.setTimeout(() => {
           byId("siteFeedbackSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -2132,9 +2214,10 @@
       }
 
       function exportCsv() {
+        const exportRows = suggestions.filter(isVisibleSuggestionPoolItem);
         const rows = [
           ["标题", "分类", "紧急程度", "状态", "提交人", "负责人", "截止日期", "支持数", "完成反馈", "内容", "处理说明"],
-          ...suggestions.map((item) => [
+          ...exportRows.map((item) => [
             item.title,
             item.category,
             impactMap[item.impact] || item.impact,
@@ -2163,11 +2246,52 @@
         URL.revokeObjectURL(url);
       }
 
-      function exportFeedbackCsv() {
-        const exportRows = siteFeedbackRows.filter((row) => !feedbackClosedStatuses.includes(row.status || ""));
-        const rows = [
-          ["提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "问题分类", "紧急程度", "状态", "任务编号", "问题说明", "页面链接", "处理人", "处理时间"],
+      function latestReviewNoteText(row) {
+        const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+        const latest = notes[notes.length - 1];
+        return latest ? `${latest.author || "反馈人"}：${latest.text || ""} ${latest.time || ""}` : "";
+      }
+
+      function feedbackTimelineText(row) {
+        return (Array.isArray(row?.reviewNotes) ? row.reviewNotes : [])
+          .map((note) => `${note.time || ""} ${note.author || "反馈人"}：${note.text || ""}`.trim())
+          .filter(Boolean)
+          .join("\n");
+      }
+
+      function markFeedbackExported(rows, batchType) {
+        const time = new Date().toISOString();
+        rows.forEach((row) => {
+          row.lastExportedAt = time;
+          row.lastExportBatch = batchType;
+          row.exportCount = Number(row.exportCount || 0) + 1;
+        });
+        writeSiteFeedbackRows();
+      }
+
+      function shouldEnterDiscussionExport(row) {
+        const status = row.status || "待处理";
+        if (feedbackClosedStatuses.includes(status)) return false;
+        if (feedbackReviewStatuses.includes(status)) return false;
+        if (status === "已转任务") return false;
+        if (status === "继续反馈") {
+          const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
+          const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
+          return !row.lastExportedAt || updatedAt > exportedAt;
+        }
+        if (feedbackDiscussionStatuses.includes(status)) {
+          const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
+          const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
+          return !row.lastExportedAt || updatedAt > exportedAt;
+        }
+        return !row.lastExportedAt;
+      }
+
+      function feedbackCsvRows(exportRows) {
+        return [
+          ["反馈ID", "提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "问题分类", "紧急程度", "当前状态", "任务编号", "问题说明", "页面链接", "处理说明", "处理人", "处理时间", "复核结果", "复核说明/最新记录", "复核人", "复核时间", "上次导出时间", "导出次数", "完整复核时间线"],
           ...exportRows.map((row) => [
+            row.id || "",
             row.createdAt || "",
             row.userName || "",
             row.username || "",
@@ -2180,10 +2304,27 @@
             row.taskId || "",
             row.content || "",
             row.url || "",
+            row.resolution || "",
             row.processedBy || "",
-            row.processedAt || ""
+            row.processedAt || "",
+            row.status === "已确认解决" ? "已解决" : row.status === "继续反馈" ? "仍有问题" : feedbackReviewStatuses.includes(row.status || "") ? "待提交人复核" : "",
+            latestReviewNoteText(row),
+            row.confirmedBy || row.reopenedBy || "",
+            row.confirmedAt || row.reopenedAt || "",
+            row.lastExportedAt || "",
+            row.exportCount || "",
+            feedbackTimelineText(row)
           ])
         ];
+      }
+
+      function exportFeedbackCsv() {
+        const exportRows = siteFeedbackRows.filter(shouldEnterDiscussionExport);
+        if (!exportRows.length) {
+          alert("当前没有本轮新问题或仍有问题的复核追问需要导出。");
+          return;
+        }
+        const rows = feedbackCsvRows(exportRows);
         const csv = rows.map((row) => row.map((cell) => {
           const text = String(cell ?? "");
           return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -2192,7 +2333,26 @@
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `待整改反馈台账-${today()}.csv`;
+        link.download = `本轮待讨论反馈-${today()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        markFeedbackExported(exportRows, "本轮待讨论");
+        renderAll();
+      }
+
+      function exportAllFeedbackCsv() {
+        const rows = feedbackCsvRows(siteFeedbackRows);
+        const csv = rows.map((row) => row.map((cell) => {
+          const text = String(cell ?? "");
+          return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }).join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `全部反馈归档-${today()}.csv`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2207,6 +2367,7 @@
         if (event.target?.id === "assignTaskModal") closeAssignModal();
       });
       byId("exportFeedbackButton")?.addEventListener("click", exportFeedbackCsv);
+      byId("exportAllFeedbackButton")?.addEventListener("click", exportAllFeedbackCsv);
       byId("siteFeedbackSearch")?.addEventListener("input", renderSiteFeedback);
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
       byId("siteFeedbackSeverityFilter")?.addEventListener("change", renderSiteFeedback);
@@ -2320,6 +2481,7 @@
           feedback.status = "继续反馈";
           feedback.reopenedAt = new Date().toISOString();
           feedback.updatedAt = feedback.reopenedAt;
+          feedback.reopenedBy = currentName;
           feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
           feedback.reviewNotes.push({ author: currentName, text: `仍有问题：${text.trim()}`, time: today() });
           recordSuggestionLink(
