@@ -437,6 +437,27 @@
       .section-muted {
         opacity: 0.88;
       }
+      .source-explain {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .source-explain-card {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(248, 250, 252, 0.92);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .source-explain-card strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+        font-size: 14px;
+      }
       .button {
         display: inline-flex;
         align-items: center;
@@ -845,6 +866,58 @@
         font-size: 12px;
         line-height: 1.5;
       }
+      .finance-review-note {
+        display: grid;
+        gap: 4px;
+        min-width: 160px;
+      }
+      .finance-review-note span {
+        width: fit-content;
+      }
+      .finance-review-note small {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .finance-import-groups {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .finance-import-group {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.72);
+        overflow: hidden;
+      }
+      .finance-import-group summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 16px;
+        cursor: pointer;
+        list-style: none;
+      }
+      .finance-import-group summary::-webkit-details-marker {
+        display: none;
+      }
+      .finance-import-group summary strong {
+        display: block;
+        color: var(--ink);
+      }
+      .finance-import-group summary span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .finance-import-group .table-wrap {
+        margin: 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+      }
       .admin-details {
         margin-top: 18px;
       }
@@ -870,6 +943,7 @@
         .finance-path-grid,
         .workbench-strip,
         .finance-command-grid,
+        .source-explain,
         .excel-finance-toolbar,
         .excel-finance-summary,
         .teacher-wage-grid,
@@ -1068,6 +1142,11 @@
           </div>
         </div>
         <p class="hero-text">这里按老师原工资明细页展示：学生、课时费、提成、上课日期/第几次。老师看这个最接近原来的工资表。</p>
+        <div class="source-explain">
+          <div class="source-explain-card"><strong>明细来源</strong>下面的逐课次明细来自已导入的原 Excel 工资/课时表。</div>
+          <div class="source-explain-card"><strong>系统计算</strong>系统只按导入明细做汇总试算，用于和原总表、人工结算互相核对。</div>
+          <div class="source-explain-card"><strong>核对方式</strong>先核对总额、课次数、学生/班级数；只有金额不一致时再展开查单条。</div>
+        </div>
         <div class="teacher-wage-overview" id="financeTeacherWageOverview"></div>
         <div class="excel-finance-summary" id="financeTeacherDetailSummary"></div>
         <div class="table-wrap">
@@ -1134,17 +1213,36 @@
         </div>
         <div class="auth-note" id="financeImportMessage">还没有导入新的财务原始表。</div>
         <div class="compare-grid" id="financeImportGrid"></div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead><tr><th>日期</th><th>类别</th><th>金额</th><th>经办/报销人</th><th>状态</th><th>来源文件</th><th>说明</th></tr></thead>
-            <tbody id="importedExpenseBody"></tbody>
-          </table>
+        <div class="source-explain">
+          <div class="source-explain-card"><strong>这里看什么</strong>这里是原始表流水，不是最终工资单。默认收起，避免长明细干扰核对。</div>
+          <div class="source-explain-card"><strong>什么时候展开</strong>当某个老师总额、课次或来源文件不对时，再展开对应明细查原表行。</div>
+          <div class="source-explain-card"><strong>最终以谁为准</strong>试运行阶段以原 Excel 和财务人工确认结果为准，系统负责帮助发现差异。</div>
         </div>
-        <div class="table-wrap" style="margin-top: 16px;">
-          <table>
-            <thead><tr><th>日期</th><th>老师</th><th>学生/班级</th><th>金额</th><th>课时</th><th>状态</th><th>来源文件</th><th>备注</th></tr></thead>
-            <tbody id="importedSalaryBody"></tbody>
-          </table>
+        <div class="finance-import-groups">
+          <details class="finance-import-group" id="importedExpenseGroup">
+            <summary>
+              <div><strong>支出原始表明细</strong><span id="importedExpenseSummary">当前月份暂无支出原始表。</span></div>
+              <span class="status-pill">展开</span>
+            </summary>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>日期</th><th>类别</th><th>金额</th><th>经办/报销人</th><th>状态</th><th>来源文件</th><th>说明</th></tr></thead>
+                <tbody id="importedExpenseBody"></tbody>
+              </table>
+            </div>
+          </details>
+          <details class="finance-import-group" id="importedSalaryGroup">
+            <summary>
+              <div><strong>工资/课时原始表明细</strong><span id="importedSalarySummary">当前月份暂无工资/课时原始表。</span></div>
+              <span class="status-pill">展开</span>
+            </summary>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>日期</th><th>老师</th><th>学生/班级</th><th>金额</th><th>课时</th><th>状态</th><th>来源文件</th><th>备注</th></tr></thead>
+                <tbody id="importedSalaryBody"></tbody>
+              </table>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -1605,6 +1703,43 @@
       function setFinanceAutofillMessage(text) {
         const node = byId("financeAutofillMessage");
         if (node) node.textContent = text;
+      }
+
+      function importedRowSourceName(row) {
+        return String(row?.sourceFileName || row?.sourceWorkbook || row?.sourceSheet || "-").trim() || "-";
+      }
+
+      function reviewStatusText(status) {
+        const text = String(status || "待对账").trim();
+        if (text.includes("待") || text.includes("核")) return text || "待对账";
+        if (text.includes("已")) return text;
+        return text || "待对账";
+      }
+
+      function reviewStatusClass(status, needsReview = false) {
+        const text = String(status || "");
+        if (needsReview || text.includes("待") || text.includes("核") || text.includes("复核")) return "pending";
+        if (text.includes("已") || text.includes("正常") || text.includes("可核对")) return "paid";
+        return "";
+      }
+
+      function reviewHelpText(status, sourceLabel = "原 Excel") {
+        const text = String(status || "");
+        if (text.includes("待") || text.includes("核") || text.includes("复核")) {
+          return `先看本老师合计；不一致时再和${sourceLabel}、排课和点名记录对。`;
+        }
+        if (text.includes("已")) return "已进入当前核对口径，后续按月结复核。";
+        return `来源于${sourceLabel}，用于汇总试算。`;
+      }
+
+      function renderReviewNote(status, needsReview = false, sourceLabel = "原 Excel") {
+        const text = reviewStatusText(status);
+        return `
+          <div class="finance-review-note">
+            <span class="status-pill ${reviewStatusClass(text, needsReview)}">${escapeHtml(text)}</span>
+            <small>${escapeHtml(reviewHelpText(text, sourceLabel))}</small>
+          </div>
+        `;
       }
 
       function recordFinanceLink(action, count = 1, samples = [], note = "") {
@@ -2643,9 +2778,15 @@
         const expenseBody = byId("importedExpenseBody");
         const salaryBody = byId("importedSalaryBody");
         const grid = byId("financeImportGrid");
+        const expenseSummary = byId("importedExpenseSummary");
+        const salarySummary = byId("importedSalarySummary");
         const expenseRows = (bundle.expenseRows || []).filter((row) => row.period === currentPeriod);
         const salaryRows = (bundle.salaryAttendance || []).filter((row) => row.period === currentPeriod);
         const revenueRows = (bundle.salaryRevenueAttendance || []).filter((row) => row.period === currentPeriod);
+        const salaryTeachers = new Set(salaryRows.map(teacherNameOf).filter(Boolean));
+        const salarySources = new Set(salaryRows.map(importedRowSourceName).filter((value) => value && value !== "-"));
+        const expenseSources = new Set(expenseRows.map(importedRowSourceName).filter((value) => value && value !== "-"));
+        const pendingSalaryRows = salaryRows.filter((row) => row.needsReview || /待|核|复核/.test(String(row.status || "")));
         if (grid) {
           const totalExpense = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
           const totalSalary = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
@@ -2653,10 +2794,25 @@
           grid.innerHTML = `
             <div class="compare-card"><span>本月导入支出</span><strong>${expenseRows.length}</strong></div>
             <div class="compare-card"><span>本月导入工资/课时</span><strong>${salaryRows.length}</strong></div>
+            <div class="compare-card"><span>涉及老师</span><strong>${salaryTeachers.size}</strong></div>
+            <div class="compare-card"><span>待对账明细</span><strong>${pendingSalaryRows.length}</strong></div>
             <div class="compare-card"><span>支出金额合计</span><strong>${money(totalExpense)}</strong></div>
             <div class="compare-card"><span>工资金额合计</span><strong>${money(totalSalary)}</strong></div>
             <div class="compare-card"><span>课时收入试算</span><strong>${money(totalRevenue)}</strong></div>
+            <div class="compare-card"><span>来源文件</span><strong>${salarySources.size + expenseSources.size}</strong></div>
           `;
+        }
+        if (expenseSummary) {
+          const totalExpense = expenseRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+          expenseSummary.textContent = expenseRows.length
+            ? `${expenseRows.length} 条，合计 ${money(totalExpense)}，来源 ${expenseSources.size || 1} 个文件。`
+            : "当前月份暂无支出原始表。";
+        }
+        if (salarySummary) {
+          const totalSalary = salaryRows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
+          salarySummary.textContent = salaryRows.length
+            ? `${salaryRows.length} 条，${salaryTeachers.size} 位老师，合计 ${money(totalSalary)}，待对账 ${pendingSalaryRows.length} 条。`
+            : "当前月份暂无工资/课时原始表。";
         }
         if (expenseBody) {
           expenseBody.innerHTML = expenseRows.length
@@ -2666,8 +2822,8 @@
                   <td>${escapeHtml(row.category || "-")}</td>
                   <td class="money-cell">${money(row.amount)}</td>
                   <td>${escapeHtml(row.operator || "-")}</td>
-                  <td>${escapeHtml(row.status || "待审核")}</td>
-                  <td>${escapeHtml(row.sourceFileName || "-")}</td>
+                  <td>${renderReviewNote(row.status || "待审核", String(row.status || "").includes("待"), "支出原始表")}</td>
+                  <td>${escapeHtml(importedRowSourceName(row))}</td>
                   <td>${escapeHtml(row.notes || "-")}</td>
                 </tr>
               `).join("")
@@ -2682,8 +2838,8 @@
                   <td>${escapeHtml(row.studentName || row.className || "-")}</td>
                   <td class="money-cell">${money(salaryRowAmount(row))}</td>
                   <td>${escapeHtml(row.hours || row.lessonNo || 0)}</td>
-                  <td>${escapeHtml(row.status || "待对账")}</td>
-                  <td>${escapeHtml(row.sourceFileName || "-")}</td>
+                  <td>${renderReviewNote(row.status || "待对账", row.needsReview, "工资/课时原始表")}</td>
+                  <td>${escapeHtml(importedRowSourceName(row))}</td>
                   <td>${escapeHtml(row.notes || row.raw || "-")}</td>
                 </tr>
               `).join("")
@@ -3519,7 +3675,7 @@
           const group = map.get(key);
           group.rows.push(row);
           group.statuses.add(row.status || "待对账");
-          group.needsReview = group.needsReview || Boolean(row.needsReview) || String(row.status || "").includes("复核");
+          group.needsReview = group.needsReview || Boolean(row.needsReview) || /待|核|复核/.test(String(row.status || ""));
           group.amount += salaryRowAmount(row);
           const source = [row.sourceSheet, row.cell].filter(Boolean).join("!");
           if (source) group.sources.add(source);
@@ -3571,7 +3727,7 @@
           status,
           rowsCount: rows.length,
           studentCount: groups.length,
-          reviewCount: rows.filter((row) => row.needsReview || String(row.status || "").includes("复核")).length
+          reviewCount: rows.filter((row) => row.needsReview || /待|核|复核/.test(String(row.status || ""))).length
         };
       }
 
@@ -3589,9 +3745,9 @@
         const socialInsurance = summary?.["社保"];
         const classHourBalance = summary?.["课时剩余"];
         const note = summary
-          ? "上方为原小课产值总表字段；下方明细表为逐学生/逐课次来源，方便和原 Excel 对照。"
+          ? "总表字段来自原小课产值总表；工资明细应发由系统把导入的逐学生/逐课次明细加总出来，方便和原 Excel 对照。"
           : data.rowsCount
-            ? "当前月份已读到老师工资明细，但还没有对应的小课产值总表行；先按明细核对，上总表后这里会自动补齐收入、基础工资、社保和课时剩余。"
+            ? "当前月份已读到老师工资明细，这是系统根据原 Excel 明细加总的试算值；还没有对应小课产值总表行，上总表后会自动补齐收入、基础工资、社保和课时剩余。"
             : "当前月份没有读取到该老师工资明细，请先确认月份或原始工资表是否已导入。";
         holder.innerHTML = `
           <div class="teacher-wage-header">
@@ -3626,14 +3782,14 @@
         if (title) title.textContent = teacher ? `${teacher}｜工资明细` : "老师工资明细";
         const amount = rows.reduce((sum, row) => sum + salaryRowAmount(row), 0);
         const students = groups.length;
-        const reviewCount = rows.filter((row) => row.needsReview || String(row.status || "").includes("复核")).length;
+        const reviewCount = rows.filter((row) => row.needsReview || /待|核|复核/.test(String(row.status || ""))).length;
         renderFinanceTeacherWageOverview(teacher, rows, groups);
         if (summary) {
           summary.innerHTML = `
             <div class="excel-finance-card"><span>上课记录</span><strong>${rows.length}</strong></div>
             <div class="excel-finance-card"><span>学生/班级</span><strong>${students}</strong></div>
             <div class="excel-finance-card"><span>提成/应发合计</span><strong>${money(amount)}</strong></div>
-            <div class="excel-finance-card"><span>待复核</span><strong>${reviewCount}</strong></div>
+            <div class="excel-finance-card"><span>待核对</span><strong>${reviewCount}</strong></div>
             <div class="excel-finance-card"><span>月份</span><strong>${escapeHtml(currentPeriod)}</strong></div>
           `;
         }
@@ -3656,7 +3812,7 @@
             <td><div class="lesson-date-list">${lessonChips || "-"}</div></td>
             <td class="money-cell">${money(group.amount)}</td>
             <td><div class="finance-source-note">${escapeHtml([...group.sources].slice(0, 4).join("、") || "-")}</div></td>
-            <td><span class="status-pill ${group.needsReview ? "pending" : ""}">${escapeHtml(statuses)}</span></td>
+            <td>${renderReviewNote(statuses, group.needsReview, "原工资表")}</td>
           </tr>
         `;
         }).join("");
