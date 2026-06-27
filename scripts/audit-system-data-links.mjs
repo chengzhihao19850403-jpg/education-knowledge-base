@@ -106,6 +106,9 @@ const checks = [
     title: "排课点名财务操作闭环",
     pass: /attendanceHrefForRow/.test(files.paike)
       && /#attendanceSection/.test(files.paike)
+      && /sourceScheduleKey/.test(files.paike)
+      && /scheduleSourceKey/.test(files.paike)
+      && /点名异常待处理/.test(files.paike)
       && /applyAttendanceDeepLink/.test(files.student)
       && /sourceScheduleKey/.test(files.student)
       && /sourceType/.test(files.finance)

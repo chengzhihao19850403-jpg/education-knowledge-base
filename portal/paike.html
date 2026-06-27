@@ -1218,10 +1218,30 @@
       }
 
       function attendanceRowsFromData(data) {
-        if (Array.isArray(data)) return data;
-        if (Array.isArray(data?.records)) return data.records;
-        if (Array.isArray(data?.attendanceRows)) return data.attendanceRows;
-        return [];
+        const sourceRows = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.records)
+            ? data.records
+            : Array.isArray(data?.attendanceRows)
+              ? data.attendanceRows
+              : [];
+        return sourceRows.flatMap((session) => {
+          if (!session || typeof session !== "object") return [];
+          if (!Array.isArray(session.rows)) return [session];
+          return session.rows.map((row) => ({
+            ...row,
+            date: session.date || row.date || row.courseDate,
+            courseDate: session.date || row.courseDate,
+            teacherName: session.teacher || row.teacherName || row.teacher,
+            teacher: session.teacher || row.teacher,
+            className: session.className || row.className,
+            startTime: session.startTime || row.startTime,
+            endTime: session.endTime || row.endTime,
+            sourceScheduleKey: session.sourceScheduleKey || row.sourceScheduleKey,
+            sessionReviewStatus: session.reviewStatus || "",
+            attendanceStatus: row.status || row.attendanceStatus
+          }));
+        });
       }
 
       function dateKey(value) {
@@ -1267,22 +1287,38 @@
         const teacher = String(row.teacher || "").trim();
         const date = dateKey(row.date);
         const classText = String(row.student || "").trim();
+        const scheduleKey = scheduleSourceKey(row);
+        const rowTime = timeSlotLabel(row);
         return paikeAttendanceRows.filter((item) => {
           const itemDate = dateKey(item.date || item.courseDate || item.attendanceDate);
           const itemTeacher = String(item.teacherName || item.teacher || "").trim();
           const itemClass = String(item.className || item.studentName || item.student || "").trim();
+          const itemStudent = String(item.studentName || item.student || "").trim();
+          const itemTime = item.startTime || item.endTime
+            ? `${item.startTime || ""}${item.endTime ? `-${item.endTime}` : ""}`
+            : "";
+          if (scheduleKey && item.sourceScheduleKey && item.sourceScheduleKey === scheduleKey) return true;
           return (!date || !itemDate || itemDate === date) &&
             (!teacher || !itemTeacher || itemTeacher === teacher) &&
-            (!classText || !itemClass || classText.includes(itemClass) || itemClass.includes(classText));
+            (!rowTime || !itemTime || rowTime === itemTime) &&
+            (!classText || !itemClass || classText.includes(itemClass) || itemClass.includes(classText) || classText.includes(itemStudent) || itemStudent.includes(classText));
         });
       }
 
       function scheduleStatus(row) {
         const attendanceMatches = matchAttendance(row);
-        const hasAttendance = attendanceMatches.some((item) => ["到课", "迟到", "请假", "缺勤", "已点名"].includes(String(item.attendanceStatus || item.status || "")));
-        const hasAbsence = attendanceMatches.some((item) => ["缺勤", "请假", "未到"].includes(String(item.attendanceStatus || item.status || "")));
+        const hasAttendance = attendanceMatches.length > 0;
+        const hasUnresolvedAttendance = attendanceMatches.some((item) => {
+          const status = String(item.attendanceStatus || item.status || "").trim();
+          const hasScore = String(item.exitScore ?? "").trim() !== "";
+          const handled = item.followupHandled === true || item.followupStatus === "已处理";
+          if (handled) return false;
+          if (item.followup === "待联系家长") return true;
+          if (["到课", "迟到"].includes(status) || hasScore) return false;
+          return !status || ["未点名", "请假", "缺席", "缺勤", "未到", "待核对"].includes(status);
+        });
         const financeReady = /工资|财务|结算|待对账|匹配|已读取/.test(String(row.status || ""));
-        if (hasAbsence) return { label: "缺勤待处理", tone: "warn" };
+        if (hasUnresolvedAttendance) return { label: "点名异常待处理", tone: "warn" };
         if (hasAttendance) return { label: financeReady ? "已点名 / 财务待核" : "已点名", tone: "" };
         if (row.status && /异常|待确认|待核|低/.test(String(row.status))) return { label: "待核对", tone: "warn" };
         return { label: "待点名", tone: "warn" };
@@ -1354,6 +1390,16 @@
 
       function timeSlotLabel(row) {
         return row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || "未填时间";
+      }
+
+      function scheduleSourceKey(row) {
+        return [
+          row.date,
+          row.teacher,
+          row.startTime,
+          row.endTime,
+          row.lessonType || row.student
+        ].map((value) => String(value || "").trim()).join("|");
       }
 
       function lessonExportText(row) {
