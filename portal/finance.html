@@ -1473,6 +1473,7 @@
           classHourBalance: "",
           admissionReceipts: [],
           attendanceSettlementReviews: [],
+          teacherWageReviews: [],
           expenses: []
         };
       }
@@ -1510,6 +1511,25 @@
           row?.financePresent || 0,
           row?.specialPresent || 0,
           row?.followupCount || 0
+        ].join("|");
+      }
+
+      function teacherWageReviewId(teacher, periodName = currentPeriod) {
+        return buildFinanceHash([
+          periodName,
+          teacher
+        ].join("|"), "teacher-wage-review");
+      }
+
+      function teacherWageSignature(data) {
+        return [
+          data?.detailAmount || 0,
+          data?.revenueAmount || 0,
+          data?.teacherCost || 0,
+          data?.summaryCommission || 0,
+          data?.rowsCount || 0,
+          data?.studentCount || 0,
+          data?.summaryRow ? "summary" : "detail"
         ].join("|");
       }
 
@@ -1564,6 +1584,7 @@
           periodName,
           admissionReceipts: Array.isArray(period?.admissionReceipts) ? period.admissionReceipts : [],
           attendanceSettlementReviews: Array.isArray(period?.attendanceSettlementReviews) ? period.attendanceSettlementReviews : [],
+          teacherWageReviews: Array.isArray(period?.teacherWageReviews) ? period.teacherWageReviews : [],
           expenses: mergeExpenseRows(periodName, period?.expenses || [])
         };
       }
@@ -1581,6 +1602,7 @@
               ...normalizedIncoming,
               admissionReceipts: mergeFinanceRecordRows(normalizedExisting.admissionReceipts, normalizedIncoming.admissionReceipts),
               attendanceSettlementReviews: mergeFinanceRecordRows(normalizedExisting.attendanceSettlementReviews, normalizedIncoming.attendanceSettlementReviews),
+              teacherWageReviews: mergeFinanceRecordRows(normalizedExisting.teacherWageReviews, normalizedIncoming.teacherWageReviews),
               expenses: mergeExpenseRows(periodName, normalizedExisting.expenses, normalizedIncoming.expenses)
             };
           });
@@ -1796,6 +1818,10 @@
       function setFinanceAutofillMessage(text) {
         const node = byId("financeAutofillMessage");
         if (node) node.textContent = text;
+      }
+
+      function canEditFinance() {
+        return window.jrcHasPermission ? window.jrcHasPermission("finance.edit") : true;
       }
 
       function importedRowSourceName(row) {
@@ -2778,6 +2804,10 @@
       }
 
       function confirmAdmissionReceiptById(receiptId) {
+        if (!canEditFinance()) {
+          setFinanceMessage("当前账号没有财务确认权限，不能确认入账。");
+          return;
+        }
         const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
         const row = (derived?.pendingLinks?.financeAttributionCandidates || [])
           .find((item) => admissionReceiptId(item) === receiptId);
@@ -3618,6 +3648,10 @@
       }
 
       function confirmAttendanceSettlementById(settlementId) {
+        if (!canEditFinance()) {
+          setFinanceMessage("当前账号没有财务确认权限，不能确认点名结算。");
+          return;
+        }
         const row = deriveAttendanceSettlementRows().find((item) => attendanceSettlementId(item) === settlementId);
         if (!row) {
           setFinanceMessage("没有找到这条点名结算候选，请刷新后再试。");
@@ -4040,6 +4074,86 @@
         };
       }
 
+      function teacherWageReviewFor(teacher, data = null) {
+        const period = getPeriod(currentPeriod);
+        const reviewId = teacherWageReviewId(teacher);
+        const reviews = Array.isArray(period.teacherWageReviews) ? period.teacherWageReviews : [];
+        const review = reviews.find((item) => item.id === reviewId || item.sourceId === reviewId) || null;
+        if (!review || !data) return review;
+        return {
+          ...review,
+          currentSignature: teacherWageSignature(data),
+          changed: Boolean(review.signature && review.signature !== teacherWageSignature(data))
+        };
+      }
+
+      function teacherWageReviewStatus(teacher, data) {
+        const review = teacherWageReviewFor(teacher, data);
+        if (!review) return { label: "待核对", className: "pending", note: "核对原 Excel 后可确认" };
+        if (review.changed) return { label: "数据已变化", className: "pending", note: "工资明细或总表变化后需重新核对" };
+        return {
+          label: "已核对",
+          className: "paid",
+          note: `${review.reviewedBy || "财务"} ${String(review.reviewedAt || "").slice(0, 10)}`
+        };
+      }
+
+      function confirmTeacherWageReview() {
+        if (!canEditFinance()) {
+          setFinanceMessage("当前账号没有财务确认权限，不能确认工资单核对。");
+          return;
+        }
+        const teacher = byId("financeTeacherSelect")?.value || "";
+        if (!teacher) {
+          setFinanceMessage("请先选择老师，再确认工资单核对。");
+          return;
+        }
+        const rows = teacherDetailRows();
+        const groups = teacherDetailGroups(rows);
+        const data = teacherWageOverviewData(teacher, rows, groups);
+        if (!rows.length && !data.summaryRow) {
+          setFinanceMessage(`${teacher} ${currentPeriod} 没有工资明细或总表，不能确认核对。`);
+          return;
+        }
+        const period = getPeriod();
+        const reviews = Array.isArray(period.teacherWageReviews) ? period.teacherWageReviews : [];
+        const reviewId = teacherWageReviewId(teacher);
+        const review = {
+          id: reviewId,
+          sourceId: reviewId,
+          period: currentPeriod,
+          teacher,
+          detailAmount: data.detailAmount,
+          revenueAmount: data.summaryRow?.["课时总收入"] ?? data.revenueAmount,
+          teacherCost: data.summaryRow ? data.teacherCost : data.detailAmount,
+          summaryCommission: data.summaryCommission,
+          rowsCount: data.rowsCount,
+          studentCount: data.studentCount,
+          reviewCount: data.reviewCount,
+          status: "已核对",
+          basis: data.summaryRow ? "总表口径 + 工资明细" : "工资明细口径",
+          signature: teacherWageSignature(data),
+          reviewedAt: new Date().toISOString(),
+          reviewedBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录"
+        };
+        period.teacherWageReviews = [review, ...reviews.filter((item) => item.id !== reviewId && item.sourceId !== reviewId)];
+        period.reviewStatus = "待复核";
+        period.updatedAt = review.reviewedAt;
+        period.updatedBy = review.reviewedBy;
+        recordFinanceLink(
+          "老师工资单核对确认",
+          1,
+          [`${currentPeriod}｜${teacher}｜明细${data.rowsCount}条｜应发${money(data.detailAmount)}`],
+          "财务人工确认单个老师工资单核对结果，作为月结复核前的留痕。"
+        );
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? `已确认：${teacher} ${currentPeriod} 工资单核对结果已同步云端。`
+            : `已暂存：${teacher} ${currentPeriod} 工资单核对结果已在本机保存，云端稍后同步。`);
+        });
+        render();
+      }
+
       function renderFinanceTeacherWageOverview(teacher, rows, groups) {
         const holder = byId("financeTeacherWageOverview");
         if (!holder) return;
@@ -4055,16 +4169,20 @@
         const classHourBalance = summary?.["课时剩余"];
         const note = summary
           ? "总表字段来自原小课产值总表；工资明细应发由系统把导入的逐学生/逐课次明细加总出来，方便和原 Excel 对照。"
-          : data.rowsCount
+            : data.rowsCount
             ? "当前月份已读到老师工资明细，这是系统根据原 Excel 明细加总的试算值；还没有对应小课产值总表行，上总表后会自动补齐收入、基础工资、社保和课时剩余。"
             : "当前月份没有读取到该老师工资明细，请先确认月份或原始工资表是否已导入。";
+        const reviewStatus = teacherWageReviewStatus(teacher, data);
         holder.innerHTML = `
           <div class="teacher-wage-header">
             <div>
               <strong>${escapeHtml(teacher)}｜${escapeHtml(currentPeriod)} 工资单合计</strong>
               <span>${escapeHtml(data.status)}</span>
             </div>
-            <span class="status-pill ${data.departed || !summary ? "pending" : ""}">${escapeHtml(summary ? "总表口径" : "明细口径")}</span>
+            <div class="tag-row">
+              <span class="status-pill ${data.departed || !summary ? "pending" : ""}">${escapeHtml(summary ? "总表口径" : "明细口径")}</span>
+              <span class="status-pill ${reviewStatus.className}">${escapeHtml(reviewStatus.label)}</span>
+            </div>
           </div>
           <div class="teacher-wage-grid">
             <div class="teacher-wage-cell"><span>工资明细应发</span><strong>${money(data.detailAmount)}</strong></div>
@@ -4077,6 +4195,10 @@
             <div class="teacher-wage-cell"><span>明细/学生</span><strong>${data.rowsCount} 条 / ${data.studentCount} 个</strong></div>
           </div>
           <p class="teacher-wage-note">${escapeHtml(note)}</p>
+          <div class="actions" style="margin-top: 12px;">
+            <button class="button" type="button" id="confirmTeacherWageReviewButton" ${(!data.rowsCount && !summary) || reviewStatus.label === "已核对" ? "disabled" : ""}>${reviewStatus.label === "已核对" ? "已核对" : "确认本老师工资单"}</button>
+            <span class="muted">${escapeHtml(reviewStatus.note)}</span>
+          </div>
         `;
       }
 
@@ -4367,6 +4489,21 @@
             review.basis
           ]),
           [],
+          ["老师工资单核对记录"],
+          ["确认日期", "老师", "工资明细应发", "课时总收入", "老师结算成本", "明细条数", "学生/班级数", "确认人", "状态", "确认口径"],
+          ...(period.teacherWageReviews || []).map((review) => [
+            String(review.reviewedAt || "").slice(0, 10),
+            review.teacher,
+            review.detailAmount,
+            review.revenueAmount,
+            review.teacherCost,
+            review.rowsCount,
+            review.studentCount,
+            review.reviewedBy,
+            review.status,
+            review.basis
+          ]),
+          [],
           ["逐学生点名明细"],
           ["日期", "老师", "学生", "班级/课程", "点名状态", "出门测", "普通财务人次", "单独结算", "异常处理", "处理人", "处理时间", "复核状态"],
           ...attendanceDetailRows.map((row) => [
@@ -4441,6 +4578,7 @@
           return;
         }
         const summary = data.summaryRow || {};
+        const wageReview = teacherWageReviewFor(teacher, data);
         const detailRows = groups.map((group) => {
           const sortedRows = group.rows.slice().sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
           const lessonDates = sortedRows
@@ -4472,6 +4610,9 @@
           ["课时剩余", summary["课时剩余"] ?? ""],
           ["明细条数", data.rowsCount],
           ["学生/班级数", data.studentCount],
+          ["工资单核对状态", wageReview && !wageReview.changed ? "已核对" : wageReview?.changed ? "数据已变化，需重新核对" : "待核对"],
+          ["核对人", wageReview?.reviewedBy || ""],
+          ["核对时间", wageReview?.reviewedAt || ""],
           [],
           ["学生/班级", "课时费", "单次提成", "上课次数", "上课日期/第几次", "应发小计", "来源", "状态"],
           ...detailRows
@@ -4480,7 +4621,7 @@
       }
 
       function applyEditPermission() {
-        const canEdit = window.jrcHasPermission ? window.jrcHasPermission("finance.edit") : true;
+        const canEdit = canEditFinance();
         byId("editWarning").hidden = canEdit;
         document.querySelectorAll("main input, main select, main textarea, main button").forEach((node) => {
           const keepEnabled = [
@@ -4599,6 +4740,11 @@
         const card = event.target.closest("[data-finance-teacher-card]");
         if (!card) return;
         selectFinanceTeacher(card.getAttribute("data-finance-teacher-card") || "");
+      });
+      byId("financeTeacherWageOverview")?.addEventListener("click", (event) => {
+        const button = event.target.closest("#confirmTeacherWageReviewButton");
+        if (!button || button.disabled) return;
+        confirmTeacherWageReview();
       });
       byId("monthlyForm").addEventListener("input", () => syncPeriodFromForm());
       byId("saveMonthlyButton").addEventListener("click", () => syncPeriodFromForm({ log: true }));

@@ -104,8 +104,11 @@ const checks = [
   },
   {
     title: "财务读取原始工资/排课预导入",
-    pass: /readModuleData\?\.\(PREIMPORT_STORE_KEY\)/.test(files.finance) || /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.finance),
-    detail: `${salaryAttendance.length} 行工资课时，${salaryRevenueAttendance.length} 行收入，${teacherSummary.length} 行老师汇总，${issues.length} 条待核差异。`
+    pass: (/readModuleData\?\.\(PREIMPORT_STORE_KEY\)/.test(files.finance) || /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.finance))
+      && /teacherWageReviews/.test(files.finance)
+      && /confirmTeacherWageReview/.test(files.finance)
+      && /confirmTeacherWageReviewButton/.test(files.finance),
+    detail: `${salaryAttendance.length} 行工资课时，${salaryRevenueAttendance.length} 行收入，${teacherSummary.length} 行老师汇总，${issues.length} 条待核差异；老师工资单支持人工核对留痕。`
   },
   {
     title: "招生报名沉淀学生服务",
