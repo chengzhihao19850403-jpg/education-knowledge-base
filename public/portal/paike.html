@@ -180,6 +180,17 @@
         border-radius: 14px;
         background: rgba(255,255,255,0.86);
       }
+      .teacher-workbench-stat {
+        width: 100%;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .teacher-workbench-stat:hover {
+        border-color: rgba(13,148,136,0.36);
+        background: rgba(13,148,136,0.08);
+      }
       .teacher-workbench-stat span,
       .teacher-next-item span {
         display: block;
@@ -787,6 +798,7 @@
               <option value="week">本周课表</option>
               <option value="weekend">周五/周六/周日</option>
               <option value="weekday">周一到周四</option>
+              <option value="pending-attendance">待点名/异常</option>
               <option value="missing-room">未写教室</option>
             </select>
           </label>
@@ -1696,6 +1708,7 @@
           if (period && row.period !== period) return false;
           if (teacher && row.teacher !== teacher) return false;
           if (mode === "missing-room" && String(row.room || "").trim() && row.room !== "-") return false;
+          if (mode === "pending-attendance" && !/待点名|异常|待处理|待核对/.test(scheduleStatus(row).label)) return false;
           const weekday = weekdayName(row.date);
           if (mode === "today" && dateKey(row.date) !== localDateText()) return false;
           if (mode === "week" && !isInRange(row, "week")) return false;
@@ -1881,10 +1894,10 @@
               <span class="status-pill">${escapeHtml(period || "-")}</span>
             </div>
             <div class="teacher-workbench-stats">
-              <div class="teacher-workbench-stat"><span>今天课程</span><strong>${todayRows.length}</strong></div>
-              <div class="teacher-workbench-stat"><span>本周课程</span><strong>${weekRows.length}</strong></div>
-              <div class="teacher-workbench-stat"><span>待点名/异常</span><strong>${pendingAttendanceRows.length}</strong></div>
-              <div class="teacher-workbench-stat"><span>未写教室</span><strong>${missingRoomRows.length}</strong></div>
+              <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="today"><span>今天课程</span><strong>${todayRows.length}</strong></button>
+              <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="week"><span>本周课程</span><strong>${weekRows.length}</strong></button>
+              <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="pending-attendance"><span>待点名/异常</span><strong>${pendingAttendanceRows.length}</strong></button>
+              <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="missing-room"><span>未写教室</span><strong>${missingRoomRows.length}</strong></button>
             </div>
             <div class="teacher-workbench-actions">
               <button class="button secondary" type="button" data-teacher-workbench-action="today">看今天</button>
@@ -2269,6 +2282,13 @@
           if (mode) mode.value = "missing-room";
           renderTeacherSheet();
           setTeacherSheetMessage("已筛出当前老师未写教室的课程。排课负责人先补这些，教室表才更准确。");
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "pending-attendance") {
+          if (mode) mode.value = "pending-attendance";
+          renderTeacherSheet();
+          setTeacherSheetMessage("已筛出当前老师待点名或异常待处理的课程。先完成点名和异常闭环，再进入财务课销。");
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }

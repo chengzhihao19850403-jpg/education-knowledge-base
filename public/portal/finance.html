@@ -413,6 +413,17 @@
         border-radius: 14px;
         background: rgba(255,255,255,0.86);
       }
+      .finance-teacher-workbench-stat {
+        width: 100%;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .finance-teacher-workbench-stat:hover {
+        border-color: rgba(13, 148, 136, 0.36);
+        background: rgba(13, 148, 136, 0.08);
+      }
       .finance-teacher-workbench-stat span,
       .finance-next-item span {
         display: block;
@@ -4621,10 +4632,10 @@
               <span class="status-pill ${reviewStatus.className}">${escapeHtml(reviewStatus.label)}</span>
             </div>
             <div class="finance-teacher-workbench-stats">
-              <div class="finance-teacher-workbench-stat"><span>本月应发/成本</span><strong>${amountLabel}</strong></div>
-              <div class="finance-teacher-workbench-stat"><span>明细/学生</span><strong>${data.rowsCount} / ${data.studentCount}</strong></div>
-              <div class="finance-teacher-workbench-stat"><span>待对账</span><strong>${data.reviewCount}</strong></div>
-              <div class="finance-teacher-workbench-stat"><span>点名课销</span><strong>${attendanceLessons}</strong></div>
+              <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="detail"><span>本月应发/成本</span><strong>${amountLabel}</strong></button>
+              <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="detail"><span>明细/学生</span><strong>${data.rowsCount} / ${data.studentCount}</strong></button>
+              <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="review"><span>待对账</span><strong>${data.reviewCount}</strong></button>
+              <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="attendance"><span>点名课销</span><strong>${attendanceLessons}</strong></button>
             </div>
             <div class="finance-teacher-workbench-actions">
               <button class="button secondary" type="button" data-finance-workbench-action="detail">看工资单</button>
@@ -5313,7 +5324,8 @@
           return;
         }
         if (action === "summary") {
-          applyFinanceQuick("summary");
+          setFinanceMessage(`已跳到 ${currentPeriod} 小课产值总表。`);
+          byId("financeExcelStatementSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         if (action === "export") {
