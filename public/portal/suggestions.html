@@ -750,6 +750,7 @@
         <div class="feedback-rank-grid" id="siteFeedbackRanks"></div>
         <div class="feedback-toolbar">
           <input id="siteFeedbackSearch" type="search" placeholder="搜索老师、系统、问题内容">
+          <button class="button secondary" type="button" id="siteFeedbackMineToggle">只看自己</button>
           <select id="siteFeedbackStatusFilter">
             <option value="">全部状态</option>
             <option value="待处理">新问题待讨论</option>
@@ -835,6 +836,7 @@
       const pageParams = new URLSearchParams(window.location.search || "");
       const targetSuggestionId = pageParams.get("task") || pageParams.get("suggestion") || "";
       const targetFeedbackId = pageParams.get("feedback") || "";
+      let siteFeedbackMineOnly = !canManage;
 
       function selectorValue(value) {
         const text = String(value || "");
@@ -1598,12 +1600,17 @@
         const keyword = String(byId("siteFeedbackSearch")?.value || "").trim().toLowerCase();
         const statusFilter = String(byId("siteFeedbackStatusFilter")?.value || "");
         const severityFilter = String(byId("siteFeedbackSeverityFilter")?.value || "");
+        const mineToggle = byId("siteFeedbackMineToggle");
         const summaryNode = byId("siteFeedbackSummary");
         const ranksNode = byId("siteFeedbackRanks");
         const feedbackTitle = byId("siteFeedbackTitle");
-        const visibleBaseRows = canManage ? siteFeedbackRows : siteFeedbackRows.filter(personMatchesNameOrUsername);
+        const visibleBaseRows = (canManage && !siteFeedbackMineOnly) ? siteFeedbackRows : siteFeedbackRows.filter(personMatchesNameOrUsername);
         const closedStatuses = feedbackDoneLikeStatuses;
-        if (feedbackTitle) feedbackTitle.textContent = canManage ? "试用反馈整改台账" : "我的反馈复核与问题";
+        if (feedbackTitle) feedbackTitle.textContent = canManage && !siteFeedbackMineOnly ? "试用反馈整改台账" : "我的反馈复核与问题";
+        if (mineToggle) {
+          mineToggle.textContent = siteFeedbackMineOnly ? "查看全部" : "只看自己";
+          mineToggle.hidden = false;
+        }
         const exportButton = byId("exportFeedbackButton");
         if (exportButton) exportButton.hidden = !canManage;
         const pendingRows = visibleBaseRows.filter((row) => !closedStatuses.includes(row.status));
@@ -1645,7 +1652,7 @@
           `).join("");
         }
         if (ranksNode) {
-          ranksNode.hidden = !canManage;
+          ranksNode.hidden = !canManage || siteFeedbackMineOnly;
           const teacherRows = countBy("userName");
           const systemRows = countBy("system");
           const renderRank = (title, rows) => `
@@ -2282,8 +2289,8 @@
       function shouldEnterDiscussionExport(row) {
         const status = row.status || "待处理";
         if (feedbackClosedStatuses.includes(status)) return false;
-        if (feedbackReviewStatuses.includes(status)) return false;
-        if (status === "已转任务") return false;
+        if (feedbackReviewStatuses.includes(status)) return true;
+        if (status === "已转任务") return true;
         if (status === "继续反馈") {
           const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
           const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
@@ -2379,6 +2386,10 @@
       byId("exportFeedbackButton")?.addEventListener("click", exportFeedbackCsv);
       byId("exportAllFeedbackButton")?.addEventListener("click", exportAllFeedbackCsv);
       byId("siteFeedbackSearch")?.addEventListener("input", renderSiteFeedback);
+      byId("siteFeedbackMineToggle")?.addEventListener("click", () => {
+        siteFeedbackMineOnly = !siteFeedbackMineOnly;
+        renderSiteFeedback();
+      });
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
       byId("siteFeedbackSeverityFilter")?.addEventListener("change", renderSiteFeedback);
       ["searchInput", "statusFilter", "taskViewFilter", "categoryFilter"].forEach((id) => {

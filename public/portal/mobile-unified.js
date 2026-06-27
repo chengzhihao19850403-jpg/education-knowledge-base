@@ -139,6 +139,32 @@
     document.body.appendChild(link);
   }
 
+  function ensurePwaHead() {
+    const head = document.head;
+    if (!head) return;
+    const addMeta = (name, content) => {
+      if (head.querySelector(`meta[name="${name}"]`)) return;
+      const meta = document.createElement("meta");
+      meta.name = name;
+      meta.content = content;
+      head.appendChild(meta);
+    };
+    const addLink = (rel, href, extra = {}) => {
+      if (head.querySelector(`link[rel="${rel}"]`)) return;
+      const link = document.createElement("link");
+      link.rel = rel;
+      link.href = href;
+      Object.entries(extra).forEach(([key, value]) => link.setAttribute(key, value));
+      head.appendChild(link);
+    };
+    addMeta("theme-color", "#0d9488");
+    addMeta("apple-mobile-web-app-capable", "yes");
+    addMeta("apple-mobile-web-app-title", "匠人程工作台");
+    addMeta("mobile-web-app-capable", "yes");
+    addLink("manifest", "/jrcedu/manifest.webmanifest");
+    addLink("apple-touch-icon", "/jrcedu/icon.svg");
+  }
+
   function slugifyHeading(text, fallback) {
     const base = String(text || "").trim().replace(/\s+/g, "-").replace(/[^\w\u4e00-\u9fa5-]/g, "");
     return base || fallback;
@@ -355,6 +381,7 @@
   }
 
   function init() {
+    ensurePwaHead();
     enhanceTables();
     enhanceActionGroups();
     ensureFloatingHome();

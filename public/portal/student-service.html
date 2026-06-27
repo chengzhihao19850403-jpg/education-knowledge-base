@@ -1564,6 +1564,12 @@
           if (!start && !end) return "未填时间";
           return end ? `${start}-${end}` : start;
         };
+        const lessonIdentityKey = (session = {}) => [
+          session.date || "",
+          sessionTimeLabel(session),
+          session.teacher || "",
+          session.className || "未填班级"
+        ].map((value) => String(value || "").trim()).join("|");
         const setFollowupOptions = (select, values, fallbackLabel) => {
           if (!select) return "";
           const cleanValues = Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
@@ -2054,6 +2060,11 @@
             rows: draftRows.map((row) => ({ ...row, teacher, serviceModule: activeServiceModule }))
           };
           const sessions = readRows();
+          const duplicateSession = sessions.find((item) => lessonIdentityKey(item) === lessonIdentityKey(session));
+          if (duplicateSession) {
+            setMessage("本节点名已经保存过，不能重复保存。需要修改请到下方“缺勤异常处理”或历史点名记录里处理，避免重复进入课销和财务结算。");
+            return;
+          }
           sessions.unshift(session);
           const saveResult = saveRows(sessions);
           renderHistory();

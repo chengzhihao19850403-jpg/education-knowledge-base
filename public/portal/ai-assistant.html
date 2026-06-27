@@ -238,6 +238,7 @@
       let voiceMediaStream = null;
       let voiceRecorder = null;
       let voiceRecordingChunks = [];
+      let voiceStartFallbackTimer = null;
       let latestResult = null;
       let editingDraftId = "";
 
@@ -1678,8 +1679,27 @@
       }
 
       function openKeyboardDictation() {
+        clearVoiceStartFallback();
         focusVoiceInput();
         byId("aiMessage").textContent = "已进入输入框。手机上请点键盘里的麦克风/听写按钮，把语音转成文字后再点 AI 整理。";
+      }
+
+      function clearVoiceStartFallback() {
+        if (voiceStartFallbackTimer) {
+          clearTimeout(voiceStartFallbackTimer);
+          voiceStartFallbackTimer = null;
+        }
+      }
+
+      function armVoiceStartFallback(message) {
+        clearVoiceStartFallback();
+        byId("aiMessage").textContent = message || "已收到点击，正在尝试调用手机麦克风...";
+        voiceStartFallbackTimer = setTimeout(() => {
+          voiceStartFallbackTimer = null;
+          if (voiceActive || (voiceRecorder && voiceRecorder.state === "recording")) return;
+          byId("aiMessage").textContent = "已经收到点击，但当前手机浏览器没有成功弹出麦克风权限。请用系统浏览器打开，或点输入框后使用手机键盘麦克风听写。";
+          focusVoiceInput();
+        }, 4200);
       }
 
       function openNativeAudioCapture(reasonText = "") {
@@ -1689,7 +1709,7 @@
           return;
         }
         input.value = "";
-        byId("aiMessage").textContent = reasonText || "正在尝试调用手机原生录音功能。如果没有弹出录音界面，请改用手机键盘麦克风听写。";
+        armVoiceStartFallback(reasonText || "正在尝试调用手机原生录音功能。如果没有弹出录音界面，请改用手机键盘麦克风听写。");
         try {
           input.click();
         } catch (_) {
@@ -1754,6 +1774,7 @@
           if (event.data && event.data.size) voiceRecordingChunks.push(event.data);
         };
         voiceRecorder.onstart = () => {
+          clearVoiceStartFallback();
           voiceActive = true;
           byId("voiceStartButton").disabled = true;
           byId("voiceStopButton").disabled = false;
@@ -1773,6 +1794,7 @@
       }
 
       async function startVoiceInput() {
+        armVoiceStartFallback("已收到点击，正在尝试调用手机麦克风...");
         if (!hasDirectMicrophoneApi()) {
           openNativeAudioCapture(!window.isSecureContext
             ? "页面不是 HTTPS，手机浏览器会禁止网页直接调用麦克风。正在尝试打开手机原生录音。"
@@ -1791,7 +1813,7 @@
         }
         let permissionStream = null;
         try {
-          byId("aiMessage").textContent = "正在向手机申请麦克风权限...";
+          armVoiceStartFallback("正在向手机申请麦克风权限...");
           permissionStream = await requestMicrophoneStream();
           permissionStream.getTracks?.().forEach((track) => track.stop());
         } catch (error) {
@@ -1804,6 +1826,7 @@
           voiceFinalText = "";
           recognition.start();
         } catch {
+          clearVoiceStartFallback();
           openKeyboardDictation();
         }
       }
@@ -1842,6 +1865,7 @@
       bindMobileTap(byId("voiceStartButton"), startVoiceInput);
       bindMobileTap(byId("voiceStopButton"), stopVoiceInput);
       byId("voiceCaptureInput")?.addEventListener("change", (event) => {
+        clearVoiceStartFallback();
         const file = event.target.files?.[0];
         if (!file) {
           openKeyboardDictation();

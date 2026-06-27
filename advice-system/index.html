@@ -800,13 +800,17 @@
                 <input id="quickLeadPhone" inputmode="tel" placeholder="手机号">
               </div>
               <div class="field">
-                <label>来源渠道</label>
+                <label>生源来源</label>
                 <select id="quickLeadChannel">
-                  <option>老家长转介绍</option>
                   <option>线上客户</option>
+                  <option>老生家长转介绍</option>
                   <option>扩科</option>
                   <option>其他</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>推荐人 / 其他来源说明</label>
+                <input id="quickLeadSourceDetail" placeholder="转介绍填推荐人，其他填来源">
               </div>
               <div class="field">
                 <label>负责人</label>
@@ -1015,7 +1019,7 @@
                 <thead>
                   <tr>
                     <th>学生 / 家长</th>
-                    <th>来源渠道</th>
+                    <th>生源来源</th>
                     <th>当前负责人</th>
                     <th>当前状态</th>
                     <th>试听安排</th>
@@ -1247,7 +1251,7 @@
               <div class="filters">
                 <span class="status-chip">必填：学生姓名</span>
                 <span class="status-chip">必填：家长电话</span>
-                <span class="status-chip">必填：来源渠道</span>
+                <span class="status-chip">必填：生源来源</span>
               </div>
             </div>
             <div class="form-grid">
@@ -1274,13 +1278,17 @@
                 <input id="leadPhone" value="">
               </div>
               <div class="field">
-                <label>来源渠道</label>
+                <label>生源来源</label>
                 <select id="leadChannel">
-                  <option>老家长转介绍</option>
                   <option>线上客户</option>
+                  <option>老生家长转介绍</option>
                   <option>扩科</option>
                   <option>其他</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>其他来源说明</label>
+                <input id="leadChannelOther" value="" placeholder="选择其他时填写">
               </div>
               <div class="field">
                 <label>负责人</label>
@@ -1337,7 +1345,7 @@
             <div class="form-grid">
               <div class="field span-2">
                 <label>导入模板字段</label>
-                <input id="importTemplateField" value="学生姓名 / 年级 / 家长姓名 / 家长电话 / 意向学科 / 来源渠道 / 推荐人 / 当前负责人 / 当前状态 / 意向等级 / 试听时间 / 试听老师 / 是否进群 / 首条备注 / 下一步动作" readonly>
+                <input id="importTemplateField" value="学生姓名 / 年级 / 家长姓名 / 家长电话 / 意向学科 / 生源来源 / 推荐人 / 当前负责人 / 当前状态 / 意向等级 / 试听时间 / 试听老师 / 是否进群 / 首条备注 / 下一步动作" readonly>
               </div>
               <div class="field">
                 <label>去重策略</label>
@@ -1371,7 +1379,7 @@
               </div>
               <div class="field span-3">
                 <label>粘贴导入数据（每行一条，Tab 分列）</label>
-                <textarea id="importBatchInput" placeholder="从 Excel 复制表格后粘贴到这里。建议包含表头：学生姓名、年级、家长电话、意向学科、来源渠道、推荐人、当前负责人、当前状态、意向等级、试听时间、试听老师、是否进群、首条备注、下一步动作"></textarea>
+                <textarea id="importBatchInput" placeholder="从 Excel 复制表格后粘贴到这里。建议包含表头：学生姓名、年级、家长电话、意向学科、生源来源、推荐人、当前负责人、当前状态、意向等级、试听时间、试听老师、是否进群、首条备注、下一步动作"></textarea>
               </div>
             </div>
             <div class="section-actions">
@@ -1489,7 +1497,7 @@
                     <td>按表单来源进线，需保留原始提交时间。</td>
                   </tr>
                   <tr>
-                    <td>老家长转介绍</td>
+                    <td>老生家长转介绍</td>
                     <td>家长推荐</td>
                     <td>推荐家长本人</td>
                     <td>否</td>
@@ -1782,10 +1790,10 @@
                 <input id="enrollStartDate" value="" placeholder="也可自定义，例如 暑假周二四 18:30">
               </div>
               <div class="field">
-                <label>渠道归属</label>
+                <label>生源来源</label>
                 <select id="enrollChannel">
-                  <option>老家长转介绍</option>
                   <option>线上客户</option>
+                  <option>老生家长转介绍</option>
                   <option>扩科</option>
                   <option>其他</option>
                 </select>
@@ -2501,7 +2509,7 @@
             </div>
             <div class="list-card">
               <h3>提成链</h3>
-              <p>网销渠道提成、招生顾问提成、员工推荐奖、老家长转介绍奖励。</p>
+              <p>网销渠道提成、招生顾问提成、员工推荐奖、老生家长转介绍奖励。</p>
             </div>
             <div class="list-card">
               <h3>沉睡客户机制</h3>

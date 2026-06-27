@@ -34,7 +34,7 @@ const statusClassMap = {
 
 const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "程志豪"];
 const trialTeacherOptions = ["待安排", "叶源泽", "李舒", "赵萱", "朱永乐", "郑嘉艺", "潘云贵", "曹德顺", "吴水琴", "吴建勇", "海滢滢", "程志豪"];
-const channelOptions = ["待补来源", "老家长转介绍", "线上客户", "扩科", "其他"];
+const channelOptions = ["待补来源", "线上客户", "老生家长转介绍", "扩科", "其他"];
 const courseProductOptions = ["程老师班课", "科学班课", "数学小班课", "科学小班课", "数学一对一", "科学一对一"];
 const startTimeOptions = ["周五 18:00", "周五 19:30", "周六 08:30", "周六 10:20", "周六 13:30", "周六 15:30", "周六 18:30", "周日 08:30", "周日 10:20", "周日 13:30", "周日 15:30", "周日 18:30"];
 const channelOwnerOptions = ["待补渠道归属", "陈雨晴", "颜雨涵", "高芳燕", "周珊", "前台"];
@@ -44,7 +44,7 @@ const importTemplateFields = [
   "家长姓名",
   "家长电话",
   "意向学科",
-  "来源渠道",
+  "生源来源",
   "推荐人",
   "当前负责人",
   "当前状态",
@@ -489,30 +489,44 @@ function deriveChannelOwner(lead) {
   if (lead.channelMeta?.includes("网销归属：")) {
     return lead.channelMeta.replace("网销归属：", "").trim() || "待补渠道归属";
   }
-  if (lead.channel === "线上客户") return "待补渠道归属";
+  if (normalizeLeadChannelValue(lead.channel) === "线上客户") return "待补渠道归属";
   if (lead.channel === "自然到访") return "前台";
   return "待补渠道归属";
 }
 
-function buildChannelMeta(channel, channelOwner, referrerName) {
-  if (channel === "老家长转介绍" && referrerName) return `推荐人：${referrerName}`;
-  if ((channel === "线上客户" || channel === "抖音投流" || channel === "官网表单") && channelOwner && channelOwner !== "待补渠道归属") {
+function normalizeLeadChannelValue(channel) {
+  const value = String(channel || "").trim();
+  if (!value) return "待补来源";
+  if (value === "老家长转介绍") return "老生家长转介绍";
+  if (value.startsWith("其他：")) return value;
+  if (["抖音投流", "官网表单", "线上表单", "视频号", "小红书"].includes(value)) return "线上客户";
+  if (["续费扩科", "内部扩科", "扩科报名"].includes(value)) return "扩科";
+  return value;
+}
+
+function isReferralChannel(channel) {
+  return normalizeLeadChannelValue(channel).includes("转介绍");
+}
+
+function buildChannelMeta(channel, channelOwner, referrerName, otherNote = "") {
+  const normalizedChannel = normalizeLeadChannelValue(channel);
+  if (isReferralChannel(normalizedChannel) && referrerName) return `推荐人：${referrerName}`;
+  if (normalizedChannel === "线上客户" && channelOwner && channelOwner !== "待补渠道归属") {
     return `网销归属：${channelOwner}`;
   }
-  if ((channel === "扩科" || channel === "自然到访") && channelOwner && channelOwner !== "待补渠道归属") {
+  if ((normalizedChannel === "扩科" || channel === "自然到访") && channelOwner && channelOwner !== "待补渠道归属") {
     return `${channelOwner}登记`;
   }
+  if (normalizeLeadChannelForSelect(normalizedChannel) === "其他" && otherNote) return `其他来源：${otherNote}`;
   if (referrerName) return `推荐人：${referrerName}`;
   return "待补推荐人";
 }
 
 function normalizeLeadChannelForSelect(channel) {
-  const value = String(channel || "").trim();
-  if (!value) return "老家长转介绍";
+  const value = normalizeLeadChannelValue(channel);
+  if (!value || value === "待补来源") return "待补来源";
   if (channelOptions.includes(value)) return value;
   if (value.startsWith("其他：")) return "其他";
-  if (["抖音投流", "官网表单", "线上表单", "视频号", "小红书"].includes(value)) return "线上客户";
-  if (["续费扩科", "内部扩科", "扩科报名"].includes(value)) return "扩科";
   if (["自然到访", "内部员工推荐", "异业合作"].includes(value)) return "其他";
   return "其他";
 }
@@ -564,7 +578,7 @@ function downloadTextFile(filename, content, type = "text/csv;charset=utf-8") {
 
 function buildAttributionSnapshot(lead) {
   return {
-    channel: lead.channel,
+    channel: normalizeLeadChannelValue(lead.channel),
     channelOwner: deriveChannelOwner(lead),
     owner: lead.owner,
     referrerName: lead.referrerName || deriveReferrerText(lead.channelMeta) || "",
@@ -585,6 +599,20 @@ function resolveEnrollmentChannel() {
   const channel = byId("enrollChannel")?.value || "";
   const other = byId("enrollChannelOther")?.value.trim() || "";
   return channel === "其他" && other ? `其他：${other}` : channel;
+}
+
+function validateLeadSource(channel, referrerName = "", otherNote = "") {
+  const normalizedChannel = normalizeLeadChannelForSelect(channel);
+  if (!normalizedChannel || normalizedChannel === "待补来源") {
+    return { ok: false, message: "请选择生源来源：线上客户、老生家长转介绍、扩科或其他。" };
+  }
+  if (isReferralChannel(normalizedChannel) && !String(referrerName || "").trim()) {
+    return { ok: false, message: "生源来源为转介绍时，必须填写推荐人 / 转介绍人。" };
+  }
+  if (normalizedChannel === "其他" && !String(otherNote || "").trim()) {
+    return { ok: false, message: "生源来源为其他时，请写清楚具体来源。" };
+  }
+  return { ok: true, channel: normalizedChannel };
 }
 
 function resolveEnrollmentStartTime() {
@@ -647,13 +675,17 @@ function estimateReferralReward(amount, enrolledCount) {
 
 function collectMissingLeadFields(lead) {
   const missing = [];
-  if (!lead.channel || lead.channel === "待补来源") missing.push("缺来源渠道");
+  const channel = normalizeLeadChannelForSelect(lead.channel);
+  if (!lead.channel || channel === "待补来源") missing.push("缺生源来源");
   if (!lead.owner || lead.owner === "待分配") missing.push("缺负责人");
-  if (lead.channel === "线上客户" && (!deriveChannelOwner(lead) || deriveChannelOwner(lead) === "待补渠道归属")) {
+  if (channel === "线上客户" && (!deriveChannelOwner(lead) || deriveChannelOwner(lead) === "待补渠道归属")) {
     missing.push("缺渠道归属");
   }
-  if (lead.channel === "老家长转介绍" && !lead.referrerName && deriveReferrerText(lead.channelMeta) === "无") {
+  if (isReferralChannel(channel) && !lead.referrerName && deriveReferrerText(lead.channelMeta) === "无") {
     missing.push("缺推荐人");
+  }
+  if (channel === "其他" && !String(lead.channelOtherNote || "").trim() && !String(lead.channel || "").startsWith("其他：")) {
+    missing.push("缺其他来源说明");
   }
   if (!lead.note || lead.note === "待补首条记录") missing.push("缺首条备注");
   return missing;
@@ -781,7 +813,7 @@ function getFilteredLeads() {
       if (!haystack.includes(query)) return false;
     }
     if (state.leadOwnerFilter && lead.owner !== state.leadOwnerFilter) return false;
-    if (state.leadChannelFilter && lead.channel !== state.leadChannelFilter) return false;
+    if (state.leadChannelFilter && normalizeLeadChannelValue(lead.channel) !== state.leadChannelFilter) return false;
     if (state.leadIntentFilter && lead.intent !== state.leadIntentFilter) return false;
     return true;
   });
@@ -800,7 +832,7 @@ function parseImportLine(line, headerMap) {
       parentName: at("家长姓名", "parent_name"),
       parentPhone: at("家长电话", "联系电话", "手机号", "parent_phone"),
       subject: at("意向学科", "学科", "subject") || "数学",
-      channel: at("来源渠道", "渠道", "channel"),
+      channel: at("生源来源", "来源渠道", "渠道", "channel"),
       referrer: at("推荐人", "转介绍人", "referrer"),
       owner: at("当前负责人", "负责人", "owner"),
       status: at("当前状态", "状态", "lead_status"),
@@ -833,7 +865,7 @@ function maybeBuildImportHeaderMap(lines) {
   if (!lines.length) return null;
   const firstCols = lines[0].split("\t").map((item) => item.trim());
   const hasHeader = firstCols.some((item) =>
-    ["学生姓名", "student_name", "家长电话", "parent_phone", "来源渠道", "channel"].includes(item)
+    ["学生姓名", "student_name", "家长电话", "parent_phone", "生源来源", "来源渠道", "channel"].includes(item)
   );
   if (!hasHeader) return null;
   return new Map(firstCols.map((item, index) => [item, index]));
@@ -1011,7 +1043,7 @@ function renderLeadFilterControls() {
   const channelSelect = byId("leadChannelFilter");
   if (channelSelect) {
     const current = channelSelect.value || state.leadChannelFilter || "";
-    channelSelect.innerHTML = `<option value="">全部渠道</option>${uniqueValues(state.leads.map((lead) => lead.channel))
+    channelSelect.innerHTML = `<option value="">全部生源</option>${uniqueValues(state.leads.map((lead) => normalizeLeadChannelValue(lead.channel)))
       .map((channel) => `<option value="${channel}">${channel}</option>`)
       .join("")}`;
     channelSelect.value = Array.from(channelSelect.options).some((option) => option.value === current)
@@ -1097,7 +1129,7 @@ function exportLeads(leads, scopeLabel = "当前筛选") {
     "年级",
     "家长电话",
     "意向学科",
-    "来源渠道",
+    "生源来源",
     "渠道归属",
     "推荐人",
     "当前负责人",
@@ -1473,12 +1505,12 @@ function bindPendingLeadFixActions() {
       const channelSelect = document.querySelector(
         `[data-pending-channel-select="${studentName}"]`
       );
-      const nextChannel = channelSelect?.value || "待补来源";
+      const nextChannel = normalizeLeadChannelForSelect(channelSelect?.value || "待补来源");
       target.channel = nextChannel;
       touchLead(target);
-      target.channelMeta = buildChannelMeta(nextChannel, target.channelOwner, target.referrerName);
+      target.channelMeta = buildChannelMeta(nextChannel, target.channelOwner, target.referrerName, target.channelOtherNote);
       target.lastFollowup = "刚刚补来源";
-      pushFollowup(target.studentName, `在待补字段处理中补齐来源渠道：${nextChannel}。`);
+      pushFollowup(target.studentName, `在待补字段处理中补齐生源来源：${nextChannel}。`);
       logAudit("待补字段-补来源", target.studentName, `改为 ${nextChannel}。`);
       syncSelectedLead(target.studentName);
       renderAll();
@@ -1518,7 +1550,7 @@ function bindPendingLeadFixActions() {
       const nextChannelOwner = input?.value || "待补渠道归属";
       target.channelOwner = nextChannelOwner;
       touchLead(target);
-      target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
+      target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName, target.channelOtherNote);
       target.lastFollowup = "刚刚补渠道归属";
       pushFollowup(target.studentName, `在待补字段处理中补齐渠道归属：${nextChannelOwner}。`);
       logAudit("待补字段-补渠道归属", target.studentName, `改为 ${nextChannelOwner}。`);
@@ -1540,7 +1572,7 @@ function bindPendingLeadFixActions() {
       if (!nextReferrer) return;
       target.referrerName = nextReferrer;
       touchLead(target);
-      target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
+      target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName, target.channelOtherNote);
       target.lastFollowup = "刚刚补推荐人";
       pushFollowup(target.studentName, `在待补字段处理中补齐推荐人：${nextReferrer}。`);
       logAudit("待补字段-补推荐人", target.studentName, nextReferrer);
@@ -1594,6 +1626,7 @@ function renderEnrollmentLeadOptions() {
   if (byId("enrollStartDate")) byId("enrollStartDate").value = activeLead.startDate || activeLead.startTime || "";
   byId("enrollOwner").value = activeLead.owner;
   byId("enrollReferrer").value = activeLead.referrerName || deriveReferrerText(activeLead.channelMeta);
+  if (byId("enrollChannelOther")) byId("enrollChannelOther").value = activeLead.channelOtherNote || byId("enrollChannelOther").value || "";
   byId("enrollAttributionPreview").value = formatAttributionSnapshot(buildAttributionSnapshot(activeLead));
   byId("enrollRemark").value =
     activeLead.enrolledAmount > 0
@@ -2046,15 +2079,23 @@ function bindLeadCreate() {
       setInlineMessage("createLeadMessage", "请填写学生姓名和家长电话。", "error");
       return;
     }
+    const channel = normalizeLeadChannelForSelect(byId("leadChannel").value);
+    const referrerName = byId("leadReferrer").value.trim();
+    const channelOtherNote = byId("leadChannelOther")?.value.trim() || "";
+    const sourceValidation = validateLeadSource(channel, referrerName, channelOtherNote);
+    if (!sourceValidation.ok) {
+      setInlineMessage("createLeadMessage", sourceValidation.message, "error");
+      return;
+    }
     state.leads.unshift({
       studentName,
       parentPhone,
       grade: byId("leadGrade").value,
       subject: byId("leadSubject").value,
-      channel: byId("leadChannel").value,
-      channelMeta: byId("leadReferrer").value.trim()
-        ? `推荐人：${byId("leadReferrer").value.trim()}`
-        : "待补推荐人",
+      channel: channel === "其他" && channelOtherNote ? `其他：${channelOtherNote}` : channel,
+      channelOtherNote,
+      referrerName,
+      channelMeta: buildChannelMeta(channel, "", referrerName, channelOtherNote),
       owner: byId("leadOwner").value,
       status: byId("leadStatus").value,
       trial: "未预约",
@@ -2076,9 +2117,10 @@ function bindLeadCreate() {
     byId("leadStudentName").value = "";
     byId("leadPhone").value = "";
     byId("leadReferrer").value = "";
+    if (byId("leadChannelOther")) byId("leadChannelOther").value = "";
     byId("leadNote").value = "";
     state.selectedLeadName = studentName;
-    logAudit("新增线索", studentName, `来源 ${byId("leadChannel").value}，负责人 ${byId("leadOwner").value || "待分配"}。`);
+    logAudit("新增线索", studentName, `生源来源 ${channel}，负责人 ${byId("leadOwner").value || "待分配"}。`);
     renderAll();
     setInlineMessage("createLeadMessage", `已新增线索：${studentName}`, "success");
     showToast(`已新增线索：${studentName}`);
@@ -2108,16 +2150,30 @@ function bindQuickLeadCreate() {
       renderAll();
       return;
     }
-    const channel = byId("quickLeadChannel")?.value || "待补来源";
+    const channel = normalizeLeadChannelForSelect(byId("quickLeadChannel")?.value || "待补来源");
+    const sourceDetail = byId("quickLeadSourceDetail")?.value.trim() || "";
+    const quickValidation = validateLeadSource(
+      channel,
+      isReferralChannel(channel) ? sourceDetail : "",
+      channel === "其他" ? sourceDetail : ""
+    );
+    if (!quickValidation.ok) {
+      setInlineMessage("quickCreateLeadMessage", quickValidation.message, "error");
+      return;
+    }
     const owner = byId("quickLeadOwner")?.value || "待分配";
     const note = byId("quickLeadNote")?.value.trim() || "首页快速新增，待补首联记录。";
+    const referrerName = isReferralChannel(channel) ? sourceDetail : "";
+    const channelOtherNote = channel === "其他" ? sourceDetail : "";
     state.leads.unshift({
       studentName,
       parentPhone,
       grade: byId("quickLeadGrade")?.value || "待补年级",
       subject: "数学",
-      channel,
-      channelMeta: "首页快速新增",
+      channel: channel === "其他" && channelOtherNote ? `其他：${channelOtherNote}` : channel,
+      channelMeta: buildChannelMeta(channel, "", referrerName, channelOtherNote),
+      channelOtherNote,
+      referrerName,
       owner,
       status: "新建未联系",
       trial: "未预约",
@@ -2139,8 +2195,9 @@ function bindQuickLeadCreate() {
     state.selectedLeadName = studentName;
     byId("quickLeadStudentName").value = "";
     byId("quickLeadPhone").value = "";
+    if (byId("quickLeadSourceDetail")) byId("quickLeadSourceDetail").value = "";
     byId("quickLeadNote").value = "";
-    logAudit("首页新增线索", studentName, `来源 ${channel}，负责人 ${owner}。`);
+    logAudit("首页新增线索", studentName, `生源来源 ${channel}，负责人 ${owner}。`);
     if (message) message.textContent = `已保存 ${studentName}，现在可以在线索中心继续补试听和跟进。`;
     setInlineMessage("quickCreateLeadMessage", `已保存 ${studentName}`, "success");
     showToast(`已保存新线索：${studentName}`);
@@ -2217,14 +2274,26 @@ function bindEnrollmentCreate() {
       setInlineMessage("createEnrollmentMessage", "没有找到这名学生，请先在线索中心新增。", "error");
       return;
     }
+    const nextChannel = resolveEnrollmentChannel() || target.channel;
+    const nextChannelForSelect = normalizeLeadChannelForSelect(nextChannel);
+    const nextReferrer = byId("enrollReferrer")?.value.trim() || target.referrerName || "";
+    const nextOtherNote = nextChannelForSelect === "其他"
+      ? (byId("enrollChannelOther")?.value.trim() || target.channelOtherNote || String(nextChannel).replace(/^其他：/, ""))
+      : "";
+    const sourceValidation = validateLeadSource(nextChannelForSelect, nextReferrer, nextOtherNote);
+    if (!sourceValidation.ok) {
+      setInlineMessage("createEnrollmentMessage", sourceValidation.message, "error");
+      return;
+    }
     target.status = "定金 / 已报名";
     touchLead(target);
     target.courseProduct = byId("enrollCourseProduct")?.value || target.courseProduct || "程老师班课";
     target.startDate = resolveEnrollmentStartTime();
-    target.channel = resolveEnrollmentChannel() || target.channel;
+    target.channel = nextChannelForSelect === "其他" && nextOtherNote ? `其他：${nextOtherNote}` : nextChannelForSelect;
+    target.channelOtherNote = nextOtherNote;
     target.owner = byId("enrollOwner")?.value.trim() || target.owner;
-    target.referrerName = byId("enrollReferrer")?.value.trim() || target.referrerName || "";
-    target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
+    target.referrerName = nextReferrer;
+    target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName, target.channelOtherNote);
     target.enrolledAmount = amount;
     target.enrolledAt = formatNowStamp();
     target.attributionLocked = true;
@@ -2488,11 +2557,12 @@ function bindBatchImport() {
       if (leadByPhone.has(normalizedPhone)) {
         const existingLead = leadByPhone.get(normalizedPhone);
         const mergeNotes = [];
-        if (channel && (!existingLead.channel || existingLead.channel === "待补来源")) {
-          existingLead.channel = channel;
-          mergeNotes.push(`补来源=${channel}`);
+        const normalizedChannel = normalizeLeadChannelValue(channel);
+        if (normalizedChannel && (!existingLead.channel || existingLead.channel === "待补来源")) {
+          existingLead.channel = normalizedChannel;
+          mergeNotes.push(`补生源来源=${normalizedChannel}`);
         }
-      if (referrer && (!existingLead.channelMeta || existingLead.channelMeta === "待补推荐人")) {
+        if (referrer && (!existingLead.channelMeta || existingLead.channelMeta === "待补推荐人")) {
           existingLead.referrerName = referrer;
           mergeNotes.push(`补推荐人=${referrer}`);
         }
@@ -2552,7 +2622,7 @@ function bindBatchImport() {
         existingLead.channelOwner = deriveChannelOwner(existingLead);
         touchLead(existingLead);
         existingLead.channelMeta = buildChannelMeta(
-          existingLead.channel,
+          normalizeLeadChannelValue(existingLead.channel),
           existingLead.channelOwner,
           existingLead.referrerName
         );
@@ -2577,8 +2647,10 @@ function bindBatchImport() {
         return;
       }
 
+      const normalizedChannel = normalizeLeadChannelValue(channel);
       const missingMessages = [];
-      if (!channel) missingMessages.push("缺来源渠道");
+      if (!normalizedChannel || normalizedChannel === "待补来源") missingMessages.push("缺生源来源");
+      if (isReferralChannel(normalizedChannel) && !referrer) missingMessages.push("缺推荐人");
       if (!owner) {
         missingMessages.push("缺负责人");
         summary.missingOwner += 1;
@@ -2595,8 +2667,8 @@ function bindBatchImport() {
         parentPhone,
         grade: grade || "待补年级",
         subject: subject || "数学",
-        channel: channel || "待补来源",
-        channelMeta: buildChannelMeta(channel || "待补来源", "", referrer),
+        channel: normalizedChannel || "待补来源",
+        channelMeta: buildChannelMeta(normalizedChannel || "待补来源", "", referrer),
         channelOwner: "",
         referrerName: referrer,
         owner: owner || "待分配",
@@ -2732,7 +2804,7 @@ function bindDetailSave() {
     target.inGroup = byId("detailInGroupSelect").value;
     target.channelOwner = nextChannelOwner;
     target.referrerName = nextReferrerName;
-    target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName);
+    target.channelMeta = buildChannelMeta(target.channel, target.channelOwner, target.referrerName, target.channelOtherNote);
     target.nextAction = byId("detailNextActionInput").value.trim() || target.nextAction;
     target.parentNeed = byId("detailNeedInput").value.trim();
     target.studentPainPoint = byId("detailPainInput").value.trim();
