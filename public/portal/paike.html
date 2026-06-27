@@ -215,6 +215,17 @@
         font-weight: 800;
         text-decoration: none;
       }
+      .teacher-next-item.warn {
+        border-color: rgba(180,83,9,0.22);
+        background: rgba(180,83,9,0.07);
+      }
+      .teacher-next-item.ok {
+        border-color: rgba(13,148,136,0.18);
+        background: rgba(13,148,136,0.06);
+      }
+      .teacher-next-item button {
+        margin-top: 8px;
+      }
       .schedule-workflow {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1806,6 +1817,7 @@
         const weekRows = teacherMonthRows.filter((row) => isInRange(row, "week"));
         const missingRoomRows = teacherMonthRows.filter((row) => !String(row.room || "").trim() || row.room === "-");
         const pendingAttendanceRows = teacherMonthRows.filter((row) => /待点名|异常|待处理|待核对/.test(scheduleStatus(row).label));
+        const pendingAdmissionRows = pendingAdmissionScheduleRows();
         const upcomingRows = teacherMonthRows
           .filter((row) => dateKey(row.date) >= localDateText())
           .sort((left, right) => (
@@ -1823,6 +1835,42 @@
             </div>
           `).join("")
           : `<div class="teacher-next-item"><span>${escapeHtml(period)}</span><strong>暂无后续课程</strong><span>请切换月份或老师查看。</span></div>`;
+        const actionItems = [
+          ...pendingAttendanceRows.slice(0, 2).map((row) => ({
+            tone: "warn",
+            label: "待点名/异常",
+            title: `${dateLabel(row.date)}｜${timeSlotLabel(row)}`,
+            detail: `${row.student || row.lessonType || "未填学生/班级"}｜${scheduleStatus(row).label}`,
+            href: attendanceHrefForRow(row),
+            actionText: "去点名"
+          })),
+          ...missingRoomRows.slice(0, 2).map((row) => ({
+            tone: "warn",
+            label: "未写教室",
+            title: `${dateLabel(row.date)}｜${timeSlotLabel(row)}`,
+            detail: `${row.student || row.lessonType || "未填学生/班级"}｜先补教室，教室表才准`,
+            action: "missing-room",
+            actionText: "筛出未写教室"
+          })),
+          ...pendingAdmissionRows.slice(0, 2).map((lead) => ({
+            tone: "warn",
+            label: "招生待排课",
+            title: lead.studentName || lead.name || "未填学生",
+            detail: [lead.grade || "", lead.courseProduct || lead.enrolledCourse || lead.trialClass || "", lead.trialTeacher || lead.owner || ""].filter(Boolean).join("｜") || "报名后还没匹配课表",
+            action: "admissions",
+            actionText: "看待排课"
+          }))
+        ].slice(0, 4);
+        const actionList = actionItems.length
+          ? actionItems.map((item) => `
+            <div class="teacher-next-item ${escapeHtml(item.tone)}">
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+              ${item.href ? `<a href="${escapeHtml(item.href)}">${escapeHtml(item.actionText)}</a>` : `<button class="button secondary" type="button" data-teacher-workbench-action="${escapeHtml(item.action)}">${escapeHtml(item.actionText)}</button>`}
+            </div>
+          `).join("")
+          : `<div class="teacher-next-item ok"><span>待处理</span><strong>当前没有紧急事项</strong><span>可继续查看后续课程、老师空档和教室表。</span></div>`;
         holder.innerHTML = `
           <div>
             <div class="teacher-workbench-head">
@@ -1846,7 +1894,9 @@
             </div>
           </div>
           <div>
-            <p class="eyebrow">下一步</p>
+            <p class="eyebrow">待处理</p>
+            <div class="teacher-next-list">${actionList}</div>
+            <p class="eyebrow" style="margin-top:12px;">后续课程</p>
             <div class="teacher-next-list">${nextItems}</div>
           </div>
         `;
@@ -2225,6 +2275,11 @@
         if (action === "rooms") {
           setTeacherSheetMessage("已跳到教室使用表。");
           byId("roomUsageSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "admissions") {
+          setTeacherSheetMessage("已跳到招生报名待排课。先定位课表，再看当天教室。");
+          byId("admissionSchedulePanel")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }
       }
 

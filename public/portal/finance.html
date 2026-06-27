@@ -449,6 +449,17 @@
         font-style: normal;
         line-height: 1.45;
       }
+      .finance-next-item.warn {
+        border-color: rgba(180, 83, 9, 0.22);
+        background: rgba(180, 83, 9, 0.07);
+      }
+      .finance-next-item.ok {
+        border-color: rgba(13, 148, 136, 0.18);
+        background: rgba(13, 148, 136, 0.06);
+      }
+      .finance-next-item button {
+        margin-top: 8px;
+      }
       .workbench-strip {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4526,25 +4537,80 @@
         const attendanceLessons = attendanceRows.reduce((sum, row) => sum + row.lessons, 0);
         const attendanceFollowups = attendanceRows.reduce((sum, row) => sum + row.followupCount, 0);
         const amountLabel = data.summaryRow ? money(data.teacherCost) : money(data.detailAmount);
-        const nextItems = [
-          {
+        const checklistItems = [];
+        if (!data.rowsCount && !data.summaryRow) {
+          checklistItems.push({
+            tone: "warn",
+            label: "数据缺口",
+            title: "当前老师暂无工资明细",
+            detail: "先确认月份是否正确；如果原 Excel 有数据，需要导入原工资表。",
+            action: "summary",
+            actionText: "看本月总表"
+          });
+        } else {
+          checklistItems.push({
+            tone: "ok",
             label: "工资单",
-            title: data.rowsCount || data.summaryRow ? "先核本月应发合计" : "当前老师暂无明细",
-            detail: data.rowsCount || data.summaryRow
-              ? `应发/成本 ${amountLabel}，明细 ${data.rowsCount} 条。`
-              : "请先确认月份是否正确，或检查原工资表是否已导入。"
-          },
-          {
+            title: `先核应发合计：${amountLabel}`,
+            detail: `明细 ${data.rowsCount} 条，学生/班级 ${data.studentCount} 个。先看合计，不一致再展开逐课次。`,
+            action: "detail",
+            actionText: "看工资单"
+          });
+        }
+        if (data.rowsCount && !data.summaryRow) {
+          checklistItems.push({
+            tone: "warn",
+            label: "缺产值总表",
+            title: "有工资明细，缺小课产值总表",
+            detail: "这不是计算错误，表示当前月份还没读到该老师总表行；先按明细试算，补总表后会更完整。",
+            action: "summary",
+            actionText: "看总表"
+          });
+        }
+        checklistItems.push(data.reviewCount
+          ? {
+            tone: "warn",
             label: "待对账",
-            title: data.reviewCount ? `${data.reviewCount} 条需要重点看` : "暂无明显待核明细",
-            detail: data.reviewCount ? "点“只看待对账”，先处理金额、课次、来源不一致的地方。" : "先核总额；金额不一致时再展开逐课次明细。"
-          },
-          {
-            label: "点名课销",
-            title: attendanceLessons ? `${attendanceLessons} 节点名流入` : "暂无点名流入",
-            detail: attendanceFollowups ? `${attendanceFollowups} 人次暂缓，先等缺勤/请假闭环。` : "点名正常后再进入课销和课时费确认。"
+            title: `${data.reviewCount} 条需要重点核对`,
+            detail: "先点只看待对账，集中看金额、课次、来源不一致的地方。",
+            action: "review",
+            actionText: "只看待对账"
           }
-        ];
+          : {
+            tone: "ok",
+            label: "待对账",
+            title: "暂无明显待核明细",
+            detail: "先核总额；总额不一致时再展开逐课次明细。",
+            action: "detail",
+            actionText: "看工资单"
+          });
+        checklistItems.push(attendanceFollowups
+          ? {
+            tone: "warn",
+            label: "点名课销",
+            title: `${attendanceFollowups} 人次暂缓`,
+            detail: "缺勤、请假、补课或视频课未闭环前，不建议确认对应课销和课时费。",
+            action: "attendance",
+            actionText: "看点名课销"
+          }
+          : {
+            tone: attendanceLessons ? "ok" : "",
+            label: "点名课销",
+            title: attendanceLessons ? `${attendanceLessons} 节点名已流入` : "暂无点名流入",
+            detail: attendanceLessons ? "点名侧暂无暂缓人次，可继续核对工资单。" : "老师保存点名后，这里会显示课销和课时费候选。",
+            action: "attendance",
+            actionText: "看点名课销"
+          });
+        if (reviewStatus.label === "已核对") {
+          checklistItems.push({
+            tone: "ok",
+            label: "核对状态",
+            title: "本老师工资单已核对",
+            detail: reviewStatus.note,
+            action: "export",
+            actionText: "导出工资单"
+          });
+        }
         holder.innerHTML = `
           <div>
             <div class="finance-teacher-workbench-head">
@@ -4568,13 +4634,14 @@
             </div>
           </div>
           <div>
-            <p class="eyebrow">核对顺序</p>
+            <p class="eyebrow">核对清单</p>
             <div class="finance-next-list">
-              ${nextItems.map((item) => `
-                <div class="finance-next-item">
+              ${checklistItems.slice(0, 5).map((item) => `
+                <div class="finance-next-item ${escapeHtml(item.tone || "")}">
                   <span>${escapeHtml(item.label)}</span>
                   <strong>${escapeHtml(item.title)}</strong>
                   <em>${escapeHtml(item.detail)}</em>
+                  <button class="button secondary" type="button" data-finance-workbench-action="${escapeHtml(item.action)}">${escapeHtml(item.actionText)}</button>
                 </div>
               `).join("")}
             </div>
@@ -5243,6 +5310,10 @@
         }
         if (action === "review") {
           applyFinanceQuick("review");
+          return;
+        }
+        if (action === "summary") {
+          applyFinanceQuick("summary");
           return;
         }
         if (action === "export") {
