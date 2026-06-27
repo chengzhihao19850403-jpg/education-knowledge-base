@@ -108,8 +108,8 @@ const checks = [
   },
   {
     title: "财务主动读取教学质量云端数据",
-    pass: /TEACHING_QUALITY_STORE_KEY/.test(files.finance) && /hydrateFinanceLinkedStores/.test(files.finance),
-    detail: "财务页会主动补水教学质量 store，保证质量系数候选可见。"
+    pass: /TEACHING_QUALITY_STORE_KEY/.test(files.finance) && /hydrateFinanceLinkedStores/.test(files.finance) && /renderQualityFinanceCandidates/.test(files.finance) && /qualityFinanceCandidateBody/.test(files.finance),
+    detail: "财务页会主动补水教学质量 store，并显示教学质量系数候选。"
   },
   {
     title: "教学质量写入云端",
