@@ -87,6 +87,11 @@ const checks = [
     detail: "财务页会读取 jrc-class-attendance-v1，用于课时费/课销候选。"
   },
   {
+    title: "点名形成财务核对入口",
+    pass: /attendanceFinanceSection/.test(files.finance) && /renderAttendanceSettlementPreview/.test(files.finance) && /attendanceSettlementFinanceBody/.test(files.finance) && /attendanceDetailFinanceBody/.test(files.finance),
+    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细。"
+  },
+  {
     title: "财务读取原始工资/排课预导入",
     pass: /readModuleData\?\.\(PREIMPORT_STORE_KEY\)/.test(files.finance) || /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.finance),
     detail: `${salaryAttendance.length} 行工资课时，${salaryRevenueAttendance.length} 行收入，${teacherSummary.length} 行老师汇总，${issues.length} 条待核差异。`
