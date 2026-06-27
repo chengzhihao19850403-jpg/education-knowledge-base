@@ -1481,7 +1481,7 @@
 
     function gradeScopeText() {
       if (!isGradeRestricted) return "当前账号可查看全部年级课程资料。";
-      if (!allowedGrades.length) return "当前账号还没有配置教研课程年级范围，请联系人事培训系统管理员。";
+      if (!allowedGrades.length) return "当前账号还没有配置教研课程年级范围，请联系校区运营与人事系统管理员。";
       return `当前账号仅开放：${allowedGrades.join("、")}${allowedSubject ? `｜${allowedSubject}` : ""}。`;
     }
 
@@ -2125,8 +2125,8 @@
       const editor = $("hrSummerEditorPanel");
       if (editor) editor.hidden = !canEdit;
       const editorMessage = canEdit
-        ? "你可以新增、修改和删除暑假排班。"
-        : "暑假排班表对全员开放查看；只有陈雨晴和程志豪可以修改。";
+        ? "你可以新增、修改和删除岗位排班。"
+        : "岗位排班表对全员开放查看；只有陈雨晴和程志豪可以修改。";
       setText("hrSummerMessage", editorMessage);
       let summerRows = mergeRowsById(readStore(summerScheduleKey, []), summerScheduleKey);
       let editingSummerIndex = -1;
@@ -2164,12 +2164,12 @@
             <td>${escapeHtml(row.note || "-")}</td>
             <td>${canEdit ? actionButtons(index, { update: true, delete: true }) : tag("仅查看", "neutral")}</td>
           </tr>
-        `).join("") : `<tr><td colspan="7">暂无暑假排班记录。陈雨晴或程志豪录入后，所有老师都可以在这里查询。</td></tr>`;
+        `).join("") : `<tr><td colspan="7">暂无岗位排班记录。陈雨晴或程志豪录入后，所有老师都可以在这里查询。</td></tr>`;
       }
 
       $("hrSummerSaveButton")?.addEventListener("click", () => {
         if (!canEdit) {
-          setText("hrSummerMessage", "当前账号只能查看暑假排班，不能修改。");
+          setText("hrSummerMessage", "当前账号只能查看岗位排班，不能修改。");
           return;
         }
         const employee = normalizeName($("hrSummerEmployeeInput")?.value);
@@ -2183,7 +2183,7 @@
           date,
           time,
           employee,
-          role: normalizeText($("hrSummerRoleInput")?.value) || "暑假排班",
+          role: normalizeText($("hrSummerRoleInput")?.value) || "岗位排班",
           location: normalizeText($("hrSummerLocationInput")?.value) || "-",
           note: normalizeText($("hrSummerNoteInput")?.value) || "-",
           updatedAt: nowText(),
@@ -2195,16 +2195,16 @@
             ...payload,
             createdAt: summerRows[editingSummerIndex].createdAt || nowText()
           };
-          recordAudit(moduleKey, "更新暑假排班", employee, `${date} ${time}`);
-          setText("hrSummerMessage", `已更新 ${employee} 的暑假排班。`);
+          recordAudit(moduleKey, "更新岗位排班", employee, `${date} ${time}`);
+          setText("hrSummerMessage", `已更新 ${employee} 的岗位排班。`);
         } else {
           summerRows.unshift({
             ...payload,
             createdAt: nowText(),
             createdBy: currentOperator().name || ""
           });
-          recordAudit(moduleKey, "新增暑假排班", employee, `${date} ${time}`);
-          setText("hrSummerMessage", `已新增 ${employee} 的暑假排班。`);
+          recordAudit(moduleKey, "新增岗位排班", employee, `${date} ${time}`);
+          setText("hrSummerMessage", `已新增 ${employee} 的岗位排班。`);
         }
         writeStore(summerScheduleKey, summerRows);
         clearSummerForm();
@@ -2213,7 +2213,7 @@
 
       $("hrSummerCancelButton")?.addEventListener("click", clearSummerForm);
       $("hrSummerFilterInput")?.addEventListener("input", renderSummerSchedule);
-      $("hrSummerExportButton")?.addEventListener("click", () => downloadCsv("暑假排班表.csv", summerRows, [
+      $("hrSummerExportButton")?.addEventListener("click", () => downloadCsv("岗位排班表.csv", summerRows, [
         { label: "日期", value: "date" },
         { label: "时间段", value: "time" },
         { label: "员工", value: "employee" },
@@ -2235,7 +2235,7 @@
           $("hrSummerNoteInput").value = row.note || "";
           editingSummerIndex = index;
           setText("hrSummerSaveButton", "保存修改");
-          setText("hrSummerMessage", `正在编辑 ${row.employee || "员工"} 的暑假排班。`);
+          setText("hrSummerMessage", `正在编辑 ${row.employee || "员工"} 的岗位排班。`);
         },
         onDelete(index) {
           if (!canEdit) return;
@@ -2244,17 +2244,17 @@
           markRowDeleted(summerScheduleKey, row);
           summerRows.splice(index, 1);
           writeStore(summerScheduleKey, summerRows, { restoreDeleted: false });
-          recordAudit(moduleKey, "删除暑假排班", row.employee || "-", `${row.date || ""} ${row.time || ""}`);
+          recordAudit(moduleKey, "删除岗位排班", row.employee || "-", `${row.date || ""} ${row.time || ""}`);
           clearSummerForm();
           renderSummerSchedule();
-          setText("hrSummerMessage", "已删除该暑假排班。");
+          setText("hrSummerMessage", "已删除该岗位排班。");
         }
       }, { update: canEdit, delete: canEdit }, "hrSummerMessage");
       renderSummerSchedule();
       readCloudStore(summerScheduleKey, (cloudRows) => {
         summerRows = mergeRowsById(cloudRows, summerScheduleKey);
         renderSummerSchedule();
-        setText("hrSummerMessage", canEdit ? "已同步云端暑假排班表，可继续维护。" : "已同步云端暑假排班表。");
+        setText("hrSummerMessage", canEdit ? "已同步云端岗位排班表，可继续维护。" : "已同步云端岗位排班表。");
       });
     }
 
@@ -2282,7 +2282,7 @@
     function resetForm() {
       fillForm(defaults);
       editingIndex = -1;
-      setText("hrSaveButton", "保存人事事项");
+      setText("hrSaveButton", "保存人事管理事项");
     }
 
     function render() {
@@ -2346,7 +2346,7 @@
     });
     $("hrFilterInput")?.addEventListener("input", render);
     $("hrSortSelect")?.addEventListener("change", render);
-    $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事与培训事项数据.csv", rows, [
+    $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事管理事项数据.csv", rows, [
       { label: "事项类型", value: "type" },
       { label: "员工/对象", value: "employee" },
       { label: "关联系统", value: "system" },
@@ -2364,7 +2364,7 @@
       markRowsDeleted(key, rows);
       rows = [];
       writeStore(key, rows, { restoreDeleted: false });
-      recordAudit(moduleKey, "清空", "人事培训台账", "0 条");
+      recordAudit(moduleKey, "清空", "人事管理台账", "0 条");
       resetForm();
       render();
       setText("hrMessage", "已清空本页台账。员工账号名单不受影响。");
@@ -2413,7 +2413,7 @@
         };
       },
       onDone(count) {
-        recordAudit(moduleKey, "导入", "人事培训台账", `${count} 条`);
+        recordAudit(moduleKey, "导入", "人事管理台账", `${count} 条`);
         renderAuditLog(moduleKey, "hrAuditTableBody");
         setText("hrMessage", `已导入 ${count} 条人事事项。`);
       },
@@ -2430,7 +2430,7 @@
       if (rows.length !== cloudRows.length) writeStore(key, rows);
       resetForm();
       render();
-      setText("hrMessage", "已同步云端人事培训台账。");
+      setText("hrMessage", "已同步云端人事管理台账。");
     });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
@@ -2495,7 +2495,7 @@
           </tr>
         `).join("") : `<tr><td colspan="8">暂无校区运营事项。可以新增教室、值班、卫生、安全检查或异常记录。</td></tr>`;
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
-      setText("campusMetricDuty", rows.filter((row) => row.type === "值班" || row.type === "暑假排班").length);
+      setText("campusMetricDuty", rows.filter((row) => row.type === "值班" || row.type === "岗位排班" || row.type === "暑假排班").length);
       setText("campusMetricSafety", rows.filter((row) => row.type === "安全检查").length);
       setText("campusMetricOpen", rows.filter((row) => row.status !== "已完成").length);
       renderAuditLog(moduleKey, "campusAuditTableBody");
@@ -2594,7 +2594,7 @@
         if (!title) return null;
         return {
           title,
-          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "暑假排班", "异常记录"], "异常记录"),
+          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"], "异常记录").replace("暑假排班", "岗位排班"),
           area: normalizeText(readField(row, ["area", "位置 / 范围", "位置", "范围"], "-")) || "-",
           owner: normalizeName(readField(row, ["owner", "责任人", "负责人"], "-")) || "-",
           status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成", "需复盘"], "待处理"),

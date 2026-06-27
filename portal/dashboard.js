@@ -67,11 +67,11 @@
     },
     {
       key: "hr",
-      system: "人事与培训系统",
+      system: "校区运营与人事系统",
       owner: "陈雨晴",
       ownerUsername: "chenyuqing",
       href: "./hr-training.html",
-      guide: "使用逻辑：员工档案 → 岗位权限 → 入职转正 → 培训记录 → 考核结果 → 提成档位。\n试用重点：检查员工名单、岗位、权限、负责年级、培训记录是否清楚；新增员工流程是否能看懂。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据。"
+      guide: "使用逻辑：校区运营 → 岗位排班 → 人事管理。校区运营记录教室、卫生、安全检查、值班和异常事项；岗位排班给全员查询，陈雨晴和程志豪维护；人事管理维护员工档案、岗位权限、入职转正、培训记录和提成档位。\n试用重点：检查三个模块入口是否清楚，岗位排班是否普通老师能看、管理员能改，人事资料和权限是否不会暴露给无关账号。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据；校区运营和岗位排班后续会影响排课教室、值班和校区事务安排。"
     },
     {
       key: "ai",
@@ -97,7 +97,7 @@
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", href: "./teaching-quality.html", type: "teachingQuality" },
     { key: "jrc-student-service-v2", label: "学生服务", href: "./student-service.html", type: "array" },
     { key: "jrc-curriculum-products-v2", label: "教研课程", href: "./curriculum-products.html", type: "array" },
-    { key: "jrc-hr-training-tasks-v2", label: "人事培训", href: "./hr-training.html", type: "array" },
+    { key: "jrc-hr-training-tasks-v2", label: "人事管理", href: "./hr-training.html", type: "array" },
     { key: "jrc-campus-operations-v2", label: "校区运营", href: "./campus-operations.html", type: "array" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", href: "./suggestions.html", type: "array" }
   ];
@@ -107,7 +107,7 @@
     { key: "jrc-student-service-v2", label: "学生服务", risk: "需和点名核对" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", risk: "按真实采集记录统计" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", risk: "持续收集" },
-    { key: "jrc-hr-training-tasks-v2", label: "人事培训", risk: "账号权限已接入" },
+    { key: "jrc-hr-training-tasks-v2", label: "人事管理", risk: "账号权限已接入" },
     { key: "jrc-campus-operations-v2", label: "校区运营", risk: "可先查看" },
     { key: "jrc-curriculum-products-v2", label: "教研课程", risk: "资料待补" }
   ];
@@ -1118,7 +1118,7 @@
     const holder = $("portalMyTaskList");
     if (!holder) return;
     if (!hasPermission("suggestions.access")) {
-      holder.innerHTML = todoItem("正常", "当前账号未开通任务入口", "需要使用任务协同时，由管理员在人事培训系统里开通建议任务权限。", "./index.html", "返回工作台");
+      holder.innerHTML = todoItem("正常", "当前账号未开通任务入口", "需要使用任务协同时，由管理员在校区运营与人事系统里开通建议任务权限。", "./index.html", "返回工作台");
       return;
     }
     const rows = await readSuggestionTasks();
@@ -1281,7 +1281,7 @@
         `员工资料还有 ${employeeState.missing} 人待补齐`,
         "优先补手机号、微信号、入职日期、岗位和权限，后面会影响登录、财务和人事统计。",
         "./hr-training.html",
-        "人事培训"
+        "人事管理"
       ));
     }
 

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜校区运营系统</title>
+    <title>匠人程工作台｜校区运营</title>
     <style>
       :root {
         --panel: rgba(255, 255, 255, 0.96);
@@ -73,7 +73,7 @@
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 10 · 校区运营系统</div>
+          <div class="brand-subtitle">校区运营与人事系统 · 校区运营</div>
         </div>
         <nav class="nav">
           <a class="nav-link" href="./index.html">返回工作台</a>
@@ -83,14 +83,14 @@
       <section class="hero">
         <article class="card">
           <p class="eyebrow">校区运营</p>
-          <h1>校区运营系统</h1>
-          <p class="hero-text">教室、卫生、安全检查、值班、暑假排班和校区异常记录。</p>
+          <h1>校区运营</h1>
+          <p class="hero-text">教室、卫生、安全检查、值班、岗位排班和校区异常记录。</p>
           <div class="tag-row">
             <span class="tag">教室</span>
             <span class="tag">卫生</span>
             <span class="tag red">安全检查</span>
             <span class="tag">值班</span>
-            <span class="tag green">暑假排班</span>
+            <span class="tag green">岗位排班</span>
             <span class="tag">异常记录</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
@@ -98,9 +98,9 @@
         <article class="card">
           <h2>日常管理重点</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>和排课联动</strong><p>教室是否可用、暑假值班和校区开放时间会影响排课安排。</p></div>
+            <div class="mini-item"><strong>和排课联动</strong><p>教室是否可用、岗位值班和校区开放时间会影响排课安排。</p></div>
             <div class="mini-item"><strong>日常事务留痕</strong><p>卫生、安全、门店异常不能只靠口头提醒，要有记录和责任人。</p></div>
-            <div class="mini-item"><strong>减少临时混乱</strong><p>暑假高峰期把教室、值班、异常集中管理，避免信息分散在群聊里。</p></div>
+            <div class="mini-item"><strong>减少临时混乱</strong><p>把教室、值班、异常集中管理，避免信息分散在群聊里。</p></div>
           </div>
         </article>
       </section>
@@ -115,7 +115,7 @@
         </div>
         <div class="metrics">
           <div class="metric"><span>教室资源</span><strong id="campusMetricRoom">0</strong><p>连接排课占用</p></div>
-          <div class="metric"><span>今日值班</span><strong id="campusMetricDuty">0</strong><p>暑假高峰重点</p></div>
+          <div class="metric"><span>今日值班</span><strong id="campusMetricDuty">0</strong><p>岗位排班重点</p></div>
           <div class="metric"><span>安全检查</span><strong id="campusMetricSafety">0</strong><p>每日/每周检查</p></div>
           <div class="metric"><span>异常事项</span><strong id="campusMetricOpen">0</strong><p>记录、跟进、复盘</p></div>
         </div>
@@ -150,7 +150,7 @@
           <p>适合记录卫生、安全、教室、值班和校区异常。</p>
           <div class="form-grid">
             <label class="field"><span>事项名称</span><input id="campusTitleInput" placeholder="例如：三楼 5 号教室投影仪维修"></label>
-            <label class="field"><span>事项类型</span><select id="campusTypeInput"><option>教室</option><option>卫生</option><option>安全检查</option><option>值班</option><option>暑假排班</option><option>异常记录</option></select></label>
+            <label class="field"><span>事项类型</span><select id="campusTypeInput"><option>教室</option><option>卫生</option><option>安全检查</option><option>值班</option><option>岗位排班</option><option>异常记录</option></select></label>
             <label class="field"><span>位置 / 范围</span><input id="campusAreaInput" placeholder="例如：三楼 5 号教室"></label>
             <label class="field"><span>责任人</span><input id="campusOwnerInput" placeholder="填写责任人"></label>
             <label class="field"><span>处理状态</span><select id="campusStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option><option>需复盘</option></select></label>

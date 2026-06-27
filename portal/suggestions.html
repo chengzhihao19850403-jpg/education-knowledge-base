@@ -876,11 +876,11 @@
         },
         {
           key: "hr",
-          system: "人事与培训系统",
+          system: "校区运营与人事系统",
           owner: "陈雨晴",
           ownerUsername: "chenyuqing",
           href: "./hr-training.html",
-          guide: "使用逻辑：员工档案 → 岗位权限 → 入职转正 → 培训记录 → 考核结果 → 提成档位。\n试用重点：检查员工名单、岗位、权限、负责年级、培训记录是否清楚；新增员工流程是否能看懂。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据。"
+          guide: "使用逻辑：校区运营 → 岗位排班 → 人事管理。校区运营记录教室、卫生、安全检查、值班和异常事项；岗位排班给全员查询，陈雨晴和程志豪维护；人事管理维护员工档案、岗位权限、入职转正、培训记录和提成档位。\n试用重点：检查三个模块入口是否清楚，岗位排班是否普通老师能看、管理员能改，人事资料和权限是否不会暴露给无关账号。\n联动重点：人事权限会影响每个人能看到哪些系统、能新增/编辑/导出哪些数据；校区运营和岗位排班后续会影响排课教室、值班和校区事务安排。"
         },
         {
           key: "ai",
@@ -946,7 +946,7 @@
         const normalized = { ...item };
         const oldDecision = "进入" + "资产与采购" + "系统候选需求。";
         if (normalized.decision === oldDecision) {
-          normalized.decision = "转入校区运营系统的设备记录处理。";
+          normalized.decision = "转入校区运营的设备记录处理。";
         }
         if (["triage", "approved"].includes(normalized.status)) normalized.status = "new";
         if (normalized.status === "review") normalized.status = "launched";

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜人事与培训系统</title>
+    <title>匠人程工作台｜校区运营与人事系统</title>
     <style>
       :root {
         --panel: rgba(255, 255, 255, 0.96);
@@ -77,7 +77,7 @@
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">System 09 · 人事与培训系统</div>
+          <div class="brand-subtitle">System 09 · 校区运营与人事系统</div>
         </div>
         <nav class="nav">
           <a class="nav-link" href="./index.html">返回工作台</a>
@@ -86,34 +86,51 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">人事培训</p>
-          <h1>人事与培训系统</h1>
-          <p class="hero-text">员工档案、岗位权限、培训记录和暑假排班查询。</p>
+          <p class="eyebrow">行政运营</p>
+          <h1>校区运营与人事系统</h1>
+          <p class="hero-text">校区运营、岗位排班和人事管理统一入口。</p>
           <div class="tag-row">
-            <span class="tag">员工档案</span>
-            <span class="tag">入职转正</span>
-            <span class="tag">权限</span>
-            <span class="tag green">提成档位</span>
-            <span class="tag">培训考核</span>
-            <span class="tag green">暑假排班</span>
+            <span class="tag">校区运营</span>
+            <span class="tag green">岗位排班</span>
+            <span class="tag">人事管理</span>
+            <span class="tag">员工权限</span>
+            <span class="tag">培训记录</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
-        <article class="card" data-hr-private hidden>
-          <h2>员工账号与权限</h2>
+        <article class="card">
+          <h2>三大工作模块</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>员工档案</strong><p>以已经录入的 19 名员工为基础，补岗位、入职、转正、任教学科、提成比例。</p></div>
-            <div class="mini-item"><strong>权限管理</strong><p>把每个系统的进入权限和修改权限做成可配置，不再写死。</p></div>
-            <div class="mini-item"><strong>培训闭环</strong><p>学管知识库学习、阶段测试和岗位培训记录同步到个人档案。</p></div>
+            <div class="mini-item"><strong>校区运营</strong><p>教室、卫生、安全检查、值班和异常事项集中记录。</p></div>
+            <div class="mini-item"><strong>岗位排班</strong><p>全员可查自己的值班、校区支持和临时排班安排。</p></div>
+            <div class="mini-item"><strong>人事管理</strong><p>员工档案、岗位权限、入职转正、培训记录和提成档位。</p></div>
           </div>
         </article>
+      </section>
+
+      <section class="card" id="campusOperationsSection">
+        <div class="section-head">
+          <div>
+            <h2>校区运营</h2>
+            <p>教室、卫生、安全检查、值班和校区异常事项。</p>
+          </div>
+          <span class="status-chip">运营台账</span>
+        </div>
+        <ul class="process-list">
+          <li><strong>日常事项</strong>：教室设备、卫生、安全检查、校区异常都在校区运营台账里留痕。</li>
+          <li><strong>责任闭环</strong>：每条事项都有责任人、截止时间和处理状态，方便复查。</li>
+          <li><strong>排课联动</strong>：教室可用情况会影响排课判断，后续继续和排课系统打通。</li>
+        </ul>
+        <div class="actions">
+          <a class="button" data-requires-permission="campus.access" href="./campus-operations.html">进入校区运营</a>
+        </div>
       </section>
 
       <section class="card" id="summerScheduleSection">
         <div class="section-head">
           <div>
-            <h2>暑假排班表</h2>
-            <p>老师可查询自己的暑假值班、校区支持和临时排班安排。</p>
+            <h2>岗位排班</h2>
+            <p>老师可查询自己的值班、校区支持和临时排班安排。</p>
           </div>
           <span class="status-chip">全员可看</span>
         </div>
@@ -129,9 +146,9 @@
             <tbody id="hrSummerScheduleBody"></tbody>
           </table>
         </div>
-        <div class="notice" id="hrSummerMessage">暑假排班表对全员开放查看；只有陈雨晴和程志豪可以修改。</div>
+        <div class="notice" id="hrSummerMessage">岗位排班表对全员开放查看；只有陈雨晴和程志豪可以修改。</div>
         <div class="schedule-editor" id="hrSummerEditorPanel">
-          <h3 style="margin-top:18px;">新增 / 修改排班</h3>
+          <h3 style="margin-top:18px;">新增 / 修改岗位排班</h3>
           <div class="form-grid">
             <label class="field"><span>日期</span><input id="hrSummerDateInput" type="date"></label>
             <label class="field"><span>时间段</span><input id="hrSummerTimeInput" placeholder="例如：08:30-12:00"></label>
@@ -150,8 +167,8 @@
       <section class="card" data-hr-private hidden>
         <div class="section-head">
           <div>
-            <h2>人事培训总览</h2>
-          <p>员工账号、待转正、提成档位和培训记录。</p>
+            <h2>人事管理</h2>
+          <p>员工账号、岗位权限、待转正、提成档位和培训记录。</p>
           </div>
           <span class="status-chip">管理板块</span>
         </div>
@@ -179,8 +196,8 @@
         <article class="card">
           <div class="section-head">
             <div>
-              <h2>后台人事事项</h2>
-          <p>备用台账，主要用于人事权限、转正、培训和提成调整留痕。</p>
+              <h2>人事管理事项</h2>
+          <p>用于人事权限、转正、培训和提成调整留痕。</p>
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
@@ -200,7 +217,7 @@
         </article>
 
         <article class="card">
-          <h2>新增人事事项</h2>
+          <h2>新增人事管理事项</h2>
           <p>记录人事调整、权限调整、培训安排和离职交接。</p>
           <div class="form-grid">
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>离职</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
@@ -212,8 +229,8 @@
             <label class="field span-3"><span>事项说明</span><textarea id="hrNoteInput" placeholder="记录调整原因、执行时间和是否需要财务同步。"></textarea></label>
           </div>
           <div class="actions">
-            <button class="button" id="hrSaveButton" type="button">保存人事事项</button>
-            <button class="button secondary" id="hrExportButton" type="button">导出人事事项</button>
+            <button class="button" id="hrSaveButton" type="button">保存人事管理事项</button>
+            <button class="button secondary" id="hrExportButton" type="button">导出人事管理事项</button>
             <button class="button secondary" id="hrResetButton" type="button">清空台账</button>
           </div>
           <div class="notice" id="hrMessage">员工档案、岗位、权限和提成口径在这里维护。</div>

@@ -18,7 +18,7 @@ const JRC_LEGACY_BUSINESS_DATA_KEYS = [
 ];
 const JRC_DATA_CONTRACTS = {
   employee: {
-    owner: "人事培训系统",
+    owner: "校区运营与人事系统",
     feeds: ["排课系统", "财务系统", "教学质量系统", "招生管理系统"],
     keyFields: ["teacherName", "username", "role", "hireDate", "commissionRate"]
   },
@@ -29,7 +29,7 @@ const JRC_DATA_CONTRACTS = {
   },
   finance: {
     owner: "财务系统",
-    feeds: ["经营看板", "人事培训系统"],
+    feeds: ["经营看板", "校区运营与人事系统"],
     keyFields: ["period", "teacherName", "hours", "commissionRate", "qualityCoefficient", "expenseAmount", "profitShare"]
   },
   teachingQuality: {
@@ -439,7 +439,7 @@ const JRC_DEPARTED_EMPLOYEE_USERNAMES = new Set(["zhangyan", "hejianjun"]);
 const JRC_GRANULAR_MODULES = [
   ["studentService", "学生服务"],
   ["curriculum", "教研课程"],
-  ["hr", "人事培训"],
+  ["hr", "人事管理"],
   ["campus", "校区运营"]
 ];
 const JRC_GRANULAR_ACTIONS = [
@@ -471,9 +471,9 @@ const JRC_PERMISSION_OPTIONS = [
   ["curriculum.access", "教研课程进入"],
   ["curriculum.edit", "教研课程管理"],
   ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`curriculum.${action}`, `教研课程${label}`]),
-  ["hr.access", "人事培训进入"],
-  ["hr.edit", "人事培训管理"],
-  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`hr.${action}`, `人事培训${label}`]),
+  ["hr.access", "人事管理进入"],
+  ["hr.edit", "人事管理"],
+  ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`hr.${action}`, `人事管理${label}`]),
   ["campus.access", "校区运营进入"],
   ["campus.edit", "校区运营管理"],
   ...JRC_GRANULAR_ACTIONS.map(([action, label]) => [`campus.${action}`, `校区运营${label}`]),
@@ -1084,12 +1084,12 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "knowledge.access": "学管知识库系统主要给学管、管理员和相关培训人员使用。",
     "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
     "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
-    "hr.access": "人事与培训系统涉及员工档案和权限，仅总管理员使用。",
-    "campus.access": "校区运营系统已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
+    "hr.access": "人事管理涉及员工档案和权限，仅总管理员使用。",
+    "campus.access": "校区运营已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
     "admin.access": "该入口仅总管理员可用。"
   };
-  return hints[permissionKey] || `${role}账号未开通此入口。需要开通时，由管理员在人事与培训系统里调整权限。`;
+  return hints[permissionKey] || `${role}账号未开通此入口。需要开通时，由管理员在校区运营与人事系统里调整权限。`;
 }
 
 function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
@@ -1101,7 +1101,7 @@ function jrcGetRoleSummary(employee = jrcResolveCurrentEmployee()) {
   if (permissions.includes("teachingQuality.access")) summaries.push("教学质量");
   if (permissions.includes("studentService.access")) summaries.push("学生服务");
   if (permissions.includes("curriculum.access")) summaries.push("教研课程");
-  if (permissions.includes("hr.access")) summaries.push("人事培训");
+  if (permissions.includes("hr.access")) summaries.push("人事管理");
   if (permissions.includes("campus.access")) summaries.push("校区运营");
   if (permissions.includes("finance.access")) summaries.push("财务");
   if (permissions.includes("knowledge.access")) summaries.push("学管知识库");
