@@ -19,7 +19,9 @@ globalThis.__seed = {
   paikeAdmins: JRC_PAIKE_ADMIN_USERNAMES,
   knowledgeAdmins: JRC_KNOWLEDGE_ADMIN_USERNAMES,
   suggestionAdmins: JRC_SUGGESTION_ADMIN_USERNAMES,
-  admissionsAdmins: JRC_ADMISSIONS_ADMIN_USERNAMES
+  admissionsAdmins: JRC_ADMISSIONS_ADMIN_USERNAMES,
+  curriculumAdmins: JRC_CURRICULUM_ADMIN_USERNAMES,
+  teachingQualityAdmins: JRC_TEACHING_QUALITY_ADMIN_USERNAMES
 };`, context);
 
 const seed = context.__seed;
@@ -88,18 +90,40 @@ function permissionsForEmployee(employee) {
   if (seed.superAdmins.includes(username)) {
     seed.permissionOptions.forEach(([key]) => permissions.add(key));
   }
-  if (seed.paikeAdmins.includes(username)) permissions.add("paike.edit");
+  if (seed.paikeAdmins.includes(username)) {
+    permissions.add("paike.access");
+    permissions.add("paike.edit");
+  }
   if (seed.knowledgeAdmins.includes(username)) {
     permissions.add("knowledge.access");
     permissions.add("knowledge.edit");
   }
-  if (seed.suggestionAdmins.includes(username)) permissions.add("suggestions.edit");
+  if (seed.suggestionAdmins.includes(username)) {
+    permissions.add("suggestions.access");
+    permissions.add("suggestions.edit");
+  }
   if (seed.admissionsAdmins.includes(username)) {
     ["admissions.access", "admissions.edit", "admissions.import", "admissions.finance"].forEach((key) => permissions.add(key));
   }
   if (seed.financeAdmins.includes(username)) {
     permissions.add("finance.access");
     permissions.add("finance.edit");
+  }
+  if (seed.curriculumAdmins.includes(username)) {
+    [
+      "curriculum.access",
+      "curriculum.edit",
+      "curriculum.create",
+      "curriculum.update",
+      "curriculum.delete",
+      "curriculum.import",
+      "curriculum.export",
+      "curriculum.reset"
+    ].forEach((key) => permissions.add(key));
+  }
+  if (seed.teachingQualityAdmins.includes(username)) {
+    permissions.add("teachingQuality.access");
+    permissions.add("teachingQuality.edit");
   }
   (employee.permissions || []).forEach((key) => permissions.add(key));
   return Array.from(permissions).sort();

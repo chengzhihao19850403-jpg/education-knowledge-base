@@ -431,8 +431,10 @@ const JRC_SUPER_ADMIN_USERNAMES = ["chengzhihao", "chenyuqing", "haiyingying"];
 const JRC_FINANCE_ADMIN_USERNAMES = ["chenyuqing", "liudajun", "chengzhihao"];
 const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
-const JRC_SUGGESTION_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
+const JRC_SUGGESTION_ADMIN_USERNAMES = ["yeyuanze", "zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
+const JRC_CURRICULUM_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
+const JRC_TEACHING_QUALITY_ADMIN_USERNAMES = ["zhengjiayi", "chengzhihao"];
 const JRC_DEPARTED_EMPLOYEE_USERNAMES = new Set(["zhangyan", "hejianjun"]);
 const JRC_GRANULAR_MODULES = [
   ["studentService", "学生服务"],
@@ -1035,6 +1037,7 @@ function jrcGetPermissions(subject) {
   }
 
   if (JRC_PAIKE_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("paike.access");
     permissions.add("paike.edit");
   }
   if (JRC_KNOWLEDGE_ADMIN_USERNAMES.includes(username)) {
@@ -1042,6 +1045,7 @@ function jrcGetPermissions(subject) {
     permissions.add("knowledge.edit");
   }
   if (JRC_SUGGESTION_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("suggestions.access");
     permissions.add("suggestions.edit");
   }
   if (JRC_ADMISSIONS_ADMIN_USERNAMES.includes(username)) {
@@ -1054,6 +1058,14 @@ function jrcGetPermissions(subject) {
   if (JRC_FINANCE_ADMIN_USERNAMES.includes(username)) {
     permissions.add("finance.access");
     permissions.add("finance.edit");
+  }
+  if (JRC_CURRICULUM_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("curriculum.access");
+    permissions.add("curriculum.edit");
+  }
+  if (JRC_TEACHING_QUALITY_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("teachingQuality.access");
+    permissions.add("teachingQuality.edit");
   }
   (subject.permissions || []).forEach((permission) => permissions.add(permission));
   jrcExpandGranularPermissions(permissions);

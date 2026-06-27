@@ -16,6 +16,27 @@ const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimaxi.c
 const minimaxModel = process.env.JRC_MINIMAX_MODEL || "MiniMax-M3";
 const minimaxGroupId = process.env.JRC_MINIMAX_GROUP_ID || "";
 const departedEmployeeUsernames = ["zhangyan", "hejianjun"];
+const moduleOwnerPermissionRules = {
+  yanyuhan: ["admissions.access", "admissions.edit", "admissions.import", "admissions.export", "admissions.finance"],
+  liudajun: ["finance.access", "finance.edit"],
+  zhaoxuan: [
+    "curriculum.access",
+    "curriculum.edit",
+    "curriculum.create",
+    "curriculum.update",
+    "curriculum.delete",
+    "curriculum.import",
+    "curriculum.export",
+    "curriculum.reset"
+  ],
+  zhoushan: ["paike.access", "paike.edit"],
+  gaofangyan: ["studentService.access", "studentService.edit"],
+  yeyuanze: ["suggestions.access", "suggestions.edit"],
+  chengzhihao: ["knowledge.access", "knowledge.edit", "admin.access"],
+  chenyuqing: ["hr.access", "hr.edit", "admin.access"],
+  lishu: ["ai.access"],
+  zhengjiayi: ["teachingQuality.access", "teachingQuality.edit"]
+};
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",")
   .map((origin) => origin.trim())
@@ -195,7 +216,16 @@ function decodeDataUrl(dataUrl) {
   };
 }
 
+function ownerScopedPermissions(username, permissions = []) {
+  const nextPermissions = new Set(permissions);
+  (moduleOwnerPermissionRules[String(username || "").trim().toLowerCase()] || []).forEach((permission) => {
+    nextPermissions.add(permission);
+  });
+  return Array.from(nextPermissions).sort();
+}
+
 function toEmployee(row, permissions = []) {
+  const resolvedPermissions = ownerScopedPermissions(row.username, permissions);
   return {
     id: row.id,
     name: row.name,
@@ -209,7 +239,7 @@ function toEmployee(row, permissions = []) {
     regularDate: row.regular_date ? row.regular_date.toISOString().slice(0, 10) : "",
     commissionRate: row.commission_rate === null ? "" : `${Number(row.commission_rate)}%`,
     status: row.status,
-    permissions
+    permissions: resolvedPermissions
   };
 }
 
@@ -534,6 +564,35 @@ async function applyDepartedEmployeeLocks() {
   } catch (error) {
     if (client) await client.query("rollback").catch(() => {});
     console.error("Failed to lock departed employee accounts", error);
+  } finally {
+    if (client) client.release();
+  }
+}
+
+async function applyModuleOwnerPermissionRules() {
+  const rows = Object.entries(moduleOwnerPermissionRules).flatMap(([username, permissions]) => {
+    return permissions.map((permissionKey) => [username, permissionKey]);
+  });
+  if (!rows.length) return;
+  let client = null;
+  try {
+    client = await pool.connect();
+    await client.query("begin");
+    for (const [username, permissionKey] of rows) {
+      await client.query(`
+        insert into employee_permissions (employee_id, permission_key, note)
+        select employees.id, $2, 'module owner permission'
+        from employees
+        join permission_catalog on permission_catalog.permission_key = $2
+        where employees.username = $1
+          and employees.status = 'active'
+        on conflict (employee_id, permission_key) do nothing
+      `, [username, permissionKey]);
+    }
+    await client.query("commit");
+  } catch (error) {
+    if (client) await client.query("rollback").catch(() => {});
+    console.error("Failed to apply module owner permission rules", error);
   } finally {
     if (client) client.release();
   }
@@ -1714,7 +1773,7 @@ async function route(req, res) {
   }
 }
 
-applyDepartedEmployeeLocks().finally(() => {
+applyDepartedEmployeeLocks().then(applyModuleOwnerPermissionRules).finally(() => {
   http.createServer(route).listen(port, () => {
     console.log(`JRC cloud API listening on ${port}`);
   });
