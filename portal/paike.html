@@ -529,6 +529,19 @@
         color: var(--muted);
         font-size: 12px;
       }
+      .lesson-block .lesson-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        margin-top: 2px;
+        border-radius: 999px;
+        background: #0d9488;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        text-decoration: none;
+      }
       .room-usage-table {
         min-width: 980px;
       }
@@ -1353,6 +1366,16 @@
         ].filter(Boolean).join("｜");
       }
 
+      function attendanceHrefForRow(row) {
+        const params = new URLSearchParams();
+        if (row.date) params.set("date", row.date);
+        if (row.teacher) params.set("teacher", row.teacher);
+        const time = timeSlotLabel(row);
+        if (time && time !== "未填时间") params.set("time", time);
+        if (row.student || row.lessonType) params.set("className", row.student || row.lessonType);
+        return `/jrcedu/portal/student-service.html?${params.toString()}#attendanceSection`;
+      }
+
       function normalizePersonName(value) {
         return String(value || "").replace(/\s+/g, "").trim();
       }
@@ -1687,6 +1710,7 @@
                       <strong>${escapeHtml(row.student || row.lessonType || "未填学生")}</strong>
                       <small>${escapeHtml(row.lessonType || row.rawText || "课程")}</small>
                       <small>${escapeHtml(row.room && row.room !== "-" ? row.room : "未写教室")}｜${escapeHtml(scheduleStatus(row).label)}</small>
+                      <a class="lesson-link" href="${escapeHtml(attendanceHrefForRow(row))}">去点名</a>
                     </div>
                   `).join("") || `<span class="room-free">可排</span>`}</td>`;
                 }).join("")}
@@ -2109,7 +2133,7 @@
               <td>${escapeHtml(row.student)}</td>
               <td>${escapeHtml(row.room || "-")}</td>
               <td><span class="status-pill ${escapeHtml(status.tone)}">${escapeHtml(status.label)}</span><br>${escapeHtml(row.status || "")}</td>
-              <td>${escapeHtml(row.source)}</td>
+              <td>${escapeHtml(row.source)}<br><a class="text-link" href="${escapeHtml(attendanceHrefForRow(row))}">去点名</a></td>
             </tr>
           `;
         }).join("");

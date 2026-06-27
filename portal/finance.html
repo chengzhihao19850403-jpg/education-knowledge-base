@@ -1406,7 +1406,7 @@
         </div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>财务确认</th><th>操作</th></tr></thead><tbody id="attendanceSettlementFinanceBody"></tbody></table></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>流转状态</th><th>说明</th><th>财务处理</th></tr></thead><tbody id="attendanceFlowFinanceBody"></tbody></table></div>
-        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程来源</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
       </section>
 
       <section class="grid" id="monthlySection">
@@ -3679,9 +3679,13 @@
             const teacher = session.teacher || row.teacher || "未填老师";
             return {
               date: session.date || "-",
+              time: session.startTime || session.endTime ? `${session.startTime || ""}${session.endTime ? `-${session.endTime}` : ""}` : "未填时间",
               teacher,
               studentName: row.studentName || row.student || "-",
               className: session.className || "-",
+              classroomName: session.classroomName || "",
+              sourceType: session.sourceType || "手动点名",
+              sourceScheduleKey: session.sourceScheduleKey || "",
               status: row.status || "-",
               exitScore: row.exitScore || "",
               financeStatus: attendanceFinanceStatus(row, teacher),
@@ -3827,7 +3831,11 @@
               <td>${escapeHtml(row.date)}</td>
               <td>${escapeHtml(row.teacher)}</td>
               <td><strong>${escapeHtml(row.studentName)}</strong></td>
-              <td>${escapeHtml(row.className)}</td>
+              <td>
+                ${escapeHtml(row.className)}
+                <br><small>${escapeHtml(row.time)}｜${escapeHtml(row.classroomName || "未写教室")}｜${escapeHtml(row.sourceType)}</small>
+                ${row.sourceScheduleKey ? `<br><small>${escapeHtml(row.sourceScheduleKey)}</small>` : ""}
+              </td>
               <td>${escapeHtml(row.status)}${row.exitScore ? `<br>出门测 ${escapeHtml(row.exitScore)}` : ""}</td>
               <td>${escapeHtml(row.financeStatus)}</td>
               <td>${escapeHtml(row.specialStatus)}</td>
@@ -4589,12 +4597,16 @@
           ]),
           [],
           ["逐学生点名明细"],
-          ["日期", "老师", "学生", "班级/课程", "点名状态", "出门测", "普通财务人次", "单独结算", "异常处理", "处理人", "处理时间", "复核状态"],
+          ["日期", "时间", "老师", "学生", "班级/课程", "教室", "来源", "排课来源键", "点名状态", "出门测", "普通财务人次", "单独结算", "异常处理", "处理人", "处理时间", "复核状态"],
           ...attendanceDetailRows.map((row) => [
             row.date,
+            row.time,
             row.teacher,
             row.studentName,
             row.className,
+            row.classroomName,
+            row.sourceType,
+            row.sourceScheduleKey,
             row.status,
             row.exitScore,
             row.financeStatus,

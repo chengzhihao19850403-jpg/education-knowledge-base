@@ -263,7 +263,7 @@
         </div>
       </details>
 
-      <section class="card">
+      <section class="card" id="attendanceSection">
         <div class="section-head">
           <div>
             <h2>上课点名 / 出门测登分 / 课销确认</h2>
@@ -655,6 +655,14 @@
         };
         let preimportBundle = mergePreimportBundle(window.JRC_PREIMPORT_SUMMARY, window.JRC_PREIMPORT_BUNDLE);
         let paikeRegularState = null;
+        const deepLinkParams = new URLSearchParams(window.location.search || "");
+        const attendanceDeepLink = {
+          date: String(deepLinkParams.get("date") || "").trim(),
+          teacher: String(deepLinkParams.get("teacher") || "").trim(),
+          time: String(deepLinkParams.get("time") || "").trim(),
+          className: String(deepLinkParams.get("className") || "").trim()
+        };
+        let attendanceDeepLinkApplied = false;
 
         const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || null;
         const hasPermission = (key) => typeof window.jrcHasPermission === "function"
@@ -816,6 +824,7 @@
         const hydrateScheduleSources = () => {
           if (!window.JRC_CLOUD?.readModuleData) {
             renderPreimportOptions();
+            applyAttendanceDeepLink();
             return;
           }
           const preimportTask = window.JRC_CLOUD.readModuleData(PREIMPORT_STORE_KEY).then((result) => {
@@ -834,7 +843,10 @@
           }).catch((error) => {
             console.warn("云端正式排课明细读取失败", error);
           });
-          Promise.allSettled([preimportTask, paikeTask]).then(renderPreimportOptions);
+          Promise.allSettled([preimportTask, paikeTask]).then(() => {
+            renderPreimportOptions();
+            applyAttendanceDeepLink();
+          });
         };
         const hasExitScore = (row) => String(row.exitScore ?? "").trim() !== "";
         const isEffectivePresent = (row) => ["到课", "迟到"].includes(row.status) || hasExitScore(row);
@@ -886,6 +898,60 @@
           updateServiceModuleUi();
           populateTeachers();
           renderAll();
+        };
+        const hasAttendanceDeepLink = () => Object.values(attendanceDeepLink).some(Boolean);
+        const applyAttendanceDeepLink = () => {
+          if (!hasAttendanceDeepLink() || attendanceDeepLinkApplied) return false;
+          const targetModule = serviceModuleForRecord({
+            teacherName: attendanceDeepLink.teacher,
+            teacher: attendanceDeepLink.teacher,
+            className: attendanceDeepLink.className
+          });
+          if (SERVICE_MODULES[targetModule] && activeServiceModule !== targetModule) {
+            activeServiceModule = targetModule;
+            localStorage.setItem("jrc-student-service-active-module-v1", activeServiceModule);
+            window.dispatchEvent(new CustomEvent("jrc-student-service-module-changed", { detail: { moduleKey: activeServiceModule } }));
+            updateServiceModuleUi();
+            populateTeachers();
+          }
+          if (attendanceDeepLink.date && fields.date) {
+            fields.date.value = normalizeDateInput(attendanceDeepLink.date);
+            fields.date.dataset.userSelected = "1";
+          }
+          if (attendanceDeepLink.teacher) {
+            ensureTeacherOption(attendanceDeepLink.teacher, { select: true });
+            if (activeServiceModule !== "cheng" && fields.teacher) fields.teacher.value = attendanceDeepLink.teacher;
+          }
+          const options = renderPreimportOptions();
+          if (attendanceDeepLink.time && fields.timeSlot) {
+            const matchedTime = Array.from(fields.timeSlot.options || [])
+              .find((option) => option.value === attendanceDeepLink.time || option.textContent === attendanceDeepLink.time);
+            if (matchedTime) {
+              fields.timeSlot.value = matchedTime.value;
+              renderPreimportOptions();
+            }
+          }
+          if (attendanceDeepLink.className && fields.classSelect) {
+            const matchedClass = Array.from(fields.classSelect.options || [])
+              .find((option) => option.textContent.includes(attendanceDeepLink.className));
+            if (matchedClass) {
+              fields.classSelect.value = matchedClass.value;
+              syncSelectedClassName();
+              loadPreimportRoster();
+            } else if (options?.length === 1) {
+              fields.classSelect.value = fields.classSelect.options[0]?.value || "";
+              syncSelectedClassName();
+              loadPreimportRoster();
+            } else if (fields.className) {
+              fields.className.value = attendanceDeepLink.className;
+            }
+          } else if (options?.length === 1) {
+            loadPreimportRoster();
+          }
+          attendanceDeepLinkApplied = true;
+          document.getElementById("attendanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          setMessage("已从排课系统带入课程信息。确认名单后即可开始点名，保存后会进入财务课时费和课销核对。");
+          return true;
         };
         const periodFromDate = (date) => String(date || "").slice(0, 7) || "待定月份";
         const isSpecialSettlementTeacher = (teacher) => SETTLEMENT_TEACHERS.includes(teacher);
@@ -1282,7 +1348,7 @@
             if (fields.preimportSelect) fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
             if (fields.classSelect) fields.classSelect.innerHTML = `<option value="">${label}</option>`;
             if (fields.className) fields.className.value = "";
-            return;
+            return [];
           }
           const previousClass = fields.classSelect?.value || "";
           const optionHtml = options.map((item) => {
@@ -1298,6 +1364,7 @@
             }
           }
           syncSelectedClassName();
+          return options;
         };
         const loadPreimportRoster = () => {
           const selectedValue = fields.classSelect?.value || fields.preimportSelect?.value || "";
@@ -2052,6 +2119,15 @@
             className: fields.className?.value?.trim() || "",
             startTime: selectedClass?.startTime || "",
             endTime: selectedClass?.endTime || "",
+            classroomName: selectedClass?.classroomName || "",
+            sourceType: selectedClass?.sourceType || "手动点名",
+            sourceScheduleKey: selectedClass ? [
+              selectedClass.date,
+              selectedClass.teacherName,
+              selectedClass.startTime,
+              selectedClass.endTime,
+              selectedClass.className
+            ].map((value) => String(value || "").trim()).join("|") : "",
             serviceModule: activeServiceModule,
             operatorName: currentEmployee()?.name || "未登录",
             reviewStatus: "待复核",

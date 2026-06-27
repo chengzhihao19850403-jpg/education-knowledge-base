@@ -103,6 +103,16 @@ const checks = [
     detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，并支持财务确认留痕。"
   },
   {
+    title: "排课点名财务操作闭环",
+    pass: /attendanceHrefForRow/.test(files.paike)
+      && /#attendanceSection/.test(files.paike)
+      && /applyAttendanceDeepLink/.test(files.student)
+      && /sourceScheduleKey/.test(files.student)
+      && /sourceType/.test(files.finance)
+      && /排课来源键/.test(files.finance),
+    detail: "排课课表可一键进入点名；点名保存排课来源；财务逐学生明细和导出可回溯来源。"
+  },
+  {
     title: "财务读取原始工资/排课预导入",
     pass: (/readModuleData\?\.\(PREIMPORT_STORE_KEY\)/.test(files.finance) || /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.finance))
       && /teacherWageReviews/.test(files.finance)
