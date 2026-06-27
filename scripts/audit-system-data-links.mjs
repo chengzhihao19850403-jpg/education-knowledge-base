@@ -164,6 +164,7 @@ const checks = [
       "jrc-student-service-v2",
       "jrc-finance-ledger-v1",
       "jrc-teaching-quality-system-v2-demo",
+      "jrc-hr-summer-schedule-v1",
       "jrc-suggestion-management-v2"
     ].every((key) => files.dataSync.includes(key)),
     detail: "data-sync.js 已纳入核心数据副本范围。"

@@ -5,6 +5,7 @@
     "jrc-student-service-v2": "studentService",
     "jrc-curriculum-products-v2": "curriculum",
     "jrc-hr-training-tasks-v2": "hr",
+    "jrc-hr-summer-schedule-v1": "hr",
     "jrc-campus-operations-v2": "campus",
     "jrc-suggestion-management-v2": "suggestions"
   };
@@ -50,7 +51,11 @@
       row.system,
       row.status,
       row.title,
+      row.date,
+      row.time,
+      row.role,
       row.area,
+      row.location,
       row.due,
       row.createdAt
     ];
@@ -2085,10 +2090,18 @@
   }
 
   function initHrTraining() {
-    if (!$("hrTaskTableBody")) return;
+    if (!$("hrTaskTableBody") && !$("hrSummerScheduleBody")) return;
     const moduleKey = "hr";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-hr-training-tasks-v2";
+    const summerScheduleKey = "jrc-hr-summer-schedule-v1";
+    const canViewHrPrivate = hasPermission("hr.access");
+    const canEditSummerSchedule = () => {
+      const operator = currentOperator();
+      const name = normalizeName(operator.name);
+      const username = normalizeText(operator.username).toLowerCase();
+      return ["程志豪", "陈雨晴"].includes(name) || ["chengzhihao", "czh", "chenyuqing"].includes(username);
+    };
     const defaults = {
       type: "入职",
       employee: "",
@@ -2098,6 +2111,157 @@
       next: "",
       note: ""
     };
+
+    function applyHrVisibility() {
+      document.querySelectorAll("[data-hr-private]").forEach((node) => {
+        node.hidden = !canViewHrPrivate;
+      });
+    }
+
+    function initSummerSchedule() {
+      const body = $("hrSummerScheduleBody");
+      if (!body) return;
+      const canEdit = canEditSummerSchedule();
+      const editor = $("hrSummerEditorPanel");
+      if (editor) editor.hidden = !canEdit;
+      const editorMessage = canEdit
+        ? "你可以新增、修改和删除暑假排班。"
+        : "暑假排班表对全员开放查看；只有陈雨晴和程志豪可以修改。";
+      setText("hrSummerMessage", editorMessage);
+      let summerRows = mergeRowsById(readStore(summerScheduleKey, []), summerScheduleKey);
+      let editingSummerIndex = -1;
+
+      function clearSummerForm() {
+        ["hrSummerDateInput", "hrSummerTimeInput", "hrSummerEmployeeInput", "hrSummerRoleInput", "hrSummerLocationInput", "hrSummerNoteInput"].forEach((id) => {
+          const node = $(id);
+          if (node) node.value = "";
+        });
+        editingSummerIndex = -1;
+        setText("hrSummerSaveButton", "保存排班");
+      }
+
+      function sortedSummerEntries() {
+        const keyword = $("hrSummerFilterInput")?.value.trim().toLowerCase() || "";
+        return summerRows
+          .map((row, index) => ({ row, index }))
+          .filter(({ row }) => rowMatches(row, keyword))
+          .sort((left, right) => {
+            const leftKey = `${left.row.date || ""} ${left.row.time || ""}`;
+            const rightKey = `${right.row.date || ""} ${right.row.time || ""}`;
+            return leftKey.localeCompare(rightKey, "zh-CN") || String(left.row.employee || "").localeCompare(String(right.row.employee || ""), "zh-CN");
+          });
+      }
+
+      function renderSummerSchedule() {
+        const entries = sortedSummerEntries();
+        body.innerHTML = entries.length ? entries.map(({ row, index }) => `
+          <tr>
+            <td>${escapeHtml(row.date || "-")}</td>
+            <td>${escapeHtml(row.time || "-")}</td>
+            <td><strong>${escapeHtml(row.employee || "-")}</strong></td>
+            <td>${escapeHtml(row.role || "-")}</td>
+            <td>${escapeHtml(row.location || "-")}</td>
+            <td>${escapeHtml(row.note || "-")}</td>
+            <td>${canEdit ? actionButtons(index, { update: true, delete: true }) : tag("仅查看", "neutral")}</td>
+          </tr>
+        `).join("") : `<tr><td colspan="7">暂无暑假排班记录。陈雨晴或程志豪录入后，所有老师都可以在这里查询。</td></tr>`;
+      }
+
+      $("hrSummerSaveButton")?.addEventListener("click", () => {
+        if (!canEdit) {
+          setText("hrSummerMessage", "当前账号只能查看暑假排班，不能修改。");
+          return;
+        }
+        const employee = normalizeName($("hrSummerEmployeeInput")?.value);
+        const date = normalizeText($("hrSummerDateInput")?.value);
+        const time = normalizeText($("hrSummerTimeInput")?.value);
+        if (!employee || !date || !time) {
+          setText("hrSummerMessage", "请至少填写日期、时间段和员工姓名。");
+          return;
+        }
+        const payload = {
+          date,
+          time,
+          employee,
+          role: normalizeText($("hrSummerRoleInput")?.value) || "暑假排班",
+          location: normalizeText($("hrSummerLocationInput")?.value) || "-",
+          note: normalizeText($("hrSummerNoteInput")?.value) || "-",
+          updatedAt: nowText(),
+          updatedBy: currentOperator().name || ""
+        };
+        if (editingSummerIndex >= 0) {
+          summerRows[editingSummerIndex] = {
+            ...summerRows[editingSummerIndex],
+            ...payload,
+            createdAt: summerRows[editingSummerIndex].createdAt || nowText()
+          };
+          recordAudit(moduleKey, "更新暑假排班", employee, `${date} ${time}`);
+          setText("hrSummerMessage", `已更新 ${employee} 的暑假排班。`);
+        } else {
+          summerRows.unshift({
+            ...payload,
+            createdAt: nowText(),
+            createdBy: currentOperator().name || ""
+          });
+          recordAudit(moduleKey, "新增暑假排班", employee, `${date} ${time}`);
+          setText("hrSummerMessage", `已新增 ${employee} 的暑假排班。`);
+        }
+        writeStore(summerScheduleKey, summerRows);
+        clearSummerForm();
+        renderSummerSchedule();
+      });
+
+      $("hrSummerCancelButton")?.addEventListener("click", clearSummerForm);
+      $("hrSummerFilterInput")?.addEventListener("input", renderSummerSchedule);
+      $("hrSummerExportButton")?.addEventListener("click", () => downloadCsv("暑假排班表.csv", summerRows, [
+        { label: "日期", value: "date" },
+        { label: "时间段", value: "time" },
+        { label: "员工", value: "employee" },
+        { label: "岗位/任务", value: "role" },
+        { label: "校区/地点", value: "location" },
+        { label: "备注", value: "note" },
+        { label: "更新时间", value: "updatedAt" },
+        { label: "更新人", value: "updatedBy" }
+      ]));
+      bindRowActions("hrSummerScheduleBody", {
+        onEdit(index) {
+          if (!canEdit) return;
+          const row = summerRows[index];
+          $("hrSummerDateInput").value = row.date || "";
+          $("hrSummerTimeInput").value = row.time || "";
+          $("hrSummerEmployeeInput").value = row.employee || "";
+          $("hrSummerRoleInput").value = row.role || "";
+          $("hrSummerLocationInput").value = row.location || "";
+          $("hrSummerNoteInput").value = row.note || "";
+          editingSummerIndex = index;
+          setText("hrSummerSaveButton", "保存修改");
+          setText("hrSummerMessage", `正在编辑 ${row.employee || "员工"} 的暑假排班。`);
+        },
+        onDelete(index) {
+          if (!canEdit) return;
+          const row = summerRows[index];
+          if (!window.confirm(`确定删除 ${row.employee || "该员工"} ${row.date || ""} ${row.time || ""} 的排班吗？`)) return;
+          markRowDeleted(summerScheduleKey, row);
+          summerRows.splice(index, 1);
+          writeStore(summerScheduleKey, summerRows, { restoreDeleted: false });
+          recordAudit(moduleKey, "删除暑假排班", row.employee || "-", `${row.date || ""} ${row.time || ""}`);
+          clearSummerForm();
+          renderSummerSchedule();
+          setText("hrSummerMessage", "已删除该暑假排班。");
+        }
+      }, { update: canEdit, delete: canEdit }, "hrSummerMessage");
+      renderSummerSchedule();
+      readCloudStore(summerScheduleKey, (cloudRows) => {
+        summerRows = mergeRowsById(cloudRows, summerScheduleKey);
+        renderSummerSchedule();
+        setText("hrSummerMessage", canEdit ? "已同步云端暑假排班表，可继续维护。" : "已同步云端暑假排班表。");
+      });
+    }
+
+    applyHrVisibility();
+    initSummerSchedule();
+    if (!canViewHrPrivate || !$("hrTaskTableBody")) return;
+
     function sanitizeRows(input) {
       const oldSeedTypes = ["员工基础档案核对", "系统权限分组", "培训记录归档"];
       return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTypes.includes(row.type));
