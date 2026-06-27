@@ -93,8 +93,14 @@ const checks = [
   },
   {
     title: "点名形成财务核对入口",
-    pass: /attendanceFinanceSection/.test(files.finance) && /renderAttendanceSettlementPreview/.test(files.finance) && /attendanceSettlementFinanceBody/.test(files.finance) && /attendanceDetailFinanceBody/.test(files.finance),
-    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细。"
+    pass: /attendanceFinanceSection/.test(files.finance)
+      && /renderAttendanceSettlementPreview/.test(files.finance)
+      && /attendanceSettlementFinanceBody/.test(files.finance)
+      && /attendanceDetailFinanceBody/.test(files.finance)
+      && /attendanceSettlementReviews/.test(files.finance)
+      && /confirmAttendanceSettlementById/.test(files.finance)
+      && /data-confirm-attendance-settlement/.test(files.finance),
+    detail: "财务页已按老师/月展示点名课时费、家长课销、单独结算和待追踪明细，并支持财务确认留痕。"
   },
   {
     title: "财务读取原始工资/排课预导入",

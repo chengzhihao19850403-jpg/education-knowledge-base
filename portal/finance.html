@@ -1336,7 +1336,7 @@
           <div class="settlement-summary-card"><span>单独结算</span><strong id="attendanceFinanceSpecial">0</strong></div>
           <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
         </div>
-        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>结算口径</th></tr></thead><tbody id="attendanceSettlementFinanceBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>财务确认</th><th>操作</th></tr></thead><tbody id="attendanceSettlementFinanceBody"></tbody></table></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>流转状态</th><th>说明</th><th>财务处理</th></tr></thead><tbody id="attendanceFlowFinanceBody"></tbody></table></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
       </section>
@@ -1472,6 +1472,7 @@
           otherTeacherCost: 0,
           classHourBalance: "",
           admissionReceipts: [],
+          attendanceSettlementReviews: [],
           expenses: []
         };
       }
@@ -1492,6 +1493,24 @@
           row?.trialTeacher,
           row?.channel
         ].join("|"), "admission-receipt");
+      }
+
+      function attendanceSettlementId(row) {
+        return buildFinanceHash([
+          row?.period || currentPeriod,
+          row?.teacher
+        ].join("|"), "attendance-settlement");
+      }
+
+      function attendanceSettlementSignature(row) {
+        return [
+          row?.lessons || 0,
+          row?.totalStudents || 0,
+          row?.effectivePresent || 0,
+          row?.financePresent || 0,
+          row?.specialPresent || 0,
+          row?.followupCount || 0
+        ].join("|");
       }
 
       function ensureExpenseId(periodName, expense) {
@@ -1521,6 +1540,22 @@
         return [...map.values()].sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
       }
 
+      function mergeFinanceRecordRows(...groups) {
+        const map = new Map();
+        groups.flat().forEach((row) => {
+          if (!row || typeof row !== "object") return;
+          const rowId = String(row.id || row.sourceId || "").trim();
+          const safeId = rowId || buildFinanceHash(JSON.stringify(row), "finance-record");
+          const existing = map.get(safeId) || {};
+          map.set(safeId, { ...existing, ...row, id: row.id || safeId });
+        });
+        return [...map.values()].sort((left, right) => {
+          const leftTime = left.reviewedAt || left.confirmedAt || left.date || "";
+          const rightTime = right.reviewedAt || right.confirmedAt || right.date || "";
+          return String(rightTime).localeCompare(String(leftTime));
+        });
+      }
+
       function normalizePeriod(periodName, period = {}) {
         const base = createPeriod(periodName);
         return {
@@ -1528,6 +1563,7 @@
           ...(period && typeof period === "object" ? period : {}),
           periodName,
           admissionReceipts: Array.isArray(period?.admissionReceipts) ? period.admissionReceipts : [],
+          attendanceSettlementReviews: Array.isArray(period?.attendanceSettlementReviews) ? period.attendanceSettlementReviews : [],
           expenses: mergeExpenseRows(periodName, period?.expenses || [])
         };
       }
@@ -1543,6 +1579,8 @@
             merged.periods[periodName] = {
               ...normalizedExisting,
               ...normalizedIncoming,
+              admissionReceipts: mergeFinanceRecordRows(normalizedExisting.admissionReceipts, normalizedIncoming.admissionReceipts),
+              attendanceSettlementReviews: mergeFinanceRecordRows(normalizedExisting.attendanceSettlementReviews, normalizedIncoming.attendanceSettlementReviews),
               expenses: mergeExpenseRows(periodName, normalizedExisting.expenses, normalizedIncoming.expenses)
             };
           });
@@ -3558,6 +3596,74 @@
           .sort((a, b) => `${b.date}${b.teacher}${b.studentName}`.localeCompare(`${a.date}${a.teacher}${a.studentName}`, "zh-CN"));
       }
 
+      function attendanceSettlementReviewFor(row) {
+        const period = getPeriod(row.period || currentPeriod);
+        const id = attendanceSettlementId(row);
+        const reviews = Array.isArray(period.attendanceSettlementReviews) ? period.attendanceSettlementReviews : [];
+        return reviews.find((item) => item.id === id || item.sourceId === id) || null;
+      }
+
+      function attendanceSettlementReviewStatus(row) {
+        const review = attendanceSettlementReviewFor(row);
+        if (!review) return { label: "待财务确认", className: "pending", note: "先确认异常是否已处理" };
+        const currentSignature = attendanceSettlementSignature(row);
+        if (review.signature && review.signature !== currentSignature) {
+          return { label: "数据已变化", className: "pending", note: "点名数据更新后需重新确认" };
+        }
+        return {
+          label: "已确认",
+          className: "paid",
+          note: `${review.reviewedBy || "财务"} ${String(review.reviewedAt || "").slice(0, 10)}`
+        };
+      }
+
+      function confirmAttendanceSettlementById(settlementId) {
+        const row = deriveAttendanceSettlementRows().find((item) => attendanceSettlementId(item) === settlementId);
+        if (!row) {
+          setFinanceMessage("没有找到这条点名结算候选，请刷新后再试。");
+          return;
+        }
+        if (row.followupCount > 0) {
+          setFinanceMessage(`${row.teacher} ${row.period} 还有 ${row.followupCount} 人次缺勤/异常未落实，先处理后再确认课销和课时费口径。`);
+          return;
+        }
+        const period = getPeriod(row.period || currentPeriod);
+        const reviews = Array.isArray(period.attendanceSettlementReviews) ? period.attendanceSettlementReviews : [];
+        const review = {
+          id: settlementId,
+          sourceId: settlementId,
+          period: row.period,
+          teacher: row.teacher,
+          lessons: row.lessons,
+          totalStudents: row.totalStudents,
+          effectivePresent: row.effectivePresent,
+          financePresent: row.financePresent,
+          specialPresent: row.specialPresent,
+          followupCount: row.followupCount,
+          signature: attendanceSettlementSignature(row),
+          basis: settlementBasis(row),
+          status: "已确认",
+          reviewedAt: new Date().toISOString(),
+          reviewedBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录"
+        };
+        period.attendanceSettlementReviews = [review, ...reviews.filter((item) => item.id !== settlementId && item.sourceId !== settlementId)];
+        period.reviewStatus = "待复核";
+        period.updatedAt = review.reviewedAt;
+        period.updatedBy = review.reviewedBy;
+        recordFinanceLink(
+          "点名结算确认",
+          1,
+          [`${row.period}｜${row.teacher}｜${row.lessons}节｜普通${row.financePresent}｜单独${row.specialPresent}`],
+          "财务人工确认点名结算候选后，作为本月课时费和课销核对依据。"
+        );
+        writeState(state).then((result) => {
+          setFinanceMessage(result?.ok
+            ? `已确认：${row.teacher} ${row.period} 点名结算依据已同步云端。`
+            : `已暂存：${row.teacher} ${row.period} 点名结算依据已在本机确认，云端稍后同步。`);
+        });
+        render();
+      }
+
       function renderAttendanceSettlementPreview() {
         const body = byId("attendanceSettlementFinanceBody");
         if (!body) return;
@@ -3578,22 +3684,29 @@
         if (byId("attendanceFinanceSpecial")) byId("attendanceFinanceSpecial").textContent = String(totals.specialPresent);
         if (byId("attendanceFinanceFollowup")) byId("attendanceFinanceFollowup").textContent = String(totals.followupCount);
         if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="9" class="muted">当前月份还没有点名结算数据。老师保存点名后，这里会自动出现课时费和课销核对依据。</td></tr>`;
+          body.innerHTML = `<tr><td colspan="10" class="muted">当前月份还没有点名结算数据。老师保存点名后，这里会自动出现课时费和课销核对依据。</td></tr>`;
           return;
         }
-        body.innerHTML = rows.map((row) => `
-          <tr>
-            <td>${escapeHtml(row.period)}</td>
-            <td>${escapeHtml(row.teacher)}</td>
-            <td>${row.lessons}</td>
-            <td>${row.totalStudents}</td>
-            <td>${row.effectivePresent}</td>
-            <td>${row.financePresent}</td>
-            <td>${row.specialPresent}</td>
-            <td>${row.followupCount ? `<span class="status-pill pending">${row.followupCount} 人</span>` : "已落实"}</td>
-            <td>${escapeHtml(settlementBasis(row))}</td>
-          </tr>
-        `).join("");
+        body.innerHTML = rows.map((row) => {
+          const status = attendanceSettlementReviewStatus(row);
+          const rowId = attendanceSettlementId(row);
+          const blocked = row.followupCount > 0;
+          const confirmed = status.label === "已确认";
+          return `
+            <tr>
+              <td>${escapeHtml(row.period)}</td>
+              <td>${escapeHtml(row.teacher)}</td>
+              <td>${row.lessons}</td>
+              <td>${row.totalStudents}</td>
+              <td>${row.effectivePresent}</td>
+              <td>${row.financePresent}</td>
+              <td>${row.specialPresent}</td>
+              <td>${row.followupCount ? `<span class="status-pill pending">${row.followupCount} 人</span>` : "已落实"}</td>
+              <td><div class="finance-review-note"><span class="status-pill ${status.className}">${escapeHtml(status.label)}</span><small>${escapeHtml(status.note)}</small></div></td>
+              <td><button class="button secondary" type="button" data-confirm-attendance-settlement="${escapeHtml(rowId)}" ${blocked || confirmed ? "disabled" : ""}>${blocked ? "先处理异常" : confirmed ? "已确认" : "确认纳入核对"}</button></td>
+            </tr>
+          `;
+        }).join("");
       }
 
       function renderAttendanceDetailPreview() {
@@ -4069,6 +4182,11 @@
         if (!button || button.disabled) return;
         confirmAdmissionReceiptById(button.getAttribute("data-confirm-admission-receipt") || "");
       });
+      byId("attendanceSettlementFinanceBody")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-confirm-attendance-settlement]");
+        if (!button || button.disabled) return;
+        confirmAttendanceSettlementById(button.getAttribute("data-confirm-attendance-settlement") || "");
+      });
 
       async function importFinanceSheets() {
         const input = byId("financeImportInput");
@@ -4233,6 +4351,21 @@
           ["普通财务人次", attendanceTotals.financePresent, "进入普通老师课时费草算"],
           ["单独结算人次", attendanceTotals.specialPresent, "海滢滢、姚老师单独核对"],
           ["待追踪人次", attendanceTotals.followupCount, "未落实前不建议确认课销和课时费"],
+          [],
+          ["点名结算确认记录"],
+          ["确认日期", "老师", "课程数", "总人次", "有效到课", "普通财务人次", "单独结算人次", "确认人", "状态", "确认口径"],
+          ...(period.attendanceSettlementReviews || []).map((review) => [
+            String(review.reviewedAt || "").slice(0, 10),
+            review.teacher,
+            review.lessons,
+            review.totalStudents,
+            review.effectivePresent,
+            review.financePresent,
+            review.specialPresent,
+            review.reviewedBy,
+            review.status,
+            review.basis
+          ]),
           [],
           ["逐学生点名明细"],
           ["日期", "老师", "学生", "班级/课程", "点名状态", "出门测", "普通财务人次", "单独结算", "异常处理", "处理人", "处理时间", "复核状态"],
