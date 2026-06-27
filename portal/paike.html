@@ -795,11 +795,15 @@
           <p class="eyebrow">维护</p>
           <h2>排课数据维护入口</h2>
           <div class="maintenance-actions">
+            <input id="paikeFormalImportInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+            <button class="button" data-requires-permission="paike.edit" type="button" id="paikeFormalImportButton">导入正式排课明细</button>
+            <button class="button secondary" data-requires-permission="paike.edit" type="button" id="paikeFormalTemplateButton">下载导入模板</button>
             <a class="button" data-requires-permission="paike.edit" href="/jrcedu/paike-legacy/index.html">上传总表</a>
             <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/june.html?simple=1">平时模式旧版</a>
             <a class="button secondary" data-requires-permission="paike.access" href="/jrcedu/paike-legacy/prototype/index.html?simple=1">暑假模式旧版</a>
             <a class="button secondary" data-requires-permission="studentService.access" href="/jrcedu/portal/student-service.html">进入点名课销</a>
           </div>
+          <div class="notice" id="paikeFormalImportMessage">正式排课明细会写入云端排课数据，后续点名、财务和学生服务都会读取。复杂老师总表仍可先用旧版入口处理。</div>
         </section>
 
         <section style="margin-top: 18px;">
@@ -828,6 +832,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       const byId = (id) => document.getElementById(id);
       const stores = {
@@ -868,6 +873,191 @@
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+      }
+
+      function setFormalImportMessage(text) {
+        const node = byId("paikeFormalImportMessage");
+        if (!node) return;
+        node.textContent = text || "";
+      }
+
+      function parseCsvText(text) {
+        const rows = [];
+        let row = [];
+        let current = "";
+        let insideQuotes = false;
+        const source = String(text || "").replace(/^\uFEFF/, "");
+        for (let index = 0; index < source.length; index += 1) {
+          const char = source[index];
+          const next = source[index + 1];
+          if (char === '"' && insideQuotes && next === '"') {
+            current += '"';
+            index += 1;
+            continue;
+          }
+          if (char === '"') {
+            insideQuotes = !insideQuotes;
+            continue;
+          }
+          if (char === "," && !insideQuotes) {
+            row.push(current.trim());
+            current = "";
+            continue;
+          }
+          if ((char === "\n" || char === "\r") && !insideQuotes) {
+            if (char === "\r" && next === "\n") index += 1;
+            row.push(current.trim());
+            if (row.some((cell) => cell)) rows.push(row);
+            row = [];
+            current = "";
+            continue;
+          }
+          current += char;
+        }
+        row.push(current.trim());
+        if (row.some((cell) => cell)) rows.push(row);
+        if (!rows.length) return [];
+        const headers = rows[0].map((header) => String(header || "").trim());
+        return rows.slice(1).map((values) => {
+          const record = {};
+          headers.forEach((header, index) => {
+            if (header) record[header] = String(values[index] || "").trim();
+          });
+          return record;
+        });
+      }
+
+      function rowValueByAliases(row, aliases) {
+        const normalized = new Map(Object.entries(row || {}).map(([key, value]) => [String(key || "").replace(/\s+/g, "").toLowerCase(), value]));
+        for (const alias of aliases) {
+          const value = normalized.get(String(alias || "").replace(/\s+/g, "").toLowerCase());
+          if (value != null && String(value).trim() !== "") return value;
+        }
+        return "";
+      }
+
+      function normalizeTimeText(value) {
+        const text = String(value || "").trim().replace(/：/g, ":");
+        const match = text.match(/(\d{1,2}):(\d{1,2})/);
+        if (!match) return text;
+        return `${String(match[1]).padStart(2, "0")}:${String(match[2]).padStart(2, "0")}`;
+      }
+
+      function normalizeScheduleStatus(value) {
+        const text = String(value || "").trim();
+        if (/调课|adjust/i.test(text)) return "adjusted";
+        if (/补课|makeup/i.test(text)) return "makeup";
+        if (/停课|休息|请假|leave|pause/i.test(text)) return "leave";
+        return "scheduled";
+      }
+
+      function normalizeConfirmationStatus(value) {
+        const text = String(value || "").trim();
+        if (/已确认|确认|confirmed|done/i.test(text)) return "confirmed";
+        return "pending";
+      }
+
+      function normalizeFormalScheduleRow(row, index, sourceFileName) {
+        const teacherName = String(rowValueByAliases(row, ["老师", "任课老师", "教师", "teacher", "teacher_name", "teacherName"])).trim();
+        const className = String(rowValueByAliases(row, ["学生/班级", "学生", "班级", "课程", "班级名称", "class", "class_name", "className", "student", "studentName"])).trim();
+        const courseDate = dateKey(rowValueByAliases(row, ["日期", "上课日期", "课程日期", "course_date", "courseDate", "date"]));
+        const timeRange = String(rowValueByAliases(row, ["时间段", "上课时间段", "时间", "time", "timeSlot"])).trim();
+        const rangeParts = timeRange.split(/[-~至到]/).map((part) => normalizeTimeText(part)).filter(Boolean);
+        const startTime = normalizeTimeText(rowValueByAliases(row, ["开始时间", "上课时间", "start_time", "startTime", "开始"])) || rangeParts[0] || "";
+        const endTime = normalizeTimeText(rowValueByAliases(row, ["结束时间", "下课时间", "end_time", "endTime", "结束"])) || rangeParts[1] || "";
+        const classroomName = String(rowValueByAliases(row, ["教室", "地点", "上课地点", "classroom", "classroom_name", "classroomName", "room", "roomName"])).trim();
+        const notes = String(rowValueByAliases(row, ["备注", "说明", "notes", "note"])).trim();
+        if (!teacherName || !className || !courseDate || !startTime) return null;
+        return {
+          id: `formal-${courseDate}-${teacherName}-${startTime}-${className}-${index}`.replace(/\s+/g, ""),
+          teacherName,
+          className,
+          courseDate,
+          slotIndex: Number(rowValueByAliases(row, ["节次", "slot", "slot_index", "slotIndex"]) || 0),
+          startTime,
+          endTime,
+          classroomName,
+          scheduleStatus: normalizeScheduleStatus(rowValueByAliases(row, ["状态", "排课状态", "schedule_status", "scheduleStatus"])),
+          confirmationStatus: normalizeConfirmationStatus(rowValueByAliases(row, ["确认状态", "confirmation_status", "confirmationStatus"])),
+          notes: [notes, sourceFileName ? `导入：${sourceFileName}` : ""].filter(Boolean).join(" / "),
+          importedAt: new Date().toISOString(),
+          sourceFileName
+        };
+      }
+
+      async function readFormalScheduleFile(file) {
+        const lowerName = String(file.name || "").toLowerCase();
+        if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+          if (!window.XLSX) throw new Error("Excel 解析组件还没加载完成，请稍后重试。");
+          const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          return parseCsvText(window.XLSX.utils.sheet_to_csv(firstSheet));
+        }
+        return parseCsvText(await file.text());
+      }
+
+      function normalizeRegularState(data) {
+        const entries = Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
+        return {
+          ...(data && typeof data === "object" && !Array.isArray(data) ? data : {}),
+          scheduleEntries: entries
+        };
+      }
+
+      async function saveFormalScheduleEntries(entries, fileName) {
+        const localState = normalizeRegularState(readLocal(stores.regular, {}));
+        let remoteState = {};
+        try {
+          const remote = await window.JRC_CLOUD?.readModuleData?.(stores.regular);
+          if (remote?.ok && remote.data?.found) remoteState = normalizeRegularState(remote.data.payload);
+        } catch (error) {
+          console.warn("读取正式排课云端数据失败", error);
+        }
+        const mergedEntries = mergeRows("formal", remoteState.scheduleEntries || [], localState.scheduleEntries || [], entries);
+        const nextState = {
+          ...remoteState,
+          ...localState,
+          scheduleEntries: mergedEntries,
+          updatedAt: new Date().toISOString(),
+          lastImportFileName: fileName || "",
+          lastImportCount: entries.length
+        };
+        localStorage.setItem(stores.regular, JSON.stringify(nextState));
+        if (window.JRC_CLOUD?.writeModuleData) {
+          await window.JRC_CLOUD.writeModuleData(stores.regular, "paike", nextState, { replaceMode: "replace" });
+        }
+        return nextState;
+      }
+
+      async function importFormalScheduleFile(file) {
+        if (!file) {
+          setFormalImportMessage("请先选择正式排课明细文件。");
+          return;
+        }
+        try {
+          setFormalImportMessage(`正在读取 ${file.name}。`);
+          const rows = await readFormalScheduleFile(file);
+          const entries = rows.map((row, index) => normalizeFormalScheduleRow(row, index, file.name)).filter(Boolean);
+          if (!entries.length) {
+            setFormalImportMessage("没有识别到可导入的排课明细。请使用模板字段：日期、开始时间、结束时间、老师、学生/班级、教室、状态、备注。");
+            return;
+          }
+          await saveFormalScheduleEntries(entries, file.name);
+          setFormalImportMessage(`已导入正式排课明细 ${entries.length} 行，并同步到云端。`);
+          await initPaikeDashboard();
+        } catch (error) {
+          setFormalImportMessage(`正式排课明细导入失败：${error.message || error}`);
+        } finally {
+          if (byId("paikeFormalImportInput")) byId("paikeFormalImportInput").value = "";
+        }
+      }
+
+      function downloadFormalScheduleTemplate() {
+        downloadCsv("正式排课明细导入模板.csv", [
+          ["日期", "开始时间", "结束时间", "老师", "学生/班级", "教室", "状态", "备注"],
+          ["2026-06-27", "18:30", "20:00", "张老师", "五年级数学小班", "二楼1号", "正常排课", "示例：可删除后填写"]
+        ]);
+        setFormalImportMessage("已下载正式排课明细导入模板。");
       }
 
       function setTeacherSheetMessage(text) {
@@ -1968,7 +2158,10 @@
         const grid = byId("paikeStatusGrid");
         const juneRows = scheduleSessions.filter((row) => row.period === "2026-06").length + regularEntries.length;
         const summerRows = scheduleSessions.filter((row) => ["2026-07", "2026-08"].includes(row.period)).length;
-        const teacherCount = new Set(scheduleSessions.map((row) => row.teacherName).filter(Boolean)).size;
+        const teacherCount = new Set([
+          ...scheduleSessions.map((row) => row.teacherName),
+          ...regularEntries.map((row) => row.teacherName || row.teacher)
+        ].filter(Boolean)).size;
         const cards = [
           ["待确认问题", reviewRows.length, reviewRows.length ? "还有导入疑问或命名不一致，需要排课老师拍板。" : "暂无待确认项。", reviewRows.length ? "warn" : ""],
           ["六月/平时数据", juneRows, juneRows ? "已读到六月或平时模式数据。" : "如果老师说六月没数据，先查上传总表和平时模式入口。", juneRows ? "" : "warn"],
@@ -2109,6 +2302,17 @@
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);
       byId("exportRoomUsageButton")?.addEventListener("click", exportRoomUsage);
+      byId("paikeFormalImportButton")?.addEventListener("click", () => {
+        if (window.jrcHasPermission && !window.jrcHasPermission("paike.edit")) {
+          setFormalImportMessage("当前账号没有排课修改权限，不能导入正式排课明细。");
+          return;
+        }
+        byId("paikeFormalImportInput")?.click();
+      });
+      byId("paikeFormalImportInput")?.addEventListener("change", (event) => {
+        importFormalScheduleFile(event.target.files?.[0]);
+      });
+      byId("paikeFormalTemplateButton")?.addEventListener("click", downloadFormalScheduleTemplate);
       document.querySelectorAll("[data-teacher-sheet-quick]").forEach((button) => {
         button.addEventListener("click", () => applyTeacherSheetQuick(button.getAttribute("data-teacher-sheet-quick") || ""));
       });

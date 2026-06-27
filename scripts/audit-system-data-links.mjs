@@ -67,6 +67,11 @@ const checks = [
     detail: "排课页会读取预导入/正式排课 store，并显示排课、点名、招生待排课来源。"
   },
   {
+    title: "排课页可导入正式排课明细",
+    pass: /paikeFormalImportButton/.test(files.paike) && /readFormalScheduleFile/.test(files.paike) && /saveFormalScheduleEntries/.test(files.paike) && /writeModuleData\(stores\.regular/.test(files.paike),
+    detail: "排课负责人可在新排课页导入 CSV/XLSX 正式明细，并写入云端正式排课 store。"
+  },
+  {
     title: "学生服务读取排课并生成点名名单",
     pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student) && /renderPreimportOptions/.test(files.student),
     detail: "学生服务会按日期、老师、班级从排课源生成点名候选。"
@@ -152,8 +157,8 @@ const checks = [
 ];
 
 const warnings = [];
-if (scheduleSessions.length && !sourceHas("portal/paike.html", /writeModuleData\(stores\.preimport/)) {
-  warnings.push("排课页主要读取预导入数据，预导入写入仍主要由财务/AI/导入脚本承担；若要让排课老师直接上传 XLSX 后落云，需要继续增强。");
+if (scheduleSessions.length && !sourceHas("portal/paike.html", /saveFormalScheduleEntries/)) {
+  warnings.push("排课页还不能直接导入正式排课明细，需要继续增强。");
 }
 if (!/admissionSchedulePanel/.test(files.paike) || !/advice-system-stage-prototype/.test(files.paike)) {
   warnings.push("排课系统没有直接展示招生待排课名单，招生→排课只能依赖首页任务提醒。");
