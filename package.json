@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "audit:data-links": "node scripts/audit-system-data-links.mjs",
     "build": "next build",
     "start": "next start"
   },

@@ -1354,6 +1354,8 @@
       const ATTENDANCE_STORAGE_KEY = "jrc-class-attendance-v1";
       const PREIMPORT_STORE_KEY = "jrc-paike-finance-preimport-2026-06-22";
       const SUGGESTION_STORE_KEY = "jrc-suggestion-management-v2";
+      const ADMISSIONS_STORE_KEY = "advice-system-stage-prototype";
+      const TEACHING_QUALITY_STORE_KEY = "jrc-teaching-quality-system-v2-demo";
       const SPECIAL_SETTLEMENT_TEACHERS = ["海滢滢", "姚老师"];
       const FINANCE_EXCLUDED_TEACHERS = ["程志豪", "海滢滢", "姚老师"];
       const MONEY_FIELDS = [
@@ -1902,6 +1904,22 @@
           render();
         }).catch((error) => {
           console.warn("财务预导入数据云端读取失败", error);
+        });
+      }
+
+      function hydrateFinanceLinkedStores() {
+        if (!window.JRC_CLOUD?.readModuleData) return;
+        [
+          { key: ADMISSIONS_STORE_KEY, label: "招生联动数据" },
+          { key: TEACHING_QUALITY_STORE_KEY, label: "教学质量联动数据" }
+        ].forEach(({ key, label }) => {
+          window.JRC_CLOUD.readModuleData(key).then((result) => {
+            if (!result.ok || !result.data?.found || result.data.payload === undefined) return;
+            localStorage.setItem(key, JSON.stringify(result.data.payload));
+            render();
+          }).catch((error) => {
+            console.warn(`${label}云端读取失败`, error);
+          });
         });
       }
 
@@ -4291,6 +4309,7 @@
       hydrateCloudFinance();
       hydrateCloudAttendance();
       hydrateCloudPreimport();
+      hydrateFinanceLinkedStores();
       applyEditPermission();
     </script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
