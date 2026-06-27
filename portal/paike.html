@@ -353,6 +353,17 @@
         font-size: 12px;
         line-height: 1.45;
       }
+      .admission-link-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .admission-link-actions .button {
+        min-height: 36px;
+        padding: 0 12px;
+        font-size: 12px;
+      }
       .table-wrap {
         overflow-x: auto;
         margin-top: 16px;
@@ -569,6 +580,7 @@
         .admission-link-item {
           grid-template-columns: 1fr;
         }
+        .admission-link-actions { justify-content: stretch; }
         .admission-link-head { flex-direction: column; }
       }
       @media (max-width: 640px) {
@@ -1151,6 +1163,18 @@
         });
       }
 
+      function leadScheduleDate(lead) {
+        return dateKey(lead?.trialTime || lead?.trial || lead?.createdAt || "");
+      }
+
+      function leadSchedulePeriod(lead) {
+        const date = leadScheduleDate(lead);
+        if (date) return date.slice(0, 7);
+        const text = String(lead?.period || lead?.month || "");
+        const match = text.match(/(\d{4})-(\d{1,2})/);
+        return match ? `${match[1]}-${String(match[2]).padStart(2, "0")}` : "";
+      }
+
       function renderAdmissionSchedulePanel() {
         const panel = byId("admissionSchedulePanel");
         const list = byId("admissionScheduleList");
@@ -1162,6 +1186,8 @@
           return;
         }
         list.innerHTML = rows.slice(0, 8).map((lead) => {
+          const period = leadSchedulePeriod(lead);
+          const date = leadScheduleDate(lead);
           const trial = [lead.trialTeacher || lead.owner || "", lead.trialTime || lead.trial || ""].filter(Boolean).join(" / ") || "待安排";
           const detail = [
             lead.grade || "",
@@ -1179,7 +1205,10 @@
                 <span>试听/负责人：${escapeHtml(trial)}</span>
                 <small>下一步：排课负责人确认老师、日期、时间、教室。</small>
               </div>
-              <button class="button secondary" type="button" data-admission-schedule-teacher="${escapeHtml(lead.trialTeacher || "")}">按试听老师看课表</button>
+              <div class="admission-link-actions">
+                <button class="button secondary" type="button" data-admission-schedule-action="locate" data-admission-schedule-teacher="${escapeHtml(lead.trialTeacher || "")}" data-admission-schedule-period="${escapeHtml(period)}" data-admission-schedule-date="${escapeHtml(date)}" data-admission-schedule-student="${escapeHtml(lead.studentName || lead.name || "")}">定位课表</button>
+                <button class="button secondary" type="button" data-admission-schedule-action="room" data-admission-schedule-period="${escapeHtml(period)}" data-admission-schedule-date="${escapeHtml(date)}" data-admission-schedule-student="${escapeHtml(lead.studentName || lead.name || "")}">看当天教室</button>
+              </div>
             </article>
           `;
         }).join("");
@@ -1704,6 +1733,39 @@
         return true;
       }
 
+      function applyAdmissionScheduleAction(button) {
+        const action = button.getAttribute("data-admission-schedule-action") || "locate";
+        const teacher = button.getAttribute("data-admission-schedule-teacher") || "";
+        const period = button.getAttribute("data-admission-schedule-period") || "";
+        const date = button.getAttribute("data-admission-schedule-date") || "";
+        const student = button.getAttribute("data-admission-schedule-student") || "这名学生";
+        const periodMatched = period ? setTeacherSheetPeriod(period) : false;
+        let teacherMatched = false;
+        if (teacher) teacherMatched = selectTeacherSheetTeacher(teacher, { scroll: false });
+        if (!teacherMatched) renderTeacherSheet();
+
+        if (action === "room") {
+          if (date) {
+            const roomSelect = byId("roomUsageDate");
+            const hasDate = Array.from(roomSelect?.options || []).some((option) => option.value === date);
+            if (hasDate) roomSelect.value = date;
+          }
+          renderTeacherDayAvailability();
+          renderRoomUsage();
+          byId("roomUsageSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        } else {
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+
+        const parts = [
+          `${student} 待排课`,
+          period ? (periodMatched ? `已切到 ${period}` : `${period} 暂不在当前课表月份里`) : "招生记录未写明确月份",
+          teacher ? (teacherMatched ? `已打开 ${teacher} 课表` : `${teacher} 当前月份没有匹配到课表`) : "招生记录未写试听老师"
+        ];
+        if (date && action === "room") parts.push(`已查看 ${dateLabel(date)} 教室占用`);
+        setTeacherSheetMessage(parts.join("；") + "。");
+      }
+
       function applyTeacherSheetQuick(action) {
         const mode = byId("teacherSheetMode");
         if (action === "mine") {
@@ -2040,11 +2102,9 @@
         selectTeacherSheetTeacher(card.getAttribute("data-teacher-card") || "");
       });
       byId("admissionScheduleList")?.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-admission-schedule-teacher]");
+        const button = event.target.closest("[data-admission-schedule-action]");
         if (!button) return;
-        const teacher = button.getAttribute("data-admission-schedule-teacher") || "";
-        if (teacher && selectTeacherSheetTeacher(teacher)) return;
-        setTeacherSheetMessage("这个试听老师当前月份没有匹配到课表，请手动选择老师，或先核对招生系统里的试听老师姓名。");
+        applyAdmissionScheduleAction(button);
       });
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);

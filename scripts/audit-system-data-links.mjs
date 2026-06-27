@@ -98,8 +98,8 @@ const checks = [
   },
   {
     title: "招生报名生成排课待办",
-    pass: /flow-admissions-to-paike/.test(files.dashboard) && /admissionSchedulePanel/.test(files.paike),
-    detail: "报名学生未排课时，会进入周珊首页任务，并在排课系统显示待排课名单。"
+    pass: /flow-admissions-to-paike/.test(files.dashboard) && /admissionSchedulePanel/.test(files.paike) && /applyAdmissionScheduleAction/.test(files.paike),
+    detail: "报名学生未排课时，会进入周珊首页任务，并在排课系统显示待排课名单，可直接定位课表和教室。"
   },
   {
     title: "财务主动读取招生云端数据",
@@ -153,7 +153,7 @@ if (scheduleSessions.length && !sourceHas("portal/paike.html", /writeModuleData\
 if (!/admissionSchedulePanel/.test(files.paike) || !/advice-system-stage-prototype/.test(files.paike)) {
   warnings.push("排课系统没有直接展示招生待排课名单，招生→排课只能依赖首页任务提醒。");
 } else {
-  warnings.push("招生→排课已在排课页显示待排课名单，但仍由排课负责人确认老师、时间、教室后手动排入课表，避免自动乱塞课。");
+  warnings.push("招生→排课已在排课页显示待排课名单，并能定位课表/教室；最终仍由排课负责人确认老师、时间、教室后手动排入课表，避免自动乱塞课。");
 }
 if (!/writeModuleData\(FINANCE_STORAGE_KEY, "finance"/.test(files.admissions)) {
   warnings.push("招生实收没有直接写入正式财务月结，当前是财务联动候选和归因展示，最终仍需财务复核。");
