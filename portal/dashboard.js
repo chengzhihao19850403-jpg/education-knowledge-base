@@ -1207,19 +1207,32 @@
 
   function setManagementVisibility() {
     const visible = isAdminLike();
+    const diagnostics = $("portalAdminDiagnostics");
     const localDataCard = $("portalLocalDataCard");
     const dataStateSection = $("portalDataStateSection");
     const cloudReadinessSection = $("portalCloudReadinessSection");
     const dataContractSection = $("portalDataContractSection");
-    if (localDataCard) localDataCard.hidden = !visible;
-    if (dataStateSection) dataStateSection.hidden = !visible;
-    if (cloudReadinessSection) cloudReadinessSection.hidden = !visible;
-    if (dataContractSection) dataContractSection.hidden = !visible;
+    if (diagnostics) diagnostics.hidden = !visible;
+    [localDataCard, dataStateSection, cloudReadinessSection, dataContractSection].forEach((node) => {
+      if (node && diagnostics?.contains(node)) node.hidden = false;
+      else if (node) node.hidden = !visible;
+    });
+  }
+
+  function bindAdminDiagnosticsToggle() {
+    const diagnostics = $("portalAdminDiagnostics");
+    if (!diagnostics) return;
+    document.querySelectorAll("[data-open-admin-diagnostics]").forEach((node) => {
+      node.addEventListener("click", () => {
+        diagnostics.open = true;
+      });
+    });
   }
 
   function renderPortalDashboard() {
     setRoleCopy();
     setManagementVisibility();
+    bindAdminDiagnosticsToggle();
     reorderSystemCards();
     const { leads, pending } = readAdmissions();
     const auditCount = readAuditCount();
