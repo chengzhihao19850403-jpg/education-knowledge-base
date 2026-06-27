@@ -385,9 +385,16 @@
     enhanceTables();
     enhanceActionGroups();
     ensureFloatingHome();
-    ensureSectionDock();
-    ensureFeedbackDock();
-    enhanceFormFocus();
+    const runDeferredEnhancements = () => {
+      ensureSectionDock();
+      ensureFeedbackDock();
+      enhanceFormFocus();
+    };
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(runDeferredEnhancements, { timeout: 1200 });
+    } else {
+      window.setTimeout(runDeferredEnhancements, 320);
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);

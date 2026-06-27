@@ -249,7 +249,7 @@
       }
       .quick-actions {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         margin-top: 18px;
       }
@@ -289,6 +289,26 @@
       .finance-path-card p {
         margin-top: 6px;
         font-size: 13px;
+      }
+      .finance-review-path {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .finance-review-path-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(13, 148, 136, 0.06);
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 13px;
+      }
+      .finance-review-path-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
       }
       .workbench-strip {
         display: grid;
@@ -966,6 +986,7 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .finance-path-grid,
+        .finance-review-path,
         .workbench-strip,
         .finance-command-grid,
         .source-explain,
@@ -1070,7 +1091,14 @@
           <button class="button secondary" type="button" data-finance-quick="mine">我的工资单</button>
           <button class="button secondary" type="button" data-finance-quick="summary">看本月总表</button>
           <button class="button secondary" type="button" data-finance-quick="detail">看老师明细</button>
+          <button class="button secondary" type="button" data-finance-quick="review">只看待对账</button>
           <button class="button secondary" type="button" data-finance-quick="admin">管理员核对区</button>
+        </div>
+        <div class="finance-review-path" aria-label="财务核对路径">
+          <div class="finance-review-path-item"><strong>1. 选月份</strong>先确认 2026-05 / 2026-06，避免跨月看错。</div>
+          <div class="finance-review-path-item"><strong>2. 点老师</strong>每位老师一张工资单，先看合计。</div>
+          <div class="finance-review-path-item"><strong>3. 核三项</strong>上课次数、单次提成、应发小计对上即可。</div>
+          <div class="finance-review-path-item"><strong>4. 有差异再展开</strong>只有不一致才看来源和管理员核对区。</div>
         </div>
         <div class="notice" id="financeActionMessage" hidden></div>
       </section>
@@ -1124,6 +1152,7 @@
             <select id="financeQuickJump">
               <option value="summary">看总表</option>
               <option value="detail">看老师明细</option>
+              <option value="review">只看待对账</option>
               <option value="admin">管理员核对区</option>
             </select>
           </label>
@@ -1171,6 +1200,7 @@
           <div class="source-explain-card"><strong>明细来源</strong>下面的逐课次明细来自已导入的原 Excel 工资/课时表。</div>
           <div class="source-explain-card"><strong>系统计算</strong>系统只按导入明细做汇总试算，用于和原总表、人工结算互相核对。</div>
           <div class="source-explain-card"><strong>核对方式</strong>先核对总额、课次数、学生/班级数；只有金额不一致时再展开查单条。</div>
+          <div class="source-explain-card"><strong>待对账含义</strong>不是错误，只表示这条来自原工资表，试运行阶段需要和原 Excel/排课/点名口径对一下。</div>
         </div>
         <div class="teacher-wage-overview" id="financeTeacherWageOverview"></div>
         <div class="excel-finance-summary" id="financeTeacherDetailSummary"></div>
@@ -1650,6 +1680,7 @@
       let state = readState();
       let attendanceSessions = [];
       let currentPeriod = byId("periodInput")?.value || "2026-06";
+      let financeReviewOnly = false;
       const DEPARTED_FINANCE_TEACHERS = new Set(["万盈盈", "何建军", "张艳"]);
 
       function teacherNameOf(row) {
@@ -3974,6 +4005,7 @@
             const haystack = [teacherNameOf(row), row.studentName, row.raw, row.cell, row.status, row.sourceSheet].join(" ").toLowerCase();
             return !keyword || haystack.includes(keyword);
           })
+          .filter((row) => !financeReviewOnly || row.needsReview || /待|核|复核/.test(String(row.status || "")))
           .forEach((row) => {
             const key = [
               teacherNameOf(row),
@@ -4222,6 +4254,7 @@
             <div class="excel-finance-card"><span>提成/应发合计</span><strong>${money(amount)}</strong></div>
             <div class="excel-finance-card"><span>待核对</span><strong>${reviewCount}</strong></div>
             <div class="excel-finance-card"><span>月份</span><strong>${escapeHtml(currentPeriod)}</strong></div>
+            ${financeReviewOnly ? `<div class="excel-finance-card"><span>当前视图</span><strong>只看待对账</strong></div>` : ""}
           `;
         }
         if (!rows.length) {
@@ -4689,8 +4722,20 @@
           return;
         }
         if (action === "detail") {
+          financeReviewOnly = false;
+          if (byId("financeTeacherKeyword")) byId("financeTeacherKeyword").value = "";
+          renderFinanceTeacherDetail();
           const teacher = byId("financeTeacherSelect")?.value || "当前老师";
           setFinanceMessage(`已跳到 ${teacher} 工资明细。`);
+          byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "review") {
+          financeReviewOnly = true;
+          if (byId("financeTeacherKeyword")) byId("financeTeacherKeyword").value = "";
+          renderFinanceTeacherDetail();
+          const teacher = byId("financeTeacherSelect")?.value || "当前老师";
+          setFinanceMessage(`已筛出 ${teacher} 的待对账明细。待对账不代表错误，只是需要和原 Excel、排课或点名口径核一下。`);
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
@@ -4711,16 +4756,26 @@
         syncFormFromPeriod();
       });
       ["financeTeacherSelect", "financeTeacherKeyword", "financeStatementMode"].forEach((id) => {
-        byId(id)?.addEventListener("input", render);
-        byId(id)?.addEventListener("change", render);
+        byId(id)?.addEventListener("input", () => {
+          if (id === "financeTeacherKeyword") financeReviewOnly = false;
+          render();
+        });
+        byId(id)?.addEventListener("change", () => {
+          if (id === "financeTeacherKeyword" || id === "financeTeacherSelect") financeReviewOnly = false;
+          render();
+        });
       });
       byId("financeImportPendingOnly")?.addEventListener("change", renderFinanceImportPreview);
       byId("financeQuickJump")?.addEventListener("change", (event) => {
         const value = event.target.value;
         if (value === "detail") {
+          financeReviewOnly = false;
+          renderFinanceTeacherDetail();
           const teacher = byId("financeTeacherSelect")?.value || "当前老师";
           setFinanceMessage(`已跳到 ${teacher} 工资明细。`);
           byId("financeTeacherDetailSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        } else if (value === "review") {
+          applyFinanceQuick("review");
         } else if (value === "admin") {
           const details = byId("financeAdminDetails");
           if (details) details.open = true;

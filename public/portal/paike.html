@@ -136,9 +136,29 @@
       }
       .teacher-quick-actions {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         margin-top: 16px;
+      }
+      .schedule-workflow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .schedule-workflow-item {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(13,148,136,0.06);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .schedule-workflow-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
       }
       .quick-grid,
       .status-grid,
@@ -576,6 +596,7 @@
         .excel-toolbar,
         .excel-summary,
         .teacher-quick-actions,
+        .schedule-workflow,
         .read-guide,
         .admission-link-item {
           grid-template-columns: 1fr;
@@ -665,6 +686,7 @@
               <option value="week">本周课表</option>
               <option value="weekend">周五/周六/周日</option>
               <option value="weekday">周一到周四</option>
+              <option value="missing-room">未写教室</option>
             </select>
           </label>
         </div>
@@ -672,7 +694,14 @@
           <button class="button secondary" type="button" data-teacher-sheet-quick="mine">我的课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="today">今天课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="week">本周课表</button>
+          <button class="button secondary" type="button" data-teacher-sheet-quick="missing-room">未写教室</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
+        </div>
+        <div class="schedule-workflow" aria-label="排课负责人核对路径">
+          <div class="schedule-workflow-item"><strong>老师能不能上</strong>先看当前老师课表，空格才可能排。</div>
+          <div class="schedule-workflow-item"><strong>教室能不能用</strong>再点“看教室表”，确认同时间教室空着。</div>
+          <div class="schedule-workflow-item"><strong>资料是否完整</strong>点“未写教室”集中补教室，不在长表里找。</div>
+          <div class="schedule-workflow-item"><strong>试运行核对</strong>排课表只做系统试算，和老师原表不一致就回源表核。</div>
         </div>
         <div class="read-guide" aria-label="排课读表说明">
           <div class="read-guide-item"><strong>横向看日期</strong>每一列是一天下的排课。</div>
@@ -1506,6 +1535,7 @@
         return paikeRows.filter((row) => {
           if (period && row.period !== period) return false;
           if (teacher && row.teacher !== teacher) return false;
+          if (mode === "missing-room" && String(row.room || "").trim() && row.room !== "-") return false;
           const weekday = weekdayName(row.date);
           if (mode === "today" && dateKey(row.date) !== localDateText()) return false;
           if (mode === "week" && !isInRange(row, "week")) return false;
@@ -1975,6 +2005,13 @@
           if (mode) mode.value = action;
           renderTeacherSheet();
           setTeacherSheetMessage(action === "today" ? "已切换到今天课表。" : "已切换到本周课表。");
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "missing-room") {
+          if (mode) mode.value = "missing-room";
+          renderTeacherSheet();
+          setTeacherSheetMessage("已筛出当前老师未写教室的课程。排课负责人先补这些，教室表才更准确。");
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }

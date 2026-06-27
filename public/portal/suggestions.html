@@ -476,6 +476,17 @@
         gap: 10px;
         margin-top: 14px;
       }
+      .feedback-quick-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .feedback-quick-row .button {
+        min-height: 36px;
+        padding: 0 12px;
+        font-size: 12px;
+      }
       .feedback-toolbar input,
       .feedback-toolbar select {
         width: 100%;
@@ -769,6 +780,13 @@
           <button class="button secondary" type="button" id="exportFeedbackButton">导出本轮待讨论 CSV</button>
           <button class="button secondary" type="button" id="exportAllFeedbackButton">导出全部归档 CSV</button>
         </div>
+        <div class="feedback-quick-row" aria-label="反馈快捷筛选">
+          <button class="button secondary" type="button" data-feedback-quick="mine-review">待我复核</button>
+          <button class="button secondary" type="button" data-feedback-quick="reopened">仍有问题</button>
+          <button class="button secondary" type="button" data-feedback-quick="new">新问题</button>
+          <button class="button secondary" type="button" data-feedback-quick="actionable">本轮待处理</button>
+          <button class="button secondary" type="button" data-feedback-quick="all">全部</button>
+        </div>
         <div class="list-utility-row">
           <span>这里统一放试运行问题、新反馈、整改复核和仍有问题的追问，不进入上方员工建议池。</span>
           <strong id="siteFeedbackListCount">0 条</strong>
@@ -837,6 +855,7 @@
       const targetSuggestionId = pageParams.get("task") || pageParams.get("suggestion") || "";
       const targetFeedbackId = pageParams.get("feedback") || "";
       let siteFeedbackMineOnly = !canManage;
+      let siteFeedbackQuickFilter = "";
 
       function selectorValue(value) {
         const text = String(value || "");
@@ -1677,6 +1696,15 @@
             return (!statusFilter || status === statusFilter) && (!keyword || haystack.includes(keyword));
           })
           .filter((row) => !severityFilter || row.severity === severityFilter)
+          .filter((row) => {
+            if (!siteFeedbackQuickFilter) return true;
+            const status = row.status || "待处理";
+            if (siteFeedbackQuickFilter === "mine-review") return personMatchesNameOrUsername(row) && feedbackReviewStatuses.includes(status);
+            if (siteFeedbackQuickFilter === "reopened") return status === "继续反馈";
+            if (siteFeedbackQuickFilter === "new") return status === "待处理";
+            if (siteFeedbackQuickFilter === "actionable") return shouldEnterDiscussionExport(row);
+            return true;
+          })
           .sort((left, right) => {
             const leftDone = closedStatuses.includes(left.status);
             const rightDone = closedStatuses.includes(right.status);
@@ -1716,6 +1744,7 @@
               </div>
               <p class="feedback-content">${escapeHtml(row.content || "")}</p>
               ${row.resolution ? `<div class="comment-item"><strong>处理结果：</strong>${escapeHtml(row.resolution)}</div>` : ""}
+              ${canVerify ? `<div class="comment-item"><strong>需要你复核：</strong>如果已经解决，点“确认已解决”；如果还有问题，点“仍有问题”补充说明。</div>` : ""}
               ${reviewNotes.length ? `<details class="comment-details"><summary>复核记录 ${reviewNotes.length}</summary><div class="comment-list">${reviewNotes.map((note) => `<div class="comment-item"><strong>${escapeHtml(note.author || "反馈人")}：</strong>${escapeHtml(note.text || "")} <span class="muted">${escapeHtml(note.time || "")}</span></div>`).join("")}</div></details>` : ""}
               <div class="card-tools">
                 ${feedbackUrl ? `<a class="button secondary" href="${escapeHtml(feedbackUrl)}" target="_blank" rel="noreferrer">打开页面</a>` : ""}
@@ -2388,10 +2417,23 @@
       byId("siteFeedbackSearch")?.addEventListener("input", renderSiteFeedback);
       byId("siteFeedbackMineToggle")?.addEventListener("click", () => {
         siteFeedbackMineOnly = !siteFeedbackMineOnly;
+        siteFeedbackQuickFilter = "";
         renderSiteFeedback();
       });
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
       byId("siteFeedbackSeverityFilter")?.addEventListener("change", renderSiteFeedback);
+      document.querySelectorAll("[data-feedback-quick]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.getAttribute("data-feedback-quick") || "";
+          siteFeedbackQuickFilter = action === "all" ? "" : action;
+          if (action === "mine-review") siteFeedbackMineOnly = true;
+          if (action === "reopened" || action === "new" || action === "actionable") siteFeedbackMineOnly = !canManage;
+          if (byId("siteFeedbackStatusFilter")) byId("siteFeedbackStatusFilter").value = "";
+          if (byId("siteFeedbackSeverityFilter")) byId("siteFeedbackSeverityFilter").value = "";
+          renderSiteFeedback();
+          byId("siteFeedbackSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        });
+      });
       ["searchInput", "statusFilter", "taskViewFilter", "categoryFilter"].forEach((id) => {
         byId(id).addEventListener("input", renderList);
         byId(id).addEventListener("change", renderList);

@@ -190,6 +190,7 @@
             <div class="actions">
               <button class="button secondary" id="copyResultButton" type="button">复制结果</button>
               <button class="button" id="saveDraftButton" type="button">保存草稿</button>
+              <button class="button secondary" id="saveBatchDraftsButton" type="button" hidden>批量保存多学生草稿</button>
               <button class="button" id="saveStudentServiceButton" type="button">归档学生服务</button>
               <button class="button" id="saveAdmissionsButton" type="button">归档招生系统</button>
               <button class="button" id="saveCurriculumButton" type="button">归档教研课程</button>
@@ -350,6 +351,32 @@
           .replace(/课堂反馈.*$/, "")
           .replace(/课后反馈.*$/, "")
           .trim();
+      }
+
+      function splitTargetNames(value) {
+        return String(value || "")
+          .split(/[，,、\n/｜|]+/)
+          .map((item) => cleanFeedbackStudentName(item))
+          .filter(Boolean);
+      }
+
+      function targetHasMultipleStudents() {
+        return isClassFeedbackMode() && splitTargetNames(byId("aiTargetInput")?.value || "").length > 1;
+      }
+
+      function replaceFeedbackStudentName(text, fromName, toName) {
+        const from = cleanFeedbackStudentName(fromName);
+        const to = cleanFeedbackStudentName(toName);
+        if (!to) return text;
+        let next = String(text || "");
+        if (from && from !== to) {
+          next = next.replace(new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), to);
+        }
+        next = next.replace(/^(.{1,16}?)(的家长您好，这是)/, `${to}$2`);
+        if (!/^.{1,18}?的家长您好/.test(next)) {
+          next = next.replace(/^家长您好/, `${to}的家长您好`);
+        }
+        return next;
       }
 
       function parseFeedbackMetaFromText(value) {
@@ -1112,6 +1139,52 @@
         byId("aiMessage").textContent = "已保存 AI 草稿。";
       }
 
+      function saveBatchDrafts() {
+        if (!latestResult) {
+          byId("aiMessage").textContent = "请先完成 AI 整理。";
+          return;
+        }
+        if (!isClassFeedbackMode()) {
+          byId("aiMessage").textContent = "批量草稿只用于课堂反馈。";
+          return;
+        }
+        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
+        if (names.length < 2) {
+          byId("aiMessage").textContent = "关联对象里写多个学生姓名后，才能批量保存草稿。";
+          return;
+        }
+        const sourceName = cleanFeedbackStudentName(studentNameFromTarget());
+        const now = new Date().toISOString();
+        const baseText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
+        const rows = names.map((name, index) => {
+          const text = replaceFeedbackStudentName(baseText, sourceName || names[0], name);
+          const result = {
+            ...latestResult,
+            title: `${name}｜课堂反馈`,
+            parentMessage: text,
+            polishedText: text,
+            target: name,
+            studentName: name
+          };
+          return {
+            id: `ai-batch-${Date.now()}-${index}`,
+            title: feedbackHistoryTitle({ mode: "classFeedback", target: name, result }, text),
+            mode: "classFeedback",
+            modeLabel: modeLabel("classFeedback"),
+            target: name,
+            sourceText: byId("aiInputText").value.trim(),
+            result,
+            createdBy: currentName,
+            createdByUsername: currentEmployee.username || "",
+            createdAt: now
+          };
+        });
+        writeDrafts([...rows, ...readDrafts()]);
+        setEditingDraft("");
+        renderDrafts();
+        byId("aiMessage").textContent = `已为 ${names.length} 个学生批量保存课堂反馈草稿。请在草稿库逐个打开精修后再归档。`;
+      }
+
       async function saveToSuggestionTask() {
         if (!latestResult) {
           byId("aiMessage").textContent = "请先完成 AI 整理。";
@@ -1243,6 +1316,10 @@
           return;
         }
         const mode = byId("aiModeInput").value;
+        if (mode === "classFeedback" && targetHasMultipleStudents()) {
+          byId("aiMessage").textContent = "关联对象里有多个学生。请先点“批量保存多学生草稿”，再逐个打开草稿精修和归档。";
+          return;
+        }
         const feedbackText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
         const parsedFeedbackMeta = parseFeedbackMetaFromText(feedbackText);
         const resolvedLessonSeason = latestResult.lessonSeason || parsedFeedbackMeta.lessonSeason || feedbackMeta(student, byId("aiInputText").value.trim()).lessonSeason;
@@ -1603,6 +1680,8 @@
             ? "转成任务"
             : "转成建议";
         }
+        const batchButton = byId("saveBatchDraftsButton");
+        if (batchButton) batchButton.hidden = !targetHasMultipleStudents();
         byId("feedbackSeasonField").hidden = mode !== "classFeedback";
         byId("feedbackLessonNumberField").hidden = mode !== "classFeedback";
       }
@@ -1876,6 +1955,7 @@
         focusVoiceInput();
       });
       byId("aiModeInput").addEventListener("change", updateActionButtons);
+      byId("aiTargetInput")?.addEventListener("input", updateActionButtons);
       byId("aiRunButton").addEventListener("click", runAi);
       byId("aiClearButton").addEventListener("click", () => {
         byId("aiInputText").value = "";
@@ -1971,6 +2051,7 @@
       byId("archivedFeedbackSearchInput")?.addEventListener("input", () => renderArchivedFeedbacks());
       byId("refreshArchivedFeedbackButton")?.addEventListener("click", hydrateArchivedFeedbacks);
       byId("saveDraftButton").addEventListener("click", saveDraft);
+      byId("saveBatchDraftsButton")?.addEventListener("click", saveBatchDrafts);
       byId("saveAdmissionsButton")?.addEventListener("click", saveToAdmissionsSystem);
       byId("saveCurriculumButton")?.addEventListener("click", saveToCurriculumSystem);
       byId("saveFinanceReviewButton")?.addEventListener("click", saveToFinanceReview);
