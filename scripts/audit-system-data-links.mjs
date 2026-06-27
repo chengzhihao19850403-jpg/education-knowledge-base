@@ -73,8 +73,11 @@ const checks = [
   },
   {
     title: "学生服务读取排课并生成点名名单",
-    pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student) && /renderPreimportOptions/.test(files.student),
-    detail: "学生服务会按日期、老师、班级从排课源生成点名候选。"
+    pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student)
+      && /renderPreimportOptions/.test(files.student)
+      && /attendanceNextPanel/.test(files.student)
+      && /renderAttendanceNextStep/.test(files.student),
+    detail: "学生服务会按日期、老师、班级从排课源生成点名候选，保存后提示异常处理、财务核对和回排课确认。"
   },
   {
     title: "点名保存后写入云端",

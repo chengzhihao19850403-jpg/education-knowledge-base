@@ -101,6 +101,21 @@
       .attendance-summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fff; }
       .attendance-summary-card span { color: var(--muted); font-size: 12px; }
       .attendance-summary-card strong { display: block; margin-top: 6px; font-size: 22px; color: var(--ink); }
+      .attendance-next-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(13,148,136,0.18);
+        border-radius: 16px;
+        background: rgba(13,148,136,0.08);
+      }
+      .attendance-next-panel[hidden] { display: none; }
+      .attendance-next-panel strong { display: block; color: var(--ink); }
+      .attendance-next-panel span { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+      .attendance-next-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
       .my-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
       .my-service-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: rgba(255,255,255,0.82); }
       .my-service-card span { color: var(--muted); font-size: 12px; }
@@ -167,7 +182,8 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) {
         .topbar { align-items: flex-start; flex-direction: column; }
-        .metrics, .form-grid, .attendance-summary-grid, .my-service-grid, .service-module-grid { grid-template-columns: 1fr; }
+        .metrics, .form-grid, .attendance-summary-grid, .attendance-next-panel, .my-service-grid, .service-module-grid { grid-template-columns: 1fr; }
+        .attendance-next-actions { justify-content: flex-start; }
         .span-3 { grid-column: auto; }
         .attendance-touch-actions { min-width: 520px; }
         .attendance-touch-actions .button { min-height: 46px; }
@@ -298,6 +314,17 @@
           <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
         </div>
         <div class="notice" id="attendanceMessage">名单生成后默认全部未点名，不预设到课；老师在手机或 iPad 上逐个点击确认。</div>
+        <div class="attendance-next-panel" id="attendanceNextPanel" hidden>
+          <div>
+            <strong id="attendanceNextTitle">本节点名已保存</strong>
+            <span id="attendanceNextText">下一步会根据异常和财务状态自动提示。</span>
+          </div>
+          <div class="attendance-next-actions">
+            <a class="button secondary" href="#attendanceFollowupSection">处理异常</a>
+            <a class="button secondary" href="./finance.html#attendanceFinanceSection">看财务课销</a>
+            <a class="button secondary" href="./paike.html">回排课表</a>
+          </div>
+        </div>
         <div class="attendance-summary-grid">
           <div class="attendance-summary-card"><span>应到名单</span><strong id="attendanceMetricTotal">0</strong></div>
           <div class="attendance-summary-card"><span>到课 / 迟到</span><strong id="attendanceMetricPresent">0</strong></div>
@@ -329,7 +356,7 @@
             <tbody id="attendanceSettlementBody"></tbody>
           </table>
         </div>
-        <div class="form-grid" style="margin-top:16px;">
+        <div class="form-grid" id="attendanceFollowupSection" style="margin-top:16px;">
           <label class="field"><span>异常日期</span><select id="followupDateSelect"><option value="">暂无异常</option></select></label>
           <label class="field"><span>时间段</span><select id="followupTimeSelect"><option value="">暂无异常</option></select></label>
           <label class="field"><span>任课老师</span><select id="followupTeacherSelect"><option value="">暂无异常</option></select></label>
@@ -606,6 +633,9 @@
         const saveButton = document.getElementById("attendanceSaveButton");
         const exportButton = document.getElementById("attendanceExportButton");
         const message = document.getElementById("attendanceMessage");
+        const attendanceNextPanel = document.getElementById("attendanceNextPanel");
+        const attendanceNextTitle = document.getElementById("attendanceNextTitle");
+        const attendanceNextText = document.getElementById("attendanceNextText");
         const sourceStatus = document.getElementById("attendanceSourceStatus");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const historyBody = document.getElementById("attendanceHistoryBody");
@@ -1080,6 +1110,7 @@
               return { ...row, exitScore: score };
             });
             renderRoster();
+            renderAttendanceNextStep();
             setMessage(`已从${sourceLabel}匹配 ${matched} 名学生的出门测成绩；点名状态保持原样，需要老师手动确认。`);
             return;
           }
@@ -1094,6 +1125,7 @@
             followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
+          renderAttendanceNextStep();
           setMessage(`已从${sourceLabel}识别 ${draftRows.length} 名学生${draftRows.some((row) => row.exitScore) ? "，并带入出门测成绩。" : "。"}名单默认未点名，请逐个确认。`);
         };
         const readImportFile = async (file) => {
@@ -1411,6 +1443,7 @@
             followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
+          renderAttendanceNextStep();
           setMessage(`已从${item.sourceType || "排课"}带出 ${item.students.length} 名学生，当前全部为未点名。请老师逐个点击到课、迟到、请假或缺席。`);
         };
         const populateTeachers = () => {
@@ -1625,6 +1658,7 @@
           renderScoreAnalytics();
           renderStudentProfileSummary();
           renderMyServiceWorkbench();
+          renderAttendanceNextStep(updatedSession);
           if (updatedSession) {
             const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([updatedSession]) || [];
             window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
@@ -1974,6 +2008,24 @@
             `;
           }).join("") : `<div class="my-service-item"><strong>暂无最近点名</strong><br>保存点名后，这里会显示最近课程和待追踪情况。</div>`;
         };
+        const renderAttendanceNextStep = (session = null) => {
+          if (!attendanceNextPanel || !attendanceNextTitle || !attendanceNextText) return;
+          if (!session) {
+            attendanceNextPanel.hidden = true;
+            return;
+          }
+          const rows = Array.isArray(session.rows) ? session.rows : [];
+          const unresolved = rows.filter(needsFollowup).length;
+          const present = rows.filter(isEffectivePresent).length;
+          const sourceText = session.sourceScheduleKey ? "已绑定排课来源，排课和财务可追溯。" : "本节课为手动点名，后续按老师、日期、班级做核对。";
+          attendanceNextPanel.hidden = false;
+          attendanceNextTitle.textContent = unresolved
+            ? `点名已保存，还有 ${unresolved} 人需要处理`
+            : "点名已保存，可进入财务核对";
+          attendanceNextText.textContent = unresolved
+            ? `${session.date || "-"} ${session.className || "未填班级"}：有效到课 ${present} 人，先处理缺勤、请假、未点名，再确认课销和课时费。${sourceText}`
+            : `${session.date || "-"} ${session.className || "未填班级"}：有效到课 ${present} 人，已可到财务系统查看课时费与课销候选，也可以回排课表确认状态。${sourceText}`;
+        };
         const renderAll = () => {
           if (!canUseAttendance()) {
             buildButton.disabled = true;
@@ -1988,6 +2040,7 @@
           renderScoreAnalytics();
           renderStudentProfileSummary();
           renderMyServiceWorkbench();
+          renderAttendanceNextStep();
           renderPreimportOptions();
         };
         const confirmAttendanceSession = (sessionId) => {
@@ -2112,6 +2165,7 @@
             followup: defaultFollowup(UNMARKED_STATUS)
           }));
           renderRoster();
+          renderAttendanceNextStep();
           setMessage(`已生成 ${draftRows.length} 人点名名单，当前全部未点名。可以在 iPad 上逐个点击状态${draftRows.some((row) => row.exitScore) ? "，出门测成绩也已带入。" : "。"}`);
         });
         saveButton.addEventListener("click", () => {
@@ -2178,6 +2232,7 @@
           renderScoreAnalytics();
           renderStudentProfileSummary();
           renderMyServiceWorkbench();
+          renderAttendanceNextStep(session);
           const linkedRows = window.JRC_BUSINESS_MODULES?.syncAttendanceIntoStudentService?.([session]) || [];
           window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
             source: "学生服务点名",
