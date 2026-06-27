@@ -1419,6 +1419,8 @@
         const time = timeSlotLabel(row);
         if (time && time !== "未填时间") params.set("time", time);
         if (row.student || row.lessonType) params.set("className", row.student || row.lessonType);
+        const sourceKey = scheduleSourceKey(row);
+        if (sourceKey.replace(/\|/g, "").trim()) params.set("sourceScheduleKey", sourceKey);
         return `/jrcedu/portal/student-service.html?${params.toString()}#attendanceSection`;
       }
 

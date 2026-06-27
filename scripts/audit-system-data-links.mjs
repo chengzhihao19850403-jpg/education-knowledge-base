@@ -113,9 +113,11 @@ const checks = [
       && /点名异常待处理/.test(files.paike)
       && /applyAttendanceDeepLink/.test(files.student)
       && /sourceScheduleKey/.test(files.student)
+      && /scheduleSourceKeyFromParts/.test(files.student)
+      && /排课链接/.test(files.student)
       && /sourceType/.test(files.finance)
       && /排课来源键/.test(files.finance),
-    detail: "排课课表可一键进入点名；点名保存排课来源；财务逐学生明细和导出可回溯来源。"
+    detail: "排课课表可一键进入点名并携带来源键；点名保存排课来源；财务逐学生明细和导出可回溯来源。"
   },
   {
     title: "财务读取原始工资/排课预导入",
