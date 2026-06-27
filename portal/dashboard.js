@@ -3,6 +3,11 @@
   const auditKey = "jrc-business-audit-log-v1";
   const suggestionsKey = "jrc-suggestion-management-v2";
   const siteFeedbackKey = "jrc-site-feedback-v1";
+  const paikeRegularKey = "paike-june-system-v1";
+  const paikePreimportKey = "jrc-paike-finance-preimport-2026-06-22";
+  const attendanceKey = "jrc-class-attendance-v1";
+  const studentServiceKey = "jrc-student-service-v2";
+  const financeKey = "jrc-finance-ledger-v1";
   const moduleOwnerTasks = [
     {
       key: "admissions",
@@ -275,6 +280,233 @@
     return Array.isArray(rows) ? rows.length : 0;
   }
 
+  function dateKey(value) {
+    const text = String(value || "").trim();
+    const match = text.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+    if (match) return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`;
+    return text.slice(0, 10);
+  }
+
+  function todayKey() {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function employeeUsernameByName(name) {
+    const target = normalizePersonName(name);
+    if (!target) return "";
+    const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
+    const employee = employees.find((item) => normalizePersonName(item?.name) === target);
+    return String(employee?.username || "").trim().toLowerCase();
+  }
+
+  function normalizeScheduleRowsFromRegular(data) {
+    const entries = Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
+    return entries.map((entry, index) => ({
+      id: entry.id || `regular-${index}`,
+      source: "正式排课",
+      date: dateKey(entry.courseDate || entry.date || ""),
+      teacherName: String(entry.teacherName || entry.teacher || "").trim(),
+      className: String(entry.className || entry.courseName || "排课课程").trim(),
+      studentName: String(entry.studentName || entry.className || "").trim(),
+      startTime: String(entry.startTime || "").trim(),
+      endTime: String(entry.endTime || "").trim(),
+      roomName: String(entry.classroomName || entry.roomName || "").trim()
+    })).filter((row) => row.date && row.teacherName && (row.studentName || row.className));
+  }
+
+  function normalizeScheduleRowsFromPreimport(bundle) {
+    const rows = [];
+    (Array.isArray(bundle?.scheduleSessions) ? bundle.scheduleSessions : []).forEach((session, index) => {
+      const names = Array.isArray(session.studentNames) && session.studentNames.length ? session.studentNames : [session.className || session.lessonTypeRaw || "排课课程"];
+      names.forEach((studentName, nameIndex) => {
+        rows.push({
+          id: session.sourceId || `preimport-${index}-${nameIndex}`,
+          source: "Excel排课",
+          date: dateKey(session.date || ""),
+          teacherName: String(session.teacherName || "").trim(),
+          className: String(session.lessonTypeRaw || session.className || "排课课程").trim(),
+          studentName: String(studentName || "").trim(),
+          startTime: String(session.startTime || "").trim(),
+          endTime: String(session.endTime || "").trim(),
+          roomName: String(session.roomName || session.classroomName || "").trim()
+        });
+      });
+    });
+    return rows.filter((row) => row.date && row.teacherName && (row.studentName || row.className));
+  }
+
+  function mergeScheduleRows(...groups) {
+    const map = new Map();
+    groups.flat().forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const key = compactLinkKey(row.date, row.teacherName, row.startTime, row.endTime, row.className, row.studentName);
+      if (!key) return;
+      const existing = map.get(key);
+      if (!existing || existing.source === "Excel排课") map.set(key, { ...existing, ...row });
+    });
+    return [...map.values()].sort((left, right) => (
+      String(left.date || "").localeCompare(String(right.date || "")) ||
+      String(left.startTime || "").localeCompare(String(right.startTime || "")) ||
+      String(left.teacherName || "").localeCompare(String(right.teacherName || ""), "zh-CN")
+    ));
+  }
+
+  function sessionRows(session) {
+    return Array.isArray(session?.rows) ? session.rows : [];
+  }
+
+  function isAttendanceHandled(row) {
+    return isEffectiveAttendance(row) || row?.followupHandled === true || row?.followupStatus === "已处理";
+  }
+
+  function needsAttendanceResolution(row) {
+    return !isAttendanceHandled(row) || row?.followup === "待联系家长";
+  }
+
+  function enrolledLeadRows(admissionsState) {
+    const leads = Array.isArray(admissionsState?.leads) ? admissionsState.leads : [];
+    return leads.filter((lead) => lead?.status === "定金 / 已报名" || Number(lead?.enrolledAmount || 0) > 0);
+  }
+
+  function scheduleStudentNameSet(scheduleRows) {
+    const names = new Set();
+    (Array.isArray(scheduleRows) ? scheduleRows : []).forEach((row) => {
+      const name = normalizePersonName(row.studentName || row.student || row.className);
+      if (name && !/排课课程|小班课|一对一|科学|数学/.test(name)) names.add(name);
+    });
+    return names;
+  }
+
+  function buildOperationalTasks({ admissionsState, scheduleRows, attendanceSessions }) {
+    const today = todayKey();
+    const enrolled = enrolledLeadRows(admissionsState);
+    const scheduleNames = scheduleStudentNameSet(scheduleRows);
+    const unscheduledLeads = enrolled.filter((lead) => {
+      const name = normalizePersonName(lead.studentName);
+      return name && !scheduleNames.has(name);
+    });
+    const todayScheduleRows = scheduleRows.filter((row) => row.date === today);
+    const attendanceKeys = new Set((Array.isArray(attendanceSessions) ? attendanceSessions : []).map(attendanceSessionKey).filter(Boolean));
+    const notAttendanceToday = todayScheduleRows.filter((row) => {
+      const sessionKey = compactLinkKey(row.date, row.teacherName, row.className);
+      return sessionKey && !attendanceKeys.has(sessionKey);
+    });
+    const teacherTodayGroups = new Map();
+    notAttendanceToday.forEach((row) => {
+      const teacher = row.teacherName || "未填老师";
+      if (!teacherTodayGroups.has(teacher)) teacherTodayGroups.set(teacher, []);
+      teacherTodayGroups.get(teacher).push(row);
+    });
+    const unresolvedRows = [];
+    (Array.isArray(attendanceSessions) ? attendanceSessions : []).forEach((session) => {
+      sessionRows(session).forEach((row) => {
+        if (needsAttendanceResolution(row)) unresolvedRows.push({ session, row });
+      });
+    });
+    const tasks = [];
+    if (unscheduledLeads.length) {
+      tasks.push({
+        id: "flow-admissions-to-paike",
+        entryType: "task",
+        title: `【数据闭环】${unscheduledLeads.length} 名报名学生待排课`,
+        category: "排课闭环",
+        impact: "high",
+        content: `招生系统里有 ${unscheduledLeads.length} 名已报名/有实收学生，还没有在排课系统里匹配到正式排课。请排课负责人按学生、年级、试听老师和报名课程安排正式课程。\n\n样例：${unscheduledLeads.slice(0, 8).map((lead) => `${lead.studentName || "-"}｜${lead.grade || "-"}｜${lead.trialTeacher || lead.owner || "待安排"}`).join("；")}`,
+        author: "系统联动",
+        authorUsername: "",
+        anonymous: false,
+        createdAt: today,
+        updatedAt: new Date().toISOString(),
+        status: "assigned",
+        owner: "周珊",
+        ownerUsername: "zhoushan",
+        dueDate: today,
+        verifier: "程志豪",
+        taskId: "task-flow-admissions-to-paike",
+        taskStandard: "已报名学生必须形成排课安排；确实暂不排课的，需要在招生或学生服务里说明原因。",
+        subtasks: [
+          "1. 打开招生系统筛选“定金 / 已报名”。",
+          "2. 对照排课系统老师月课表，确认学生是否已有正式课。",
+          "3. 未排课的学生安排老师、日期、时间、教室。",
+          "4. 暂不排课的学生写清原因，避免学生服务和财务误判。"
+        ].join("\n"),
+        completionReport: "",
+        decision: "招生报名后自动生成排课待办，防止报名学生没有进入正式上课流程。",
+        systemFlowTask: true,
+        flowKey: "admissions-to-paike",
+        moduleHref: "./paike.html"
+      });
+    }
+    teacherTodayGroups.forEach((rows, teacher) => {
+      tasks.push({
+        id: `flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}`,
+        entryType: "task",
+        title: `【今日点名】${teacher} 今天 ${rows.length} 条排课待点名`,
+        category: "点名闭环",
+        impact: "high",
+        content: `今天 ${today} 已有排课，但系统还没检测到对应点名记录。请老师课前或课中进入学生服务系统完成点名；如果课程取消或调课，请让排课负责人同步修改。\n\n课程样例：${rows.slice(0, 8).map((row) => `${row.startTime || "-"} ${row.className || row.studentName || "-"} ${row.roomName ? `｜${row.roomName}` : ""}`).join("；")}`,
+        author: "系统联动",
+        authorUsername: "",
+        anonymous: false,
+        createdAt: today,
+        updatedAt: new Date().toISOString(),
+        status: "assigned",
+        owner: teacher,
+        ownerUsername: employeeUsernameByName(teacher),
+        dueDate: today,
+        verifier: "高芳燕",
+        taskId: `task-flow-today-attendance-${employeeUsernameByName(teacher) || normalizePersonName(teacher)}`,
+        taskStandard: "当天课程必须保存点名；未到、请假、迟到、出门测修正都要有明确记录。",
+        subtasks: [
+          "1. 打开学生与家长服务系统。",
+          "2. 选择对应课程系统、日期、时间、老师和班级。",
+          "3. 逐个点名，不默认全到。",
+          "4. 保存本节点名，缺勤学生继续补处理口径。"
+        ].join("\n"),
+        completionReport: "",
+        decision: "排课生成当天点名任务，防止老师忘记点名，影响课销和课时费。",
+        systemFlowTask: true,
+        flowKey: "schedule-to-attendance",
+        moduleHref: "./student-service.html"
+      });
+    });
+    if (unresolvedRows.length) {
+      tasks.push({
+        id: "flow-attendance-exceptions",
+        entryType: "task",
+        title: `【缺勤闭环】${unresolvedRows.length} 人次点名异常待处理`,
+        category: "课销闭环",
+        impact: "high",
+        content: `点名系统里还有 ${unresolvedRows.length} 人次未点名、缺勤、请假或待联系家长。财务系统会把这些人次作为暂缓项，不直接进入正式课时费/课销确认。\n\n样例：${unresolvedRows.slice(0, 8).map(({ session, row }) => `${session.date || "-"}｜${session.teacher || "-"}｜${row.studentName || row.student || "-"}｜${row.status || "未点名"}`).join("；")}`,
+        author: "系统联动",
+        authorUsername: "",
+        anonymous: false,
+        createdAt: today,
+        updatedAt: new Date().toISOString(),
+        status: "assigned",
+        owner: "高芳燕",
+        ownerUsername: "gaofangyan",
+        dueDate: "",
+        verifier: "程志豪",
+        taskId: "task-flow-attendance-exceptions",
+        taskStandard: "每个未到/异常学生都必须落实处理口径：不销课、正常销课、线下补课、视频补课、录播核销、请假顺延或待联系家长。",
+        subtasks: [
+          "1. 打开学生服务系统的缺勤异常处理。",
+          "2. 按日期、时间、老师、班级筛选。",
+          "3. 给每个学生选择处理方式并保存。",
+          "4. 再回财务系统确认暂缓项是否下降。"
+        ].join("\n"),
+        completionReport: "",
+        decision: "缺勤异常未闭环前不进入正式课销和普通财务结算。",
+        systemFlowTask: true,
+        flowKey: "attendance-exception-to-finance-hold",
+        moduleHref: "./student-service.html"
+      });
+    }
+    return tasks;
+  }
+
   function getDataStatus(config) {
     const hasData = localStorage.getItem(config.key) !== null;
     const count = countStoreRows(config);
@@ -406,6 +638,29 @@
         ${rows.length > previewRows.length ? `<section class="task-guide-block"><span>还有 ${escapeHtml(rows.length - previewRows.length)} 条</span><p>进入“我的反馈问题”查看并逐条确认。</p></section>` : ""}
         <div class="task-guide-actions">
           <a class="task-guide-button" href="./suggestions.html#siteFeedbackTitle">打开我的反馈问题</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function systemFlowTaskDetailHtml(task, dueText) {
+    const sections = [
+      { label: "处理人", value: `${task.owner || "未分配"}｜${dueText}` },
+      { label: "断点说明", value: task.content || "" },
+      { label: "完成标准", value: task.taskStandard || "" },
+      { label: "处理步骤", value: task.subtasks || "" }
+    ].filter((section) => section.value);
+    return `
+      <div class="task-guide-card">
+        ${sections.map((section) => `
+          <section class="task-guide-block">
+            <span>${escapeHtml(section.label)}</span>
+            ${guideValueHtml(section.label, section.value)}
+          </section>
+        `).join("")}
+        <div class="task-guide-actions">
+          <a class="task-guide-button" href="${escapeHtml(task.moduleHref || "./suggestions.html")}">打开处理页面</a>
+          <a class="task-guide-button secondary" href="./suggestions.html">查看任务台账</a>
         </div>
       </div>
     `;
@@ -617,6 +872,68 @@
     return { rows: list, changed };
   }
 
+  async function buildSystemFlowTasks() {
+    const [admissionsState, paikeRegular, paikePreimport, attendanceSessions] = await Promise.all([
+      readLinkedStore(admissionsKey, {}),
+      readLinkedStore(paikeRegularKey, {}),
+      readLinkedStore(paikePreimportKey, {}),
+      readLinkedStore(attendanceKey, [])
+    ]);
+    const preimportBundle = mergeLinkedStoreValue(window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || {}, paikePreimport || {});
+    const scheduleRows = mergeScheduleRows(
+      normalizeScheduleRowsFromRegular(paikeRegular),
+      normalizeScheduleRowsFromPreimport(preimportBundle)
+    );
+    return buildOperationalTasks({
+      admissionsState,
+      scheduleRows,
+      attendanceSessions: Array.isArray(attendanceSessions) ? attendanceSessions : []
+    });
+  }
+
+  function mergeSystemFlowTasks(rows, flowTasks) {
+    const list = Array.isArray(rows) ? [...rows] : [];
+    let changed = false;
+    const seeds = Array.isArray(flowTasks) ? flowTasks : [];
+    const liveIds = new Set(seeds.map((task) => String(task.id || task.taskId || "").trim()).filter(Boolean));
+    const byId = new Map(list.map((item) => [String(item?.id || item?.taskId || ""), item]));
+
+    seeds.forEach((seed) => {
+      const current = byId.get(seed.id);
+      if (!current) {
+        list.unshift(seed);
+        changed = true;
+        return;
+      }
+      const updated = {
+        ...current,
+        ...seed,
+        status: current.status === "doing" ? "doing" : seed.status,
+        completionReport: current.completionReport || "",
+        comments: Array.isArray(current.comments) && current.comments.length ? current.comments : seed.comments || []
+      };
+      if (JSON.stringify(updated) !== JSON.stringify(current)) {
+        Object.assign(current, updated);
+        changed = true;
+      }
+    });
+
+    list.forEach((item) => {
+      if (!item?.systemFlowTask) return;
+      const id = String(item.id || item.taskId || "").trim();
+      if (liveIds.has(id)) return;
+      if (!["assigned", "doing"].includes(item.status)) return;
+      item.status = "review";
+      item.updatedAt = new Date().toISOString();
+      item.completionReport = item.completionReport || "系统已检测到该数据断点暂时消失，任务自动转为已完成待复核。";
+      item.comments = Array.isArray(item.comments) ? item.comments : [];
+      item.comments.push({ author: "系统联动", text: "数据断点已消失，自动关闭首页待办。", time: new Date().toISOString().slice(0, 10) });
+      changed = true;
+    });
+
+    return { rows: list, changed };
+  }
+
   function mergeTaskRows(...groups) {
     const map = new Map();
     groups.flat().forEach((row) => {
@@ -786,7 +1103,9 @@
     rows = merged.rows;
     const feedbackReviewMerged = mergeFeedbackReviewTasks(rows, feedbackRows);
     rows = feedbackReviewMerged.rows;
-    if (merged.changed || feedbackReviewMerged.changed) {
+    const systemFlowMerged = mergeSystemFlowTasks(rows, await buildSystemFlowTasks());
+    rows = systemFlowMerged.rows;
+    if (merged.changed || feedbackReviewMerged.changed || systemFlowMerged.changed) {
       localStorage.setItem(suggestionsKey, JSON.stringify(rows));
       syncSuggestionTasksToCloud(rows).catch((error) => {
         console.warn("Failed to queue generated task sync", error);
@@ -816,13 +1135,16 @@
       const level = taskDueLevel(task);
       const dueText = task.dueDate ? `截止 ${task.dueDate}` : "未设截止时间";
       const title = `${level === "紧急" ? "逾期：" : ""}${task.title || "未命名任务"}`;
-      const href = task.moduleOwnerTask && task.moduleHref ? task.moduleHref : "./suggestions.html";
-      const actionText = task.moduleOwnerTask ? "打开系统" : task.feedbackReviewTask ? "去复核" : "处理任务";
+      const href = (task.moduleOwnerTask || task.systemFlowTask) && task.moduleHref ? task.moduleHref : "./suggestions.html";
+      const actionText = task.moduleOwnerTask ? "打开系统" : task.feedbackReviewTask ? "去复核" : task.systemFlowTask ? "去处理" : "处理任务";
       if (task.moduleOwnerTask) {
         return todoItemHtml(level, title, moduleTaskDetailHtml(task, dueText), href, actionText);
       }
       if (task.feedbackReviewTask) {
         return todoItemHtml(level, title, feedbackReviewTaskDetailHtml(task), "./suggestions.html#siteFeedbackTitle", actionText);
+      }
+      if (task.systemFlowTask) {
+        return todoItemHtml(level, title, systemFlowTaskDetailHtml(task, dueText), href, actionText);
       }
       const detail = taskDetailText(task, dueText);
       return todoItem(level, title, detail, href, actionText);
@@ -1390,11 +1712,12 @@
     `;
     const foundation = window.JRC_DATA_FOUNDATION;
     const derived = foundation?.deriveSystemLinks?.() || { scheduleRows: [], counts: {} };
-    const [paikeRegular, attendanceSessions, studentRows, financeState, admissionsState, qualityState, feedbackRows, aiDraftRows, suggestionRows, linkEvents] = await Promise.all([
-      readLinkedStore("paike-june-system-v1", {}),
-      readLinkedStore("jrc-class-attendance-v1", []),
-      readLinkedStore("jrc-student-service-v2", []),
-      readLinkedStore("jrc-finance-ledger-v1", {}),
+    const [paikeRegular, paikePreimport, attendanceSessions, studentRows, financeState, admissionsState, qualityState, feedbackRows, aiDraftRows, suggestionRows, linkEvents] = await Promise.all([
+      readLinkedStore(paikeRegularKey, {}),
+      readLinkedStore(paikePreimportKey, {}),
+      readLinkedStore(attendanceKey, []),
+      readLinkedStore(studentServiceKey, []),
+      readLinkedStore(financeKey, {}),
       readLinkedStore("advice-system-stage-prototype", {}),
       readLinkedStore("jrc-teaching-quality-system-v2-demo", {}),
       readLinkedStore("jrc-site-feedback-v1", []),
@@ -1403,14 +1726,12 @@
       readLinkedStore(linkEventKey, [])
     ]);
     const regularEntries = Array.isArray(paikeRegular?.scheduleEntries) ? paikeRegular.scheduleEntries : [];
-    const scheduleRows = Array.isArray(derived.scheduleRows) && derived.scheduleRows.length
-      ? derived.scheduleRows
-      : regularEntries.map((entry) => ({
-          date: entry.courseDate || entry.date || "",
-          teacherName: entry.teacherName || entry.teacher || "",
-          className: entry.className || "",
-          studentName: entry.studentName || entry.className || ""
-        }));
+    const preimportBundle = mergeLinkedStoreValue(window.JRC_PREIMPORT_BUNDLE || window.JRC_PREIMPORT_SUMMARY || {}, paikePreimport || {});
+    const scheduleRows = mergeScheduleRows(
+      Array.isArray(derived.scheduleRows) && derived.scheduleRows.length ? derived.scheduleRows : [],
+      normalizeScheduleRowsFromRegular({ scheduleEntries: regularEntries }),
+      normalizeScheduleRowsFromPreimport(preimportBundle)
+    );
     const sessions = Array.isArray(attendanceSessions) ? attendanceSessions : [];
     const studentServiceRows = Array.isArray(studentRows) ? studentRows : [];
     const attendanceStudentKeys = new Set(

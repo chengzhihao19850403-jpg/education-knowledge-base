@@ -144,7 +144,7 @@
       }
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 14px;
         margin-top: 18px;
       }
@@ -996,6 +996,11 @@
           <span class="summary-label">分红池 / 留存</span>
           <strong class="summary-value" id="dividendPool">¥0</strong>
           <div class="summary-note" id="retainedProfit">留存 ¥0</div>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">暂缓课销/课时费</span>
+          <strong class="summary-value" id="attendanceHoldTotal">0</strong>
+          <div class="summary-note" id="attendanceHoldNote">点名异常处理后再确认</div>
         </article>
       </section>
 
@@ -2117,6 +2122,12 @@
       }
 
       function confirmCurrentPeriodReview() {
+        const attendanceTotals = attendanceTotalsForCurrentPeriod();
+        if (attendanceTotals.followupCount > 0) {
+          setFinanceMessage(`当前还有 ${attendanceTotals.followupCount} 人次点名异常暂缓。请先到“点名课时费与课销”处理缺勤/请假/未点名，再确认月结。`);
+          byId("attendanceFinanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
         const period = getPeriod();
         period.reviewStatus = "已确认";
         period.reviewedAt = new Date().toISOString();
@@ -2223,6 +2234,20 @@
         }, { lessons: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
       }
 
+      function renderAttendanceHoldSummary() {
+        const totals = attendanceTotalsForCurrentPeriod();
+        const holdNode = byId("attendanceHoldTotal");
+        const noteNode = byId("attendanceHoldNote");
+        if (holdNode) holdNode.textContent = String(totals.followupCount || 0);
+        if (noteNode) {
+          noteNode.textContent = totals.followupCount
+            ? "未处理前不建议确认课销和老师课时费"
+            : totals.lessons
+              ? "当前点名异常已处理"
+              : "等待老师保存点名";
+        }
+      }
+
       function renderFinanceWorkbench(period) {
         const holder = byId("financeWorkbenchCards");
         if (!holder) return;
@@ -2245,7 +2270,7 @@
           <a class="workbench-strip-card" href="#attendanceFinanceSection">
             <span>点名课销</span>
             <strong>${attendanceTotals.lessons} 节</strong>
-            <em>普通财务 ${attendanceTotals.financePresent} 人次，待追踪 ${attendanceTotals.followupCount}</em>
+            <em>${attendanceTotals.followupCount ? `暂缓 ${attendanceTotals.followupCount} 人次，先处理异常` : `普通财务 ${attendanceTotals.financePresent} 人次`}</em>
           </a>
           <a class="workbench-strip-card" href="#monthlySection">
             <span>月结状态</span>
@@ -2285,12 +2310,14 @@
             detail: readyTeachers ? `已有 ${readyTeachers} 位老师可核对。` : "当前月份没有老师结算草算，先看导入。"
           },
           {
-            action: "diff",
-            tone: highPriorityTotal || issueTotal ? "warn" : "",
+            action: attendanceTotals.followupCount ? "attendance" : "diff",
+            tone: highPriorityTotal || issueTotal || attendanceTotals.followupCount ? "warn" : "",
             label: "第三步",
-            value: issueTotal,
-            title: "查待核差异",
-            detail: highPriorityTotal ? `高优先级 ${highPriorityTotal} 条，先不要确认月结。` : issueTotal ? "有差异待核，请逐老师查看。" : "当前无待核差异。"
+            value: issueTotal + attendanceTotals.followupCount,
+            title: "查待核/暂缓",
+            detail: attendanceTotals.followupCount
+              ? `点名暂缓 ${attendanceTotals.followupCount} 人次，先处理缺勤/请假。`
+              : highPriorityTotal ? `高优先级 ${highPriorityTotal} 条，先不要确认月结。` : issueTotal ? "有差异待核，请逐老师查看。" : "当前无待核差异。"
           },
           {
             action: salaryRows.length || expenseRows.length ? "attendance" : "import",
@@ -2310,7 +2337,9 @@
           </button>
         `).join("");
         if (tip) {
-          tip.textContent = highPriorityTotal
+          tip.textContent = attendanceTotals.followupCount
+            ? `当前 ${currentPeriod} 有 ${attendanceTotals.followupCount} 人次点名异常暂缓，未落实前不要直接确认课销和课时费。`
+            : highPriorityTotal
             ? `当前 ${currentPeriod} 有 ${highPriorityTotal} 条高优先级差异，建议先点“查待核差异”，不要直接确认月结。`
             : readyTeachers
               ? `当前 ${currentPeriod} 已经有老师结算草算，先按老师核对，再看逐条差异。`
@@ -3659,6 +3688,7 @@
         renderLinkedFinancePreview();
         renderExcelPreimportPreview();
         renderTeacherDiffPreview();
+        renderAttendanceHoldSummary();
         renderRowDiffPreview();
         renderAttendanceSettlementPreview();
         renderAttendanceDetailPreview();
