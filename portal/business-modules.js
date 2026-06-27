@@ -888,6 +888,11 @@
     return Number.isFinite(time) ? time : 0;
   }
 
+  function formatDateOnly(value) {
+    const text = normalizeText(value);
+    return text ? text.slice(0, 10) : "";
+  }
+
   function statusRank(value, priority) {
     const text = String(value || "");
     const index = priority.findIndex((item) => text.includes(item));
@@ -2300,6 +2305,118 @@
       setText("hrSaveButton", "保存人事管理事项");
     }
 
+    function buildRegularizationReminders(employees) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const remindDays = 30;
+      const remindEnd = new Date(today);
+      remindEnd.setDate(remindEnd.getDate() + remindDays);
+      return (Array.isArray(employees) ? employees : [])
+        .map((employee) => {
+          const name = normalizeName(employee?.name);
+          if (!name) return null;
+          const hireDate = formatDateOnly(employee?.hireDate);
+          const regularDate = formatDateOnly(employee?.regularDate);
+          if (!hireDate || !regularDate) {
+            const missing = [
+              !hireDate ? "入职日期" : "",
+              !regularDate ? "转正日期" : ""
+            ].filter(Boolean).join("、");
+            return {
+              name,
+              reason: `未填${missing}`,
+              sortTime: 0,
+              type: "missing"
+            };
+          }
+          const regularTime = parseDateValue(regularDate);
+          if (!regularTime) {
+            return {
+              name,
+              reason: `转正日期格式需核对：${regularDate}`,
+              sortTime: 0,
+              type: "invalid"
+            };
+          }
+          const regularDay = new Date(regularTime);
+          regularDay.setHours(0, 0, 0, 0);
+          if (regularDay.getTime() === today.getTime()) {
+            return {
+              name,
+              reason: `今日转正：${regularDate}，请确认是否已办理`,
+              sortTime: regularDay.getTime(),
+              type: "today"
+            };
+          }
+          if (regularDay < today) return null;
+          if (regularDay <= remindEnd) {
+            const daysLeft = Math.max(1, Math.ceil((regularDay.getTime() - today.getTime()) / 86400000));
+            return {
+              name,
+              reason: `${regularDate} 转正，剩 ${daysLeft} 天`,
+              sortTime: regularDay.getTime(),
+              type: "upcoming"
+            };
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.sortTime - right.sortTime || left.name.localeCompare(right.name, "zh-CN"));
+    }
+
+    function renderRegularizationMetric(employees) {
+      const reminders = buildRegularizationReminders(employees);
+      setText("hrMetricRegular", reminders.length);
+      setText("hrMetricRegularHint", reminders.length ? "点击查看对应员工" : "未来 30 天暂无提醒");
+      const detailNode = $("hrMetricRegularDetail");
+      if (detailNode) {
+        detailNode.textContent = reminders.length
+          ? reminders.slice(0, 3).map((item) => `${item.name}：${item.reason}`).join("；")
+          : "暂无待处理";
+        detailNode.classList.toggle("warning", reminders.length > 0);
+      }
+      const card = $("hrRegularMetricCard");
+      if (card) {
+        card.dataset.employee = reminders[0]?.name || "";
+        card.title = reminders.length
+          ? `点击查看：${reminders.map((item) => item.name).join("、")}`
+          : "暂无待转正提醒";
+      }
+    }
+
+    function showRegularizationEmployee() {
+      const card = $("hrRegularMetricCard");
+      const targetName = normalizeName(card?.dataset.employee);
+      const directory = document.querySelector("[data-employee-directory]");
+      const toggle = document.querySelector("[data-employee-directory-toggle]");
+      const search = document.querySelector("[data-employee-search]");
+      if (!directory || !targetName) return;
+      directory.hidden = false;
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", "true");
+        toggle.textContent = "收起名单";
+      }
+      if (search) {
+        search.value = targetName;
+        search.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      directory.querySelectorAll(".jrc-employee-card").forEach((node) => {
+        node.style.outline = "";
+        node.style.boxShadow = "";
+      });
+      const targetCard = [...directory.querySelectorAll(".jrc-employee-card")].find((node) => {
+        return (node.getAttribute("data-employee-name") || "").includes(targetName.toLowerCase());
+      });
+      if (targetCard) {
+        targetCard.hidden = false;
+        targetCard.style.outline = "2px solid rgba(180, 83, 9, 0.45)";
+        targetCard.style.boxShadow = "0 0 0 6px rgba(180, 83, 9, 0.10)";
+        targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        directory.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
     function render() {
       const keyword = $("hrFilterInput")?.value.trim().toLowerCase() || "";
       const sortValue = $("hrSortSelect")?.value || "newest";
@@ -2318,11 +2435,18 @@
         `).join("") : `<tr><td colspan="7">暂无人事事项。员工基础名单已在上方，全员名单可展开查看；新增培训、转正、权限调整后会显示在这里。</td></tr>`;
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
       setText("hrMetricEmployees", employees.length || 0);
-      setText("hrMetricRegular", employees.filter((employee) => !employee.regularDate).length);
+      renderRegularizationMetric(employees);
       setText("hrMetricCommission", employees.filter((employee) => employee.commissionRate).length);
       setText("hrMetricTraining", rows.filter((row) => row.type === "培训记录" || row.system.includes("知识库")).length);
       renderAuditLog(moduleKey, "hrAuditTableBody");
     }
+
+    $("hrRegularMetricCard")?.addEventListener("click", showRegularizationEmployee);
+    $("hrRegularMetricCard")?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      showRegularizationEmployee();
+    });
 
     $("hrSaveButton")?.addEventListener("click", () => {
       const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
