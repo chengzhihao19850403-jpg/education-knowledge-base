@@ -1893,7 +1893,9 @@
         if (curriculumButton) curriculumButton.hidden = mode !== "curriculumArchive";
         if (financeButton) financeButton.hidden = mode !== "financeCheck";
         if (taskButton) {
-          taskButton.textContent = ["todo", "task", "admissionsFollowup", "attendanceFollowup", "financeCheck", "curriculumArchive"].includes(mode)
+          const canSaveTask = ["todo", "task", "suggestion"].includes(mode);
+          taskButton.hidden = !canSaveTask;
+          taskButton.textContent = ["todo", "task"].includes(mode)
             ? "转成任务"
             : "转成建议";
         }
