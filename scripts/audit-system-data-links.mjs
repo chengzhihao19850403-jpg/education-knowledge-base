@@ -103,8 +103,8 @@ const checks = [
   },
   {
     title: "财务主动读取招生云端数据",
-    pass: /ADMISSIONS_STORE_KEY/.test(files.finance) && /hydrateFinanceLinkedStores/.test(files.finance),
-    detail: "财务页会主动补水招生 store，减少本机缓存导致的联动缺失。"
+    pass: /ADMISSIONS_STORE_KEY/.test(files.finance) && /hydrateFinanceLinkedStores/.test(files.finance) && /admissionsFinanceCandidateBody/.test(files.finance),
+    detail: "财务页会主动补水招生 store，并显示招生实收归因候选。"
   },
   {
     title: "财务主动读取教学质量云端数据",

@@ -1258,6 +1258,12 @@
         <p class="eyebrow">联动</p>
         <h2>老师月度结算草算预览</h2>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>排课课时</th><th>教学系数</th><th>课时系数</th><th>当前提成</th><th>招生实收</th><th>财务影响</th></tr></thead><tbody id="financeLinkedBody"></tbody></table></div>
+        <div class="source-explain">
+          <div class="source-explain-card"><strong>招生实收候选</strong>下面只显示招生系统里已经报名或有实收金额的记录，供财务归因复核。</div>
+          <div class="source-explain-card"><strong>不自动入账</strong>这些金额不会直接写进正式月结，必须由财务和招生负责人确认归属后再处理。</div>
+          <div class="source-explain-card"><strong>核对重点</strong>看学生、金额、渠道、招生顾问、试听老师是否正确；不对就在招生系统修正归属链。</div>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>学生</th><th>实收金额</th><th>渠道</th><th>招生顾问</th><th>试听老师</th><th>财务状态</th></tr></thead><tbody id="admissionsFinanceCandidateBody"></tbody></table></div>
       </section>
 
       <section class="card" id="financeReconciliationSection">
@@ -2655,6 +2661,30 @@
         `).join("");
       }
 
+      function renderAdmissionsFinanceCandidates() {
+        const body = byId("admissionsFinanceCandidateBody");
+        if (!body) return;
+        const derived = window.JRC_DATA_FOUNDATION?.deriveSystemLinks?.();
+        const rows = (derived?.pendingLinks?.financeAttributionCandidates || [])
+          .filter((row) => !currentPeriod || row.period === currentPeriod || !row.period)
+          .sort((left, right) => String(right.enrolledAmount || 0).localeCompare(String(left.enrolledAmount || 0)));
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="7"><div class="empty">当前月份没有招生实收归因候选。若招生系统已有报名金额，请先确认报名时间或试听时间是否在当前月份。</div></td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.period || currentPeriod || "-")}</td>
+            <td>${escapeHtml(row.studentName || "-")}</td>
+            <td class="money-cell">${money(row.enrolledAmount || 0)}</td>
+            <td>${escapeHtml(row.channel || "-")}</td>
+            <td>${escapeHtml(row.owner || "-")}</td>
+            <td>${escapeHtml(row.trialTeacher || "-")}</td>
+            <td><span class="status-pill pending">待财务复核</span></td>
+          </tr>
+        `).join("");
+      }
+
       function renderTrialCompareSummary() {
         const grid = byId("trialCompareGrid");
         if (!grid) return;
@@ -3860,6 +3890,7 @@
         renderFinanceAutofillPreview();
         renderFinanceReconciliationPreview();
         renderLinkedFinancePreview();
+        renderAdmissionsFinanceCandidates();
         renderExcelPreimportPreview();
         renderTeacherDiffPreview();
         renderAttendanceHoldSummary();
