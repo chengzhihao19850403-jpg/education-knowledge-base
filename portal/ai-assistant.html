@@ -150,8 +150,8 @@
               </select>
             </label>
             <label class="field">
-              关联对象
-              <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称，可不填">
+              关联对象（可同时填多个名字）
+              <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称，可用顿号分隔多个学生">
             </label>
             <label class="field" id="feedbackSeasonField">
               课程季节
@@ -515,7 +515,7 @@
         if (/第\s*(?:__|＿+|[xX])\s*次/.test(text)) add("开头第几次课没有补完整");
         const homeworkMatch = text.match(/五、课后作业：([\s\S]*)$/);
         const homeworkText = homeworkMatch ? homeworkMatch[1] : "";
-        if (/《\s*(?:__|＿+|[xX]+|待补充)?\s*》做完|待补充|待确认|待填写|未补|空缺|待定/.test(homeworkText)) add("五、课后作业没有补完整");
+        if (/《\s*(?:__|＿+|[xX]+|待补充|待填写)?\s*》做完|待老师(补充|确认|填写)|请老师(补充|确认|填写)|待补充字段|待补内容/.test(homeworkText)) add("五、课后作业没有补完整");
         const contentSection = extractTemplateSection(text, "二、本次课上课内容：", ["三、知识点要点：", "四、学习掌握情况：", "五、课后作业："]);
         const knowledgeSection = extractTemplateSection(text, "三、知识点要点：", ["四、学习掌握情况：", "五、课后作业："]);
         const masterySection = extractTemplateSection(text, "四、学习掌握情况：", ["五、课后作业："]);
@@ -528,13 +528,13 @@
             const trimmed = line.trim();
             if (!trimmed) return;
             const number = (trimmed.match(/^(\d+)\./) || [])[1];
-            if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|待(老师)?(补充|确认|填写)|未补|空缺|待定|本节课上课内容待老师补充|知识点待老师补充/.test(trimmed)) {
+            if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|待老师(补充|确认|填写)|请老师(补充|确认|填写)|待补充字段|待补内容|本节课上课内容待老师补充|知识点待老师补充/.test(trimmed)) {
               add(`${sectionName}${number ? `第 ${number} 条` : ""}需要补充`);
             }
           });
         });
         if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|《\s*[_＿xX\s]*\s*》/.test(text)) add("正文里还有横线、空白或占位符");
-        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|待(老师)?(补充|确认|填写)|未补|空缺|待定/.test(text) && !items.length) add("正文里还有待补内容");
+        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|待老师(补充|确认|填写)|待补充字段|待补内容|请老师(补充|确认|填写)|本节课.*待老师补充|知识点.*待老师补充/.test(text) && !items.length) add("正文里还有明确待补提示");
         return [...new Set(items)];
       }
 
@@ -824,6 +824,25 @@
             autoGrowTextarea(textarea);
           });
         });
+      }
+
+      function syncLatestResultFromVisibleEditors() {
+        if (!latestResult) return "";
+        const parentTextarea = document.querySelector('[data-result-field="parentMessage"]');
+        const polishedTextarea = document.querySelector('[data-result-field="polishedText"]');
+        if (parentTextarea) {
+          const value = parentTextarea.value;
+          latestResult.parentMessage = value;
+          if (isClassFeedbackMode() || !polishedTextarea) latestResult.polishedText = value;
+          updateCompletionWarning(parentTextarea);
+          return value;
+        }
+        if (polishedTextarea) {
+          latestResult.polishedText = polishedTextarea.value;
+          updateCompletionWarning(polishedTextarea);
+          return polishedTextarea.value;
+        }
+        return "";
       }
 
       function isClassFeedbackMode() {
@@ -1517,7 +1536,8 @@
           byId("aiMessage").textContent = "关联对象里有多个学生。请先点“批量保存多学生草稿”，再逐个打开草稿精修和归档。";
           return;
         }
-        const feedbackText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
+        const visibleFeedbackText = syncLatestResultFromVisibleEditors();
+        const feedbackText = visibleFeedbackText || latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
         const parsedFeedbackMeta = parseFeedbackMetaFromText(feedbackText);
         const resolvedLessonSeason = latestResult.lessonSeason || parsedFeedbackMeta.lessonSeason || feedbackMeta(student, byId("aiInputText").value.trim()).lessonSeason;
         const resolvedLessonNumber = latestResult.lessonNumber || parsedFeedbackMeta.lessonNumber || feedbackMeta(student, byId("aiInputText").value.trim()).lessonNumber;
