@@ -938,6 +938,15 @@
         border-top: 1px solid var(--line);
         border-radius: 0;
       }
+      .teacher-detail-drawer {
+        margin-top: 14px;
+      }
+      .teacher-detail-drawer summary {
+        min-height: 58px;
+      }
+      .teacher-detail-drawer summary strong {
+        font-size: 16px;
+      }
       .finance-import-toolbar {
         display: flex;
         flex-wrap: wrap;
@@ -1204,23 +1213,31 @@
         </div>
         <div class="teacher-wage-overview" id="financeTeacherWageOverview"></div>
         <div class="excel-finance-summary" id="financeTeacherDetailSummary"></div>
-        <div class="table-wrap">
-          <table class="finance-teacher-detail-table">
-            <thead>
-              <tr>
-                <th>学生/班级</th>
-                <th>课时费</th>
-                <th>单次提成</th>
-                <th>上课次数</th>
-                <th>上课日期/第几次</th>
-                <th>应发小计</th>
-                <th>来源</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody id="financeTeacherDetailBody"></tbody>
-          </table>
-        </div>
+        <details class="finance-import-group teacher-detail-drawer" id="financeTeacherDetailRowsDrawer">
+          <summary>
+            <div>
+              <strong>逐课次明细</strong>
+              <span id="financeTeacherDetailDrawerNote">默认收起；金额不一致时再展开逐条核对。</span>
+            </div>
+          </summary>
+          <div class="table-wrap">
+            <table class="finance-teacher-detail-table">
+              <thead>
+                <tr>
+                  <th>学生/班级</th>
+                  <th>课时费</th>
+                  <th>单次提成</th>
+                  <th>上课次数</th>
+                  <th>上课日期/第几次</th>
+                  <th>应发小计</th>
+                  <th>来源</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="financeTeacherDetailBody"></tbody>
+            </table>
+          </div>
+        </details>
       </section>
 
       <details class="card admin-details" id="financeAdminDetails">
@@ -4238,6 +4255,8 @@
         const body = byId("financeTeacherDetailBody");
         const title = byId("financeTeacherDetailTitle");
         const summary = byId("financeTeacherDetailSummary");
+        const drawer = byId("financeTeacherDetailRowsDrawer");
+        const drawerNote = byId("financeTeacherDetailDrawerNote");
         if (!body) return;
         const teacher = byId("financeTeacherSelect")?.value || "";
         const rows = teacherDetailRows();
@@ -4257,6 +4276,12 @@
             ${financeReviewOnly ? `<div class="excel-finance-card"><span>当前视图</span><strong>只看待对账</strong></div>` : ""}
           `;
         }
+        if (drawerNote) {
+          drawerNote.textContent = rows.length
+            ? `共 ${groups.length} 个学生/班级、${rows.length} 条上课明细；金额不一致时再展开逐条核对。`
+            : "当前老师/月份没有逐课次明细。";
+        }
+        if (drawer && financeReviewOnly && rows.length) drawer.open = true;
         if (!rows.length) {
           body.innerHTML = `<tr><td colspan="8" class="muted">当前老师/月份没有工资明细。请切换月份或老师；如果原 Excel 有数据，请继续导入工资表。</td></tr>`;
           return;

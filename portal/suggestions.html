@@ -464,6 +464,37 @@
         margin-top: 6px;
         font-size: 24px;
       }
+      .feedback-focus-panel {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .feedback-focus-card {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(13, 148, 136, 0.06);
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .feedback-focus-card:hover {
+        border-color: rgba(13, 148, 136, 0.32);
+        background: rgba(13, 148, 136, 0.10);
+      }
+      .feedback-focus-card strong {
+        display: block;
+        color: var(--ink);
+        font-size: 20px;
+      }
+      .feedback-focus-card span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
       .feedback-rank-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -593,6 +624,7 @@
         .filters,
         .manager-panel,
         .feedback-grid,
+        .feedback-focus-panel,
         .feedback-summary,
         .feedback-rank-grid,
         .feedback-toolbar,
@@ -757,6 +789,7 @@
       <section class="card" id="siteFeedbackSection" hidden>
         <p class="eyebrow">试用反馈整改台账</p>
         <h2 id="siteFeedbackTitle">我的反馈问题</h2>
+        <div class="feedback-focus-panel" id="siteFeedbackFocusPanel"></div>
         <div class="feedback-summary" id="siteFeedbackSummary"></div>
         <div class="feedback-rank-grid" id="siteFeedbackRanks"></div>
         <div class="feedback-toolbar">
@@ -1620,6 +1653,7 @@
         const statusFilter = String(byId("siteFeedbackStatusFilter")?.value || "");
         const severityFilter = String(byId("siteFeedbackSeverityFilter")?.value || "");
         const mineToggle = byId("siteFeedbackMineToggle");
+        const focusNode = byId("siteFeedbackFocusPanel");
         const summaryNode = byId("siteFeedbackSummary");
         const ranksNode = byId("siteFeedbackRanks");
         const feedbackTitle = byId("siteFeedbackTitle");
@@ -1638,6 +1672,8 @@
         const taskRows = visibleBaseRows.filter((row) => row.status === "已转任务");
         const reopenedRows = visibleBaseRows.filter((row) => row.status === "继续反馈");
         const urgentRows = visibleBaseRows.filter((row) => row.severity === "紧急" && !closedStatuses.includes(row.status));
+        const myReviewRows = siteFeedbackRows.filter((row) => personMatchesNameOrUsername(row) && feedbackReviewStatuses.includes(row.status || ""));
+        const actionableRows = siteFeedbackRows.filter(shouldEnterDiscussionExport);
         const teacherNames = new Set(visibleBaseRows.map((row) => row.userName || "未登录"));
         const systemNames = new Set(visibleBaseRows.map((row) => row.system || "未知页面"));
         const countBy = (field) => {
@@ -1668,6 +1704,19 @@
           ];
           summaryNode.innerHTML = summaryRows.map(([label, value]) => `
             <div class="feedback-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+          `).join("");
+        }
+        if (focusNode) {
+          const focusRows = [
+            ["待我复核", myReviewRows.length, "管理员已处理，请你回到对应系统确认是否真的解决。", "mine-review"],
+            ["仍有问题", reopenedRows.length, "老师复核后认为还没解决，需要继续进入下一轮整改。", "reopened"],
+            ["本轮待处理", actionableRows.length, "导出整改清单时主要看这些新问题和未闭环问题。", "actionable"]
+          ];
+          focusNode.innerHTML = focusRows.map(([label, value, note, action]) => `
+            <button class="feedback-focus-card" type="button" data-feedback-quick="${escapeHtml(action)}">
+              <strong>${escapeHtml(value)}</strong>
+              <span>${escapeHtml(label)}｜${escapeHtml(note)}</span>
+            </button>
           `).join("");
         }
         if (ranksNode) {
@@ -2422,9 +2471,10 @@
       });
       byId("siteFeedbackStatusFilter")?.addEventListener("change", renderSiteFeedback);
       byId("siteFeedbackSeverityFilter")?.addEventListener("change", renderSiteFeedback);
-      document.querySelectorAll("[data-feedback-quick]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const action = button.getAttribute("data-feedback-quick") || "";
+      byId("siteFeedbackSection")?.addEventListener("click", (event) => {
+        const quickButton = event.target.closest("[data-feedback-quick]");
+        if (quickButton) {
+          const action = quickButton.getAttribute("data-feedback-quick") || "";
           siteFeedbackQuickFilter = action === "all" ? "" : action;
           if (action === "mine-review") siteFeedbackMineOnly = true;
           if (action === "reopened" || action === "new" || action === "actionable") siteFeedbackMineOnly = !canManage;
@@ -2432,7 +2482,7 @@
           if (byId("siteFeedbackSeverityFilter")) byId("siteFeedbackSeverityFilter").value = "";
           renderSiteFeedback();
           byId("siteFeedbackSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
-        });
+        }
       });
       ["searchInput", "statusFilter", "taskViewFilter", "categoryFilter"].forEach((id) => {
         byId(id).addEventListener("input", renderList);
