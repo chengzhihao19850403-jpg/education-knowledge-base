@@ -307,6 +307,52 @@
         font-size: 12px;
         line-height: 1.45;
       }
+      .admission-link-panel {
+        margin-top: 18px;
+        padding: 16px;
+        border: 1px solid rgba(180,83,9,0.18);
+        border-radius: 18px;
+        background: rgba(180,83,9,0.055);
+      }
+      .admission-link-panel[hidden] { display: none; }
+      .admission-link-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .admission-link-head strong {
+        display: block;
+        color: var(--ink);
+        font-size: 16px;
+      }
+      .admission-link-head p {
+        margin-top: 4px;
+        font-size: 13px;
+      }
+      .admission-link-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .admission-link-item {
+        display: grid;
+        grid-template-columns: minmax(150px, 0.9fr) minmax(0, 1.4fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.84);
+      }
+      .admission-link-item strong { display: block; }
+      .admission-link-item span,
+      .admission-link-item small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
       .table-wrap {
         overflow-x: auto;
         margin-top: 16px;
@@ -519,9 +565,11 @@
         .excel-toolbar,
         .excel-summary,
         .teacher-quick-actions,
-        .read-guide {
+        .read-guide,
+        .admission-link-item {
           grid-template-columns: 1fr;
         }
+        .admission-link-head { flex-direction: column; }
       }
       @media (max-width: 640px) {
         .shell {
@@ -621,6 +669,16 @@
           <div class="read-guide-item"><strong>先核教室</strong>排新课还要再看下方教室使用表。</div>
         </div>
         <div class="teacher-card-grid" id="teacherSheetTeacherCards" aria-label="老师课表入口"></div>
+        <div class="admission-link-panel" id="admissionSchedulePanel" hidden>
+          <div class="admission-link-head">
+            <div>
+              <strong>招生报名待排课</strong>
+              <p>这里显示招生系统里已报名或有实收、但当前排课表里还没匹配到的学生。先按老师和时间排进课表，再进入点名课销。</p>
+            </div>
+            <a class="button secondary" href="/jrcedu/advice-system/index.html">打开招生系统</a>
+          </div>
+          <div class="admission-link-list" id="admissionScheduleList"></div>
+        </div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="notice" id="teacherSheetMessage" hidden></div>
         <div class="table-wrap">
@@ -757,11 +815,13 @@
         importReview: "paike-summer-import-review-v1",
         regular: "paike-june-system-v1",
         preimport: "jrc-paike-finance-preimport-2026-06-22",
-        attendance: "jrc-class-attendance-v1"
+        attendance: "jrc-class-attendance-v1",
+        admissions: "advice-system-stage-prototype"
       };
       let paikeRows = [];
       let paikeReviewRows = [];
       let paikeAttendanceRows = [];
+      let paikeAdmissionState = {};
       let activePaikeView = "week";
 
       function escapeHtml(value) {
@@ -1055,6 +1115,69 @@
         ].filter(Boolean).join("｜");
       }
 
+      function normalizePersonName(value) {
+        return String(value || "").replace(/\s+/g, "").trim();
+      }
+
+      function scheduleStudentNameSet() {
+        const names = new Set();
+        paikeRows.forEach((row) => {
+          String(row.student || "")
+            .split(/[、,，/+]/)
+            .map(normalizePersonName)
+            .filter((name) => name && !/排课课程|小班课|一对一|科学|数学|刷题班|直播课/.test(name))
+            .forEach((name) => names.add(name));
+        });
+        return names;
+      }
+
+      function enrolledAdmissionLeads() {
+        const leads = Array.isArray(paikeAdmissionState?.leads) ? paikeAdmissionState.leads : [];
+        return leads.filter((lead) => String(lead?.status || "") === "定金 / 已报名" || Number(lead?.enrolledAmount || 0) > 0);
+      }
+
+      function pendingAdmissionScheduleRows() {
+        const scheduledNames = scheduleStudentNameSet();
+        return enrolledAdmissionLeads().filter((lead) => {
+          const name = normalizePersonName(lead.studentName || lead.name);
+          return name && !scheduledNames.has(name);
+        });
+      }
+
+      function renderAdmissionSchedulePanel() {
+        const panel = byId("admissionSchedulePanel");
+        const list = byId("admissionScheduleList");
+        if (!panel || !list) return;
+        const rows = pendingAdmissionScheduleRows();
+        panel.hidden = !rows.length;
+        if (!rows.length) {
+          list.innerHTML = "";
+          return;
+        }
+        list.innerHTML = rows.slice(0, 8).map((lead) => {
+          const trial = [lead.trialTeacher || lead.owner || "", lead.trialTime || lead.trial || ""].filter(Boolean).join(" / ") || "待安排";
+          const detail = [
+            lead.grade || "",
+            lead.courseProduct || lead.enrolledCourse || lead.trialClass || "",
+            lead.channel || "",
+            Number(lead.enrolledAmount || 0) > 0 ? `实收 ${Number(lead.enrolledAmount || 0)}` : ""
+          ].filter(Boolean).join("｜") || "报名信息待补";
+          return `
+            <article class="admission-link-item">
+              <div>
+                <strong>${escapeHtml(lead.studentName || lead.name || "-")}</strong>
+                <span>${escapeHtml(detail)}</span>
+              </div>
+              <div>
+                <span>试听/负责人：${escapeHtml(trial)}</span>
+                <small>下一步：排课负责人确认老师、日期、时间、教室。</small>
+              </div>
+              <button class="button secondary" type="button" data-admission-schedule-teacher="${escapeHtml(lead.trialTeacher || "")}">按试听老师看课表</button>
+            </article>
+          `;
+        }).join("");
+      }
+
       function timeSlotSortValue(label) {
         return timeMinutes(String(label || "").split("-")[0]);
       }
@@ -1246,6 +1369,7 @@
             <span>${item.roomMissing ? `${item.roomMissing} 节未写教室` : "教室信息完整"}</span>
           </button>
         `).join("");
+        renderAdmissionSchedulePanel();
       }
 
       function renderTeacherSheetSummary(rows) {
@@ -1814,17 +1938,19 @@
       }
 
       async function initPaikeDashboard() {
-        const [reviewRows, regularData, preimportData, attendanceData] = await Promise.all([
+        const [reviewRows, regularData, preimportData, attendanceData, admissionsData] = await Promise.all([
           readCloud(stores.importReview, []),
           readCloud(stores.regular, {}),
           readCloud(stores.preimport, window.JRC_PREIMPORT_SUMMARY || {}),
-          readCloud(stores.attendance, [])
+          readCloud(stores.attendance, []),
+          readCloud(stores.admissions, {})
         ]);
         const safeReviewRows = Array.isArray(reviewRows) ? reviewRows : [];
         const regularEntries = scheduleEntriesFromRegular(regularData);
         const scheduleSessions = scheduleSessionsFromPreimport(preimportData);
         paikeReviewRows = safeReviewRows;
         paikeAttendanceRows = attendanceRowsFromData(attendanceData);
+        paikeAdmissionState = admissionsData && typeof admissionsData === "object" ? admissionsData : {};
         paikeRows = normalizedScheduleRows({ regularEntries, scheduleSessions });
         setupTeacherSheetFilters();
         renderTeacherSheet();
@@ -1873,6 +1999,13 @@
         const card = event.target.closest("[data-teacher-card]");
         if (!card) return;
         selectTeacherSheetTeacher(card.getAttribute("data-teacher-card") || "");
+      });
+      byId("admissionScheduleList")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-admission-schedule-teacher]");
+        if (!button) return;
+        const teacher = button.getAttribute("data-admission-schedule-teacher") || "";
+        if (teacher && selectTeacherSheetTeacher(teacher)) return;
+        setTeacherSheetMessage("这个试听老师当前月份没有匹配到课表，请手动选择老师，或先核对招生系统里的试听老师姓名。");
       });
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);

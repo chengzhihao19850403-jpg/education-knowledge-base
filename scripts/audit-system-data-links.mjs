@@ -98,8 +98,8 @@ const checks = [
   },
   {
     title: "招生报名生成排课待办",
-    pass: /flow-admissions-to-paike/.test(files.dashboard),
-    detail: "报名学生未排课时，会进入周珊首页任务。"
+    pass: /flow-admissions-to-paike/.test(files.dashboard) && /admissionSchedulePanel/.test(files.paike),
+    detail: "报名学生未排课时，会进入周珊首页任务，并在排课系统显示待排课名单。"
   },
   {
     title: "财务主动读取招生云端数据",
@@ -150,8 +150,10 @@ const warnings = [];
 if (scheduleSessions.length && !sourceHas("portal/paike.html", /writeModuleData\(stores\.preimport/)) {
   warnings.push("排课页主要读取预导入数据，预导入写入仍主要由财务/AI/导入脚本承担；若要让排课老师直接上传 XLSX 后落云，需要继续增强。");
 }
-if (!/readModuleData\(ADMISSIONS_STORE_KEY\)/.test(files.paike) && !/advice-system-stage-prototype/.test(files.paike)) {
-  warnings.push("排课系统没有直接读取招生 store，招生→排课目前通过首页待办提醒闭环，不是自动把报名学生塞入课表。");
+if (!/admissionSchedulePanel/.test(files.paike) || !/advice-system-stage-prototype/.test(files.paike)) {
+  warnings.push("排课系统没有直接展示招生待排课名单，招生→排课只能依赖首页任务提醒。");
+} else {
+  warnings.push("招生→排课已在排课页显示待排课名单，但仍由排课负责人确认老师、时间、教室后手动排入课表，避免自动乱塞课。");
 }
 if (!/writeModuleData\(FINANCE_STORAGE_KEY, "finance"/.test(files.admissions)) {
   warnings.push("招生实收没有直接写入正式财务月结，当前是财务联动候选和归因展示，最终仍需财务复核。");
