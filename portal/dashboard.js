@@ -1326,6 +1326,67 @@
     if ($("portalRoleWelcome")) $("portalRoleWelcome").textContent = tone.welcome;
   }
 
+  function quickEntriesForRole() {
+    const employee = currentEmployee();
+    const role = String(employee?.role || "");
+    const profileText = [role, employee?.subject, employee?.scope].filter(Boolean).join(" ");
+    if (isAdminLike()) {
+      return [
+        ["AI课堂反馈", "快速整理课堂反馈和工作记录", "./ai-assistant.html", "ai.access"],
+        ["反馈整改", "看待复核、仍有问题和本轮待处理", "./suggestions.html#siteFeedbackSection", "suggestions.access"],
+        ["财务月结", "按老师工资单核对月结", "./finance.html", "finance.access"],
+        ["学生服务", "点名、课消、反馈归档", "./student-service.html", "studentService.access"]
+      ];
+    }
+    if (role.includes("财务")) {
+      return [
+        ["老师工资单", "按月份和老师核对本月结算", "./finance.html", "finance.access"],
+        ["只看待对账", "快速进入财务待核明细", "./finance.html#financeTeacherDetailSection", "finance.access"],
+        ["我的反馈", "复核自己提出的问题", "./suggestions.html#siteFeedbackSection", "suggestions.access"],
+        ["AI财务核对", "把口述问题整理成核对草稿", "./ai-assistant.html", "ai.access"]
+      ];
+    }
+    if (role.includes("学管")) {
+      return [
+        ["学生服务", "点名、缺勤、家长沟通", "./student-service.html", "studentService.access"],
+        ["招生跟进", "线索、试听、报名交接", "/jrcedu/advice-system/index.html", "admissions.access"],
+        ["AI沟通草稿", "整理家长沟通和课堂反馈", "./ai-assistant.html", "ai.access"],
+        ["我的反馈", "查看问题处理进展", "./suggestions.html#siteFeedbackSection", "suggestions.access"]
+      ];
+    }
+    if (profileText.includes("授课") || profileText.includes("教师") || profileText.includes("老师")) {
+      return [
+        ["AI课堂反馈", "下课后快速整理家长反馈", "./ai-assistant.html", "ai.access"],
+        ["我的课表", "查看排课和上课安排", "./paike.html", "paike.access"],
+        ["学生服务", "点名、出门测、历史反馈", "./student-service.html", "studentService.access"],
+        ["教研资料", "查课件、讲义和授课大纲", "./curriculum-products.html", "curriculum.access"]
+      ];
+    }
+    return [
+      ["AI助手", "整理记录和工作内容", "./ai-assistant.html", "ai.access"],
+      ["我的任务", "查看建议任务和反馈复核", "./suggestions.html", "suggestions.access"],
+      ["学生服务", "查看学生与家长服务", "./student-service.html", "studentService.access"],
+      ["排课系统", "查看课程安排", "./paike.html", "paike.access"]
+    ];
+  }
+
+  function renderQuickEntries() {
+    const holder = $("portalQuickEntries");
+    if (!holder) return;
+    const rows = quickEntriesForRole().filter(([, , , permission]) => !permission || hasPermission(permission));
+    holder.innerHTML = rows.length ? rows.map(([title, note, href]) => `
+      <a class="quick-entry-card" href="${escapeHtml(href)}">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(note)}</span>
+      </a>
+    `).join("") : `
+      <a class="quick-entry-card" href="./suggestions.html">
+        <strong>进入任务系统</strong>
+        <span>当前账号暂无常用入口，请联系管理员确认权限。</span>
+      </a>
+    `;
+  }
+
   function setManagementVisibility() {
     const visible = isAdminLike();
     const diagnostics = $("portalAdminDiagnostics");
@@ -1352,6 +1413,7 @@
 
   function renderPortalDashboard() {
     setRoleCopy();
+    renderQuickEntries();
     setManagementVisibility();
     bindAdminDiagnosticsToggle();
     reorderSystemCards();
