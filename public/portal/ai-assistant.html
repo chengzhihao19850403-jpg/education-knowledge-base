@@ -223,6 +223,7 @@
     <script src="/jrcedu/portal/business-modules.js?v=20260626e"></script>
     <script>
       const DRAFT_KEY = "jrc-ai-assistant-drafts-v1";
+      const DRAFT_DELETED_KEY = "jrc-ai-assistant-deleted-drafts-v1";
       const SUGGESTION_KEY = "jrc-suggestion-management-v2";
       const STUDENT_SERVICE_KEY = "jrc-student-service-v2";
       const ADMISSIONS_STORE_KEY = "advice-system-stage-prototype";
@@ -323,33 +324,70 @@
 
       function readDrafts() {
         const rows = safeParse(localStorage.getItem(DRAFT_KEY), []);
-        return Array.isArray(rows) ? rows : [];
+        return filterDeletedDraftRows(Array.isArray(rows) ? rows : []);
+      }
+
+      function draftRowId(row) {
+        return String(row?.id || row?.rowId || "").trim();
+      }
+
+      function readDeletedDraftIds() {
+        const ids = safeParse(localStorage.getItem(DRAFT_DELETED_KEY), []);
+        return new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "").trim()).filter(Boolean));
+      }
+
+      function writeDeletedDraftIds(ids) {
+        const rows = [...(ids instanceof Set ? ids : new Set(ids || []))]
+          .map((id) => String(id || "").trim())
+          .filter(Boolean)
+          .slice(-500);
+        localStorage.setItem(DRAFT_DELETED_KEY, JSON.stringify(rows));
+      }
+
+      function markDraftDeleted(id) {
+        const targetId = String(id || "").trim();
+        if (!targetId) return;
+        const ids = readDeletedDraftIds();
+        ids.add(targetId);
+        writeDeletedDraftIds(ids);
+      }
+
+      function filterDeletedDraftRows(rows) {
+        const deletedIds = readDeletedDraftIds();
+        const list = Array.isArray(rows) ? rows : [];
+        if (!deletedIds.size) return list;
+        return list.filter((row) => !deletedIds.has(draftRowId(row)));
       }
 
       function mergeDraftRows(rows) {
         const map = new Map();
+        const deletedIds = readDeletedDraftIds();
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || typeof row !== "object") return;
-          const id = String(row.id || row.rowId || "").trim() || `ai-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          const id = draftRowId(row) || `ai-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          if (deletedIds.has(id)) return;
           const existing = map.get(id) || {};
           map.set(id, { ...existing, ...row, id });
         });
         return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 
-      function writeDrafts(rows) {
+      function writeDrafts(rows, context = {}) {
+        const shouldReplace = context.replaceMode === "replace";
         const localRows = mergeDraftRows(rows).slice(0, 120);
         localStorage.setItem(DRAFT_KEY, JSON.stringify(localRows.slice(0, 80)));
         if (!window.JRC_CLOUD?.writeModuleData) return;
         (async () => {
           let nextRows = localRows;
           try {
-            const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
-            if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
-              nextRows = mergeDraftRows([...remote.data.payload, ...localRows]).slice(0, 120);
-              localStorage.setItem(DRAFT_KEY, JSON.stringify(nextRows.slice(0, 80)));
+            if (!shouldReplace) {
+              const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
+              if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+                nextRows = mergeDraftRows([...remote.data.payload, ...localRows]).slice(0, 120);
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(nextRows.slice(0, 80)));
+              }
             }
-            await window.JRC_CLOUD.writeModuleData(DRAFT_KEY, "ai", nextRows);
+            await window.JRC_CLOUD.writeModuleData(DRAFT_KEY, "ai", nextRows, shouldReplace ? { replaceMode: "replace" } : {});
           } catch (_) {}
         })();
       }
@@ -562,7 +600,8 @@
         const rows = readDrafts();
         const nextRows = rows.filter((row) => String(row.id || row.rowId || "") !== targetId);
         if (nextRows.length === rows.length) return false;
-        writeDrafts(nextRows);
+        markDraftDeleted(targetId);
+        writeDrafts(nextRows, { replaceMode: "replace" });
         if (editingDraftId === targetId) {
           setEditingDraft("");
           latestResult = null;
