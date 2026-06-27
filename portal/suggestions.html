@@ -1531,8 +1531,18 @@
         return Boolean(item?.sourceFeedbackId || String(item?.id || "").startsWith("t-feedback-"));
       }
 
+      function isAiFeedbackSuggestion(item) {
+        const text = [item?.title, item?.content, item?.category, item?.comments?.[0]?.text]
+          .map((value) => String(value || ""))
+          .join(" ");
+        return /由 AI 助手生成草稿|课堂反馈|课程反馈|春季小课|暑假小课|秋季小课|寒假小课|完整课堂反馈/.test(text);
+      }
+
       function isVisibleSuggestionPoolItem(item) {
-        return !isOperationalFlowTask(item) && !isFeedbackReviewTask(item);
+        return !isOperationalFlowTask(item) &&
+          !isFeedbackReviewTask(item) &&
+          !item?.moduleOwnerTask &&
+          !isAiFeedbackSuggestion(item);
       }
 
       function matchesTaskView(item, view) {

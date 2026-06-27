@@ -1117,6 +1117,10 @@
           return;
         }
         const mode = byId("aiModeInput").value;
+        if (["feedback", "classFeedback", "parentCommunication"].includes(mode)) {
+          byId("aiMessage").textContent = "课堂反馈和家长沟通请保存草稿或归档学生服务，不进入员工建议池。";
+          return;
+        }
         let rows = safeParse(localStorage.getItem(SUGGESTION_KEY), []);
         const isTask = ["todo", "task", "admissionsFollowup", "attendanceFollowup", "financeCheck", "curriculumArchive"].includes(mode);
         const categoryMap = {
