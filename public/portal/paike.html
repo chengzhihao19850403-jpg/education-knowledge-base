@@ -773,6 +773,13 @@
         </section>
 
         <section style="margin-top: 18px;">
+          <p class="eyebrow">来源</p>
+          <h2>当前数据从哪里来</h2>
+          <div class="status-grid" id="paikeDataSourceGrid"></div>
+          <div class="notice" id="paikeDataSourceTip">正在核对排课、点名和招生的云端数据来源。</div>
+        </section>
+
+        <section style="margin-top: 18px;">
           <p class="eyebrow">维护</p>
           <h2>排课数据维护入口</h2>
           <div class="maintenance-actions">
@@ -1937,6 +1944,37 @@
         `).join("");
       }
 
+      function renderDataSourceStatus({ regularEntries, scheduleSessions }) {
+        const grid = byId("paikeDataSourceGrid");
+        const tip = byId("paikeDataSourceTip");
+        if (!grid) return;
+        const attendanceCount = Array.isArray(paikeAttendanceRows) ? paikeAttendanceRows.length : 0;
+        const pendingAdmissionCount = pendingAdmissionScheduleRows().length;
+        const cards = [
+          ["Excel预导入排课", scheduleSessions.length, scheduleSessions.length ? "来自当前服务器内置/云端预导入包，供排课、点名和财务核对使用。" : "没有读到预导入排课。", scheduleSessions.length ? "" : "warn"],
+          ["正式排课明细", regularEntries.length, regularEntries.length ? "来自正式排课 store，优先用于后续正式排课维护。" : "正式排课 store 暂无明细。", regularEntries.length ? "" : "warn"],
+          ["点名记录", attendanceCount, attendanceCount ? "来自学生服务点名出门测，影响课销和课时费候选。" : "还没有读到点名记录。", attendanceCount ? "" : "warn"],
+          ["招生待排课", pendingAdmissionCount, pendingAdmissionCount ? "招生已报名但未匹配课表，需要排课负责人安排。" : "当前招生报名学生都已匹配或暂无报名候选。", pendingAdmissionCount ? "warn" : ""]
+        ];
+        grid.innerHTML = cards.map(([label, value, note, tone]) => `
+          <div class="status-card">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
+            <p><span class="status-pill ${tone}">${tone ? "需处理" : "已接入"}</span></p>
+            <p>${escapeHtml(note)}</p>
+          </div>
+        `).join("");
+        if (tip) {
+          if (!scheduleSessions.length && !regularEntries.length) {
+            tip.textContent = "当前没有排课来源。先用“上传总表”或旧版排课入口补数据，否则点名和财务都没有基础。";
+          } else if (pendingAdmissionCount) {
+            tip.textContent = `当前有 ${pendingAdmissionCount} 名招生报名学生未匹配课表。先在上方“招生报名待排课”里确认，再按老师课表和教室表安排。`;
+          } else {
+            tip.textContent = "排课数据来源已接入。日常先看老师月课表；有问题再展开原始明细核对。";
+          }
+        }
+      }
+
       async function initPaikeDashboard() {
         const [reviewRows, regularData, preimportData, attendanceData, admissionsData] = await Promise.all([
           readCloud(stores.importReview, []),
@@ -1958,6 +1996,7 @@
         renderWorkbench();
         renderCommandCenter();
         renderStatus({ reviewRows: safeReviewRows, regularEntries, scheduleSessions });
+        renderDataSourceStatus({ regularEntries, scheduleSessions });
         renderPreview({ regularEntries, scheduleSessions });
       }
 

@@ -63,8 +63,8 @@ const checks = [
   },
   {
     title: "排课系统读取正式/预导入数据",
-    pass: /readCloud\(stores\.preimport/.test(files.paike) && /scheduleSessionsFromPreimport/.test(files.paike),
-    detail: "排课页会读取 jrc-paike-finance-preimport-2026-06-22 和正式排课 store。"
+    pass: /readCloud\(stores\.preimport/.test(files.paike) && /scheduleSessionsFromPreimport/.test(files.paike) && /paikeDataSourceGrid/.test(files.paike),
+    detail: "排课页会读取预导入/正式排课 store，并显示排课、点名、招生待排课来源。"
   },
   {
     title: "学生服务读取排课并生成点名名单",
