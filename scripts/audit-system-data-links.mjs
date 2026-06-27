@@ -113,8 +113,13 @@ const checks = [
   },
   {
     title: "财务主动读取招生云端数据",
-    pass: /ADMISSIONS_STORE_KEY/.test(files.finance) && /hydrateFinanceLinkedStores/.test(files.finance) && /admissionsFinanceCandidateBody/.test(files.finance),
-    detail: "财务页会主动补水招生 store，并显示招生实收归因候选。"
+    pass: /ADMISSIONS_STORE_KEY/.test(files.finance)
+      && /hydrateFinanceLinkedStores/.test(files.finance)
+      && /admissionsFinanceCandidateBody/.test(files.finance)
+      && /admissionReceipts/.test(files.finance)
+      && /confirmAdmissionReceiptById/.test(files.finance)
+      && /data-confirm-admission-receipt/.test(files.finance),
+    detail: "财务页会主动补水招生 store，显示招生实收归因候选，并支持财务人工确认入账。"
   },
   {
     title: "财务主动读取教学质量云端数据",
