@@ -241,6 +241,7 @@
       let voiceRecordingChunks = [];
       let voiceStartFallbackTimer = null;
       let latestResult = null;
+      let latestBatchResults = [];
       let editingDraftId = "";
 
       function escapeHtml(value) {
@@ -650,9 +651,9 @@
         return sections.map(([label, value]) => `${label}：\n${Array.isArray(value) ? value.join("\n") : value}`).join("\n\n");
       }
 
-      function editableResultTextarea(field, value, label) {
+      function editableResultTextarea(field, value, label, extraAttributes = "") {
         return `
-          <textarea class="result-edit${completionClass(value)}" data-result-field="${escapeHtml(field)}" aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
+          <textarea class="result-edit${completionClass(value)}" data-result-field="${escapeHtml(field)}" ${extraAttributes} aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
           <div class="result-hint">可直接修改，修改后再保存草稿、复制或归档。</div>
           ${completionWarningHtml(value)}
         `;
@@ -668,6 +669,22 @@
             const field = textarea.dataset.resultField;
             const previousValue = textarea.dataset.previousValue || "";
             const nextValue = textarea.value;
+            if (textarea.dataset.batchResultIndex !== undefined) {
+              const batchIndex = Number(textarea.dataset.batchResultIndex);
+              const batchResult = latestBatchResults[batchIndex];
+              if (batchResult) {
+                batchResult[field] = nextValue;
+                if (field === "parentMessage" && isClassFeedbackMode()) {
+                  if (!batchResult.polishedText || batchResult.polishedText === previousValue) {
+                    batchResult.polishedText = nextValue;
+                  }
+                }
+              }
+              textarea.dataset.previousValue = nextValue;
+              updateCompletionWarning(textarea);
+              autoGrowTextarea(textarea);
+              return;
+            }
             latestResult[field] = nextValue;
             if (field === "parentMessage" && isClassFeedbackMode()) {
               if (!latestResult.polishedText || latestResult.polishedText === previousValue) {
@@ -885,13 +902,55 @@
         };
       }
 
+      function buildBatchFeedbackResults(result) {
+        if (!result || !isClassFeedbackMode()) return [];
+        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
+        if (names.length < 2) return [];
+        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || names[0];
+        const sourceText = byId("aiInputText")?.value?.trim() || "";
+        const baseText = result.parentMessage || result.polishedText || resultToText(result);
+        return names.map((name) => {
+          const meta = feedbackMeta(name, sourceText, {
+            lessonSeason: result.lessonSeason || "",
+            lessonNumber: result.lessonNumber || ""
+          });
+          const text = formatClassFeedbackText(replaceFeedbackStudentName(baseText, sourceName, name), name);
+          return {
+            ...result,
+            title: `${name}｜课堂反馈`,
+            summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
+            parentMessage: text,
+            polishedText: text,
+            target: name,
+            studentName: name,
+            lessonSeason: meta.lessonSeason,
+            lessonNumber: meta.lessonNumber
+          };
+        });
+      }
+
       function renderResult(result) {
         result = ensureClassFeedbackTemplate(result);
         latestResult = result;
         const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
         const tags = Array.isArray(result.quickTags) ? result.quickTags : [];
         const classFeedback = isClassFeedbackMode();
+        latestBatchResults = classFeedback ? buildBatchFeedbackResults(result) : [];
         const showPolishedText = !classFeedback && result.polishedText && result.polishedText !== result.parentMessage;
+        if (latestBatchResults.length) {
+          byId("aiResultBox").innerHTML = `
+            <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>系统已按关联对象里的学生姓名拆成独立反馈。每一份都可以直接修改，点“保存草稿”会保存全部草稿；归档时请逐个打开草稿精修后归档学生服务。</p></div>
+            ${latestBatchResults.map((item, index) => `
+              <div class="result-item">
+                <strong>${escapeHtml(item.title || `第 ${index + 1} 份课堂反馈`)}</strong>
+                ${editableResultTextarea("parentMessage", item.parentMessage, item.title || "完整课堂反馈", `data-batch-result-index="${index}"`)}
+              </div>
+            `).join("")}
+          `;
+          syncEditableResultFields();
+          updateActionButtons();
+          return;
+        }
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
           ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版")}</div>` : ""}
@@ -1023,6 +1082,7 @@
 
       function renderAiFailure(message) {
         latestResult = null;
+        latestBatchResults = [];
         byId("aiResultBox").innerHTML = `
           <div class="result-item">
             <strong>AI 调用未成功</strong>
@@ -1092,6 +1152,10 @@
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
+        if (latestBatchResults.length) {
+          saveBatchDrafts();
+          return;
+        }
         const currentMode = byId("aiModeInput").value;
         const currentTarget = byId("aiTargetInput").value.trim();
         const currentTitle = draftHistoryTitle({
@@ -1156,9 +1220,9 @@
         const sourceName = cleanFeedbackStudentName(studentNameFromTarget());
         const now = new Date().toISOString();
         const baseText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
-        const rows = names.map((name, index) => {
-          const text = replaceFeedbackStudentName(baseText, sourceName || names[0], name);
-          const result = {
+        const batchResults = latestBatchResults.length ? latestBatchResults : names.map((name) => {
+          const text = formatClassFeedbackText(replaceFeedbackStudentName(baseText, sourceName || names[0], name), name);
+          return {
             ...latestResult,
             title: `${name}｜课堂反馈`,
             parentMessage: text,
@@ -1166,6 +1230,10 @@
             target: name,
             studentName: name
           };
+        });
+        const rows = batchResults.map((result, index) => {
+          const text = result.parentMessage || result.polishedText || "";
+          const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
           return {
             id: `ai-batch-${Date.now()}-${index}`,
             title: feedbackHistoryTitle({ mode: "classFeedback", target: name, result }, text),
@@ -1182,7 +1250,7 @@
         writeDrafts([...rows, ...readDrafts()]);
         setEditingDraft("");
         renderDrafts();
-        byId("aiMessage").textContent = `已为 ${names.length} 个学生批量保存课堂反馈草稿。请在草稿库逐个打开精修后再归档。`;
+        byId("aiMessage").textContent = `已为 ${rows.length} 个学生批量保存课堂反馈草稿。请在草稿库逐个打开精修后再归档。`;
       }
 
       async function saveToSuggestionTask() {
@@ -1960,11 +2028,15 @@
       byId("aiClearButton").addEventListener("click", () => {
         byId("aiInputText").value = "";
         latestResult = null;
+        latestBatchResults = [];
         setEditingDraft("");
         byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
       });
       byId("copyResultButton").addEventListener("click", async () => {
-        await navigator.clipboard?.writeText(resultToText(latestResult));
+        const text = latestBatchResults.length
+          ? latestBatchResults.map((item) => item.parentMessage || item.polishedText || "").filter(Boolean).join("\n\n---\n\n")
+          : resultToText(latestResult);
+        await navigator.clipboard?.writeText(text);
         byId("aiMessage").textContent = "已复制整理结果。";
       });
       byId("aiDraftList")?.addEventListener("click", async (event) => {
