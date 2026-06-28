@@ -427,7 +427,7 @@
         <div class="section-head">
           <div>
             <h2>课堂反馈时间轴</h2>
-            <p>AI 助手归档后的课堂反馈集中查看。</p>
+            <p>课堂反馈AI助手归档后的课堂反馈集中查看。</p>
           </div>
           <span class="status-chip">按账号过滤</span>
         </div>
@@ -1997,7 +1997,7 @@
             <div class="my-service-card"><span>本月点名课次</span><strong>${monthSessions.length}</strong><p>${escapeHtml(name)}相关课程</p></div>
             <div class="my-service-card"><span>本月有效到课</span><strong>${presentCount}</strong><p>含出门测修正到课</p></div>
             <div class="my-service-card"><span>待追踪学生</span><strong>${followups.length}</strong><p>缺席、请假、待核对</p></div>
-            <div class="my-service-card"><span>课堂反馈归档</span><strong>${feedbackCount}</strong><p>AI 助手已归档反馈</p></div>
+            <div class="my-service-card"><span>课堂反馈归档</span><strong>${feedbackCount}</strong><p>课堂反馈AI助手已归档反馈</p></div>
           `;
           myServiceList.innerHTML = latestSessions.length ? latestSessions.map((session) => {
             const unresolved = (session.rows || []).filter(needsFollowup).length;
@@ -2503,7 +2503,7 @@
                 <td><button class="button secondary" type="button" data-copy-feedback="${index}">复制</button></td>
               </tr>
             `;
-          }).join("") : `<tr><td colspan="5">暂无可查看的课堂反馈。老师在 AI 助手生成并归档后，会自动进入这里。</td></tr>`;
+          }).join("") : `<tr><td colspan="5">暂无可查看的课堂反馈。老师在课堂反馈AI助手生成并归档后，会自动进入这里。</td></tr>`;
           if (message) {
             const total = rows.filter(isClassFeedback).filter(belongsToCurrentUser).length;
             localStorage.setItem("jrc-my-feedback-visible-count", String(list.length));

@@ -48,8 +48,8 @@ const JRC_DATA_CONTRACTS = {
     keyFields: ["date", "teacherName", "studentName", "className", "attendanceStatus", "exitScore", "followupStatus"]
   },
   aiAssistant: {
-    owner: "AI 助手",
-    feeds: ["学生服务系统", "招生管理系统", "教研与课程产品系统", "财务系统", "建议与任务协同系统"],
+    owner: "课堂反馈AI助手",
+    feeds: ["学生服务系统"],
     keyFields: ["mode", "target", "studentName", "teacherName", "createdBy", "archiveTarget", "createdAt"]
   },
   siteFeedback: {
@@ -127,7 +127,7 @@ const JRC_DATA_LINK_RULES = [
   },
   {
     id: "ai-feedback-to-student-service",
-    from: "AI 助手",
+    from: "课堂反馈AI助手",
     to: "学生服务系统",
     rule: "老师语音或文字课堂反馈经 AI 整理后，必须由老师确认归档，再进入学生服务系统，供学管查看、复制和复盘。",
     status: "foundation"
@@ -452,7 +452,7 @@ const JRC_GRANULAR_ACTIONS = [
   ["reset", "清空"]
 ];
 const JRC_PERMISSION_OPTIONS = [
-  ["ai.access", "AI 助手进入"],
+  ["ai.access", "课堂反馈AI助手进入"],
   ["paike.access", "排课查看"],
   ["paike.edit", "排课修改"],
   ["knowledge.access", "学管知识库进入"],

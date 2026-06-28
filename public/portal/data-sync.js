@@ -13,7 +13,7 @@
     { key: "advice-system-stage-prototype", label: "招生系统", shape: "admissions" },
     { key: "jrc-suggestion-management-v2", label: "建议系统", shape: "array" },
     { key: "jrc-site-feedback-v1", label: "全站反馈问题", shape: "array" },
-    { key: "jrc-ai-assistant-drafts-v1", label: "AI助手·课堂反馈草稿", shape: "array" },
+    { key: "jrc-ai-assistant-drafts-v1", label: "课堂反馈AI助手·课堂反馈草稿", shape: "array" },
     { key: "jrc-finance-ledger-v1", label: "财务系统", shape: "finance" },
     { key: "jrc-teaching-quality-system-v2-demo", label: "教学质量", shape: "object" },
     { key: "jrc-student-service-v2", label: "学生服务", shape: "array" },

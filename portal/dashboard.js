@@ -79,11 +79,11 @@
     },
     {
       key: "ai",
-      system: "AI 助手",
+      system: "课堂反馈AI助手",
       owner: "李舒",
       ownerUsername: "lishu",
       href: "./ai-assistant.html",
-      guide: "使用逻辑：文字/语音输入 → 选择课堂反馈、招生跟进、任务说明等模式 → AI 整理 → 老师确认 → 归档学生服务或转成任务。\n试用重点：重点试课堂反馈模板、草稿库 50 条、已归档反馈查看、复制家长文案、失败提示是否清楚。\n联动重点：AI 不是直接替老师发消息，而是把老师口述整理成可编辑草稿，再归档到学生服务。"
+      guide: "使用逻辑：老师文字/语音输入课堂情况 → 选择学生和课次 → AI 整理成课堂反馈草稿 → 老师精修确认 → 归档学生服务。\n试用重点：重点试课堂反馈模板、多学生拆分、草稿库 50 条、已归档反馈查看、复制家长文案、串名拦截和失败提示是否清楚。\n联动重点：课堂反馈AI助手不是直接替老师发消息，而是把老师口述整理成可编辑草稿，再归档到学生服务。"
     },
     {
       key: "teaching-quality",
@@ -1332,7 +1332,7 @@
     const profileText = [role, employee?.subject, employee?.scope].filter(Boolean).join(" ");
     if (isAdminLike()) {
       return [
-        ["AI课堂反馈", "快速整理课堂反馈和工作记录", "./ai-assistant.html", "ai.access"],
+        ["课堂反馈AI", "快速整理课堂反馈草稿", "./ai-assistant.html", "ai.access"],
         ["反馈整改", "看待复核、仍有问题和本轮待处理", "./trial-feedback.html", "suggestions.access"],
         ["财务月结", "按老师工资单核对月结", "./finance.html", "finance.access"],
         ["学生服务", "点名、课消、反馈归档", "./student-service.html", "studentService.access"]
@@ -1343,27 +1343,27 @@
         ["老师工资单", "按月份和老师核对本月结算", "./finance.html", "finance.access"],
         ["只看待对账", "快速进入财务待核明细", "./finance.html#financeTeacherDetailSection", "finance.access"],
         ["我的反馈", "复核自己提出的问题", "./trial-feedback.html", "suggestions.access"],
-        ["AI财务核对", "把口述问题整理成核对草稿", "./ai-assistant.html", "ai.access"]
+        ["课堂反馈AI", "查看课堂反馈草稿和归档", "./ai-assistant.html", "ai.access"]
       ];
     }
     if (role.includes("学管")) {
       return [
         ["学生服务", "点名、缺勤、家长沟通", "./student-service.html", "studentService.access"],
         ["招生跟进", "线索、试听、报名交接", "/jrcedu/advice-system/index.html", "admissions.access"],
-        ["AI沟通草稿", "整理家长沟通和课堂反馈", "./ai-assistant.html", "ai.access"],
+        ["课堂反馈AI", "整理老师课堂反馈草稿", "./ai-assistant.html", "ai.access"],
         ["我的反馈", "查看问题处理进展", "./trial-feedback.html", "suggestions.access"]
       ];
     }
     if (profileText.includes("授课") || profileText.includes("教师") || profileText.includes("老师")) {
       return [
-        ["AI课堂反馈", "下课后快速整理家长反馈", "./ai-assistant.html", "ai.access"],
+        ["课堂反馈AI", "下课后快速整理家长反馈", "./ai-assistant.html", "ai.access"],
         ["我的课表", "查看排课和上课安排", "./paike.html", "paike.access"],
         ["学生服务", "点名、出门测、历史反馈", "./student-service.html", "studentService.access"],
         ["教研资料", "查课件、讲义和授课大纲", "./curriculum-products.html", "curriculum.access"]
       ];
     }
     return [
-      ["AI助手", "整理记录和工作内容", "./ai-assistant.html", "ai.access"],
+      ["课堂反馈AI", "整理课堂反馈草稿", "./ai-assistant.html", "ai.access"],
       ["我的任务", "查看建议任务和反馈复核", "./suggestions.html", "suggestions.access"],
       ["学生服务", "查看学生与家长服务", "./student-service.html", "studentService.access"],
       ["排课系统", "查看课程安排", "./paike.html", "paike.access"]
@@ -2000,10 +2000,10 @@
     if (aiClassFeedbackDrafts.length && !aiArchivedRows.length) {
       priorityActions.push({
         owner: "李舒",
-        system: "AI 助手",
+        system: "课堂反馈AI助手",
         text: "AI 课堂反馈已有草稿但还没有归档到学生服务，提醒老师整理后点“归档学生服务”。",
         href: "./ai-assistant.html",
-        actionText: "打开 AI 助手"
+        actionText: "打开课堂反馈AI"
       });
     }
     if (openFeedback.length) {
@@ -2094,7 +2094,7 @@
           ? `AI课堂反馈草稿 ${aiClassFeedbackDrafts.length} 条；学生服务已归档 ${aiArchivedRows.length} 条。老师整理后要点“归档学生服务”。`
           : "还没有检测到 AI 课堂反馈草稿；老师开始用 AI 后，这里会检查是否归档到学生服务。",
         "./ai-assistant.html",
-        "看AI助手"
+        "看课堂反馈AI"
       ),
       linkHealthCard(
         "反馈问题 → 任务闭环",

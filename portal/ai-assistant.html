@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>匠人程工作台｜我的 AI 助手</title>
+    <title>匠人程工作台｜课堂反馈AI助手</title>
     <style>
       :root {
         --panel: rgba(255, 255, 255, 0.96);
@@ -109,7 +109,7 @@
       <section class="topbar">
         <div>
           <div class="brand-name">匠人程工作台</div>
-          <div class="brand-subtitle">AI · 我的 AI 助手</div>
+          <div class="brand-subtitle">AI · 课堂反馈AI助手</div>
         </div>
         <nav>
           <a class="nav-link" href="./index.html">返回工作台</a>
@@ -118,15 +118,15 @@
 
       <section class="hero">
         <article class="card">
-          <p class="eyebrow">AI Assistant</p>
-          <h1>我的 AI 助手</h1>
-          <p class="hero-text">语音或文字输入，整理成课堂反馈、跟进记录、资料说明和任务草稿。</p>
+          <p class="eyebrow">Class Feedback AI</p>
+          <h1>课堂反馈AI助手</h1>
+          <p class="hero-text">老师语音或文字输入课堂情况，系统整理成家长可读的课堂反馈草稿。</p>
           <div class="tag-row">
             <span class="tag">课堂反馈</span>
-            <span class="tag">招生跟进</span>
-            <span class="tag">学管沟通</span>
-            <span class="tag">资料归档</span>
-            <span class="tag">财务核对</span>
+            <span class="tag">语音听写</span>
+            <span class="tag">多学生拆分</span>
+            <span class="tag">草稿精修</span>
+            <span class="tag">归档学生服务</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
@@ -141,24 +141,9 @@
       <section class="grid" style="margin-top:18px;">
         <article class="card">
           <p class="eyebrow">输入</p>
-          <h2>语音或文字记录</h2>
+          <h2>课堂反馈记录</h2>
+          <input id="aiModeInput" type="hidden" value="classFeedback">
           <div class="form-grid">
-            <label class="field">
-              整理类型
-              <select id="aiModeInput">
-                <option value="classFeedback">课堂反馈（发家长）</option>
-                <option value="feedback">课后反馈</option>
-                <option value="parentCommunication">学管沟通</option>
-                <option value="attendanceFollowup">点名缺勤跟进</option>
-                <option value="admissionsFollowup">招生跟进</option>
-                <option value="curriculumArchive">课件资料归档</option>
-                <option value="financeCheck">财务核对</option>
-                <option value="todo">待办事项</option>
-                <option value="suggestion">员工建议</option>
-                <option value="task">任务说明</option>
-                <option value="help">工作台使用问答</option>
-              </select>
-            </label>
             <label class="field">
               关联对象（可同时填多个名字）
               <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称；多个学生可用空格、顿号、逗号或换行分隔">
@@ -209,10 +194,6 @@
               <button class="button" id="saveDraftButton" type="button">保存草稿</button>
               <button class="button secondary" id="saveBatchDraftsButton" type="button" hidden>批量保存多学生草稿</button>
               <button class="button" id="saveStudentServiceButton" type="button">归档学生服务</button>
-              <button class="button" id="saveAdmissionsButton" type="button">归档招生系统</button>
-              <button class="button" id="saveCurriculumButton" type="button">归档教研课程</button>
-              <button class="button" id="saveFinanceReviewButton" type="button">送财务核对</button>
-              <button class="button warn" id="saveTaskButton" type="button">转成建议/任务</button>
             </div>
           </div>
           <div class="result-panel">
@@ -745,6 +726,11 @@
         return row?.title || row?.modeLabel || "AI 草稿";
       }
 
+      function isClassFeedbackDraftRow(row) {
+        const text = draftDisplayText(row);
+        return row?.mode === "classFeedback" || /课程反馈|小课第|上课状态：|本次课上课内容：/.test(text);
+      }
+
       function resultFromDraftText(row, text) {
         const result = row?.result && typeof row.result === "object" ? { ...row.result } : {};
         const value = String(text || "").trim();
@@ -887,6 +873,7 @@
         const keyword = byId("draftSearchInput")?.value.trim().toLowerCase() || "";
         const statusFilter = byId("draftStatusFilter")?.value || "";
         rows = visibleDraftRows(rows)
+          .filter((row) => isClassFeedbackDraftRow(row))
           .filter((row) => {
             const text = draftDisplayText(row);
             const haystack = [draftHistoryTitle(row), row.modeLabel, row.target, row.createdBy, text].join(" ").toLowerCase();
@@ -1001,7 +988,7 @@
               </div>
             </details>
           </div>
-        `).join("") : `<div class="draft-item"><strong>暂无归档课堂反馈</strong><span>老师在 AI 助手生成课堂反馈并归档学生服务后，会显示在这里。</span></div>`;
+        `).join("") : `<div class="draft-item"><strong>暂无归档课堂反馈</strong><span>老师在课堂反馈AI助手生成课堂反馈并归档学生服务后，会显示在这里。</span></div>`;
       }
 
       async function hydrateArchivedFeedbacks() {
@@ -1939,7 +1926,7 @@
           detail: { rows: [serviceRow], source: "aiAssistant", updated: updatedExisting }
         }));
         window.JRC_BUSINESS_MODULES?.recordLinkEvent?.({
-          source: "AI 助手",
+          source: "课堂反馈AI助手",
           target: "学生服务系统",
           action: updatedExisting ? "课堂反馈更新归档" : "课堂反馈归档",
           count: 1,
@@ -2577,7 +2564,7 @@
           byId("aiMessage").textContent = deleted ? "已删除这条草稿。" : "草稿删除失败，请刷新后重试。";
           return;
         }
-        byId("aiModeInput").value = row.mode || "classFeedback";
+        byId("aiModeInput").value = "classFeedback";
         byId("aiTargetInput").value = row.target || "";
         if (row.sourceText) byId("aiInputText").value = row.sourceText;
         latestResult = resultFromDraftText(row, text);
@@ -2640,7 +2627,7 @@
       byId("saveAdmissionsButton")?.addEventListener("click", saveToAdmissionsSystem);
       byId("saveCurriculumButton")?.addEventListener("click", saveToCurriculumSystem);
       byId("saveFinanceReviewButton")?.addEventListener("click", saveToFinanceReview);
-      byId("saveTaskButton").addEventListener("click", saveToSuggestionTask);
+      byId("saveTaskButton")?.addEventListener("click", saveToSuggestionTask);
       byId("saveStudentServiceButton")?.addEventListener("click", saveToStudentService);
 
       setupVoice();
