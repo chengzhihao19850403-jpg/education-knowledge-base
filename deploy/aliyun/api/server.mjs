@@ -1513,6 +1513,7 @@ function buildAiUserPrompt(body) {
         "structuredData 必须包含 sharedLesson 和 students：",
         "sharedLesson.courseContentItems 为公共上课内容数组；sharedLesson.knowledgePointItems 为公共知识点要点数组；sharedLesson.homework 为公共作业。",
         "students 为数组，每个元素包含 name, stateText, masteryItems；students 的 name 必须来自同课学生名单。",
+        "sharedLesson.courseContentItems、sharedLesson.knowledgePointItems、students[].masteryItems 都必须是字符串数组，不要返回对象数组，避免页面显示 [object Object]。",
         "不要在某个学生的 stateText 或 masteryItems 里写其他学生姓名；如果原文没有某个学生的个人表现，就写该学生本节课个人表现待老师补充。"
       ].join("\n") : "",
       "某某的家长您好，这是春季小课第__次课程反馈：",

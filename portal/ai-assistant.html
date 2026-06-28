@@ -1491,7 +1491,15 @@
       }
 
       function arrayFromStructuredValue(value) {
-        if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+        const textFromObject = (item) => {
+          if (!item || typeof item !== "object") return String(item || "").trim();
+          const entries = Object.entries(item)
+            .filter(([, value]) => value !== undefined && value !== null && String(value).trim())
+            .map(([key, value]) => `${key}：${Array.isArray(value) ? value.join("、") : String(value).trim()}`);
+          return entries.join("；");
+        };
+        if (Array.isArray(value)) return value.map(textFromObject).filter(Boolean);
+        if (value && typeof value === "object") return [textFromObject(value)].filter(Boolean);
         return String(value || "")
           .split(/\n+|[；;]/)
           .map((item) => cleanExtractedText(item.replace(/^\s*\d+[.、]\s*/, "")))
