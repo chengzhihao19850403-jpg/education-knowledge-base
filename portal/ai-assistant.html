@@ -50,6 +50,15 @@
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 190px; padding: 10px 12px; resize: vertical; line-height: 1.65; }
+      .target-token-panel { margin-top: 6px; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(13,148,136,0.06); }
+      .target-token-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .target-token { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(13,148,136,0.18); color: var(--brand-dark); font-size: 12px; font-weight: 800; }
+      .target-token button { width: 18px; height: 18px; border: 0; border-radius: 999px; background: rgba(13,148,136,0.12); color: var(--brand-dark); cursor: pointer; line-height: 1; }
+      .target-token-hint { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .split-preview { margin-top: 10px; display: grid; gap: 8px; }
+      .split-preview-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.74); }
+      .split-preview-card strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 13px; }
+      .split-preview-card p { font-size: 12px; line-height: 1.6; }
       .span-2 { grid-column: 1 / -1; }
       .result-panel { padding: 18px; margin-top: 16px; }
       .result-grid { display: grid; gap: 12px; margin-top: 12px; }
@@ -153,6 +162,10 @@
             <label class="field">
               关联对象（可同时填多个名字）
               <input id="aiTargetInput" placeholder="学生姓名 / 班级 / 系统名称；多个学生可用空格、顿号、逗号或换行分隔">
+              <div class="target-token-panel" id="targetTokenPanel" hidden>
+                <div class="target-token-row" id="targetTokenList"></div>
+                <div class="target-token-hint" id="targetTokenHint"></div>
+              </div>
             </label>
             <label class="field" id="feedbackSeasonField">
               课程季节
@@ -172,6 +185,7 @@
               语音转文字 / 原始内容
               <textarea id="aiInputText" placeholder="可以直接打字，也可以点开始语音后说话。"></textarea>
             </label>
+            <div class="span-2 split-preview" id="batchSplitPreview" hidden></div>
           </div>
           <div class="actions">
             <button class="button secondary" id="voiceStartButton" type="button">开始语音/听写</button>
@@ -596,6 +610,91 @@
         return cleanedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
       }
 
+      function crossStudentNameLeaks(text, target, names) {
+        const current = cleanFeedbackStudentName(target);
+        return [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))]
+          .filter((name) => name && name !== current)
+          .filter((name) => textMentionsStudent(text, name));
+      }
+
+      function targetNamesForLeakCheck(target = "") {
+        const fromInput = splitTargetNames(byId("aiTargetInput")?.value || "");
+        const current = cleanFeedbackStudentName(target || studentNameFromTarget());
+        const fromBatch = latestBatchResults.map((row) => cleanFeedbackStudentName(row?.studentName || row?.target)).filter(Boolean);
+        return [...new Set([current, ...fromInput, ...fromBatch].filter(Boolean))];
+      }
+
+      function removeTargetName(name) {
+        const target = cleanFeedbackStudentName(name);
+        if (!target) return;
+        const names = splitTargetNames(byId("aiTargetInput")?.value || "").filter((item) => item !== target);
+        byId("aiTargetInput").value = names.join(" ");
+        latestBatchResults = [];
+        renderTargetTokens();
+        renderBatchSplitPreview();
+        updateActionButtons();
+      }
+
+      function renderTargetTokens() {
+        const input = byId("aiTargetInput");
+        const panel = byId("targetTokenPanel");
+        const list = byId("targetTokenList");
+        const hint = byId("targetTokenHint");
+        if (!input || !panel || !list || !hint) return;
+        const names = splitTargetNames(input.value);
+        const showPanel = isClassFeedbackMode() && names.length > 0;
+        panel.hidden = !showPanel;
+        if (!showPanel) {
+          list.innerHTML = "";
+          hint.textContent = "";
+          return;
+        }
+        list.innerHTML = names.map((name) => `
+          <span class="target-token">${escapeHtml(name)}<button type="button" data-remove-target="${escapeHtml(name)}" aria-label="移除${escapeHtml(name)}">×</button></span>
+        `).join("");
+        hint.textContent = names.length > 1
+          ? `已识别 ${names.length} 个学生，将批量生成 ${names.length} 份独立课堂反馈。`
+          : "已识别 1 个学生。多个学生可用空格、顿号、逗号或换行分隔。";
+      }
+
+      function previewTextSnippet(value) {
+        const text = String(value || "").replace(/\s+/g, " ").trim();
+        return text.length > 140 ? `${text.slice(0, 140)}...` : text;
+      }
+
+      function renderBatchSplitPreview() {
+        const box = byId("batchSplitPreview");
+        if (!box) return;
+        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
+        const rawText = byId("aiInputText")?.value.trim() || "";
+        if (!isClassFeedbackMode() || names.length < 2 || !rawText) {
+          box.hidden = true;
+          box.innerHTML = "";
+          return;
+        }
+        const units = splitStudentFeedbackUnits(rawText, names);
+        const commonParts = units.filter((unit) => !mentionedStudentNames(unit, names).length);
+        box.hidden = false;
+        box.innerHTML = `
+          <div class="split-preview-card">
+            <strong>批量拆分预览</strong>
+            <p>系统会把公共上课内容和作业放进每个学生草稿；带学生姓名的表现描述只进入对应学生草稿。</p>
+          </div>
+          ${names.map((name) => {
+            const personal = sourceTextForStudent(name, rawText, names);
+            const leaks = crossStudentNameLeaks(personal, name, names);
+            return `
+              <div class="split-preview-card">
+                <strong>${escapeHtml(name)}</strong>
+                <p>${escapeHtml(previewTextSnippet(personal) || "暂未识别到个人内容，将使用公共内容生成。")}</p>
+                ${leaks.length ? `<p style="color:var(--amber);font-weight:800;">需检查：仍包含 ${escapeHtml(leaks.join("、"))}</p>` : ""}
+              </div>
+            `;
+          }).join("")}
+          ${commonParts.length ? `<div class="split-preview-card"><strong>公共内容</strong><p>${escapeHtml(previewTextSnippet(commonParts.join("。")))}</p></div>` : ""}
+        `;
+      }
+
       function targetHasMultipleStudents() {
         return isClassFeedbackMode() && splitTargetNames(byId("aiTargetInput")?.value || "").length > 1;
       }
@@ -691,12 +790,20 @@
         return [...new Set(items)];
       }
 
-      function completionClass(value) {
-        return missingCompletionItems(value).length ? " needs-completion" : "";
+      function feedbackCrossNameItems(value, target = "") {
+        const text = String(value || "");
+        const names = targetNamesForLeakCheck(target);
+        if (names.length < 2) return [];
+        const leaks = crossStudentNameLeaks(text, target || studentNameFromTarget(), names);
+        return leaks.map((name) => `正文里出现其他学生姓名：${name}`);
       }
 
-      function completionWarningHtml(value) {
-        const items = missingCompletionItems(value);
+      function completionClass(value, target = "") {
+        return missingCompletionItems(value).length || feedbackCrossNameItems(value, target).length ? " needs-completion" : "";
+      }
+
+      function completionWarningHtml(value, target = "") {
+        const items = [...missingCompletionItems(value), ...feedbackCrossNameItems(value, target)];
         return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? completionWarningContent(items) : ""}</div>`;
       }
 
@@ -707,7 +814,8 @@
 
       function updateCompletionWarning(textarea) {
         if (!textarea) return [];
-        const items = missingCompletionItems(textarea.value);
+        const target = textarea.dataset.feedbackTarget || byId("aiTargetInput")?.value || "";
+        const items = [...missingCompletionItems(textarea.value), ...feedbackCrossNameItems(textarea.value, target)];
         textarea.classList.toggle("needs-completion", items.length > 0);
         const warning = textarea.parentElement?.querySelector("[data-completion-warning]");
         if (warning) {
@@ -796,8 +904,8 @@
             ${draftArchiveBadge(row)}
             <details>
               <summary>查看草稿内容</summary>
-              <textarea class="result-edit draft-edit${completionClass(draftDisplayText(row))}" data-draft-editor="${escapeHtml(row.id || "")}">${escapeHtml(draftDisplayText(row) || "")}</textarea>
-              ${completionWarningHtml(draftDisplayText(row))}
+              <textarea class="result-edit draft-edit${completionClass(draftDisplayText(row), row.target || row.result?.studentName || row.result?.target || "")}" data-draft-editor="${escapeHtml(row.id || "")}" data-feedback-target="${escapeHtml(row.target || row.result?.studentName || row.result?.target || "")}">${escapeHtml(draftDisplayText(row) || "")}</textarea>
+              ${completionWarningHtml(draftDisplayText(row), row.target || row.result?.studentName || row.result?.target || "")}
               <div class="history-actions">
                 <button class="button" type="button" data-draft-action="save-inline" data-draft-id="${escapeHtml(row.id || "")}">保存草稿内容</button>
                 <button class="button secondary" type="button" data-draft-action="copy" data-draft-id="${escapeHtml(row.id || "")}">复制草稿</button>
@@ -944,11 +1052,11 @@
         return sections.map(([label, value]) => `${label}：\n${Array.isArray(value) ? value.join("\n") : value}`).join("\n\n");
       }
 
-      function editableResultTextarea(field, value, label, extraAttributes = "") {
+      function editableResultTextarea(field, value, label, extraAttributes = "", feedbackTarget = "") {
         return `
-          <textarea class="result-edit${completionClass(value)}" data-result-field="${escapeHtml(field)}" ${extraAttributes} aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
+          <textarea class="result-edit${completionClass(value, feedbackTarget)}" data-result-field="${escapeHtml(field)}" ${feedbackTarget ? `data-feedback-target="${escapeHtml(feedbackTarget)}"` : ""} ${extraAttributes} aria-label="${escapeHtml(label || "整理结果")}">${escapeHtml(value || "")}</textarea>
           <div class="result-hint">可直接修改，修改后再保存草稿、复制或归档。</div>
-          ${completionWarningHtml(value)}
+          ${completionWarningHtml(value, feedbackTarget)}
         `;
       }
 
@@ -1294,7 +1402,7 @@
             ${latestBatchResults.map((item, index) => `
               <div class="result-item">
                 <strong>${escapeHtml(item.title || `第 ${index + 1} 份课堂反馈`)}</strong>
-                ${editableResultTextarea("parentMessage", item.parentMessage, item.title || "完整课堂反馈", `data-batch-result-index="${index}"`)}
+                ${editableResultTextarea("parentMessage", item.parentMessage, item.title || "完整课堂反馈", `data-batch-result-index="${index}"`, item.studentName || item.target || "")}
               </div>
             `).join("")}
           `;
@@ -1304,7 +1412,7 @@
         }
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
-          ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版")}</div>` : ""}
+          ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版", "", result.studentName || result.target || byId("aiTargetInput")?.value || "")}</div>` : ""}
           ${showPolishedText ? `<div class="result-item"><strong>整理正文</strong>${editableResultTextarea("polishedText", result.polishedText, "整理正文")}</div>` : ""}
           ${!classFeedback && todos.length ? `<div class="result-item"><strong>待办</strong><ul>${todos.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
           ${!classFeedback && tags.length ? `<div class="result-item"><strong>标签</strong><p>${tags.map((item) => escapeHtml(item)).join("、")}</p></div>` : ""}
@@ -1565,11 +1673,12 @@
         }
         const names = splitTargetNames(byId("aiTargetInput")?.value || "");
         if (names.length < 2) {
-          byId("aiMessage").textContent = "关联对象里写多个学生姓名后，才能批量保存草稿。";
+          byId("aiMessage").textContent = "关联对象里写多个学生姓名后，才能批量保存草稿。名字之间可用空格、顿号、逗号或换行分隔。";
           return;
         }
         const now = new Date().toISOString();
         const sourceText = byId("aiInputText").value.trim();
+        const leakWarnings = [];
         const batchResults = latestBatchResults.length
           ? latestBatchResults.map((result, index) => {
             const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
@@ -1578,6 +1687,10 @@
               name,
               names
             );
+            const leaks = crossStudentNameLeaks(text, name, names);
+            if (leaks.length) {
+              leakWarnings.push(`${name}：${leaks.join("、")}`);
+            }
             return {
               ...result,
               title: `${name}｜课堂反馈`,
@@ -1588,6 +1701,11 @@
             };
           })
           : buildBatchFeedbackResults(latestResult);
+        if (leakWarnings.length) {
+          byId("aiMessage").textContent = `批量草稿仍有串名：${leakWarnings.join("；")}。请先在整理结果里删除其他学生姓名和对应内容后再保存。`;
+          document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
+          return;
+        }
         const rows = batchResults.map((result, index) => {
           const text = result.parentMessage || result.polishedText || "";
           const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
@@ -1756,6 +1874,12 @@
         const missingItems = ["feedback", "classFeedback"].includes(mode) ? missingCompletionItems(feedbackText) : [];
         if (missingItems.length) {
           byId("aiMessage").textContent = `还有未补完整内容：${missingItems.join("、")}。请在右侧整理结果里补齐后再归档。`;
+          document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
+          return;
+        }
+        const crossNameItems = mode === "classFeedback" ? feedbackCrossNameItems(feedbackText, student) : [];
+        if (crossNameItems.length) {
+          byId("aiMessage").textContent = `${crossNameItems.join("、")}。请先删除其他学生姓名和对应内容后再归档。`;
           document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
           return;
         }
@@ -2112,6 +2236,8 @@
         if (batchButton) batchButton.hidden = !targetHasMultipleStudents();
         byId("feedbackSeasonField").hidden = mode !== "classFeedback";
         byId("feedbackLessonNumberField").hidden = mode !== "classFeedback";
+        renderTargetTokens();
+        renderBatchSplitPreview();
       }
 
       function setupVoice() {
@@ -2383,14 +2509,28 @@
         focusVoiceInput();
       });
       byId("aiModeInput").addEventListener("change", updateActionButtons);
-      byId("aiTargetInput")?.addEventListener("input", updateActionButtons);
+      byId("aiTargetInput")?.addEventListener("input", () => {
+        latestBatchResults = [];
+        updateActionButtons();
+      });
+      byId("aiInputText")?.addEventListener("input", () => {
+        latestBatchResults = [];
+        renderBatchSplitPreview();
+      });
+      byId("targetTokenList")?.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-remove-target]");
+        if (!button) return;
+        removeTargetName(button.dataset.removeTarget);
+      });
       byId("aiRunButton").addEventListener("click", runAi);
       byId("aiClearButton").addEventListener("click", () => {
         byId("aiInputText").value = "";
+        byId("aiTargetInput").value = "";
         latestResult = null;
         latestBatchResults = [];
         setEditingDraft("");
         byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
+        updateActionButtons();
       });
       byId("copyResultButton").addEventListener("click", async () => {
         const text = latestBatchResults.length
@@ -2444,6 +2584,8 @@
         setEditingDraft(button.dataset.draftId);
         if (latestResult) renderResult(latestResult);
         updateActionButtons();
+        renderTargetTokens();
+        renderBatchSplitPreview();
         byId("aiMessage").textContent = "已在右侧整理结果打开草稿，修改后点“保存草稿修改”或直接归档。";
       });
       byId("aiDraftList")?.addEventListener("input", (event) => {
@@ -2485,6 +2627,8 @@
         };
         renderResult(latestResult);
         updateActionButtons();
+        renderTargetTokens();
+        renderBatchSplitPreview();
         byId("aiMessage").textContent = "已带入已归档反馈，可以参考上一节内容继续整理。";
       });
       byId("archivedFeedbackSearchInput")?.addEventListener("input", () => renderArchivedFeedbacks());
