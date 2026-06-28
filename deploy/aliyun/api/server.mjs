@@ -1629,14 +1629,22 @@ function ensureClassFeedbackResult(result, body) {
   const rawAiText = String(result?._rawAiText || result?.polishedText || result?.parentMessage || "");
   const parentMessage = String(result?.parentMessage || rawAiText || "");
   const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("本次课上课内容") && parentMessage.includes("知识点要点") && parentMessage.includes("学习掌握情况") && parentMessage.includes("课后作业");
-  if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
+  if (parentMessage && !looksLikeJsonText(parentMessage)) {
     const formatted = formatClassFeedbackText(parentMessage, body?.target || "");
+    const noteParts = [
+      result?.internalNote,
+      hasTemplate
+        ? "MiniMax 已主写课堂反馈，系统仅做称呼与段落格式校验。"
+        : "MiniMax 已返回课堂反馈正文，但模板栏目不完整；系统保留模型原文，不再用本地模板覆盖，请老师按黄色提醒补齐后再归档。",
+      rawAiText && rawAiText !== parentMessage ? "MiniMax 原始整理已保留在整理正文中。" : ""
+    ].filter(Boolean);
     return {
       ...result,
       parentMessage: formatted,
       lessonSeason: result?.lessonSeason || body?.lessonSeason || extractFeedbackSeason(body?.text || ""),
       lessonNumber: result?.lessonNumber || body?.lessonNumber || resolveFeedbackLessonNumber(body?.target || "", body?.text || "", body),
-      polishedText: result?.polishedText === parentMessage ? formatted : result?.polishedText
+      polishedText: result?.polishedText === parentMessage || !result?.polishedText ? formatted : result?.polishedText,
+      internalNote: noteParts.join("\n")
     };
   }
   const meta = feedbackMeta(body?.target || "", body?.text || "", body || {});

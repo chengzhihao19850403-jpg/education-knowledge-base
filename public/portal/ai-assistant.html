@@ -1315,9 +1315,16 @@
         const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
         const parentMessage = String(result.parentMessage || "");
         const hasTemplate = hasClassFeedbackTemplate(parentMessage);
-        if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
+        if (parentMessage && !looksLikeJsonText(parentMessage)) {
           const formatted = formatClassFeedbackText(parentMessage, target);
-          return { ...result, parentMessage: formatted, polishedText: formatted };
+          return {
+            ...result,
+            parentMessage: formatted,
+            polishedText: !result.polishedText || result.polishedText === parentMessage ? formatted : result.polishedText,
+            internalNote: result.internalNote || (hasTemplate
+              ? "MiniMax 已主写课堂反馈，系统仅做称呼与段落格式校验。"
+              : "MiniMax 已返回课堂反馈正文，但模板栏目不完整；系统保留模型原文，请老师按黄色提醒补齐后再归档。")
+          };
         }
         const meta = feedbackMeta(target, sourceText, payload);
         const template = buildClassFeedbackTemplate(target, sourceText, meta);
@@ -1329,7 +1336,7 @@
           polishedText: template,
           lessonSeason: meta.lessonSeason,
           lessonNumber: meta.lessonNumber,
-          internalNote: result.internalNote || "模型未完整返回模板，系统已自动套用统一课堂反馈模板。请确认第几次课程、作业名称、具体知识点和下节课计划。"
+          internalNote: result.internalNote || "MiniMax 未返回可用正文时，系统才生成本地兜底草稿。请优先重新点击 AI 整理；若仍失败，再临时使用本草稿并人工确认。"
         };
       }
 
@@ -1338,8 +1345,8 @@
         const studentSourceText = sourceTextForStudent(name, sourceText, names);
         const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || names[0] || name;
         const rawParent = String(result?.parentMessage || "");
-        const reusableParent = names.length < 2 && hasClassFeedbackTemplate(rawParent) && !classFeedbackNeedsRebuild(rawParent)
-          ? replaceFeedbackStudentName(rawParent, sourceName, name)
+        const reusableParent = rawParent && !looksLikeJsonText(rawParent)
+          ? (names.length < 2 ? replaceFeedbackStudentName(rawParent, sourceName, name) : rawParent)
           : "";
         const normalized = ensureClassFeedbackTemplate({
           ...(result || {}),
@@ -1369,6 +1376,52 @@
           lessonSeason: normalized.lessonSeason || meta.lessonSeason,
           lessonNumber: normalized.lessonNumber || meta.lessonNumber
         };
+      }
+
+      async function runBatchClassFeedback(payload, names) {
+        const rows = [];
+        const sourceText = payload.text || "";
+        for (let index = 0; index < names.length; index += 1) {
+          const name = names[index];
+          const studentText = sourceTextForStudent(name, sourceText, names);
+          const meta = feedbackMeta(name, studentText, payload);
+          const studentPayload = {
+            ...payload,
+            target: name,
+            text: studentText,
+            lessonSeason: meta.lessonSeason,
+            lessonNumber: meta.lessonNumber
+          };
+          byId("aiMessage").textContent = `正在生成第 ${index + 1}/${names.length} 份课堂反馈：${name}`;
+          const response = await window.JRC_CLOUD?.aiAssistant?.(studentPayload);
+          if (!response?.ok || !response.data?.result) {
+            const errorMessage = response?.data?.message || response?.data?.error || `MiniMax 没有成功生成 ${name} 的课堂反馈。`;
+            const error = new Error(errorMessage);
+            error.response = response;
+            throw error;
+          }
+          rows.push(cleanClassFeedbackResultForStudent(response.data.result, name, studentText, meta));
+        }
+        latestResult = {
+          title: `批量课堂反馈｜${names.length}人`,
+          summary: `已由 MiniMax 分别生成 ${names.length} 份课堂反馈，请逐份检查后保存草稿。`,
+          parentMessage: rows.map((row) => row.parentMessage || "").filter(Boolean).join("\n\n---\n\n"),
+          polishedText: rows.map((row) => row.polishedText || row.parentMessage || "").filter(Boolean).join("\n\n---\n\n"),
+          todoItems: []
+        };
+        latestBatchResults = rows;
+        byId("aiResultBox").innerHTML = `
+          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>MiniMax 已按学生分别生成，系统只做姓名隔离、格式检查和未补项提醒。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
+          <div class="result-item"><strong>下一步</strong><p>先检查每一份是否有黄色提醒和串名，再点“批量保存多学生草稿”；之后到草稿库逐个精修并归档学生服务。</p></div>
+          ${latestBatchResults.map((item, index) => `
+            <div class="result-item">
+              <strong>${escapeHtml(item.title || `第 ${index + 1} 份课堂反馈`)}</strong>
+              ${editableResultTextarea("parentMessage", item.parentMessage, item.title || "完整课堂反馈", `data-batch-result-index="${index}"`, item.studentName || item.target || "")}
+            </div>
+          `).join("")}
+        `;
+        syncEditableResultFields();
+        updateActionButtons();
       }
 
       function buildBatchFeedbackResults(result) {
@@ -1587,6 +1640,13 @@
         setEditingDraft("");
         byId("aiMessage").textContent = "正在整理...";
         try {
+          const batchNames = payload.mode === "classFeedback" ? splitTargetNames(target) : [];
+          if (batchNames.length > 1) {
+            await runBatchClassFeedback(payload, batchNames);
+            byId("aiConfigNotice").textContent = "AI 接口已接入 MiniMax。";
+            byId("aiMessage").textContent = `已生成 ${batchNames.length} 份课堂反馈，请逐份检查后保存。`;
+            return;
+          }
           const result = await window.JRC_CLOUD?.aiAssistant?.(payload);
           if (result?.ok && result.data?.result) {
             renderResult(ensureClassFeedbackTemplate(result.data.result, payload));
