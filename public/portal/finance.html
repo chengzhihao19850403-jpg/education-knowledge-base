@@ -402,7 +402,7 @@
       }
       .finance-teacher-workbench-stats {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         margin-top: 14px;
       }
@@ -2090,26 +2090,47 @@
         return String(row?.sourceFileName || row?.sourceWorkbook || row?.sourceSheet || "-").trim() || "-";
       }
 
+      function financeReviewStatusMeta(status, options = {}) {
+        const text = String(status || "").trim();
+        const needsReview = Boolean(options.needsReview);
+        if (/离职/.test(text)) {
+          return { label: "可核对", className: "review", note: "离职老师只保留本月排课和结算核对。" };
+        }
+        if (/变化|重核/.test(text)) {
+          return { label: "数据变化需重核", className: "pending", note: "数据更新后需要重新确认。" };
+        }
+        if (/缺产值|待总表|明细已读\/待总表|工资明细已读取/.test(text)) {
+          return { label: "缺产值总表", className: "pending", note: "已有明细，缺原产值总表。" };
+        }
+        if (/已核对|已确认|已支付|已入账|正常|完成/.test(text)) {
+          return { label: "已核对", className: "paid", note: "已确认当前口径。" };
+        }
+        if (needsReview || /待|核|复核|对账|低|异常/.test(text)) {
+          return { label: "待对账", className: "pending", note: "需要和原 Excel、排课或点名记录核一下。" };
+        }
+        if (/可核对|总表已读|总表已读取|已读取/.test(text)) {
+          return { label: "可核对", className: "review", note: "可以按合计优先核对。" };
+        }
+        return { label: "待对账", className: "pending", note: "默认进入待对账，避免漏核。" };
+      }
+
       function reviewStatusText(status) {
-        const text = String(status || "待对账").trim();
-        if (text.includes("待") || text.includes("核")) return text || "待对账";
-        if (text.includes("已")) return text;
-        return text || "待对账";
+        return financeReviewStatusMeta(status).label;
       }
 
       function reviewStatusClass(status, needsReview = false) {
-        const text = String(status || "");
-        if (needsReview || text.includes("待") || text.includes("核") || text.includes("复核")) return "pending";
-        if (text.includes("已") || text.includes("正常") || text.includes("可核对")) return "paid";
-        return "";
+        return financeReviewStatusMeta(status, { needsReview }).className;
       }
 
       function reviewHelpText(status, sourceLabel = "原 Excel") {
-        const text = String(status || "");
-        if (text.includes("待") || text.includes("核") || text.includes("复核")) {
+        const meta = financeReviewStatusMeta(status);
+        const text = String(meta.label || "");
+        if (["待对账", "数据变化需重核"].includes(text)) {
           return `先看本老师合计；不一致时再和${sourceLabel}、排课和点名记录对。`;
         }
-        if (text.includes("已")) return "已进入当前核对口径，后续按月结复核。";
+        if (text === "缺产值总表") return "已有工资明细，等产值总表补齐后再做最终确认。";
+        if (text === "已核对") return "已进入当前核对口径，后续按月结复核。";
+        if (text === "可核对") return "数据已读到，可按合计先核对。";
         return `来源于${sourceLabel}，用于汇总试算。`;
       }
 
@@ -4339,13 +4360,13 @@
           const teacher = teacherNameOf(row);
           const detailRows = (readPreimportBundle().salaryAttendance || []).filter((item) => item.period === currentPeriod && teacherNameOf(item) === teacher);
           const detailAmount = detailRows.reduce((sum, item) => sum + salaryRowAmount(item), 0);
-          const status = row.fromSalaryRowsOnly ? "缺产值总表" : "总表已读";
           const departed = row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacher);
+          const statusMeta = financeReviewStatusMeta(departed ? "离职" : row.fromSalaryRowsOnly ? "缺产值总表" : "可核对");
           return `
             <button class="finance-teacher-card ${teacher === selectedTeacher ? "active" : ""}" type="button" data-finance-teacher-card="${escapeHtml(teacher)}">
               <strong>${escapeHtml(teacher || "-")}</strong>
               <span>${detailRows.length} 条明细｜应发 ${money(detailAmount)}</span>
-              <span>${escapeHtml(departed ? "离职历史" : status)}</span>
+              <span>${escapeHtml(departed ? "离职历史｜可核对" : statusMeta.label)}</span>
             </button>
           `;
         }).join("");
@@ -4364,7 +4385,7 @@
         body.innerHTML = rows.map((row, index) => {
           const teacher = teacherNameOf(row);
           const departed = row.employmentStatus === "departed" || isDepartedFinanceTeacher(teacher);
-          const status = departed ? "离职历史" : row.fromSalaryRowsOnly ? "明细已读/待总表" : "可核对";
+          const statusMeta = financeReviewStatusMeta(departed ? "离职" : row.fromSalaryRowsOnly ? "缺产值总表" : "可核对");
           return `
             <tr data-finance-teacher-row="${escapeHtml(teacher)}">
               <td>${escapeHtml(row["序号"] || index + 1)}</td>
@@ -4377,7 +4398,7 @@
               <td class="money-cell">${row["答疑提成"] == null ? "-" : money(row["答疑提成"])}</td>
               <td class="money-cell">${row["补贴"] == null ? "-" : money(row["补贴"])}</td>
               <td class="money-cell">${row["课时剩余"] == null ? "-" : money(row["课时剩余"])}</td>
-              <td><span class="status-pill ${departed ? "pending" : ""}">${escapeHtml(status)}</span></td>
+              <td><span class="status-pill ${escapeHtml(statusMeta.className)}">${escapeHtml(departed ? "离职历史｜可核对" : statusMeta.label)}</span></td>
             </tr>
           `;
         }).join("");
@@ -4511,11 +4532,22 @@
 
       function teacherWageReviewStatus(teacher, data) {
         const review = teacherWageReviewFor(teacher, data);
-        if (!review) return { label: "待核对", className: "pending", note: "核对原 Excel 后可确认" };
-        if (review.changed) return { label: "数据已变化", className: "pending", note: "工资明细或总表变化后需重新核对" };
+        if (!review) {
+          const base = financeReviewStatusMeta(data?.summaryRow ? "可核对" : data?.rowsCount ? "缺产值总表" : "待对账");
+          return {
+            label: base.label,
+            className: base.className,
+            note: data?.summaryRow ? "核对原 Excel 后可确认" : data?.rowsCount ? "先按明细试算，补产值总表后再终核" : "当前月份暂无明细"
+          };
+        }
+        if (review.changed) {
+          const changed = financeReviewStatusMeta("数据变化需重核");
+          return { label: changed.label, className: changed.className, note: "工资明细或总表变化后需重新核对" };
+        }
+        const confirmed = financeReviewStatusMeta("已核对");
         return {
-          label: "已核对",
-          className: "paid",
+          label: confirmed.label,
+          className: confirmed.className,
           note: `${review.reviewedBy || "财务"} ${String(review.reviewedAt || "").slice(0, 10)}`
         };
       }
@@ -4547,6 +4579,9 @@
         const attendanceRows = deriveAttendanceSettlementRows().filter((row) => row.teacher === teacher);
         const attendanceLessons = attendanceRows.reduce((sum, row) => sum + row.lessons, 0);
         const attendanceFollowups = attendanceRows.reduce((sum, row) => sum + row.followupCount, 0);
+        const attendanceConfirmed = attendanceRows.filter((row) => attendanceSettlementReviewStatus(row).label === "已确认").length;
+        const attendanceChanged = attendanceRows.filter((row) => attendanceSettlementReviewStatus(row).label === "数据已变化").length;
+        const attendanceReviewPending = attendanceRows.filter((row) => row.followupCount === 0 && attendanceSettlementReviewStatus(row).label !== "已确认").length;
         const amountLabel = data.summaryRow ? money(data.teacherCost) : money(data.detailAmount);
         const checklistItems = [];
         if (!data.rowsCount && !data.summaryRow) {
@@ -4608,10 +4643,20 @@
             tone: attendanceLessons ? "ok" : "",
             label: "点名课销",
             title: attendanceLessons ? `${attendanceLessons} 节点名已流入` : "暂无点名流入",
-            detail: attendanceLessons ? "点名侧暂无暂缓人次，可继续核对工资单。" : "老师保存点名后，这里会显示课销和课时费候选。",
+            detail: attendanceLessons ? `待确认 ${attendanceReviewPending}，已确认 ${attendanceConfirmed}${attendanceChanged ? `，需重核 ${attendanceChanged}` : ""}。` : "老师保存点名后，这里会显示课销和课时费候选。",
             action: "attendance",
             actionText: "看点名课销"
           });
+        if (attendanceChanged) {
+          checklistItems.push({
+            tone: "warn",
+            label: "点名更新",
+            title: `${attendanceChanged} 条点名确认后又变化`,
+            detail: "点名数据更新后，需要重新确认课销和课时费口径。",
+            action: "attendance",
+            actionText: "重新核对"
+          });
+        }
         if (reviewStatus.label === "已核对") {
           checklistItems.push({
             tone: "ok",
@@ -4636,6 +4681,7 @@
               <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="detail"><span>明细/学生</span><strong>${data.rowsCount} / ${data.studentCount}</strong></button>
               <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="review"><span>待对账</span><strong>${data.reviewCount}</strong></button>
               <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="attendance"><span>点名课销</span><strong>${attendanceLessons}</strong></button>
+              <button class="finance-teacher-workbench-stat" type="button" data-finance-workbench-action="attendance"><span>点名已确认</span><strong>${attendanceConfirmed}</strong></button>
             </div>
             <div class="finance-teacher-workbench-actions">
               <button class="button secondary" type="button" data-finance-workbench-action="detail">看工资单</button>

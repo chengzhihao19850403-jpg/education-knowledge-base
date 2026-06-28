@@ -169,7 +169,7 @@
       }
       .teacher-workbench-stats {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         margin-top: 14px;
       }
@@ -236,6 +236,54 @@
       }
       .teacher-next-item button {
         margin-top: 8px;
+      }
+      .schedule-conflict-panel {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(180,83,9,0.22);
+        border-radius: 16px;
+        background: rgba(255,251,235,0.78);
+      }
+      .schedule-conflict-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .schedule-conflict-head strong {
+        display: block;
+        color: var(--ink);
+        font-size: 16px;
+      }
+      .schedule-conflict-head span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .schedule-conflict-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .schedule-conflict-item {
+        padding: 10px;
+        border: 1px solid rgba(180,83,9,0.18);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.84);
+      }
+      .schedule-conflict-item span,
+      .schedule-conflict-item small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .schedule-conflict-item strong {
+        display: block;
+        margin: 3px 0;
+        color: var(--ink);
+        font-size: 14px;
       }
       .schedule-workflow {
         display: grid;
@@ -799,6 +847,7 @@
               <option value="weekend">周五/周六/周日</option>
               <option value="weekday">周一到周四</option>
               <option value="pending-attendance">待点名/异常</option>
+              <option value="conflicts">冲突检测</option>
               <option value="missing-room">未写教室</option>
             </select>
           </label>
@@ -807,6 +856,7 @@
           <button class="button secondary" type="button" data-teacher-sheet-quick="mine">我的课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="today">今天课表</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="week">本周课表</button>
+          <button class="button secondary" type="button" data-teacher-sheet-quick="conflicts">冲突检测</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="missing-room">未写教室</button>
           <button class="button secondary" type="button" data-teacher-sheet-quick="rooms">看教室表</button>
         </div>
@@ -1493,6 +1543,112 @@
         return row.startTime && row.endTime ? `${row.startTime}-${row.endTime}` : row.time || "未填时间";
       }
 
+      function scheduleConflictRowKey(row) {
+        return rowKey({
+          ...row,
+          teacherName: row.teacher,
+          studentName: row.student,
+          sourceWorkbook: row.source,
+          sourceSheet: row.sourceSheet
+        }, "schedule-conflict");
+      }
+
+      function scheduleConflictTimeRange(row) {
+        const label = timeSlotLabel(row);
+        const parts = label.split(/[-~至到]/).map((part) => normalizeTimeText(part)).filter(Boolean);
+        const startText = normalizeTimeText(row.startTime || parts[0] || "");
+        const endText = normalizeTimeText(row.endTime || parts[1] || "");
+        const start = timeMinutes(startText);
+        const end = timeMinutes(endText);
+        return {
+          label,
+          start: start === 9999 ? null : start,
+          end: end === 9999 ? null : end
+        };
+      }
+
+      function scheduleTimesOverlap(left, right) {
+        const leftRange = scheduleConflictTimeRange(left);
+        const rightRange = scheduleConflictTimeRange(right);
+        if (leftRange.start != null && leftRange.end != null && rightRange.start != null && rightRange.end != null) {
+          return leftRange.start < rightRange.end && rightRange.start < leftRange.end;
+        }
+        return leftRange.label === rightRange.label;
+      }
+
+      function scheduleConflictStudentNames(row) {
+        return String(row.student || "")
+          .split(/[、,，/+]/)
+          .map((name) => name.trim())
+          .filter((name) => name && name !== "-");
+      }
+
+      function sameScheduleConflictTarget(type, left, right) {
+        if (type === "teacher") return String(left.teacher || "").trim() && left.teacher === right.teacher;
+        if (type === "room") {
+          const leftRoom = String(left.room || "").trim();
+          const rightRoom = String(right.room || "").trim();
+          return leftRoom && rightRoom && leftRoom !== "-" && leftRoom === rightRoom;
+        }
+        const leftNames = scheduleConflictStudentNames(left);
+        const rightNames = new Set(scheduleConflictStudentNames(right));
+        return leftNames.some((name) => rightNames.has(name));
+      }
+
+      function buildScheduleConflicts(period = selectedPeriod(), teacher = selectedTeacher()) {
+        const scopedRows = paikeRows
+          .filter((row) => row.period === period)
+          .filter((row) => row.date && timeSlotLabel(row) !== "未填时间");
+        const types = [
+          { type: "teacher", label: "老师同时间" },
+          { type: "room", label: "教室同时间" },
+          { type: "student", label: "学生/班级同时间" }
+        ];
+        const conflicts = [];
+        types.forEach(({ type, label }) => {
+          for (let i = 0; i < scopedRows.length; i += 1) {
+            for (let j = i + 1; j < scopedRows.length; j += 1) {
+              const left = scopedRows[i];
+              const right = scopedRows[j];
+              if (left.date !== right.date) continue;
+              if (!scheduleTimesOverlap(left, right)) continue;
+              if (!sameScheduleConflictTarget(type, left, right)) continue;
+              const relatedTeacher = left.teacher === right.teacher ? left.teacher : [left.teacher, right.teacher].filter(Boolean).join(" / ");
+              if (teacher && ![left.teacher, right.teacher].includes(teacher)) continue;
+              conflicts.push({
+                type,
+                label,
+                date: left.date,
+                time: `${timeSlotLabel(left)} / ${timeSlotLabel(right)}`,
+                teacher: relatedTeacher,
+                target: type === "teacher"
+                  ? left.teacher
+                  : type === "room"
+                    ? left.room
+                    : scheduleConflictStudentNames(left).find((name) => scheduleConflictStudentNames(right).includes(name)) || "学生/班级",
+                rows: [left, right],
+                rowKeys: [scheduleConflictRowKey(left), scheduleConflictRowKey(right)]
+              });
+            }
+          }
+        });
+        const unique = new Map();
+        conflicts.forEach((item) => {
+          const key = [item.type, item.date, item.target, ...item.rowKeys.sort()].join("|");
+          if (!unique.has(key)) unique.set(key, item);
+        });
+        return [...unique.values()].sort((left, right) => (
+          String(left.date || "").localeCompare(String(right.date || "")) ||
+          String(left.time || "").localeCompare(String(right.time || "")) ||
+          String(left.type || "").localeCompare(String(right.type || ""))
+        ));
+      }
+
+      function scheduleConflictRows(period = selectedPeriod(), teacher = selectedTeacher()) {
+        const keys = new Set(buildScheduleConflicts(period, teacher).flatMap((item) => item.rowKeys));
+        return paikeRows.filter((row) => keys.has(scheduleConflictRowKey(row)));
+      }
+
       function scheduleSourceKey(row) {
         return [
           row.date,
@@ -1704,11 +1860,15 @@
         const teacher = selectedTeacher();
         const keyword = String(byId("teacherSheetKeyword")?.value || "").trim().toLowerCase();
         const mode = byId("teacherSheetMode")?.value || "month";
+        const conflictKeys = mode === "conflicts"
+          ? new Set(scheduleConflictRows(period, teacher).map((row) => scheduleConflictRowKey(row)))
+          : null;
         return paikeRows.filter((row) => {
           if (period && row.period !== period) return false;
           if (teacher && row.teacher !== teacher) return false;
           if (mode === "missing-room" && String(row.room || "").trim() && row.room !== "-") return false;
           if (mode === "pending-attendance" && !/待点名|异常|待处理|待核对/.test(scheduleStatus(row).label)) return false;
+          if (mode === "conflicts" && !conflictKeys.has(scheduleConflictRowKey(row))) return false;
           const weekday = weekdayName(row.date);
           if (mode === "today" && dateKey(row.date) !== localDateText()) return false;
           if (mode === "week" && !isInRange(row, "week")) return false;
@@ -1830,6 +1990,7 @@
         const weekRows = teacherMonthRows.filter((row) => isInRange(row, "week"));
         const missingRoomRows = teacherMonthRows.filter((row) => !String(row.room || "").trim() || row.room === "-");
         const pendingAttendanceRows = teacherMonthRows.filter((row) => /待点名|异常|待处理|待核对/.test(scheduleStatus(row).label));
+        const conflictItems = buildScheduleConflicts(period, teacher);
         const pendingAdmissionRows = pendingAdmissionScheduleRows();
         const upcomingRows = teacherMonthRows
           .filter((row) => dateKey(row.date) >= localDateText())
@@ -1856,6 +2017,14 @@
             detail: `${row.student || row.lessonType || "未填学生/班级"}｜${scheduleStatus(row).label}`,
             href: attendanceHrefForRow(row),
             actionText: "去点名"
+          })),
+          ...conflictItems.slice(0, 2).map((item) => ({
+            tone: "warn",
+            label: item.label,
+            title: `${dateLabel(item.date)}｜${item.target}`,
+            detail: `${item.time}｜${item.teacher || "未填老师"}，请核老师/教室/学生是否撞车`,
+            action: "conflicts",
+            actionText: "看冲突"
           })),
           ...missingRoomRows.slice(0, 2).map((row) => ({
             tone: "warn",
@@ -1884,6 +2053,28 @@
             </div>
           `).join("")
           : `<div class="teacher-next-item ok"><span>待处理</span><strong>当前没有紧急事项</strong><span>可继续查看后续课程、老师空档和教室表。</span></div>`;
+        const conflictPanel = conflictItems.length
+          ? `
+            <div class="schedule-conflict-panel">
+              <div class="schedule-conflict-head">
+                <div>
+                  <strong>疑似排课冲突</strong>
+                  <span>先核老师、教室、学生/班级是否同时间撞车。</span>
+                </div>
+                <button class="button secondary" type="button" data-teacher-workbench-action="conflicts">只看冲突</button>
+              </div>
+              <div class="schedule-conflict-list">
+                ${conflictItems.slice(0, 4).map((item) => `
+                  <div class="schedule-conflict-item">
+                    <span>${escapeHtml(item.label)}｜${escapeHtml(dateLabel(item.date))}</span>
+                    <strong>${escapeHtml(item.target || "待核对象")}</strong>
+                    <small>${escapeHtml(item.time)}｜${escapeHtml(item.teacher || "未填老师")}</small>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : "";
         holder.innerHTML = `
           <div>
             <div class="teacher-workbench-head">
@@ -1897,14 +2088,17 @@
               <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="today"><span>今天课程</span><strong>${todayRows.length}</strong></button>
               <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="week"><span>本周课程</span><strong>${weekRows.length}</strong></button>
               <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="pending-attendance"><span>待点名/异常</span><strong>${pendingAttendanceRows.length}</strong></button>
+              <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="conflicts"><span>疑似冲突</span><strong>${conflictItems.length}</strong></button>
               <button class="teacher-workbench-stat" type="button" data-teacher-workbench-action="missing-room"><span>未写教室</span><strong>${missingRoomRows.length}</strong></button>
             </div>
             <div class="teacher-workbench-actions">
               <button class="button secondary" type="button" data-teacher-workbench-action="today">看今天</button>
               <button class="button secondary" type="button" data-teacher-workbench-action="week">看本周</button>
+              <button class="button secondary" type="button" data-teacher-workbench-action="conflicts">查冲突</button>
               <button class="button secondary" type="button" data-teacher-workbench-action="missing-room">补教室</button>
               <button class="button secondary" type="button" data-teacher-workbench-action="rooms">看教室空档</button>
             </div>
+            ${conflictPanel}
           </div>
           <div>
             <p class="eyebrow">待处理</p>
@@ -2289,6 +2483,13 @@
           if (mode) mode.value = "pending-attendance";
           renderTeacherSheet();
           setTeacherSheetMessage("已筛出当前老师待点名或异常待处理的课程。先完成点名和异常闭环，再进入财务课销。");
+          byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        if (action === "conflicts") {
+          if (mode) mode.value = "conflicts";
+          renderTeacherSheet();
+          setTeacherSheetMessage("已筛出疑似排课冲突。请核对同一老师、同一教室、同一学生/班级是否同时间重复安排。");
           byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }

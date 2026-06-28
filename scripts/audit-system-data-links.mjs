@@ -80,6 +80,14 @@ const checks = [
     detail: "排课页和财务页都有老师优先的工作台入口，先显示今天/本周课程、工资单合计、待点名和待对账。"
   },
   {
+    title: "排课冲突检测入口",
+    pass: /buildScheduleConflicts/.test(files.paike)
+      && /scheduleConflictRows/.test(files.paike)
+      && /data-teacher-workbench-action="conflicts"/.test(files.paike)
+      && /疑似排课冲突/.test(files.paike),
+    detail: "排课工作台会提示同一老师、教室、学生/班级同时间疑似冲突，并可一键筛出。"
+  },
+  {
     title: "学生服务读取排课并生成点名名单",
     pass: /readModuleData\(PREIMPORT_STORE_KEY\)/.test(files.student)
       && /renderPreimportOptions/.test(files.student)
@@ -103,6 +111,14 @@ const checks = [
     title: "财务读取点名",
     pass: /readModuleData\?\.\(ATTENDANCE_STORAGE_KEY\)/.test(files.finance) || /readModuleData\(ATTENDANCE_STORAGE_KEY\)/.test(files.finance),
     detail: "财务页会读取 jrc-class-attendance-v1，用于课时费/课销候选。"
+  },
+  {
+    title: "财务核对状态标准化",
+    pass: /financeReviewStatusMeta/.test(files.finance)
+      && /缺产值总表/.test(files.finance)
+      && /数据变化需重核/.test(files.finance)
+      && /点名已确认/.test(files.finance),
+    detail: "财务页把可核对、缺产值总表、待对账、已核对、数据变化需重核统一展示，并显示点名确认闭环。"
   },
   {
     title: "点名形成财务核对入口",
