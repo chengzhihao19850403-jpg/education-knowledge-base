@@ -288,6 +288,14 @@
         return null;
       }
 
+      function looksLikeJsonText(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return false;
+        if (parseJsonLikeText(raw)) return true;
+        return /\{[\s\S]*"(?:title|summary|polishedText|parentMessage|todoItems|structuredData)"\s*:/.test(raw)
+          || /"(?:title|summary|polishedText|parentMessage|todoItems)"\s*:[\s\S]*\}/.test(raw);
+      }
+
       function normalizeAiResultPayload(value) {
         if (!value) return value;
         let result = value;
@@ -1026,9 +1034,20 @@
 
       function classFeedbackNeedsRebuild(parentMessage) {
         const text = String(parentMessage || "");
+        if (looksLikeJsonText(text)) return true;
         const courseSection = extractTemplateSection(text, "本次课上课内容：", ["三、知识点要点：", "二、知识点要点：", "知识点要点：", "四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈："]);
         const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈：", "五、课后作业：", "四、课后作业："]);
         return !text.includes("学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+      }
+
+      function hasClassFeedbackTemplate(parentMessage) {
+        const text = String(parentMessage || "");
+        return text.includes("小课第")
+          && text.includes("一、上课状态")
+          && text.includes("本次课上课内容")
+          && text.includes("知识点要点")
+          && text.includes("学习掌握情况")
+          && text.includes("课后作业");
       }
 
       function formatClassFeedbackText(value, target = "") {
@@ -1053,10 +1072,10 @@
         const target = payload.target ?? byId("aiTargetInput")?.value ?? "";
         const sourceText = payload.text ?? byId("aiInputText")?.value ?? "";
         const parentMessage = String(result.parentMessage || "");
-        const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("本次课上课内容") && parentMessage.includes("知识点要点") && parentMessage.includes("学习掌握情况") && parentMessage.includes("课后作业");
+        const hasTemplate = hasClassFeedbackTemplate(parentMessage);
         if (hasTemplate && !classFeedbackNeedsRebuild(parentMessage)) {
           const formatted = formatClassFeedbackText(parentMessage, target);
-          return { ...result, parentMessage: formatted, polishedText: result.polishedText === parentMessage ? formatted : result.polishedText };
+          return { ...result, parentMessage: formatted, polishedText: formatted };
         }
         const meta = feedbackMeta(target, sourceText, payload);
         const template = buildClassFeedbackTemplate(target, sourceText, meta);
@@ -1072,30 +1091,47 @@
         };
       }
 
+      function cleanClassFeedbackResultForStudent(result, name, sourceText, meta = {}) {
+        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || splitTargetNames(byId("aiTargetInput")?.value || "")[0] || name;
+        const rawParent = String(result?.parentMessage || "");
+        const reusableParent = hasClassFeedbackTemplate(rawParent) && !classFeedbackNeedsRebuild(rawParent)
+          ? replaceFeedbackStudentName(rawParent, sourceName, name)
+          : "";
+        const normalized = ensureClassFeedbackTemplate({
+          ...(result || {}),
+          parentMessage: reusableParent,
+          polishedText: reusableParent
+        }, {
+          target: name,
+          text: sourceText,
+          lessonSeason: meta.lessonSeason || result?.lessonSeason || "",
+          lessonNumber: meta.lessonNumber || result?.lessonNumber || ""
+        });
+        const finalText = formatClassFeedbackText(normalized.parentMessage || buildClassFeedbackTemplate(name, sourceText, meta), name);
+        return {
+          ...normalized,
+          title: `${name}｜课堂反馈`,
+          summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
+          parentMessage: finalText,
+          polishedText: finalText,
+          target: name,
+          studentName: name,
+          lessonSeason: normalized.lessonSeason || meta.lessonSeason,
+          lessonNumber: normalized.lessonNumber || meta.lessonNumber
+        };
+      }
+
       function buildBatchFeedbackResults(result) {
         if (!result || !isClassFeedbackMode()) return [];
         const names = splitTargetNames(byId("aiTargetInput")?.value || "");
         if (names.length < 2) return [];
-        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || names[0];
         const sourceText = byId("aiInputText")?.value?.trim() || "";
-        const baseText = result.parentMessage || result.polishedText || resultToText(result);
         return names.map((name) => {
           const meta = feedbackMeta(name, sourceText, {
             lessonSeason: result.lessonSeason || "",
             lessonNumber: result.lessonNumber || ""
           });
-          const text = formatClassFeedbackText(replaceFeedbackStudentName(baseText, sourceName, name), name);
-          return {
-            ...result,
-            title: `${name}｜课堂反馈`,
-            summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
-            parentMessage: text,
-            polishedText: text,
-            target: name,
-            studentName: name,
-            lessonSeason: meta.lessonSeason,
-            lessonNumber: meta.lessonNumber
-          };
+          return cleanClassFeedbackResultForStudent(result, name, sourceText, meta);
         });
       }
 
@@ -1388,20 +1424,10 @@
           byId("aiMessage").textContent = "关联对象里写多个学生姓名后，才能批量保存草稿。";
           return;
         }
-        const sourceName = cleanFeedbackStudentName(studentNameFromTarget());
         const now = new Date().toISOString();
-        const baseText = latestResult.parentMessage || latestResult.polishedText || resultToText(latestResult);
-        const batchResults = latestBatchResults.length ? latestBatchResults : names.map((name) => {
-          const text = formatClassFeedbackText(replaceFeedbackStudentName(baseText, sourceName || names[0], name), name);
-          return {
-            ...latestResult,
-            title: `${name}｜课堂反馈`,
-            parentMessage: text,
-            polishedText: text,
-            target: name,
-            studentName: name
-          };
-        });
+        const sourceText = byId("aiInputText").value.trim();
+        const batchResults = (latestBatchResults.length ? latestBatchResults : buildBatchFeedbackResults(latestResult))
+          .map((result, index) => cleanClassFeedbackResultForStudent(result, names[index] || result.studentName || result.target || `学生${index + 1}`, sourceText, result));
         const rows = batchResults.map((result, index) => {
           const text = result.parentMessage || result.polishedText || "";
           const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
@@ -1411,7 +1437,7 @@
             mode: "classFeedback",
             modeLabel: modeLabel("classFeedback"),
             target: name,
-            sourceText: byId("aiInputText").value.trim(),
+            sourceText,
             result,
             createdBy: currentName,
             createdByUsername: currentEmployee.username || "",

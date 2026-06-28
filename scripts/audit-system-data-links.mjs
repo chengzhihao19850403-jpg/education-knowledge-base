@@ -44,7 +44,8 @@ const files = {
   trialFeedback: readText("portal/trial-feedback.html"),
   teachingQuality: readText("portal/teaching-quality.html"),
   admissions: readText("public/advice-system/app.js"),
-  dataSync: readText("portal/data-sync.js")
+  dataSync: readText("portal/data-sync.js"),
+  api: readText("deploy/aliyun/api/server.mjs")
 };
 
 const preimport = extractPreimportBundle();
@@ -193,6 +194,22 @@ const checks = [
     title: "AI课堂反馈归档学生服务",
     pass: /writeModuleData\?\.\(STUDENT_SERVICE_KEY, "studentService", nextRows\)/.test(files.ai) && /jrc-student-service-linked/.test(files.ai),
     detail: "老师确认后归档到学生服务，而不是 AI 自动直接发给家长。"
+  },
+  {
+    title: "AI课堂反馈批量草稿清洗",
+    pass: /looksLikeJsonText/.test(files.ai)
+      && /cleanClassFeedbackResultForStudent/.test(files.ai)
+      && /buildBatchFeedbackResults/.test(files.ai)
+      && /ensureClassFeedbackTemplate/.test(files.ai),
+    detail: "多个关联对象会按学生逐个套用统一课堂反馈模板，避免 JSON/结构化对象混入草稿正文。"
+  },
+  {
+    title: "MiniMax调用超时重试保护",
+    pass: /minimaxMaxAttempts/.test(files.api)
+      && /AbortController/.test(files.api)
+      && /isRetryableMinimaxError/.test(files.api)
+      && /extractMinimaxContent/.test(files.api),
+    detail: "MiniMax 临时限流、超时、网络错误和 5xx 会自动短重试，并返回更明确的失败原因。"
   },
   {
     title: "全站反馈转任务",

@@ -15,6 +15,8 @@ const minimaxApiKey = process.env.JRC_MINIMAX_API_KEY || process.env.MINIMAX_API
 const minimaxApiUrl = process.env.JRC_MINIMAX_API_URL || "https://api.minimaxi.com/v1/chat/completions";
 const minimaxModel = process.env.JRC_MINIMAX_MODEL || "MiniMax-M3";
 const minimaxGroupId = process.env.JRC_MINIMAX_GROUP_ID || "";
+const minimaxTimeoutMs = Number(process.env.JRC_MINIMAX_TIMEOUT_MS || 45000);
+const minimaxMaxAttempts = Math.max(1, Number(process.env.JRC_MINIMAX_MAX_ATTEMPTS || 3));
 const departedEmployeeUsernames = ["zhangyan", "hejianjun"];
 const moduleOwnerPermissionRules = {
   yanyuhan: ["admissions.access", "admissions.edit", "admissions.import", "admissions.export", "admissions.finance"],
@@ -1620,28 +1622,103 @@ function ensureClassFeedbackResult(result, body) {
   };
 }
 
-async function callMinimaxChat(body) {
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function stringifyAiContent(content) {
+  if (Array.isArray(content)) {
+    return content.map((item) => {
+      if (typeof item === "string") return item;
+      return item?.text || item?.content || item?.message || "";
+    }).filter(Boolean).join("\n");
+  }
+  if (content && typeof content === "object") {
+    return content.text || content.content || JSON.stringify(content);
+  }
+  return String(content || "");
+}
+
+function extractMinimaxContent(data) {
+  const choice = data?.choices?.[0] || {};
+  return stringifyAiContent(
+    choice.message?.content
+      || choice.delta?.content
+      || data?.reply
+      || data?.output_text
+      || data?.output?.text
+      || data?.data?.text
+      || data?.data?.reply
+      || ""
+  ).trim();
+}
+
+function minimaxStatusMessage(data) {
+  if (!data || typeof data === "string") return String(data || "");
+  return data?.error?.message
+    || data?.message
+    || data?.base_resp?.status_msg
+    || data?.base_resp?.status_code
+    || data?.code
+    || "";
+}
+
+function isRetryableMinimaxError(error) {
+  const status = Number(error?.statusCode || 0);
+  const code = String(error?.code || "");
+  const message = String(error?.message || "");
+  return error?.retryable
+    || [408, 409, 425, 429, 500, 502, 503, 504].includes(status)
+    || /(timeout|timed out|abort|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|network)/i.test(`${code} ${message}`);
+}
+
+function minimaxFriendlyError(error) {
+  const status = Number(error?.statusCode || 0);
+  const message = String(error?.message || error || "").slice(0, 240);
+  if (error?.code === "minimax_timeout") return `接口超时 ${Math.round(minimaxTimeoutMs / 1000)} 秒`;
+  if (status === 429) return "接口限流或额度繁忙";
+  if ([500, 502, 503, 504].includes(status)) return `MiniMax 服务临时异常 HTTP ${status}`;
+  if (status) return `HTTP ${status}：${message}`;
+  return message || "网络或接口返回异常";
+}
+
+async function callMinimaxChatOnce(body) {
   const requestHeaders = {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${minimaxApiKey}`
   };
   if (minimaxGroupId) requestHeaders["GroupId"] = minimaxGroupId;
 
-  const response = await fetch(minimaxApiUrl, {
-    method: "POST",
-    headers: requestHeaders,
-    body: JSON.stringify({
-      model: minimaxModel,
-      messages: [
-        { role: "system", content: aiSystemPrompt() },
-        { role: "user", content: buildAiUserPrompt(body) }
-      ],
-      temperature: 0.25,
-      max_completion_tokens: 2400,
-      thinking: { type: "disabled" },
-      reasoning_split: true
-    })
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), minimaxTimeoutMs);
+  let response;
+  try {
+    response = await fetch(minimaxApiUrl, {
+      method: "POST",
+      headers: requestHeaders,
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: minimaxModel,
+        messages: [
+          { role: "system", content: aiSystemPrompt() },
+          { role: "user", content: buildAiUserPrompt(body) }
+        ],
+        temperature: 0.25,
+        max_completion_tokens: 2400,
+        thinking: { type: "disabled" },
+        reasoning_split: true
+      })
+    });
+  } catch (error) {
+    const wrapped = new Error(error?.name === "AbortError" ? "MiniMax 请求超时。" : String(error?.message || error));
+    wrapped.statusCode = error?.name === "AbortError" ? 504 : 502;
+    wrapped.code = error?.name === "AbortError" ? "minimax_timeout" : "minimax_network_error";
+    wrapped.retryable = true;
+    throw wrapped;
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const text = await response.text();
   let data = null;
   try {
@@ -1650,12 +1727,47 @@ async function callMinimaxChat(body) {
     data = text;
   }
   if (!response.ok) {
-    const error = new Error(typeof data === "string" ? data : JSON.stringify(data || {}));
+    const error = new Error(minimaxStatusMessage(data) || (typeof data === "string" ? data : JSON.stringify(data || {})));
     error.statusCode = response.status;
+    error.retryable = isRetryableMinimaxError(error);
     throw error;
   }
-  const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.delta?.content || data?.reply || "";
-  return String(content || "");
+  const baseRespCode = Number(data?.base_resp?.status_code || 0);
+  if (baseRespCode) {
+    const error = new Error(minimaxStatusMessage(data) || `MiniMax base_resp status ${baseRespCode}`);
+    error.statusCode = baseRespCode;
+    error.code = "minimax_base_resp_error";
+    error.retryable = isRetryableMinimaxError(error);
+    throw error;
+  }
+  const content = extractMinimaxContent(data);
+  if (!content) {
+    const error = new Error("MiniMax 返回为空。");
+    error.statusCode = 502;
+    error.code = "minimax_empty_response";
+    error.retryable = true;
+    throw error;
+  }
+  return content;
+}
+
+async function callMinimaxChat(body) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= minimaxMaxAttempts; attempt += 1) {
+    try {
+      return await callMinimaxChatOnce(body);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableMinimaxError(error) || attempt >= minimaxMaxAttempts) break;
+      await wait(Math.min(3000, 700 * attempt));
+    }
+  }
+  const wrapped = new Error(`${minimaxFriendlyError(lastError)}；已自动重试 ${minimaxMaxAttempts} 次。`);
+  wrapped.statusCode = lastError?.statusCode || 502;
+  wrapped.code = lastError?.code || "minimax_failed";
+  wrapped.cause = lastError;
+  wrapped.attempts = minimaxMaxAttempts;
+  throw wrapped;
 }
 
 async function handleAiAssistant(req, res, headers, authorization) {
@@ -1710,7 +1822,8 @@ async function handleAiAssistant(req, res, headers, authorization) {
       model: minimaxModel,
       error: error?.code || "minimax_failed",
       statusCode: error?.statusCode || 500,
-      message: `MiniMax 调用失败，课堂反馈未生成：${String(error?.message || error).slice(0, 500)}`
+      attempts: error?.attempts || minimaxMaxAttempts,
+      message: `MiniMax 调用失败，课堂反馈未生成：${minimaxFriendlyError(error)}。请稍后再点一次 AI 整理；如果连续失败，请检查 API Key、额度、模型或服务器到 MiniMax 的网络。`
     };
     if (!isClassFeedback) {
       send(res, 200, { ok: true, provider: "local", configured: true, warning: payload.error, message: payload.message, result: fallback }, headers);
