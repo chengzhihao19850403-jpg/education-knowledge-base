@@ -217,25 +217,26 @@ const checks = [
     detail: "老师确认后归档到学生服务，而不是 AI 自动直接发给家长。"
   },
   {
-    title: "AI课堂反馈批量草稿清洗",
+    title: "AI课堂反馈由 MiniMax 直写",
     pass: /looksLikeJsonText/.test(files.ai)
       && /课堂反馈AI助手/.test(files.ai)
       && /type="hidden" value="classFeedback"/.test(files.ai)
       && !/整理类型/.test(files.ai)
-      && /cleanClassFeedbackResultForStudent/.test(files.ai)
       && /targetNameTokens/.test(files.ai)
-      && /sourceTextForStudent/.test(files.ai)
       && /removeOtherStudentReferences/.test(files.ai)
       && /renderTargetTokens/.test(files.ai)
       && /renderBatchSplitPreview/.test(files.ai)
       && /feedbackCrossNameItems/.test(files.ai)
-      && /buildBatchFeedbackResults/.test(files.ai)
       && /ensureClassFeedbackTemplate/.test(files.ai)
-      && /buildSharedBatchFeedbackResults/.test(files.ai)
-      && /normalizeSharedLesson/.test(files.ai)
-      && /sharedLesson\.courseContentItems/.test(files.api)
-      && /batchStudents/.test(files.api),
-    detail: "多个关联对象会显示姓名标签和拆分预览；同一节课优先保持上课内容、知识点、作业一致，再按学生拆分个人表现，并在归档前拦截串名。"
+      && /buildAiWrittenBatchFeedbackResults/.test(files.ai)
+      && /structuredData 必须包含 students 数组/.test(files.api)
+      && /students\[\]\.parentMessage/.test(files.api)
+      && /max_completion_tokens: 5200/.test(files.api)
+      && !/buildBatchFeedbackResults/.test(files.ai)
+      && !/normalizeSharedLesson/.test(files.ai)
+      && !/buildClassFeedbackTemplate/.test(files.ai)
+      && !/buildClassFeedbackTemplate/.test(files.api),
+    detail: "课堂反馈正文交给 MiniMax 生成；多个关联对象要求 MiniMax 返回 students[].parentMessage，网页端只做展示、保存、归档、格式提醒和串名拦截。"
   },
   {
     title: "MiniMax调用超时重试保护",

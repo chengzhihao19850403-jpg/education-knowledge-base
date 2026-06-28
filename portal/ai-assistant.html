@@ -486,23 +486,6 @@
           .filter((name) => textMentionsStudent(text, name));
       }
 
-      function isSharedMultiStudentUnit(unit, mentions) {
-        const text = String(unit || "");
-        const positions = mentions
-          .map((name) => ({ name, index: text.indexOf(name) }))
-          .filter((item) => item.index >= 0)
-          .sort((left, right) => left.index - right.index);
-        if (positions.length < 2) return false;
-        for (let index = 0; index < positions.length - 1; index += 1) {
-          const current = positions[index];
-          const next = positions[index + 1];
-          const between = text.slice(current.index + current.name.length, next.index);
-          if (!/^[、,，和跟与及以及\s]*$/.test(between)) return false;
-        }
-        const tail = text.slice(positions[positions.length - 1].index + positions[positions.length - 1].name.length).trim();
-        return Boolean(tail);
-      }
-
       function removeOtherStudentNamesFromUnit(unit, target, names) {
         const current = cleanFeedbackStudentName(target);
         let next = String(unit || "");
@@ -517,53 +500,6 @@
               .replace(new RegExp(escaped, "gu"), "");
           });
         return cleanExtractedText(next.replace(/[、,，]{2,}/g, "，").replace(/^[、,，和跟与及以及\s]+/, ""));
-      }
-
-      function splitStudentFeedbackUnits(rawText, names) {
-        const uniqueNames = [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))];
-        return String(rawText || "")
-          .replace(/[：:]/g, "：")
-          .split(/[。；;\n，,]/)
-          .flatMap((rawUnit) => {
-            const unit = cleanExtractedText(rawUnit);
-            if (!unit) return [];
-            const mentions = mentionedStudentNames(unit, uniqueNames);
-            if (mentions.length < 2 || isSharedMultiStudentUnit(unit, mentions)) return [unit];
-            const positions = mentions
-              .map((name) => ({ name, index: unit.indexOf(name) }))
-              .filter((item) => item.index >= 0)
-              .sort((left, right) => left.index - right.index);
-            const pieces = [];
-            const prefix = cleanExtractedText(unit.slice(0, positions[0].index));
-            if (prefix && !mentionedStudentNames(prefix, uniqueNames).length) pieces.push(prefix);
-            positions.forEach((position, index) => {
-              const end = positions[index + 1]?.index ?? unit.length;
-              const piece = cleanExtractedText(unit.slice(position.index, end));
-              if (piece) pieces.push(piece);
-            });
-            return pieces;
-          })
-          .filter(Boolean);
-      }
-
-      function sourceTextForStudent(target, rawText, names) {
-        const current = cleanFeedbackStudentName(target);
-        const allNames = [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))];
-        if (!current || allNames.length < 2) return String(rawText || "").trim();
-        const commonParts = [];
-        const personalParts = [];
-        splitStudentFeedbackUnits(rawText, allNames).forEach((unit) => {
-          const mentions = mentionedStudentNames(unit, allNames);
-          if (!mentions.length) {
-            commonParts.push(unit);
-            return;
-          }
-          if (mentions.includes(current)) {
-            personalParts.push(removeOtherStudentNamesFromUnit(unit, current, allNames));
-          }
-        });
-        const combined = [...commonParts, ...personalParts].map((item) => cleanExtractedText(item)).filter(Boolean);
-        return combined.length ? combined.join("。") : `${current}本节课课堂情况待老师补充`;
       }
 
       function removeOtherStudentReferences(text, target, names) {
@@ -642,11 +578,6 @@
           : "已识别 1 个学生。多个学生可用空格、顿号、逗号或换行分隔。";
       }
 
-      function previewTextSnippet(value) {
-        const text = String(value || "").replace(/\s+/g, " ").trim();
-        return text.length > 140 ? `${text.slice(0, 140)}...` : text;
-      }
-
       function renderBatchSplitPreview() {
         const box = byId("batchSplitPreview");
         if (!box) return;
@@ -657,46 +588,23 @@
           box.innerHTML = "";
           return;
         }
-        const units = splitStudentFeedbackUnits(rawText, names);
-        const commonParts = units.filter((unit) => !mentionedStudentNames(unit, names).length);
         box.hidden = false;
         box.innerHTML = `
           <div class="split-preview-card">
-            <strong>批量拆分预览</strong>
-            <p>系统会把公共上课内容和作业放进每个学生草稿；带学生姓名的表现描述只进入对应学生草稿。</p>
+            <strong>批量生成提示</strong>
+            <p>已识别 ${names.length} 个学生。五段课堂反馈正文将直接交给 MiniMax 生成，网页端只负责保存、编辑和串名检查。</p>
           </div>
-          ${names.map((name) => {
-            const personal = sourceTextForStudent(name, rawText, names);
-            const leaks = crossStudentNameLeaks(personal, name, names);
-            return `
-              <div class="split-preview-card">
-                <strong>${escapeHtml(name)}</strong>
-                <p>${escapeHtml(previewTextSnippet(personal) || "暂未识别到个人内容，将使用公共内容生成。")}</p>
-                ${leaks.length ? `<p style="color:var(--amber);font-weight:800;">需检查：仍包含 ${escapeHtml(leaks.join("、"))}</p>` : ""}
-              </div>
-            `;
-          }).join("")}
-          ${commonParts.length ? `<div class="split-preview-card"><strong>公共内容</strong><p>${escapeHtml(previewTextSnippet(commonParts.join("。")))}</p></div>` : ""}
+          ${names.map((name) => `
+            <div class="split-preview-card">
+              <strong>${escapeHtml(name)}</strong>
+              <p>MiniMax 会为该学生生成一份完整课堂反馈；生成后请检查是否串名、是否有待补字段。</p>
+            </div>
+          `).join("")}
         `;
       }
 
       function targetHasMultipleStudents() {
         return isClassFeedbackMode() && splitTargetNames(byId("aiTargetInput")?.value || "").length > 1;
-      }
-
-      function replaceFeedbackStudentName(text, fromName, toName) {
-        const from = cleanFeedbackStudentName(fromName);
-        const to = cleanFeedbackStudentName(toName);
-        if (!to) return text;
-        let next = String(text || "");
-        if (from && from !== to) {
-          next = next.replace(new RegExp(escapeRegExp(from), "g"), to);
-        }
-        next = next.replace(/^(.{1,16}?)(的家长您好，这是)/, `${to}$2`);
-        if (!/^.{1,18}?的家长您好/.test(next)) {
-          next = next.replace(/^家长您好/, `${to}的家长您好`);
-        }
-        return next;
       }
 
       function parseFeedbackMetaFromText(value) {
@@ -788,69 +696,6 @@
         return leaks.map((name) => `正文里出现其他学生姓名：${name}`);
       }
 
-      function stripFeedbackLinePrefix(value) {
-        return String(value || "")
-          .replace(/^\s*(?:\d+|[一二三四五六七八九十]+)[.、]\s*/, "")
-          .trim();
-      }
-
-      function feedbackNumberedItems(sectionText) {
-        return String(sectionText || "")
-          .split(/\n+/)
-          .map((line) => stripFeedbackLinePrefix(line))
-          .map((line) => line.trim())
-          .filter(Boolean);
-      }
-
-      function compactQualityText(value) {
-        return String(value || "")
-          .replace(/[\s，,。；;：:！!？?、"'“”‘’《》「」【】（）()]/g, "")
-          .trim();
-      }
-
-      function isWeakFeedbackPhrase(value) {
-        const compact = compactQualityText(value);
-        if (!compact) return true;
-        if (/^(啊|哦|噢|呢|嗯|额|呃|好|好的|暂无|无)$/.test(compact)) return true;
-        return /^(要|需要|还要|记得|注意)?(复习|巩固|练习|多练|回顾)(一下|下|哦|哈|呀)?$/.test(compact);
-      }
-
-      function extractHomeworkValue(homeworkSection) {
-        const text = String(homeworkSection || "").trim();
-        const quoted = text.match(/《([^》]*)》/);
-        return cleanExtractedText(quoted?.[1] || text.replace(/做完.*$/s, ""));
-      }
-
-      function normalizeTopicToken(value) {
-        return compactQualityText(value)
-          .replace(/^(今天|本节课|这节课|我们|主要|重点|学习|学了|讲了|复习|包含|运用|掌握|了解|认识|进行|内容是|上课内容是)+/g, "")
-          .replace(/的/g, "")
-          .replace(/比较生疏|生疏|复杂问题|问题|解题|相关/g, "")
-          .trim();
-      }
-
-      function extractFeedbackTopicTokens(sectionText) {
-        const source = feedbackNumberedItems(sectionText).join("；");
-        const directMatches = source.match(/特殊(?:的)?三角形|直角三角形|等腰三角形|等边三角形|平行四边形|有理数|绝对值|相反数|数轴|一次函数|二次函数|函数|方程|矩形|菱形|圆|勾股定理|百分数|比例|应用题|物理|化学|实验|密度|全等|相似|性质|判定|定义|定理/g) || [];
-        const suffixMatches = source.match(/[\u4e00-\u9fa5]{2,10}(?:概念|性质|判定|定义|定理|公式|题型|模型|方法|应用|运算|计算|证明|实验|现象|结论)/g) || [];
-        const tokens = [...directMatches, ...suffixMatches]
-          .map(normalizeTopicToken)
-          .filter((token) => token.length >= 2)
-          .filter((token) => !/^(知识点|上课内容|本次课|课堂内容|主要内容|复习要求)$/.test(token));
-        const unique = [...new Set(tokens)];
-        const hasSpecificTriangle = unique.some((token) => /(?:特殊|直角|等腰|等边)三角形/.test(token));
-        return unique.filter((token) => !(hasSpecificTriangle && token === "三角形")).slice(0, 8);
-      }
-
-      function topicCoveredByKnowledge(topic, knowledgeText) {
-        const compactKnowledge = compactQualityText(knowledgeText);
-        const compactTopic = compactQualityText(topic);
-        if (!compactTopic) return true;
-        if (compactKnowledge.includes(compactTopic)) return true;
-        if (/特殊三角形/.test(compactTopic)) return /直角三角形|等腰三角形|等边三角形|特殊三角形/.test(compactKnowledge);
-        return false;
-      }
-
       function feedbackQualityItems(value) {
         const text = String(value || "");
         if (!/课程反馈|小课第|一、上课状态：|二、本次课上课内容：|三、知识点要点：|四、学习掌握情况：|五、课后作业：/.test(text)) return [];
@@ -861,34 +706,6 @@
         if (looksLikeJsonText(text)) add("整理结果里还有 JSON/乱码结构，请重新 AI 整理或只保留家长版正文");
         const requiredLabels = ["一、上课状态：", "二、本次课上课内容：", "三、知识点要点：", "四、学习掌握情况：", "五、课后作业："];
         if (!requiredLabels.every((label) => text.includes(label))) add("课堂反馈五段模板不完整");
-        const contentSection = extractTemplateSection(text, "二、本次课上课内容：", ["三、知识点要点：", "四、学习掌握情况：", "五、课后作业："]);
-        const knowledgeSection = extractTemplateSection(text, "三、知识点要点：", ["四、学习掌握情况：", "五、课后作业："]);
-        const masterySection = extractTemplateSection(text, "四、学习掌握情况：", ["五、课后作业："]);
-        const homeworkSection = extractTemplateSection(text, "五、课后作业：", []);
-        const contentItems = feedbackNumberedItems(contentSection);
-        const knowledgeItems = feedbackNumberedItems(knowledgeSection);
-        const masteryItems = feedbackNumberedItems(masterySection);
-        contentItems.forEach((line, index) => {
-          if (isWeakFeedbackPhrase(line)) add(`二、本次课上课内容第 ${index + 1} 条像复习提醒或语气词，不应作为上课内容`);
-        });
-        const homeworkValue = extractHomeworkValue(homeworkSection);
-        if (isWeakFeedbackPhrase(homeworkValue) || /^(待补|待老师|请老师|__|＿+)/.test(homeworkValue)) add("五、课后作业识别不可靠，请补成真实作业名称");
-        if (contentItems.length >= 2 && knowledgeItems.length <= 1) add("三、知识点要点数量明显少于上课内容，可能漏掉核心知识点");
-        const topicTokens = extractFeedbackTopicTokens(contentSection);
-        if (topicTokens.length >= 2) {
-          const missingTopics = topicTokens.filter((topic) => !topicCoveredByKnowledge(topic, knowledgeSection)).slice(0, 4);
-          if (missingTopics.length >= Math.min(2, topicTokens.length)) add(`三、知识点要点没有覆盖上课主题：${missingTopics.join("、")}`);
-        }
-        const compactContent = compactQualityText(contentSection);
-        const compactKnowledge = compactQualityText(knowledgeSection);
-        if (/有理数|绝对值|相反数|数轴/.test(compactContent) && /几何问题|周长|体积|面积公式/.test(compactKnowledge) && !/几何意义/.test(compactContent)) {
-          add("知识点要点疑似跑偏：数轴/有理数内容不应生成周长、面积、体积类几何公式");
-        }
-        if (/(特殊三角形|直角三角形|等腰三角形|等边三角形|全等)/.test(compactContent) && /三角形面积|底.*高.*2|底高/.test(compactKnowledge) && !/(直角三角形|等腰三角形|全等|性质|判定)/.test(compactKnowledge)) {
-          add("知识点要点疑似跑偏：特殊三角形/全等内容只写了面积公式");
-        }
-        const repeatedGeneric = (masterySection.match(/孩子能够跟随老师完成课堂梳理和练习|基础理解整体在推进中|围绕/g) || []).length;
-        if (masteryItems.length >= 3 && repeatedGeneric >= 3) add("四、学习掌握情况句式过于重复，需要改成对应每个知识点的具体掌握情况");
         return items;
       }
 
@@ -1245,35 +1062,6 @@
           .trim();
       }
 
-      function splitFeedbackClauses(rawText) {
-        return String(rawText || "")
-          .replace(/[：:]/g, "：")
-          .split(/[。；;\n，,]/)
-          .map((item) => cleanExtractedText(item))
-          .filter((item) => item && item.length > 1);
-      }
-
-      function hasStateSignal(text) {
-        return /(状态|表现|注意力|专注|认真|积极|互动|回答|思考|配合|纪律|讲话|说话|插话|走神|开小差|提醒|制止|坐姿|精神|态度|反应|主动|听讲|听课|小动作|情绪|自信|拖拉|粗心)/.test(String(text || ""));
-      }
-
-      function hasCourseTopic(text) {
-        return /(有理数|正数|负数|整数|分数|小数|数轴|绝对值|相反数|平行四边形|矩形|菱形|正方形|梯形|三角形|全等|相似|勾股|圆|几何|面积|周长|体积|函数|方程|百分数|比例|应用题|行程|工程|浓度|利润|奥数|计算|科学|物理|化学|实验|力|电|光|密度|知识点|性质|判定|定义|定理|公式|题型|模型|方法|解法|解题|学了|讲了|上了|内容)/.test(String(text || ""));
-      }
-
-      function isHomeworkClause(text) {
-        return /(作业|课后作业|家庭作业|回家作业|回去|订正|改错|做完|完成.{0,12}(题|页|讲义|练习|试卷|作业)|做.{0,12}(题|页|讲义|练习|试卷))/.test(String(text || ""));
-      }
-
-      function isPlanClause(text) {
-        return /(下节课|下次课|后续|接下来|下一步|以后|继续|安排|计划|预习|巩固|复习|多练|练习)/.test(String(text || ""));
-      }
-
-      function isReviewOnlyClause(text) {
-        const value = String(text || "").replace(/\s+/g, "");
-        return /^(要|需要|还要|注意|记得|课后)?(复习|巩固|多练|练习|回顾)(一下|下|哦|哈|呀)?$/.test(value);
-      }
-
       function chineseNumberToInt(value) {
         const raw = String(value || "").trim();
         if (/^\d+$/.test(raw)) return Number(raw);
@@ -1333,45 +1121,6 @@
         };
       }
 
-      function polishStateText(parts) {
-        if (!parts.length) return "今天孩子上课整体状态较好，能够跟随老师节奏完成课堂学习。具体课堂表现请老师根据本节实际情况再确认补充。";
-        const text = parts.join("；")
-          .replace(/已经被我制止/g, "老师已及时提醒并制止")
-          .replace(/已经我制止/g, "老师已及时提醒并制止")
-          .replace(/已经被我提醒/g, "老师已及时提醒")
-          .replace(/已经我提醒/g, "老师已及时提醒")
-          .replace(/被我制止/g, "老师已及时提醒并制止")
-          .replace(/我制止/g, "老师已及时提醒并制止")
-          .replace(/被我提醒/g, "老师已及时提醒")
-          .replace(/我提醒/g, "老师已及时提醒");
-        return `${text}。整体来看，孩子能够跟随课堂节奏完成学习，后续老师会继续关注课堂专注度。`;
-      }
-
-      function parseClassFeedbackInput(rawText) {
-        const clauses = splitFeedbackClauses(rawText);
-        const stateParts = [];
-        const homeworkParts = [];
-        const contentParts = [];
-        const planParts = [];
-        clauses.forEach((clause) => {
-          if (isHomeworkClause(clause)) homeworkParts.push(clause);
-          else if (isReviewOnlyClause(clause)) planParts.push(clause);
-          else if (isPlanClause(clause) && !hasCourseTopic(clause)) planParts.push(clause);
-          else if (hasStateSignal(clause) && !/(知识点|性质|判定|定义|定理|公式)/.test(clause)) stateParts.push(clause);
-          else if (hasCourseTopic(clause)) contentParts.push(clause);
-          else if (isPlanClause(clause)) planParts.push(clause);
-        });
-        const homework = extractHomeworkFromText(homeworkParts.join("；") || rawText);
-        const courseContent = contentParts.length ? contentParts.join("；") : "本节课上课内容待老师补充";
-        const planText = planParts.length ? planParts.join("；") : "下节课我们会继续进行相关知识点巩固，同时穿插重点内容预习和思维训练，帮助孩子把基础掌握得更扎实，学习效果更上一层楼✨";
-        return {
-          stateText: polishStateText(stateParts),
-          homework,
-          courseContent,
-          planText
-        };
-      }
-
       function extractTemplateSection(text, label, nextLabels = []) {
         const source = String(text || "");
         const start = source.indexOf(label);
@@ -1382,16 +1131,6 @@
           .filter((index) => index >= 0);
         const end = nextIndexes.length ? Math.min(...nextIndexes) : rest.length;
         return rest.slice(0, end).trim();
-      }
-
-      function classFeedbackNeedsRebuild(parentMessage) {
-        const text = String(parentMessage || "");
-        if (looksLikeJsonText(text)) return true;
-        return !text.includes("一、上课状态")
-          || !text.includes("本次课上课内容")
-          || !text.includes("知识点要点")
-          || !text.includes("学习掌握情况")
-          || !text.includes("课后作业");
       }
 
       function hasClassFeedbackTemplate(parentMessage) {
@@ -1438,81 +1177,7 @@
               : "MiniMax 已返回课堂反馈正文，但模板栏目不完整；系统保留模型原文，请老师按黄色提醒补齐后再归档。")
           };
         }
-        const meta = feedbackMeta(target, sourceText, payload);
-        const template = buildClassFeedbackTemplate(target, sourceText, meta);
-        return {
-          ...result,
-          title: result.title || `${target || "学生"}｜课堂反馈`,
-          summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
-          parentMessage: template,
-          polishedText: template,
-          lessonSeason: meta.lessonSeason,
-          lessonNumber: meta.lessonNumber,
-          internalNote: result.internalNote || "MiniMax 未返回可用正文时，系统才生成本地兜底草稿。请优先重新点击 AI 整理；若仍失败，再临时使用本草稿并人工确认。"
-        };
-      }
-
-      function cleanClassFeedbackResultForStudent(result, name, sourceText, meta = {}) {
-        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
-        const studentSourceText = sourceTextForStudent(name, sourceText, names);
-        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || names[0] || name;
-        const rawParent = String(result?.parentMessage || "");
-        const reusableParent = rawParent && !looksLikeJsonText(rawParent)
-          ? (names.length < 2 ? replaceFeedbackStudentName(rawParent, sourceName, name) : rawParent)
-          : "";
-        const normalized = ensureClassFeedbackTemplate({
-          ...(result || {}),
-          parentMessage: reusableParent,
-          polishedText: reusableParent
-        }, {
-          target: name,
-          text: studentSourceText,
-          lessonSeason: meta.lessonSeason || result?.lessonSeason || "",
-          lessonNumber: meta.lessonNumber || result?.lessonNumber || ""
-        });
-        const fallbackText = buildClassFeedbackTemplate(name, studentSourceText, meta);
-        const finalText = removeOtherStudentReferences(
-          formatClassFeedbackText(normalized.parentMessage || fallbackText, name),
-          name,
-          names
-        );
-        return {
-          ...normalized,
-          title: `${name}｜课堂反馈`,
-          summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
-          parentMessage: finalText,
-          polishedText: finalText,
-          sourceText: studentSourceText,
-          target: name,
-          studentName: name,
-          lessonSeason: normalized.lessonSeason || meta.lessonSeason,
-          lessonNumber: normalized.lessonNumber || meta.lessonNumber
-        };
-      }
-
-      function arrayFromStructuredValue(value) {
-        const textFromObject = (item) => {
-          if (!item || typeof item !== "object") return String(item || "").trim();
-          const entries = Object.entries(item)
-            .filter(([, value]) => value !== undefined && value !== null && String(value).trim())
-            .map(([key, value]) => `${key}：${Array.isArray(value) ? value.join("、") : String(value).trim()}`);
-          return entries.join("；");
-        };
-        if (Array.isArray(value)) return value.map(textFromObject).filter(Boolean);
-        if (value && typeof value === "object") return [textFromObject(value)].filter(Boolean);
-        return String(value || "")
-          .split(/\n+|[；;]/)
-          .map((item) => cleanExtractedText(item.replace(/^\s*\d+[.、]\s*/, "")))
-          .filter(Boolean);
-      }
-
-      function firstStructuredValue(source, keys) {
-        const data = source && typeof source === "object" ? source : {};
-        for (const key of keys) {
-          const value = data[key];
-          if (Array.isArray(value) ? value.length : String(value || "").trim()) return value;
-        }
-        return "";
+        return result;
       }
 
       function findStructuredStudent(students, name) {
@@ -1523,59 +1188,17 @@
         }) || null;
       }
 
-      function normalizeSharedLesson(result, sourceText) {
-        const structured = result?.structuredData && typeof result.structuredData === "object" ? result.structuredData : {};
-        const shared = structured.sharedLesson || structured.shared || structured.lesson || {};
-        const fallback = parseClassFeedbackInput(sourceText);
-        const contentItems = arrayFromStructuredValue(firstStructuredValue(shared, [
-          "courseContentItems", "courseContents", "contentItems", "lessonContentItems", "courseContent"
-        ])).slice(0, 4);
-        const knowledgeItems = arrayFromStructuredValue(firstStructuredValue(shared, [
-          "knowledgePointItems", "knowledgePoints", "knowledgeItems", "keyPoints"
-        ])).slice(0, 4);
-        const homework = cleanExtractedText(firstStructuredValue(shared, ["homework", "homeworkText", "assignment"]) || fallback.homework || "");
-        return {
-          courseContentItems: contentItems.length ? contentItems : courseContentItems(sourceText),
-          knowledgePointItems: knowledgeItems.length ? knowledgeItems : buildKnowledgePointItems(sourceText),
-          homework: homework && !isWeakFeedbackPhrase(homework) ? homework : fallback.homework || "__"
-        };
+      function textFromStructuredStudent(studentPart) {
+        return String(
+          studentPart?.parentMessage
+          || studentPart?.feedbackText
+          || studentPart?.message
+          || studentPart?.polishedText
+          || ""
+        ).trim();
       }
 
-      function buildSharedClassFeedbackText(name, sharedLesson, studentPart, sourceText, meta = {}) {
-        const greeting = normalizeFeedbackRecipient(name);
-        const resolvedMeta = feedbackMeta(name, sourceText, meta);
-        const stateText = String(firstStructuredValue(studentPart, ["stateText", "state", "status", "classState"]) || "").trim()
-          || `${name}本节课个人课堂状态待老师补充。`;
-        const masteryItems = arrayFromStructuredValue(firstStructuredValue(studentPart, [
-          "masteryItems", "mastery", "learningMastery", "learningStatus", "learningFeedback"
-        ])).slice(0, 4);
-        const resolvedMastery = masteryItems.length
-          ? masteryItems
-          : (sharedLesson.courseContentItems || []).slice(0, 4).map((item, index) => {
-              const label = ["第一项", "第二项", "第三项", "第四项"][index] || "本项";
-              return `${label}“${item}”：${name}的具体掌握情况待老师补充。`;
-            });
-        return [
-          `${greeting}，这是${resolvedMeta.lessonSeason || "春季"}小课第${resolvedMeta.lessonNumber || "__"}次课程反馈：`,
-          "",
-          "一、上课状态：",
-          stateText,
-          "",
-          "二、本次课上课内容：",
-          numberedLines(sharedLesson.courseContentItems),
-          "",
-          "三、知识点要点：",
-          numberedLines(sharedLesson.knowledgePointItems),
-          "",
-          "四、学习掌握情况：",
-          numberedLines(resolvedMastery),
-          "",
-          "五、课后作业：",
-          `《${sharedLesson.homework || "__"}》做完`
-        ].join("\n");
-      }
-
-      function buildSharedBatchFeedbackResults(result, names, sourceText, meta = {}) {
+      function buildAiWrittenBatchFeedbackResults(result, names, sourceText, meta = {}) {
         const structured = result?.structuredData && typeof result.structuredData === "object" ? result.structuredData : {};
         const students = Array.isArray(structured.students)
           ? structured.students
@@ -1583,21 +1206,15 @@
             ? structured.studentFeedbacks
             : [];
         if (!students.length) return [];
-        const sharedLesson = normalizeSharedLesson(result, sourceText);
-        return names.map((name) => {
+        const rows = names.map((name) => {
           const studentPart = findStructuredStudent(students, name) || {};
-          const text = removeOtherStudentReferences(
-            formatClassFeedbackText(buildSharedClassFeedbackText(name, sharedLesson, studentPart, sourceText, {
-              lessonSeason: meta.lessonSeason || result?.lessonSeason || "",
-              lessonNumber: meta.lessonNumber || result?.lessonNumber || ""
-            }), name),
-            name,
-            names
-          );
+          const rawText = textFromStructuredStudent(studentPart);
+          if (!rawText) return null;
+          const text = removeOtherStudentReferences(formatClassFeedbackText(rawText, name), name, names);
           return {
             ...result,
             title: `${name}｜课堂反馈`,
-            summary: "已按同一节课生成：上课内容、知识点和作业保持一致，个人状态和掌握情况按学生拆分。",
+            summary: "MiniMax 已按学生分别写好完整课堂反馈，网页端仅做姓名隔离和格式检查。",
             parentMessage: text,
             polishedText: text,
             sourceText,
@@ -1606,7 +1223,8 @@
             lessonSeason: result?.lessonSeason || meta.lessonSeason,
             lessonNumber: result?.lessonNumber || meta.lessonNumber
           };
-        });
+        }).filter(Boolean);
+        return rows.length === names.length ? rows : [];
       }
 
       async function runBatchClassFeedback(payload, names) {
@@ -1629,32 +1247,11 @@
             error.response = response;
             throw error;
           }
-          rows = buildSharedBatchFeedbackResults(response.data.result, names, sourceText, meta);
-          if (!rows.length) throw new Error("MiniMax 未返回一课多生结构化字段，已切换为逐人生成兜底。");
+          rows = buildAiWrittenBatchFeedbackResults(response.data.result, names, sourceText, meta);
+          if (!rows.length) throw new Error("MiniMax 未返回每个学生的完整课堂反馈，已切换为逐人生成兜底。");
         } catch (error) {
-          console.warn("Shared class feedback generation failed, fallback to per-student generation.", error);
-          rows = [];
-          for (let index = 0; index < names.length; index += 1) {
-            const name = names[index];
-            const studentText = sourceTextForStudent(name, sourceText, names);
-            const studentMeta = feedbackMeta(name, studentText, payload);
-            const studentPayload = {
-              ...payload,
-              target: name,
-              text: studentText,
-              lessonSeason: studentMeta.lessonSeason,
-              lessonNumber: studentMeta.lessonNumber
-            };
-            byId("aiMessage").textContent = `同课生成未成功，正在生成第 ${index + 1}/${names.length} 份课堂反馈：${name}`;
-            const response = await window.JRC_CLOUD?.aiAssistant?.(studentPayload);
-            if (!response?.ok || !response.data?.result) {
-              const errorMessage = response?.data?.message || response?.data?.error || `MiniMax 没有成功生成 ${name} 的课堂反馈。`;
-              const nextError = new Error(errorMessage);
-              nextError.response = response;
-              throw nextError;
-            }
-            rows.push(cleanClassFeedbackResultForStudent(response.data.result, name, studentText, studentMeta));
-          }
+          console.warn("Batch class feedback generation failed.", error);
+          throw error;
         }
         latestResult = {
           title: `批量课堂反馈｜${names.length}人`,
@@ -1665,7 +1262,7 @@
         };
         latestBatchResults = rows;
         byId("aiResultBox").innerHTML = `
-          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>系统优先按同一节课生成：公共上课内容、知识点和作业保持一致，个人状态和掌握情况按学生拆分。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
+          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>MiniMax 已按每个学生直接写出完整草稿；网页端只做姓名隔离、格式检查和保存。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
           <div class="result-item"><strong>下一步</strong><p>先检查每一份是否有黄色提醒和串名，再点“批量保存多学生草稿”；之后到草稿库逐个精修并归档学生服务。</p></div>
           ${latestBatchResults.map((item, index) => `
             <div class="result-item">
@@ -1678,44 +1275,14 @@
         updateActionButtons();
       }
 
-      function buildBatchFeedbackResults(result) {
-        if (!result || !isClassFeedbackMode()) return [];
-        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
-        if (names.length < 2) return [];
-        const sourceText = byId("aiInputText")?.value?.trim() || "";
-        return names.map((name) => {
-          const studentSourceText = sourceTextForStudent(name, sourceText, names);
-          const meta = feedbackMeta(name, sourceText, {
-            lessonSeason: result.lessonSeason || "",
-            lessonNumber: result.lessonNumber || ""
-          });
-          return cleanClassFeedbackResultForStudent(result, name, studentSourceText, meta);
-        });
-      }
-
       function renderResult(result) {
         result = ensureClassFeedbackTemplate(result);
         latestResult = result;
         const todos = Array.isArray(result.todoItems) ? result.todoItems : [];
         const tags = Array.isArray(result.quickTags) ? result.quickTags : [];
         const classFeedback = isClassFeedbackMode();
-        latestBatchResults = classFeedback ? buildBatchFeedbackResults(result) : [];
+        latestBatchResults = [];
         const showPolishedText = !classFeedback && result.polishedText && result.polishedText !== result.parentMessage;
-        if (latestBatchResults.length) {
-          byId("aiResultBox").innerHTML = `
-            <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>系统已按关联对象里的学生姓名拆成独立反馈。每一份都可以直接修改，点“保存草稿”会保存全部草稿；归档时请逐个打开草稿精修后归档学生服务。</p></div>
-            <div class="result-item"><strong>下一步</strong><p>先点“批量保存多学生草稿”，再到下方草稿库逐个点“查看草稿内容”检查；确认无误后点“带到右侧精修”，最后归档学生服务。</p></div>
-            ${latestBatchResults.map((item, index) => `
-              <div class="result-item">
-                <strong>${escapeHtml(item.title || `第 ${index + 1} 份课堂反馈`)}</strong>
-                ${editableResultTextarea("parentMessage", item.parentMessage, item.title || "完整课堂反馈", `data-batch-result-index="${index}"`, item.studentName || item.target || "")}
-              </div>
-            `).join("")}
-          `;
-          syncEditableResultFields();
-          updateActionButtons();
-          return;
-        }
         byId("aiResultBox").innerHTML = `
           <div class="result-item"><strong>${escapeHtml(result.title || "整理结果")}</strong><p>${escapeHtml(result.summary || "已完成整理。")}</p></div>
           ${result.parentMessage ? `<div class="result-item"><strong>${classFeedback ? "完整课堂反馈" : "发家长版"}</strong>${editableResultTextarea("parentMessage", result.parentMessage, classFeedback ? "完整课堂反馈" : "发家长版", "", result.studentName || result.target || byId("aiTargetInput")?.value || "")}</div>` : ""}
@@ -1727,121 +1294,6 @@
         updateActionButtons();
       }
 
-      function extractHomeworkFromText(rawText) {
-        const text = String(rawText || "");
-        const match = text.match(/(?:作业|课后作业|回家作业|家庭作业|回去|课后)[是为：: ]*(?:完成|做完|做|写)?([^。；;\n]+)/);
-        const homework = cleanExtractedText(match?.[1] || "");
-        return homework.replace(/^(完成|做完|做|写)/, "").trim() || "__";
-      }
-
-      function extractHomework(rawText) {
-        return parseClassFeedbackInput(rawText).homework;
-      }
-
-      function extractCourseContent(rawText) {
-        return parseClassFeedbackInput(rawText).courseContent;
-      }
-
-      function courseContentItems(rawText) {
-        const content = extractCourseContent(rawText);
-        if (!content || content === "本节课上课内容待老师补充") return ["本节课上课内容待老师补充"];
-        const items = content
-          .split(/[；;\n]/)
-          .map((item) => cleanExtractedText(item.replace(/^(今天|本节课|这节课|学习了|学了|讲了|复习了|主要讲了)/, "")))
-          .filter((item) => !isReviewOnlyClause(item))
-          .filter(Boolean);
-        return [...new Set(items)].slice(0, 4);
-      }
-
-      function numberedLines(items) {
-        return (Array.isArray(items) ? items : [])
-          .filter(Boolean)
-          .slice(0, 4)
-          .map((item, index) => `${index + 1}. ${item}`)
-          .join("\n");
-      }
-
-      function buildKnowledgePointItems(rawText) {
-        const content = extractCourseContent(rawText);
-        const compact = content.replace(/\s+/g, "");
-        const points = [];
-        if (/有理数/.test(compact)) {
-          points.push("有理数概念：整数和分数统称为有理数，正数、负数和 0 都可以放在数轴上表示。");
-          points.push("有理数分类：可按正有理数、0、负有理数分类，也可按整数和分数分类；分类时要注意标准统一。");
-        }
-        if (/数轴/.test(compact)) points.push("数轴三要素：原点、正方向、单位长度；数轴上的点与数可以建立对应关系。");
-        if (/绝对值/.test(compact)) points.push("绝对值要点：一个数的绝对值表示它到 0 的距离，所以绝对值一定大于等于 0；在数轴上体现为到原点的距离。");
-        if (/相反数/.test(compact)) points.push("相反数要点：只有符号不同的两个数互为相反数，它们在数轴上位于原点两侧且到原点距离相等，和为 0。");
-        if (/平行四边形/.test(compact)) {
-          points.push("平行四边形定义：两组对边分别平行的四边形叫平行四边形。");
-          points.push("平行四边形性质：对边平行且相等，对角相等，邻角互补，对角线互相平分。");
-          points.push("平行四边形判定：两组对边分别平行、两组对边分别相等、一组对边平行且相等、两组对角分别相等、对角线互相平分，都可判定为平行四边形。");
-          if (/面积|底|高/.test(compact)) points.push("平行四边形面积：S = 底 × 高，底和高必须对应。");
-        }
-        if (/矩形/.test(compact)) points.push("矩形要点：矩形是有一个角为直角的平行四边形，四个角都是直角，对角线相等且互相平分。");
-        if (/菱形/.test(compact)) points.push("菱形要点：菱形是四条边都相等的平行四边形，对角线互相垂直平分，并分别平分一组对角。");
-        if (/分数|应用题/.test(compact)) points.push("分数应用题：先找准单位“1”和对应分率，常用关系是单位量 × 对应分率 = 对应量。");
-        if (/百分数|利润|折扣|浓度/.test(compact)) points.push("百分数问题：百分率 = 比较量 ÷ 标准量 × 100%，增长率、折扣、利润率都要先确定比较基准。");
-        if (/比例|正比例|反比例/.test(compact)) points.push("比例关系：比例式 a:b = c:d 中内项积等于外项积；正比例关注 y/x 为定值，反比例关注 xy 为定值。");
-        if (/方程|等式/.test(compact)) points.push("方程思想：用未知数表示关键信息，根据等量关系建立方程，再检验结果是否符合题意。");
-        if (/圆/.test(compact)) points.push("圆的公式：周长 C = 2πr = πd，面积 S = πr²，题目中要区分半径和直径。");
-        if (/三角形/.test(compact)) points.push("三角形面积：S = 底 × 高 ÷ 2，解题时重点找到对应的底和高。");
-        if (/长方形|正方形|几何图形|平面几何|立体几何|面积|周长|体积/.test(compact) && !/绝对值.*几何意义|几何意义.*绝对值/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
-        if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
-        if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
-        if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
-        return points.slice(0, 4);
-      }
-
-      function buildKnowledgePoints(rawText) {
-        return numberedLines(buildKnowledgePointItems(rawText));
-      }
-
-      function buildMasteryItems(rawText) {
-        const courseItems = courseContentItems(rawText);
-        if (courseItems[0] === "本节课上课内容待老师补充") {
-          return ["本节课具体学习内容待老师补充；请老师确认后，再补充孩子对应知识点的掌握情况。"];
-        }
-        const state = parseClassFeedbackInput(rawText).stateText;
-        return courseItems.map((item, index) => {
-          const suffix = hasStateSignal(state) ? "课堂状态整体能跟上，后续继续通过课后练习巩固细节。" : "后续建议通过同类题训练巩固易错点。";
-          if (/有理数/.test(item)) return `有理数部分：孩子已开始建立正数、负数、0 以及有理数分类的基本认识，后续要继续强化分类标准和符号意识。${suffix}`;
-          if (/绝对值/.test(item)) return `绝对值部分：孩子对“距离”这一核心含义正在建立，需要继续结合数轴理解绝对值的几何意义，并通过题目熟悉化简和判断。${suffix}`;
-          if (/相反数/.test(item)) return `相反数部分：孩子对概念有接触，但性质运用还不够熟练，建议重点练习符号变化、数轴位置和“和为 0”的判断。${suffix}`;
-          const lead = ["第一项内容", "第二项内容", "第三项内容", "第四项内容"][index] || "本项内容";
-          return `${lead}“${item}”：孩子能够跟随老师完成课堂梳理和练习，基础理解整体在推进中。${suffix}`;
-        });
-      }
-
-      function buildClassFeedbackTemplate(target, rawText, meta = {}) {
-        const greeting = normalizeFeedbackRecipient(target);
-        const raw = String(rawText || "").trim() || "本节课课堂情况待老师补充";
-        const parsed = parseClassFeedbackInput(raw);
-        const homework = parsed.homework;
-        const courseItems = courseContentItems(raw);
-        const knowledgeItems = buildKnowledgePointItems(raw);
-        const masteryItems = buildMasteryItems(raw);
-        const resolvedMeta = feedbackMeta(target, raw, meta);
-        return [
-          `${greeting}，这是${resolvedMeta.lessonSeason || "春季"}小课第${resolvedMeta.lessonNumber || "__"}次课程反馈：`,
-          "",
-          "一、上课状态：",
-          parsed.stateText,
-          "",
-          "二、本次课上课内容：",
-          numberedLines(courseItems),
-          "",
-          "三、知识点要点：",
-          numberedLines(knowledgeItems),
-          "",
-          "四、学习掌握情况：",
-          numberedLines(masteryItems),
-          "",
-          "五、课后作业：",
-          `《${homework}》做完`
-        ].join("\n");
-      }
-
       function localFallback(payload) {
         const label = modeLabel(payload.mode);
         return {
@@ -1850,12 +1302,12 @@
           polishedText: payload.text,
           todoItems: payload.mode === "todo" ? payload.text.split(/[；;。\\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 8) : [],
           parentMessage: payload.mode === "classFeedback"
-            ? buildClassFeedbackTemplate(payload.target, payload.text, payload)
+            ? ""
             : payload.mode === "feedback"
               ? `家长您好，${payload.text}。以上为本节课学习反馈，老师会继续跟进孩子的掌握情况。`
               : "",
           internalNote: payload.mode === "classFeedback"
-            ? "已按校区统一课堂反馈模板生成。请老师确认第几次课程、作业名称、具体知识点和下节课计划后再发家长。"
+            ? "课堂反馈必须由 MiniMax 生成；当前未生成本地兜底正文。"
             : "已整理成草稿，请老师确认后再保存或发送。"
         };
       }
@@ -2007,24 +1459,26 @@
         const now = new Date().toISOString();
         const sourceText = byId("aiInputText").value.trim();
         const leakWarnings = [];
-        let batchResults = latestBatchResults.length
-          ? latestBatchResults.map((result, index) => {
-            const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
-            const text = removeOtherStudentReferences(
-              formatClassFeedbackText(result.parentMessage || result.polishedText || "", name),
-              name,
-              names
-            );
-            return {
-              ...result,
-              title: `${name}｜课堂反馈`,
-              parentMessage: text,
-              polishedText: text,
-              target: name,
-              studentName: name
-            };
-          })
-          : buildBatchFeedbackResults(latestResult);
+        if (!latestBatchResults.length) {
+          byId("aiMessage").textContent = "请先点 AI 整理，让 MiniMax 为每个学生直接生成独立课堂反馈草稿；网页端不再本地拆分或代写。";
+          return;
+        }
+        let batchResults = latestBatchResults.map((result, index) => {
+          const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
+          const text = removeOtherStudentReferences(
+            formatClassFeedbackText(result.parentMessage || result.polishedText || "", name),
+            name,
+            names
+          );
+          return {
+            ...result,
+            title: `${name}｜课堂反馈`,
+            parentMessage: text,
+            polishedText: text,
+            target: name,
+            studentName: name
+          };
+        });
         batchResults = batchResults.map((result, index) => {
           const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
           const text = removeOtherStudentReferences(
