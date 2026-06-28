@@ -1638,7 +1638,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/preimport-data.js?v=20260624b"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260626f"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
@@ -4353,7 +4353,11 @@
         if (!holder) return;
         const selectedTeacher = byId("financeTeacherSelect")?.value || "";
         if (!rows.length) {
-          holder.innerHTML = `<div class="empty">当前筛选下没有老师工资单入口。</div>`;
+          holder.innerHTML = `
+            <div class="empty">
+              当前筛选下没有老师工资单入口。请先确认月份是否选对；如果原 Excel 已有工资数据，请到管理员核对区导入工资/课时原始表。
+            </div>
+          `;
           return;
         }
         holder.innerHTML = rows.map((row) => {
@@ -4561,13 +4565,15 @@
               <div class="finance-teacher-workbench-head">
                 <div>
                   <strong>老师工资工作台</strong>
-                  <span>先选择月份和老师，再看本月工资单、待对账和点名课销。</span>
+                  <span>按原工资表习惯使用：先选月份，再点老师工资单，先核合计，不一致再看逐课次明细。</span>
                 </div>
                 <span class="status-pill pending">待选择</span>
               </div>
             </div>
             <div class="finance-next-list">
-              <div class="finance-next-item"><span>下一步</span><strong>请选择老师</strong><em>选择后会自动显示这位老师的工资单状态。</em></div>
+              <div class="finance-next-item"><span>第一步</span><strong>选择月份</strong><em>五月、六月、暑假月份不要混看。</em></div>
+              <div class="finance-next-item"><span>第二步</span><strong>点击老师卡片</strong><em>每位老师一张工资单，先看应发合计、明细条数和待对账数量。</em></div>
+              <div class="finance-next-item"><span>第三步</span><strong>有差异再展开</strong><em>逐课次明细默认收起，金额不一致时再查单条。</em></div>
             </div>
           `;
           return;
@@ -4618,7 +4624,7 @@
             tone: "warn",
             label: "待对账",
             title: `${data.reviewCount} 条需要重点核对`,
-            detail: "先点只看待对账，集中看金额、课次、来源不一致的地方。",
+            detail: "待对账不是错误；先核金额、课次、来源文件和学生/班级是否与原 Excel 一致。",
             action: "review",
             actionText: "只看待对账"
           }
@@ -4848,7 +4854,7 @@
         }
         if (drawer && financeReviewOnly && rows.length) drawer.open = true;
         if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="8" class="muted">当前老师/月份没有工资明细。请切换月份或老师；如果原 Excel 有数据，请继续导入工资表。</td></tr>`;
+          body.innerHTML = `<tr><td colspan="8" class="muted">当前老师/月份没有工资明细。请按顺序检查：1. 月份是否选对；2. 老师姓名是否和原 Excel 一致；3. 原工资/课时表是否已经导入；4. 是否勾选了“只看待对账”导致已核明细被隐藏。</td></tr>`;
           return;
         }
         body.innerHTML = groups.map((group) => {
@@ -5504,6 +5510,6 @@
       hydrateFinanceLinkedStores();
       applyEditPermission();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260628g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>

@@ -436,6 +436,7 @@ const JRC_SUGGESTION_ADMIN_USERNAMES = ["yeyuanze", "zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
 const JRC_CURRICULUM_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
 const JRC_TEACHING_QUALITY_ADMIN_USERNAMES = ["zhengjiayi", "chengzhihao"];
+const JRC_STUDENT_SERVICE_ADMIN_USERNAMES = ["yanyuhan", "zhoushan", "gaofangyan", "chengzhihao"];
 const JRC_DEPARTED_EMPLOYEE_USERNAMES = new Set(["zhangyan", "hejianjun"]);
 const JRC_GRANULAR_MODULES = [
   ["studentService", "学生服务"],
@@ -1128,6 +1129,10 @@ function jrcGetPermissions(subject) {
   if (JRC_TEACHING_QUALITY_ADMIN_USERNAMES.includes(username)) {
     permissions.add("teachingQuality.access");
     permissions.add("teachingQuality.edit");
+  }
+  if (JRC_STUDENT_SERVICE_ADMIN_USERNAMES.includes(username)) {
+    permissions.add("studentService.access");
+    permissions.add("studentService.edit");
   }
   (subject.permissions || []).forEach((permission) => permissions.add(permission));
   jrcExpandGranularPermissions(permissions);

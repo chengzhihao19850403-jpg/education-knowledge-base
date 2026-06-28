@@ -817,7 +817,7 @@
           <button class="button secondary" type="button" data-feedback-quick="mine-review">待我复核</button>
           <button class="button secondary" type="button" data-feedback-quick="reopened">仍有问题</button>
           <button class="button secondary" type="button" data-feedback-quick="new">新问题</button>
-          <button class="button secondary" type="button" data-feedback-quick="actionable">本轮待处理</button>
+          <button class="button secondary" type="button" data-feedback-quick="actionable">本轮待讨论</button>
           <button class="button secondary" type="button" data-feedback-quick="all">全部</button>
         </div>
         <div class="list-utility-row">
@@ -849,7 +849,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
 
-    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260626g"></script>
     <script src="/jrcedu/portal/feedback-review-plan.js?v=20260627a"></script>
     <script>
@@ -1720,7 +1720,7 @@
           const focusRows = [
             ["待我复核", myReviewRows.length, "管理员已处理，请你回到对应系统确认是否真的解决。", "mine-review"],
             ["仍有问题", reopenedRows.length, "老师复核后认为还没解决，需要继续进入下一轮整改。", "reopened"],
-            ["本轮待处理", actionableRows.length, "导出整改清单时主要看这些新问题和未闭环问题。", "actionable"]
+            ["本轮待讨论", actionableRows.length, "只含新问题和复核后仍有问题，不含待复核/已转任务/已解决。", "actionable"]
           ];
           focusNode.innerHTML = focusRows.map(([label, value, note, action]) => `
             <button class="feedback-focus-card" type="button" data-feedback-quick="${escapeHtml(action)}">
@@ -2377,8 +2377,8 @@
       function shouldEnterDiscussionExport(row) {
         const status = row.status || "待处理";
         if (feedbackClosedStatuses.includes(status)) return false;
-        if (feedbackReviewStatuses.includes(status)) return true;
-        if (status === "已转任务") return true;
+        if (feedbackReviewStatuses.includes(status)) return false;
+        if (status === "已转任务") return false;
         if (status === "继续反馈") {
           const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
           const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
@@ -2426,7 +2426,7 @@
       function exportFeedbackCsv() {
         const exportRows = siteFeedbackRows.filter(shouldEnterDiscussionExport);
         if (!exportRows.length) {
-          alert("当前没有本轮新问题或仍有问题的复核追问需要导出。");
+          alert("当前没有本轮新问题或复核后仍有问题的内容需要导出。已整改待复核、已转任务、已确认解决不会重复进入本轮讨论。");
           return;
         }
         const rows = feedbackCsvRows(exportRows);
@@ -2632,6 +2632,6 @@
         scrollToFeedbackIfRequested();
       })();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260628g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>

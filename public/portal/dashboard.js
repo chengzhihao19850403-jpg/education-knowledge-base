@@ -116,6 +116,8 @@
     { key: "jrc-curriculum-products-v2", label: "教研课程", risk: "资料待补" }
   ];
   const linkEventKey = "jrc-system-link-events-v1";
+  let adminDiagnosticsLoaded = false;
+  let adminDiagnosticsLoading = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -1374,8 +1376,31 @@
     document.querySelectorAll("[data-open-admin-diagnostics]").forEach((node) => {
       node.addEventListener("click", () => {
         diagnostics.open = true;
+        renderAdminDiagnosticsOnce(true);
       });
     });
+    diagnostics.addEventListener("toggle", () => {
+      if (diagnostics.open) renderAdminDiagnosticsOnce(true);
+    });
+  }
+
+  async function renderAdminDiagnosticsOnce(force = false) {
+    if (!isAdminLike()) return;
+    const diagnostics = $("portalAdminDiagnostics");
+    if (!force && !diagnostics?.open) return;
+    if (adminDiagnosticsLoaded || adminDiagnosticsLoading) return;
+    adminDiagnosticsLoading = true;
+    try {
+      renderDataStates();
+      renderDataFlows();
+      await Promise.allSettled([
+        renderCloudReadiness(),
+        renderLinkHealth()
+      ]);
+      adminDiagnosticsLoaded = true;
+    } finally {
+      adminDiagnosticsLoading = false;
+    }
   }
 
   function renderPortalDashboard() {
@@ -1450,10 +1475,9 @@
     renderMyTasks();
     renderMyFeedback();
 
-    renderDataStates();
-    renderCloudReadiness();
-    renderDataFlows();
-    renderLinkHealth();
+    if ($("portalAdminDiagnostics")?.open) {
+      renderAdminDiagnosticsOnce(true);
+    }
   }
 
   function renderDataStates() {

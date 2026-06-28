@@ -250,7 +250,7 @@ const checks = [
     title: "试用反馈整改独立系统",
     pass: /jrc-site-feedback-v1/.test(files.trialFeedback)
       && /试用反馈整改系统/.test(files.trialFeedback)
-      && /导出本轮 CSV/.test(files.trialFeedback)
+      && /导出本轮(?:待讨论)? CSV/.test(files.trialFeedback)
       && /sourceFeedbackId/.test(files.trialFeedback)
       && /trial-feedback\.html/.test(files.dashboard)
       && /trial-feedback\.html/.test(readText("portal/index.html"))

@@ -1024,7 +1024,7 @@
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/preimport-data.js?v=20260622a"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       const byId = (id) => document.getElementById(id);
@@ -1948,7 +1948,11 @@
         const stats = teacherSheetTeacherStats();
         const activeTeacher = selectedTeacher();
         if (!stats.length) {
-          holder.innerHTML = `<div class="empty">当前月份还没有老师课表入口。</div>`;
+          holder.innerHTML = `
+            <div class="empty">
+              当前月份还没有老师课表入口。请先确认月份是否选对；如果老师原 Excel 已有课程，请检查排课明细是否已导入，或老师姓名是否和系统名单一致。
+            </div>
+          `;
           return;
         }
         holder.innerHTML = stats.map((item) => `
@@ -2080,7 +2084,7 @@
             <div class="teacher-workbench-head">
               <div>
                 <strong>${escapeHtml(teacher || "当前老师")}｜排课工作台</strong>
-                <span>先看今天和本周；排新课时再看未写教室、老师空档和教室表。</span>
+                <span>像看原 Excel 一样：先核老师月课表，再看空格可排，最后核教室是否空闲。</span>
               </div>
               <span class="status-pill">${escapeHtml(period || "-")}</span>
             </div>
@@ -2118,7 +2122,7 @@
         renderTeacherSheetSummary(rows);
         renderTeacherWorkbench(rows);
         if (!rows.length) {
-          table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请先确认月份、老师姓名是否和原 Excel 一致。</div></td></tr></tbody>`;
+          table.innerHTML = `<tbody><tr><td><div class="empty">当前月份和老师没有匹配到课表。请按顺序检查：1. 月份是否选对；2. 老师姓名是否和原 Excel 一致；3. 是否用了今天/本周/未写教室等筛选；4. 排课明细是否已导入。</div></td></tr></tbody>`;
           renderTeacherDayAvailability();
           renderRoomUsage();
           return;
@@ -2844,6 +2848,6 @@
 
       initPaikeDashboard();
     </script>
-    <script src="/jrcedu/portal/mobile-unified.js?v=20260628g"></script>
+    <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>

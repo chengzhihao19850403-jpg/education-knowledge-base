@@ -445,7 +445,7 @@
           <select id="systemFilter">
             <option value="">全部系统</option>
           </select>
-          <button class="button secondary" type="button" id="exportRoundButton">导出本轮 CSV</button>
+          <button class="button secondary" type="button" id="exportRoundButton">导出本轮待讨论 CSV</button>
           <button class="button secondary" type="button" id="exportAllButton">导出全部 CSV</button>
         </div>
         <div class="utility-row">
@@ -482,7 +482,7 @@
     </div>
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
-    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
     <script>
       (function () {
         const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
@@ -749,8 +749,8 @@
           if (feedbackHasConfirmedSolved(row) && !feedbackHasLaterReopen(row)) return false;
           const status = row.status || "待处理";
           if (closedStatuses.includes(status)) return false;
-          if (reviewStatuses.includes(status)) return true;
-          if (status === "已转任务") return true;
+          if (reviewStatuses.includes(status)) return false;
+          if (status === "已转任务") return false;
           if (status === "继续反馈") {
             const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
             const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
@@ -844,7 +844,7 @@
             ["mine-review", base.filter((row) => personMatches(row) && reviewStatuses.includes(row.status || "")).length, "待我复核", "管理员已处理，请回原系统确认是否解决。"],
             ["reopened", base.filter((row) => row.status === "继续反馈").length, "仍有问题", "老师复核后认为还没解决。"],
             ["new", base.filter((row) => (row.status || "待处理") === "待处理").length, "新问题", "还没讨论或处理的新反馈。"],
-            ["actionable", rows.filter(shouldEnterRoundExport).length, "本轮待处理", "导出时主要看这些。"],
+            ["actionable", rows.filter(shouldEnterRoundExport).length, "本轮待讨论", "只含新问题和仍有问题，不含待复核/已解决。"],
             ["all", base.length, "全部", "清空快捷筛选。"]
           ];
           byId("focusGrid").innerHTML = focusRows.map(([action, value, label, note]) => `
@@ -1138,7 +1138,7 @@
         function exportRound() {
           const exportRows = rows.filter(shouldEnterRoundExport);
           if (!exportRows.length) {
-            alert("当前没有本轮新问题或仍有问题的复核追问需要导出。");
+            alert("当前没有本轮新问题或复核后仍有问题的内容需要导出。已整改待复核、已转任务、已确认解决不会重复进入本轮讨论。");
             return;
           }
           downloadCsv(`本轮待讨论反馈-${today()}.csv`, exportRows);

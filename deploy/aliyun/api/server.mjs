@@ -19,7 +19,7 @@ const minimaxTimeoutMs = Number(process.env.JRC_MINIMAX_TIMEOUT_MS || 45000);
 const minimaxMaxAttempts = Math.max(1, Number(process.env.JRC_MINIMAX_MAX_ATTEMPTS || 3));
 const departedEmployeeUsernames = ["zhangyan", "hejianjun"];
 const moduleOwnerPermissionRules = {
-  yanyuhan: ["admissions.access", "admissions.edit", "admissions.import", "admissions.export", "admissions.finance"],
+  yanyuhan: ["admissions.access", "admissions.edit", "admissions.import", "admissions.export", "admissions.finance", "studentService.access", "studentService.edit"],
   liudajun: ["finance.access", "finance.edit"],
   zhaoxuan: [
     "curriculum.access",
@@ -31,7 +31,7 @@ const moduleOwnerPermissionRules = {
     "curriculum.export",
     "curriculum.reset"
   ],
-  zhoushan: ["paike.access", "paike.edit"],
+  zhoushan: ["paike.access", "paike.edit", "studentService.access", "studentService.edit"],
   gaofangyan: ["studentService.access", "studentService.edit"],
   yeyuanze: ["suggestions.access", "suggestions.edit"],
   chengzhihao: ["knowledge.access", "knowledge.edit", "admin.access"],
