@@ -112,6 +112,18 @@
       ]
     }
   ];
+  const usageHelpQuestionSets = {
+    招生管理系统: ["新线索怎么录入？", "试听结束后下一步怎么做？", "报名后归属锁定怎么处理？"],
+    排课系统: ["老师排课表怎么看？", "教室还有没有空位怎么看？", "排课数据缺失应该怎么反馈？"],
+    财务系统: ["老师工资怎么核对？", "待对账是什么意思？", "产值和利润应该看哪里？"],
+    学生与家长服务系统: ["点名课消怎么操作？", "缺勤异常在哪里处理？", "出门测成绩怎么录入和排序？"],
+    教研与课程产品系统: ["标准化课件怎么上传？", "授课大纲怎么查找？", "资料版本更新怎么处理？"],
+    教学质量系统: ["巡课记录怎么填写？", "教学问题怎么转任务？", "未闭环问题在哪里看？"],
+    建议与任务协同系统: ["建议怎么转任务？", "我的反馈怎么复核？", "页面太长怎么筛选？"],
+    校区运营与人事系统: ["岗位排班在哪里看？", "谁可以编辑排班？", "人事离职交接怎么处理？"],
+    课堂反馈AI助手: ["课堂反馈怎么生成？", "多个学生怎么分开生成？", "草稿和归档在哪里看？"],
+    学管知识库系统: ["家长沟通话术怎么查？", "知识库内容怎么新增？", "内容不准确怎么反馈？"]
+  };
 
   function currentEmployee() {
     return window.JRC_CURRENT_EMPLOYEE || null;
@@ -124,6 +136,15 @@
     } catch {
       return fallback;
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function readFeedbackRows() {
@@ -232,7 +253,25 @@
     };
   }
 
+  function usageGuideQuestions(guide) {
+    return usageHelpQuestionSets[guide?.name] || ["这个页面应该先看哪里、先点哪里？", "这个页面的数据不对，我应该怎么核对？", "我看不懂这个系统，应该怎么反馈问题？"];
+  }
+
+  function usageHelpIntro(guide) {
+    return [
+      `当前按「${guide.name}」回答。`,
+      "你可以直接点上面的常见问题，也可以输入自己遇到的具体操作问题。"
+    ].join("\n");
+  }
+
+  function usageHelpQuickButtons(guide) {
+    return usageGuideQuestions(guide)
+      .map((question) => `<button type="button" data-jrc-help-question="${escapeHtml(question)}">${escapeHtml(question.replace(/[？?]$/, ""))}</button>`)
+      .join("");
+  }
+
   function usageHelpMarkup() {
+    const guide = currentUsageGuide();
     return `
       <button class="jrc-help-button" type="button">使用方法AI提问助手</button>
       <div class="jrc-help-panel" hidden>
@@ -240,21 +279,33 @@
           <strong>使用方法AI提问助手</strong>
           <button type="button" class="jrc-help-close" aria-label="关闭使用方法助手">×</button>
         </div>
+        <p class="jrc-help-current">当前系统：${escapeHtml(guide.name)}</p>
         <div class="jrc-help-quick">
-          <button type="button" data-jrc-help-question="这个页面应该先看哪里、先点哪里？">怎么用</button>
-          <button type="button" data-jrc-help-question="这个页面的数据不对，我应该怎么核对？">怎么核对</button>
-          <button type="button" data-jrc-help-question="我看不懂这个系统，应该怎么反馈问题？">怎么反馈</button>
+          ${usageHelpQuickButtons(guide)}
         </div>
         <label>
           你的问题
-          <textarea class="jrc-help-question" placeholder="例如：这个页面我应该先点哪里？试听结束后下一步怎么做？"></textarea>
+          <textarea class="jrc-help-question" placeholder="例如：${escapeHtml(usageGuideQuestions(guide)[0])}"></textarea>
         </label>
         <button class="jrc-help-submit" type="button">问 AI</button>
         <div class="jrc-help-answer" aria-live="polite">
-          点上面的快捷问题，或输入当前页面的使用问题后点“问 AI”。
+          ${escapeHtml(usageHelpIntro(guide))}
         </div>
       </div>
     `;
+  }
+
+  function syncUsageHelpPanel(dock) {
+    if (!dock) return;
+    const guide = currentUsageGuide();
+    const current = dock.querySelector(".jrc-help-current");
+    const quick = dock.querySelector(".jrc-help-quick");
+    const question = dock.querySelector(".jrc-help-question");
+    const answer = dock.querySelector(".jrc-help-answer");
+    if (current) current.textContent = `当前系统：${guide.name}`;
+    if (quick) quick.innerHTML = usageHelpQuickButtons(guide);
+    if (question) question.placeholder = `例如：${usageGuideQuestions(guide)[0]}`;
+    if (answer && answer.dataset.touched !== "true") answer.textContent = usageHelpIntro(guide);
   }
 
   function ensureUsageHelpInDock(dock) {
@@ -271,6 +322,7 @@
     [...template.content.childNodes].forEach((node) => {
       dock.insertBefore(node, target || dock.firstChild);
     });
+    syncUsageHelpPanel(dock);
   }
 
   async function saveFeedback(row) {
@@ -461,6 +513,7 @@
     `;
       document.body.appendChild(dock);
     }
+    syncUsageHelpPanel(dock);
 
     const panel = dock.querySelector(".jrc-feedback-panel");
     const openButton = dock.querySelector(".jrc-feedback-button");
@@ -504,6 +557,7 @@
       if (!helpAnswer) return;
       helpAnswer.classList.toggle("is-error", tone === "error");
       helpAnswer.classList.toggle("is-loading", tone === "loading");
+      helpAnswer.dataset.touched = "true";
       helpAnswer.textContent = text || "";
     }
 
@@ -580,11 +634,11 @@
         const progressText = row.resolution || latestNote?.text || "";
         return `
           <div class="jrc-feedback-history__item">
-            <span class="jrc-feedback-history__status ${statusTone(status)}">${status}</span>
-            <strong>${row.type || "试用反馈"}｜${row.system || "未知页面"}</strong>
-            <p>${contentText}${String(row.content || "").length > 44 ? "..." : ""}</p>
-            ${progressText ? `<p><b>进展：</b>${String(progressText).slice(0, 54)}${String(progressText).length > 54 ? "..." : ""}</p>` : ""}
-            <small>${createdAt || "刚刚"}</small>
+            <span class="jrc-feedback-history__status ${statusTone(status)}">${escapeHtml(status)}</span>
+            <strong>${escapeHtml(row.type || "试用反馈")}｜${escapeHtml(row.system || "未知页面")}</strong>
+            <p>${escapeHtml(contentText)}${String(row.content || "").length > 44 ? "..." : ""}</p>
+            ${progressText ? `<p><b>进展：</b>${escapeHtml(String(progressText).slice(0, 54))}${String(progressText).length > 54 ? "..." : ""}</p>` : ""}
+            <small>${escapeHtml(createdAt || "刚刚")}</small>
           </div>
         `;
       }).join("") : `<p class="jrc-feedback-history__empty">你还没有提交过反馈。</p>`;
@@ -654,9 +708,10 @@
       renderMyFeedbackHistory();
     }
 
-    if (helpButton && dock.dataset.jrcUsageHelpBound !== "true") {
+    if (helpButton && helpPanel && dock.dataset.jrcUsageHelpBound !== "true") {
       dock.dataset.jrcUsageHelpBound = "true";
       helpButton.addEventListener("click", () => {
+        syncUsageHelpPanel(dock);
         helpPanel.hidden = !helpPanel.hidden;
         if (!helpPanel.hidden && panel) panel.hidden = true;
         if (!helpPanel.hidden) helpQuestion?.focus();
@@ -673,12 +728,13 @@
           askUsageHelp(helpQuestion.value);
         }
       });
-      dock.querySelectorAll("[data-jrc-help-question]").forEach((button) => {
-        button.addEventListener("click", () => {
+      helpPanel.addEventListener("click", (event) => {
+        const button = event.target?.closest?.("[data-jrc-help-question]");
+        if (button) {
           const question = button.getAttribute("data-jrc-help-question") || "";
           if (helpQuestion) helpQuestion.value = question;
           askUsageHelp(question);
-        });
+        }
       });
     }
   }
