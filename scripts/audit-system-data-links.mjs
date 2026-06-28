@@ -171,6 +171,15 @@ const checks = [
     detail: "报名学生未排课时，会进入周珊首页任务，并在排课系统显示待排课名单，可直接定位课表和教室。"
   },
   {
+    title: "招生系统使用问答入口",
+    pass: /admissionsHelpFaqs/.test(files.admissions)
+      && /answerAdmissionsHelp/.test(files.admissions)
+      && /mode:\s*"help"/.test(files.admissions)
+      && /buildAdmissionsHelpPrompt/.test(files.admissions)
+      && /admissionsHelpPanel/.test(readText("public/advice-system/index.html")),
+    detail: "招生页有本地常见问题和手动 AI 使用问答；页面打开不自动调用 MiniMax。"
+  },
+  {
     title: "财务主动读取招生云端数据",
     pass: /ADMISSIONS_STORE_KEY/.test(files.finance)
       && /hydrateFinanceLinkedStores/.test(files.finance)

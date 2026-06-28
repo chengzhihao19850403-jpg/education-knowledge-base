@@ -601,6 +601,67 @@
         font-size: 12px;
         line-height: 1.6;
       }
+      .admissions-help-card {
+        border-color: rgba(124, 58, 237, 0.18);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+      }
+      .help-faq-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .help-faq-grid button {
+        min-height: 34px;
+        border: 1px solid rgba(124, 58, 237, 0.18);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--brand);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .help-question-box {
+        margin-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .help-question-box textarea {
+        width: 100%;
+        min-height: 78px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 11px;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        resize: vertical;
+        background: #fff;
+      }
+      .help-answer {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+      .help-answer strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--ink);
+      }
+      .help-answer.loading {
+        color: var(--brand);
+        background: var(--brand-soft);
+      }
+      .help-answer.error {
+        color: var(--red);
+        background: rgba(185, 28, 28, 0.08);
+      }
       ul {
         padding-left: 18px;
         margin-top: 10px;
@@ -653,8 +714,11 @@
         .toast-message {
           border-radius: 16px;
         }
+        .help-faq-grid {
+          grid-template-columns: 1fr;
+        }
       }
-      .layout > aside.panel .stack-list .list-card:nth-child(n + 6) {
+      .layout > aside.panel .stack-list .list-card:nth-child(n + 7) {
         display: none;
       }
     </style>
@@ -682,6 +746,7 @@
         <a href="#enrollStudentName" data-jump-view="enrollment">报名登记</a>
         <a href="#importBatchInput" data-jump-view="settings">批量导入</a>
         <a href="#leadTableBody" data-jump-view="leads">线索主表</a>
+        <a href="#admissionsHelpPanel">使用问答</a>
       </div>
 
       <div class="layout">
@@ -2484,6 +2549,29 @@
               <p id="operatorMeta">读取中</p>
               <p id="operatorPermissionSummary">读取中</p>
             </div>
+            <div class="list-card admissions-help-card" id="admissionsHelpPanel">
+              <h3>招生系统使用问答</h3>
+              <p>先点常见问题；没有命中时，再手动问 AI。</p>
+              <div class="help-faq-grid" aria-label="招生系统常见问题">
+                <button type="button" data-admissions-help-question="新线索怎么录入？">新线索</button>
+                <button type="button" data-admissions-help-question="试听中心必须填哪些字段？">试听必填</button>
+                <button type="button" data-admissions-help-question="报名后归属锁定怎么处理？">归属锁定</button>
+                <button type="button" data-admissions-help-question="生源来源怎么填？">生源来源</button>
+                <button type="button" data-admissions-help-question="招生看板日周月年怎么看？">数据看板</button>
+                <button type="button" data-admissions-help-question="导出 Excel 在哪里？">导出 Excel</button>
+              </div>
+              <div class="help-question-box">
+                <textarea id="admissionsHelpQuestion" placeholder="例如：试听结束后我应该先填哪里？报名后归属为什么不能随便改？"></textarea>
+                <div class="section-actions" style="margin-top: 0;">
+                  <button class="button small" id="askAdmissionsHelpButton" type="button">问 AI</button>
+                  <a class="button secondary small" href="/jrcedu/portal/trial-feedback.html">提交反馈</a>
+                </div>
+              </div>
+              <div class="help-answer" id="admissionsHelpAnswer" aria-live="polite">
+                <strong>使用方法</strong>
+                点上面的常见问题可以立即查看；自由提问时才会调用 AI。
+              </div>
+            </div>
             <div class="list-card">
               <h3>最近操作留痕</h3>
               <div class="audit-list" id="auditLogList">
@@ -2522,7 +2610,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260626h"></script>
-    <script src="./app.js?v=20260623c"></script>
+    <script src="./app.js?v=20260628a"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
   </body>
 </html>

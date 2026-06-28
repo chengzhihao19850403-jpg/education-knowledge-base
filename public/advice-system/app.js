@@ -55,6 +55,77 @@ const importTemplateFields = [
   "首条备注",
   "下一步动作",
 ].join("\t");
+const admissionsHelpKnowledgeBase = [
+  "招生系统目标：把线索录入、跟进、试听、反馈、报名建档、归属锁定、转介绍、导出复盘串起来。",
+  "新线索录入：填写学生姓名、学校、年级、联系方式、微信昵称及微信号或联系电话、生源来源、意向课程、负责人、下一步动作。",
+  "生源来源必须填：线上客户、老生家长转介绍、扩科、其他。选择其他时要补一句来源说明；转介绍要写推荐人。",
+  "试听中心必填：试听学生学校、年级、试听班级、微信昵称及微信号、联系电话、试听日期时间、试听老师、跟进对象、跟进内容、自动提醒时间、试听反馈、下一步状态。",
+  "试听流程：录入或选择线索，预约试听，记录试听老师和时间，试听结束后填试听反馈，再选择下一步状态。",
+  "报名归属锁定：报名后负责人和渠道归属会锁定；需要调整时走解锁并留痕，避免后续归属和提成争议。",
+  "转介绍：记录推荐人、被推荐学生、奖励金额、发放状态，后续按转介绍贡献做统计和排序。",
+  "招生看板：按日、周、月、年查看线索、试听、报名、转化等数据，用来核对招生老师工作量和转化效率。",
+  "导出 Excel：用于每周和每月复盘、人工核对、向管理层汇总招生数据。"
+];
+const admissionsHelpFaqs = [
+  {
+    title: "新线索怎么录入？",
+    keywords: ["新线索", "录入", "新增", "线索怎么"],
+    answer: [
+      "1. 在首页点“新增线索”，先填学生姓名、年级、联系方式、生源来源、负责人和意向等级。",
+      "2. 生源来源一定要选清楚：线上客户、老生家长转介绍、扩科、其他。",
+      "3. 如果是转介绍，推荐人 / 其他来源说明里写推荐人；如果是其他来源，写几字说明。",
+      "4. 保存后，这个学生会进入线索中心，后面可以继续跟进、预约试听、报名建档。"
+    ].join("\n")
+  },
+  {
+    title: "试听中心必须填哪些字段？",
+    keywords: ["试听", "必填", "试听中心", "试听字段"],
+    answer: [
+      "试听中心要把“约课”和“试听后反馈”分开看。",
+      "预约时重点填：学生、试听日期时间、试听老师、试听班级、联系方式。",
+      "试听结束后重点填：到课情况、试听反馈、意向等级、下一步状态、下次跟进时间。",
+      "如果下拉里找不到学生，可以先回首页或线索中心新增线索，再回来预约试听。"
+    ].join("\n")
+  },
+  {
+    title: "报名后归属锁定怎么处理？",
+    keywords: ["归属", "锁定", "解锁", "改不了", "报名后"],
+    answer: [
+      "报名后负责人、渠道归属、推荐人等信息会锁定，这是为了避免后面提成和转介绍归属争议。",
+      "确实录错时，进入线索详情，使用“解锁归属链”后再修改。",
+      "系统会记录谁在什么时候解锁、原来的归属是什么，后续财务核对时能追溯。"
+    ].join("\n")
+  },
+  {
+    title: "生源来源怎么填？",
+    keywords: ["生源", "来源", "渠道", "线上", "扩科", "转介绍"],
+    answer: [
+      "生源来源必须填，建议按这四类选：",
+      "1. 线上客户：从网络、广告、线上咨询来的新客户。",
+      "2. 老生家长转介绍：老家长推荐的新学生，要写清推荐人。",
+      "3. 扩科：原本在读学生新增其他课程。",
+      "4. 其他：不属于上面三类时选择，并补一句说明。"
+    ].join("\n")
+  },
+  {
+    title: "招生看板日周月年怎么看？",
+    keywords: ["看板", "日", "周", "月", "年", "统计", "数据"],
+    answer: [
+      "招生看板主要看三件事：线索数量、试听推进、报名转化。",
+      "日统计适合看今天有没有漏跟进；周统计适合开周会复盘；月统计适合算招生结果和提成；年统计适合看长期渠道效果。",
+      "如果数据看起来不对，先检查线索有没有负责人、生源来源、试听状态和报名状态。"
+    ].join("\n")
+  },
+  {
+    title: "导出 Excel 在哪里？",
+    keywords: ["导出", "Excel", "表格", "下载", "复盘"],
+    answer: [
+      "进入“线索中心”后，可以按负责人、渠道、意向等级筛选，再点导出。",
+      "导出表主要用于每周/月人工复盘和核对，不建议直接改导出的表再倒回系统。",
+      "如果账号看不到导出按钮，通常是没有招生导出权限，需要管理员开放。"
+    ].join("\n")
+  }
+];
 
 function byId(id) {
   return document.getElementById(id);
@@ -87,6 +158,98 @@ function showToast(text, type = "") {
   toastTimer = setTimeout(() => {
     node.classList.remove("show");
   }, 2200);
+}
+
+function setAdmissionsHelpAnswer(text, stateClass = "") {
+  const box = byId("admissionsHelpAnswer");
+  if (!box) return;
+  box.classList.remove("loading", "error");
+  if (stateClass) box.classList.add(stateClass);
+  box.innerHTML = `<strong>${stateClass === "error" ? "暂时无法回答" : "使用方法"}</strong>${escapeHtml(text || "").replace(/\n/g, "<br>")}`;
+}
+
+function matchAdmissionsHelpFaq(question) {
+  const normalized = String(question || "").trim().toLowerCase();
+  if (!normalized) return null;
+  return admissionsHelpFaqs.find((faq) => {
+    const title = faq.title.toLowerCase();
+    return title.includes(normalized) || faq.keywords.some((keyword) => normalized.includes(String(keyword).toLowerCase()));
+  }) || null;
+}
+
+function buildAdmissionsHelpPrompt(question) {
+  return [
+    "你是匠人程工作台的招生管理系统使用助手，只回答招生系统怎么用，不回答无关聊天。",
+    "回答对象是一线招生老师，要求短、清楚、能照着做。",
+    "如果老师的问题涉及具体数据准确性，提醒老师先按页面字段核对，再通过“提交反馈”说明学生、页面和操作步骤。",
+    "",
+    "招生系统知识库：",
+    admissionsHelpKnowledgeBase.map((item, index) => `${index + 1}. ${item}`).join("\n"),
+    "",
+    "老师问题：",
+    question,
+    "",
+    "请用 3-6 条步骤回答；不要写长篇解释；最后提醒老师看不懂可以点“提交反馈”。"
+  ].join("\n");
+}
+
+function normalizeAiHelpText(result) {
+  const data = result?.data?.result || result?.result || result?.data || {};
+  const candidates = [
+    data.parentMessage,
+    data.polishedText,
+    data.summary,
+    typeof data === "string" ? data : ""
+  ];
+  const text = candidates.map((item) => String(item || "").trim()).find(Boolean);
+  if (text) return text;
+  return "";
+}
+
+async function answerAdmissionsHelp(question) {
+  const text = String(question || "").trim();
+  if (!text) {
+    setAdmissionsHelpAnswer("请先输入你想问的招生系统使用问题。", "error");
+    return;
+  }
+  const faq = matchAdmissionsHelpFaq(text);
+  if (faq) {
+    setAdmissionsHelpAnswer(faq.answer);
+    return;
+  }
+  if (!window.JRC_CLOUD?.aiAssistant) {
+    setAdmissionsHelpAnswer("AI 使用问答暂时不可用。常见问题仍可直接点上方按钮查看；页面其他招生功能不受影响。", "error");
+    return;
+  }
+  const button = byId("askAdmissionsHelpButton");
+  if (button) button.disabled = true;
+  setAdmissionsHelpAnswer("正在请 AI 按招生系统使用规则回答，请稍等。", "loading");
+  try {
+    const employee = getCurrentEmployee() || {};
+    const response = await window.JRC_CLOUD.aiAssistant({
+      mode: "help",
+      target: "招生管理系统",
+      text: buildAdmissionsHelpPrompt(text),
+      operatorName: employee.name || "",
+      operatorUsername: employee.username || "",
+      operatorRole: employee.role || ""
+    });
+    if (!response?.ok) throw new Error(response?.message || response?.error || "AI 调用失败");
+    if (response.data?.warning || response.data?.provider === "local") {
+      throw new Error(response.data?.message || "AI 暂时不可用");
+    }
+    const answer = normalizeAiHelpText(response);
+    if (/招生系统知识库|你是匠人程工作台/.test(answer)) {
+      throw new Error("AI 返回了内部提示词");
+    }
+    if (!answer) throw new Error("AI 没有返回有效答案");
+    setAdmissionsHelpAnswer(answer);
+  } catch (error) {
+    console.warn("招生系统 AI 使用问答失败", error);
+    setAdmissionsHelpAnswer("AI 暂时不可用，请稍后重试；页面其他功能不受影响。常见问题可以继续点上方按钮查看。", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function switchAdmissionView(target, selector = "") {
@@ -3113,6 +3276,7 @@ function applyPermissionState() {
   document.querySelectorAll(editSelectors.join(",")).forEach((node) => {
     if (!["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(node.tagName)) return;
     if (["leadSearchInput", "leadOwnerFilter", "leadChannelFilter", "leadIntentFilter"].includes(node.id)) return;
+    if (["admissionsHelpQuestion", "askAdmissionsHelpButton"].includes(node.id)) return;
     if (node.id === "detailAttributionLock" || node.id === "renewStudentName" || node.id === "renewAttributionPreview" || node.id === "enrollAttributionPreview") {
       node.disabled = true;
       return;
@@ -3186,6 +3350,32 @@ function bindLeadFilters() {
   });
 }
 
+function bindAdmissionsHelp() {
+  document.querySelectorAll("[data-admissions-help-question]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const question = button.getAttribute("data-admissions-help-question") || button.textContent || "";
+      const input = byId("admissionsHelpQuestion");
+      if (input) input.value = question;
+      answerAdmissionsHelp(question);
+    });
+  });
+  const askButton = byId("askAdmissionsHelpButton");
+  if (askButton) {
+    askButton.addEventListener("click", () => {
+      answerAdmissionsHelp(byId("admissionsHelpQuestion")?.value || "");
+    });
+  }
+  const questionInput = byId("admissionsHelpQuestion");
+  if (questionInput) {
+    questionInput.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        answerAdmissionsHelp(questionInput.value);
+      }
+    });
+  }
+}
+
 function renderAll() {
   persistState();
   renderOperatorContext();
@@ -3228,5 +3418,6 @@ bindDetailSave();
 bindAttributionUnlock();
 bindNavigation();
 bindLeadFilters();
+bindAdmissionsHelp();
 renderAll();
 hydrateCloudState();
