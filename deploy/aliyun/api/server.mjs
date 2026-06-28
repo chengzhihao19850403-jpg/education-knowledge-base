@@ -1160,6 +1160,14 @@ function cleanExtractedText(value) {
     .trim();
 }
 
+function looksLikeJsonText(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  if (/^\{[\s\S]*\}$/.test(raw)) return true;
+  return /\{[\s\S]*"(?:title|summary|polishedText|parentMessage|todoItems|structuredData)"\s*:/.test(raw)
+    || /"(?:title|summary|polishedText|parentMessage|todoItems)"\s*:[\s\S]*\}/.test(raw);
+}
+
 function splitFeedbackClauses(rawText) {
   return String(rawText || "")
     .replace(/[：:]/g, "：")
@@ -1173,7 +1181,7 @@ function hasStateSignal(text) {
 }
 
 function hasCourseTopic(text) {
-  return /(平行四边形|矩形|菱形|正方形|梯形|三角形|全等|相似|勾股|圆|几何|面积|周长|体积|函数|方程|分数|百分数|比例|应用题|行程|工程|浓度|利润|奥数|计算|科学|物理|化学|实验|力|电|光|密度|知识点|性质|判定|定义|定理|公式|题型|模型|方法|解法|解题|复习|学习|学了|讲了|上了|内容)/.test(String(text || ""));
+  return /(有理数|正数|负数|整数|分数|小数|数轴|绝对值|相反数|平行四边形|矩形|菱形|正方形|梯形|三角形|全等|相似|勾股|圆|几何|面积|周长|体积|函数|方程|百分数|比例|应用题|行程|工程|浓度|利润|奥数|计算|科学|物理|化学|实验|力|电|光|密度|知识点|性质|判定|定义|定理|公式|题型|模型|方法|解法|解题|学了|讲了|上了|内容)/.test(String(text || ""));
 }
 
 function isHomeworkClause(text) {
@@ -1181,7 +1189,12 @@ function isHomeworkClause(text) {
 }
 
 function isPlanClause(text) {
-  return /(下节课|下次课|后续|接下来|下一步|以后|继续|安排|计划|预习|巩固)/.test(String(text || ""));
+  return /(下节课|下次课|后续|接下来|下一步|以后|继续|安排|计划|预习|巩固|复习|多练|练习)/.test(String(text || ""));
+}
+
+function isReviewOnlyClause(text) {
+  const value = String(text || "").replace(/\s+/g, "");
+  return /^(要|需要|还要|注意|记得|课后)?(复习|巩固|多练|练习|回顾)(一下|下|哦|哈|呀)?$/.test(value);
 }
 
 function polishStateText(parts) {
@@ -1206,6 +1219,7 @@ function parseClassFeedbackInput(rawText) {
   const planParts = [];
   clauses.forEach((clause) => {
     if (isHomeworkClause(clause)) homeworkParts.push(clause);
+    else if (isReviewOnlyClause(clause)) planParts.push(clause);
     else if (isPlanClause(clause) && !hasCourseTopic(clause)) planParts.push(clause);
     else if (hasStateSignal(clause) && !/(知识点|性质|判定|定义|定理|公式)/.test(clause)) stateParts.push(clause);
     else if (hasCourseTopic(clause)) contentParts.push(clause);
@@ -1236,9 +1250,12 @@ function extractTemplateSection(text, label, nextLabels = []) {
 
 function classFeedbackNeedsRebuild(parentMessage) {
   const text = String(parentMessage || "");
-  const courseSection = extractTemplateSection(text, "本次课上课内容：", ["三、知识点要点：", "二、知识点要点：", "知识点要点：", "四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈："]);
-  const knowledgeSection = extractTemplateSection(text, "知识点要点：", ["四、学习掌握情况：", "三、学习掌握情况：", "学习情况反馈：", "五、课后作业：", "四、课后作业："]);
-  return !text.includes("学习掌握情况") || hasStateSignal(courseSection) || hasStateSignal(knowledgeSection);
+  if (looksLikeJsonText(text)) return true;
+  return !text.includes("一、上课状态")
+    || !text.includes("本次课上课内容")
+    || !text.includes("知识点要点")
+    || !text.includes("学习掌握情况")
+    || !text.includes("课后作业");
 }
 
 function formatClassFeedbackText(value, target = "") {
@@ -1314,6 +1331,7 @@ function courseContentItems(rawText) {
   const items = content
     .split(/[；;\n]/)
     .map((item) => cleanExtractedText(item.replace(/^(今天|本节课|这节课|学习了|学了|讲了|复习了|主要讲了)/, "")))
+    .filter((item) => !isReviewOnlyClause(item))
     .filter(Boolean);
   return [...new Set(items)].slice(0, 4);
 }
@@ -1330,6 +1348,13 @@ function buildKnowledgePointItems(rawText) {
   const content = extractCourseContent(rawText);
   const compact = content.replace(/\s+/g, "");
   const points = [];
+  if (/有理数/.test(compact)) {
+    points.push("有理数概念：整数和分数统称为有理数，正数、负数和 0 都可以放在数轴上表示。");
+    points.push("有理数分类：可按正有理数、0、负有理数分类，也可按整数和分数分类；分类时要注意标准统一。");
+  }
+  if (/数轴/.test(compact)) points.push("数轴三要素：原点、正方向、单位长度；数轴上的点与数可以建立对应关系。");
+  if (/绝对值/.test(compact)) points.push("绝对值要点：一个数的绝对值表示它到 0 的距离，所以绝对值一定大于等于 0；在数轴上体现为到原点的距离。");
+  if (/相反数/.test(compact)) points.push("相反数要点：只有符号不同的两个数互为相反数，它们在数轴上位于原点两侧且到原点距离相等，和为 0。");
   if (/平行四边形/.test(compact)) {
     points.push("平行四边形定义：两组对边分别平行的四边形叫平行四边形。");
     points.push("平行四边形性质：对边平行且相等，对角相等，邻角互补，对角线互相平分。");
@@ -1344,7 +1369,7 @@ function buildKnowledgePointItems(rawText) {
   if (/方程|等式/.test(compact)) points.push("方程思想：用未知数表示关键信息，根据等量关系建立方程，再检验结果是否符合题意。");
   if (/圆/.test(compact)) points.push("圆的公式：周长 C = 2πr = πd，面积 S = πr²，题目中要区分半径和直径。");
   if (/三角形/.test(compact)) points.push("三角形面积：S = 底 × 高 ÷ 2，解题时重点找到对应的底和高。");
-  if (/长方形|正方形|几何|面积|周长|体积/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
+  if (/长方形|正方形|几何图形|平面几何|立体几何|面积|周长|体积/.test(compact) && !/绝对值.*几何意义|几何意义.*绝对值/.test(compact)) points.push("几何问题：先明确周长、面积或体积公式，再结合分割、补全、转化等方法解决。");
   if (/函数|一次函数|二次函数|图像/.test(compact)) points.push("函数知识：关注解析式、图像变化、交点和实际意义之间的对应关系。");
   if (/科学|物理|化学|实验|力|电|光|密度/.test(compact)) points.push("科学知识：重点理解概念定义、实验现象和结论之间的因果关系。");
   if (!points.length) points.push(content === "本节课上课内容待老师补充" ? "知识点待老师补充：请老师补充本节具体学习内容后，系统会更准确整理核心定义、公式和易错点。" : `本节核心内容：请家长让孩子复述“${content}”的核心概念、典型题型和易错点，检查是否真正理解。`);
@@ -1361,7 +1386,14 @@ function buildMasteryItems(rawText) {
     return ["本节课具体学习内容待老师补充；请老师确认后，再补充孩子对应知识点的掌握情况。"];
   }
   const state = parseClassFeedbackInput(rawText).stateText;
-  return courseItems.map((item) => `围绕“${item}”，孩子能够跟随老师完成课堂梳理和练习，基础理解整体在推进中。${hasStateSignal(state) ? "结合课堂状态来看，后续建议继续保持专注，并通过课后练习巩固细节。" : "后续建议课后再通过同类题训练巩固易错点。"}`);
+  return courseItems.map((item, index) => {
+    const suffix = hasStateSignal(state) ? "课堂状态整体能跟上，后续继续通过课后练习巩固细节。" : "后续建议通过同类题训练巩固易错点。";
+    if (/有理数/.test(item)) return `有理数部分：孩子已开始建立正数、负数、0 以及有理数分类的基本认识，后续要继续强化分类标准和符号意识。${suffix}`;
+    if (/绝对值/.test(item)) return `绝对值部分：孩子对“距离”这一核心含义正在建立，需要继续结合数轴理解绝对值的几何意义，并通过题目熟悉化简和判断。${suffix}`;
+    if (/相反数/.test(item)) return `相反数部分：孩子对概念有接触，但性质运用还不够熟练，建议重点练习符号变化、数轴位置和“和为 0”的判断。${suffix}`;
+    const lead = ["第一项内容", "第二项内容", "第三项内容", "第四项内容"][index] || "本项内容";
+    return `${lead}“${item}”：孩子能够跟随老师完成课堂梳理和练习，基础理解整体在推进中。${suffix}`;
+  });
 }
 
 function buildClassFeedbackTemplate(target, rawText, meta = {}) {
@@ -1420,6 +1452,7 @@ function aiSystemPrompt() {
     "涉及课件资料归档时，要整理年级、体系、主题、资料类型、标签、适用场景、打印/使用建议和标准文件命名建议。",
     "课堂反馈要面向家长，语气温和、具体、有诊断感，避免夸大承诺、避免刺激性评价。",
     "课堂反馈必须优先套用校区统一模板，结合老师原始描述匹配模块填写，不能把模板字段漏掉；每个栏目之间必须空一行，方便老师复制到微信。",
+    "课堂反馈的正文由你主写，系统只做格式校验；请用自然、具体、有老师口吻的表达，不要机械套句，不要每条都用同一个开头。",
     "课堂反馈每个栏目标题后面必须直接换行写正文，不要在栏目标题和正文之间再空一行。",
     "课堂反馈称呼统一用“某某的家长您好”，不要默认写妈妈或爸爸；原始描述里的作业要提取到课后作业；原始描述里的上课主要内容要提取到本次课上课内容。",
     "课堂反馈模板必须使用这套结构：标题行 + 一、上课状态 + 二、本次课上课内容 + 三、知识点要点 + 四、学习掌握情况 + 五、课后作业。",
@@ -1427,7 +1460,10 @@ function aiSystemPrompt() {
     "本次课上课内容必须用 1-4 条编号列出知识主题；知识点要点必须用 1-4 条编号列出核心定义、公式、定理或方法；学习掌握情况必须与前面的编号主题对应。",
     "生成课堂反馈前必须先做语义分类：孩子表现、注意力、讲话、提醒、制止、互动、状态、纪律等只属于“上课状态”；作业只属于“课后作业”；具体学习主题、章节、题型、知识点才属于“本次课上课内容”。",
     "严禁把“表现不错、偶尔讲话、已提醒/已制止、注意力、专注度”等课堂状态内容写进“本次课上课内容”或“知识点要点”。",
+    "严禁把“要复习、要巩固、多练习、回去复习”等后续要求写成“本次课上课内容”；这些只能作为学习建议或老师确认项。",
     "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
+    "知识点要点只能依据真实上课主题生成，不能凭空补充无关主题；例如“绝对值的几何意义”属于绝对值/数轴知识，不是周长面积体积类几何公式。",
+    "学习掌握情况要对应前面的知识主题写孩子掌握、薄弱点和建议，避免连续使用“围绕……”等重复句式。",
     "如果上课内容提到平行四边形，知识点要点必须包含：定义、性质、判定；涉及面积时补充面积公式。",
     "不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
     "返回严格 JSON，不要 Markdown，不要解释，不要输出 <think>、分析过程、英文 reasoning、代码块或模板外文字。",
@@ -1458,8 +1494,11 @@ function buildAiUserPrompt(body) {
       "B. 课后作业：老师提到的作业、练习、讲义、订正、完成内容。",
       "C. 本次课上课内容：真实学习主题、章节、题型、知识点，例如平行四边形、函数、方程等。",
       "D. 知识点要点：只能根据 C 生成定义、公式、性质、判定、定理、方法，不能写孩子状态。",
+      "E. 复习/巩固要求：例如“要复习哦、回去多练、下次继续巩固”，不能放进本次课上课内容，只能放在掌握情况建议或待确认项。",
       "如果老师只说了孩子状态，没有说具体学习内容，本次课上课内容写“本节课上课内容待老师补充”，知识点要点写“知识点待老师补充”。",
       "如果 C 包含平行四边形，知识点要点必须写：定义、性质、判定；如果涉及面积，再写 S = 底 × 高。",
+      "如果 C 包含有理数、绝对值、相反数、数轴，要写这些主题对应的核心概念，不要生成周长、面积、体积等无关几何内容。",
+      "学习掌握情况要逐条对应 C，但句式要自然变化，不能每条都以同一个固定短语开头。",
       "某某的家长您好，这是春季小课第__次课程反馈：",
       "一、上课状态：",
       "根据老师原始描述如实整理课堂表现、专注度、互动、纪律、提醒情况。",
