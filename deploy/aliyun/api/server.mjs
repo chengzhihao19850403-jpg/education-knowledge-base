@@ -1458,13 +1458,14 @@ function aiSystemPrompt() {
     "课堂反馈模板必须使用这套结构：标题行 + 一、上课状态 + 二、本次课上课内容 + 三、知识点要点 + 四、学习掌握情况 + 五、课后作业。",
     "标题里的季节优先使用传入的 lessonSeason，没有则从原文识别春季/秋季/暑假/寒假；标题里的第几次优先使用传入的 lessonNumber，没有则识别原文，否则保留 __。",
     "本次课上课内容必须用 1-4 条编号列出知识主题；知识点要点必须用 1-4 条编号列出核心定义、公式、定理或方法；学习掌握情况必须与前面的编号主题对应。",
+    "知识点要点必须由你根据真实上课主题智能生成，不要依赖固定示例或泛化知识库；遇到任何数学/科学主题，都要写该主题对应的定义、性质、判定、公式、方法或易错点。",
+    "如果无法从原始描述判断某个知识主题的核心要点，就写“__待老师补充__”，严禁随便补一个无关知识点凑数。",
     "生成课堂反馈前必须先做语义分类：孩子表现、注意力、讲话、提醒、制止、互动、状态、纪律等只属于“上课状态”；作业只属于“课后作业”；具体学习主题、章节、题型、知识点才属于“本次课上课内容”。",
     "严禁把“表现不错、偶尔讲话、已提醒/已制止、注意力、专注度”等课堂状态内容写进“本次课上课内容”或“知识点要点”。",
     "严禁把“要复习、要巩固、多练习、回去复习”等后续要求写成“本次课上课内容”；这些只能作为学习建议或老师确认项。",
     "课堂反馈必须补充“知识点要点”，把上课主要内容整理成家长可查询、可询问孩子的核心定义、公式、定理、方法或易错点；数学尽量写公式，科学尽量写概念/现象/结论。",
     "知识点要点只能依据真实上课主题生成，不能凭空补充无关主题；例如“绝对值的几何意义”属于绝对值/数轴知识，不是周长面积体积类几何公式。",
     "学习掌握情况要对应前面的知识主题写孩子掌握、薄弱点和建议，避免连续使用“围绕……”等重复句式。",
-    "如果上课内容提到平行四边形，知识点要点必须包含：定义、性质、判定；涉及面积时补充面积公式。",
     "不确定的次数、作业名称、具体知识点可保留 __ 等待老师确认。",
     "返回严格 JSON，不要 Markdown，不要解释，不要输出 <think>、分析过程、英文 reasoning、代码块或模板外文字。",
     "JSON 字段：title, summary, polishedText, todoItems, parentMessage, internalNote, suggestedAction, riskLevel, className, courseName, quickTags, structuredData。",
@@ -1495,9 +1496,11 @@ function buildAiUserPrompt(body) {
       "C. 本次课上课内容：真实学习主题、章节、题型、知识点，例如平行四边形、函数、方程等。",
       "D. 知识点要点：只能根据 C 生成定义、公式、性质、判定、定理、方法，不能写孩子状态。",
       "E. 复习/巩固要求：例如“要复习哦、回去多练、下次继续巩固”，不能放进本次课上课内容，只能放在掌握情况建议或待确认项。",
+      "知识点要点必须由你根据 C 中真实主题自行分析生成，不要靠固定示例补内容；C 写什么主题，D 就写什么主题的核心定义、性质、判定、公式、方法或易错点。",
+      "如果 C 的某一条只是语气词、复习提醒或不完整短句，不要把它当上课内容；请移到学习建议，或标为 __待老师补充__。",
+      "如果作业只识别到“呢、啊、哦、要复习、巩固复习”等无效词，不要写成《呢》做完或《要巩固复习》做完；请写《__待老师补充__》做完。",
       "如果老师只说了孩子状态，没有说具体学习内容，本次课上课内容写“本节课上课内容待老师补充”，知识点要点写“知识点待老师补充”。",
-      "如果 C 包含平行四边形，知识点要点必须写：定义、性质、判定；如果涉及面积，再写 S = 底 × 高。",
-      "如果 C 包含有理数、绝对值、相反数、数轴，要写这些主题对应的核心概念，不要生成周长、面积、体积等无关几何内容。",
+      "如果 C 包含任何明确数学/科学主题，D 必须覆盖这些主题本身；不要把泛化的几何、计算、复习要求当作具体知识点。",
       "学习掌握情况要逐条对应 C，但句式要自然变化，不能每条都以同一个固定短语开头。",
       "某某的家长您好，这是春季小课第__次课程反馈：",
       "一、上课状态：",
@@ -1647,26 +1650,11 @@ function ensureClassFeedbackResult(result, body) {
       internalNote: noteParts.join("\n")
     };
   }
-  const meta = feedbackMeta(body?.target || "", body?.text || "", body || {});
-  const template = buildClassFeedbackTemplate(body?.target || "", body?.text || "", meta);
-  const noteParts = [
-    result?.internalNote,
-    hasTemplate
-      ? "MiniMax 返回的模板中存在状态/内容混放，系统已按原始口述重新归类到统一模板。"
-      : "MiniMax 未完整返回课堂反馈模板，系统已按原始口述补齐统一模板。",
-    rawAiText ? `MiniMax 原始整理已保留在“整理正文”中，老师可对照确认。` : ""
-  ].filter(Boolean);
-  return {
-    ...result,
-    title: result?.title || `${body?.target || "学生"}｜课堂反馈`,
-    summary: result?.summary || "MiniMax 已返回内容，系统已按校区统一课堂反馈模板生成，请老师确认后归档。",
-    polishedText: rawAiText || result?.polishedText || template,
-    parentMessage: template,
-    lessonSeason: result?.lessonSeason || body?.lessonSeason || meta.lessonSeason,
-    lessonNumber: result?.lessonNumber || body?.lessonNumber || meta.lessonNumber,
-    todoItems: Array.isArray(result?.todoItems) ? result.todoItems : [],
-    internalNote: noteParts.join("\n")
-  };
+  const error = new Error("MiniMax 没有返回可用的课堂反馈正文，本次不使用本地知识库硬凑正式反馈。");
+  error.statusCode = 502;
+  error.code = "minimax_incomplete_class_feedback";
+  error.retryable = true;
+  throw error;
 }
 
 function wait(ms) {

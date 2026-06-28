@@ -1271,20 +1271,30 @@
     const listHolder = $("portalMyFeedbackList");
     const statsHolder = $("portalMyFeedbackStats");
     if (!listHolder) return;
-    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = "入口";
+    const rows = await readSiteFeedbackRows();
+    const mine = rows.filter(feedbackRelatedToCurrentUser);
+    const needReview = mine.filter((row) => !siteFeedbackIsClosed(row) && siteFeedbackNeedsReview(row));
+    const reopened = mine.filter((row) => (row?.status || "") === "继续反馈" || siteFeedbackHasLaterReopen(row));
+    const closed = mine.filter(siteFeedbackIsClosed);
+    const badgeText = needReview.length ? `${needReview.length} 待复核` : "入口";
+    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = badgeText;
     if (statsHolder) {
       statsHolder.innerHTML = `
-        <div class="workbench-kpi-card"><span>个人反馈</span><strong>台账</strong></div>
-        <div class="workbench-kpi-card"><span>整改复核</span><strong>专项</strong></div>
+        <div class="workbench-kpi-card"><span>待复核</span><strong>${escapeHtml(needReview.length)}</strong></div>
+        <div class="workbench-kpi-card"><span>仍有问题</span><strong>${escapeHtml(reopened.length)}</strong></div>
+        <div class="workbench-kpi-card"><span>已解决</span><strong>${escapeHtml(closed.length)}</strong></div>
       `;
     }
-    listHolder.innerHTML = todoItem(
-      "正常",
-      "试用反馈统一进专项台账",
-      "主页不再展开每条复核记录，减少加载和干扰。进入后点“只看自己”，可查看提交数量、处理进展、待复核和已解决记录。",
-      "./trial-feedback.html?filter=mine-review",
-      "进入台账"
-    );
+    const level = needReview.length ? "待办" : reopened.length ? "关注" : "正常";
+    const title = needReview.length
+      ? `你有 ${needReview.length} 条反馈已整改，等待复核`
+      : reopened.length
+        ? `你有 ${reopened.length} 条反馈仍在继续处理`
+        : "试用反馈统一进专项台账";
+    const detail = needReview.length
+      ? "请进入试用反馈整改台账，重新测试自己提出的问题；已解决就点确认已解决，仍有问题就补充说明。"
+      : "主页只保留轻量提醒。进入后点“只看自己”，可查看提交数量、处理进展、待复核和已解决记录。";
+    listHolder.innerHTML = todoItem(level, title, detail, "./trial-feedback.html?filter=mine-review", needReview.length ? "去复核" : "进入台账");
   }
 
   function setRoleCopy() {

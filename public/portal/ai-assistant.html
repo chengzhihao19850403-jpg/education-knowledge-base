@@ -788,24 +788,136 @@
         return leaks.map((name) => `正文里出现其他学生姓名：${name}`);
       }
 
+      function stripFeedbackLinePrefix(value) {
+        return String(value || "")
+          .replace(/^\s*(?:\d+|[一二三四五六七八九十]+)[.、]\s*/, "")
+          .trim();
+      }
+
+      function feedbackNumberedItems(sectionText) {
+        return String(sectionText || "")
+          .split(/\n+/)
+          .map((line) => stripFeedbackLinePrefix(line))
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function compactQualityText(value) {
+        return String(value || "")
+          .replace(/[\s，,。；;：:！!？?、"'“”‘’《》「」【】（）()]/g, "")
+          .trim();
+      }
+
+      function isWeakFeedbackPhrase(value) {
+        const compact = compactQualityText(value);
+        if (!compact) return true;
+        if (/^(啊|哦|噢|呢|嗯|额|呃|好|好的|暂无|无)$/.test(compact)) return true;
+        return /^(要|需要|还要|记得|注意)?(复习|巩固|练习|多练|回顾)(一下|下|哦|哈|呀)?$/.test(compact);
+      }
+
+      function extractHomeworkValue(homeworkSection) {
+        const text = String(homeworkSection || "").trim();
+        const quoted = text.match(/《([^》]*)》/);
+        return cleanExtractedText(quoted?.[1] || text.replace(/做完.*$/s, ""));
+      }
+
+      function normalizeTopicToken(value) {
+        return compactQualityText(value)
+          .replace(/^(今天|本节课|这节课|我们|主要|重点|学习|学了|讲了|复习|包含|运用|掌握|了解|认识|进行|内容是|上课内容是)+/g, "")
+          .replace(/的/g, "")
+          .replace(/比较生疏|生疏|复杂问题|问题|解题|相关/g, "")
+          .trim();
+      }
+
+      function extractFeedbackTopicTokens(sectionText) {
+        const source = feedbackNumberedItems(sectionText).join("；");
+        const directMatches = source.match(/特殊(?:的)?三角形|直角三角形|等腰三角形|等边三角形|平行四边形|有理数|绝对值|相反数|数轴|一次函数|二次函数|函数|方程|矩形|菱形|圆|勾股定理|百分数|比例|应用题|物理|化学|实验|密度|全等|相似|性质|判定|定义|定理/g) || [];
+        const suffixMatches = source.match(/[\u4e00-\u9fa5]{2,10}(?:概念|性质|判定|定义|定理|公式|题型|模型|方法|应用|运算|计算|证明|实验|现象|结论)/g) || [];
+        const tokens = [...directMatches, ...suffixMatches]
+          .map(normalizeTopicToken)
+          .filter((token) => token.length >= 2)
+          .filter((token) => !/^(知识点|上课内容|本次课|课堂内容|主要内容|复习要求)$/.test(token));
+        const unique = [...new Set(tokens)];
+        const hasSpecificTriangle = unique.some((token) => /(?:特殊|直角|等腰|等边)三角形/.test(token));
+        return unique.filter((token) => !(hasSpecificTriangle && token === "三角形")).slice(0, 8);
+      }
+
+      function topicCoveredByKnowledge(topic, knowledgeText) {
+        const compactKnowledge = compactQualityText(knowledgeText);
+        const compactTopic = compactQualityText(topic);
+        if (!compactTopic) return true;
+        if (compactKnowledge.includes(compactTopic)) return true;
+        if (/特殊三角形/.test(compactTopic)) return /直角三角形|等腰三角形|等边三角形|特殊三角形/.test(compactKnowledge);
+        return false;
+      }
+
+      function feedbackQualityItems(value) {
+        const text = String(value || "");
+        if (!/课程反馈|小课第|一、上课状态：|二、本次课上课内容：|三、知识点要点：|四、学习掌握情况：|五、课后作业：/.test(text)) return [];
+        const items = [];
+        const add = (label) => {
+          if (label && !items.includes(label)) items.push(label);
+        };
+        if (looksLikeJsonText(text)) add("整理结果里还有 JSON/乱码结构，请重新 AI 整理或只保留家长版正文");
+        const requiredLabels = ["一、上课状态：", "二、本次课上课内容：", "三、知识点要点：", "四、学习掌握情况：", "五、课后作业："];
+        if (!requiredLabels.every((label) => text.includes(label))) add("课堂反馈五段模板不完整");
+        const contentSection = extractTemplateSection(text, "二、本次课上课内容：", ["三、知识点要点：", "四、学习掌握情况：", "五、课后作业："]);
+        const knowledgeSection = extractTemplateSection(text, "三、知识点要点：", ["四、学习掌握情况：", "五、课后作业："]);
+        const masterySection = extractTemplateSection(text, "四、学习掌握情况：", ["五、课后作业："]);
+        const homeworkSection = extractTemplateSection(text, "五、课后作业：", []);
+        const contentItems = feedbackNumberedItems(contentSection);
+        const knowledgeItems = feedbackNumberedItems(knowledgeSection);
+        const masteryItems = feedbackNumberedItems(masterySection);
+        contentItems.forEach((line, index) => {
+          if (isWeakFeedbackPhrase(line)) add(`二、本次课上课内容第 ${index + 1} 条像复习提醒或语气词，不应作为上课内容`);
+        });
+        const homeworkValue = extractHomeworkValue(homeworkSection);
+        if (isWeakFeedbackPhrase(homeworkValue) || /^(待补|待老师|请老师|__|＿+)/.test(homeworkValue)) add("五、课后作业识别不可靠，请补成真实作业名称");
+        if (contentItems.length >= 2 && knowledgeItems.length <= 1) add("三、知识点要点数量明显少于上课内容，可能漏掉核心知识点");
+        const topicTokens = extractFeedbackTopicTokens(contentSection);
+        if (topicTokens.length >= 2) {
+          const missingTopics = topicTokens.filter((topic) => !topicCoveredByKnowledge(topic, knowledgeSection)).slice(0, 4);
+          if (missingTopics.length >= Math.min(2, topicTokens.length)) add(`三、知识点要点没有覆盖上课主题：${missingTopics.join("、")}`);
+        }
+        const compactContent = compactQualityText(contentSection);
+        const compactKnowledge = compactQualityText(knowledgeSection);
+        if (/有理数|绝对值|相反数|数轴/.test(compactContent) && /几何问题|周长|体积|面积公式/.test(compactKnowledge) && !/几何意义/.test(compactContent)) {
+          add("知识点要点疑似跑偏：数轴/有理数内容不应生成周长、面积、体积类几何公式");
+        }
+        if (/(特殊三角形|直角三角形|等腰三角形|等边三角形|全等)/.test(compactContent) && /三角形面积|底.*高.*2|底高/.test(compactKnowledge) && !/(直角三角形|等腰三角形|全等|性质|判定)/.test(compactKnowledge)) {
+          add("知识点要点疑似跑偏：特殊三角形/全等内容只写了面积公式");
+        }
+        const repeatedGeneric = (masterySection.match(/孩子能够跟随老师完成课堂梳理和练习|基础理解整体在推进中|围绕/g) || []).length;
+        if (masteryItems.length >= 3 && repeatedGeneric >= 3) add("四、学习掌握情况句式过于重复，需要改成对应每个知识点的具体掌握情况");
+        return items;
+      }
+
+      function feedbackReviewItems(value, target = "") {
+        return [
+          ...missingCompletionItems(value),
+          ...feedbackCrossNameItems(value, target),
+          ...feedbackQualityItems(value)
+        ];
+      }
+
       function completionClass(value, target = "") {
-        return missingCompletionItems(value).length || feedbackCrossNameItems(value, target).length ? " needs-completion" : "";
+        return feedbackReviewItems(value, target).length ? " needs-completion" : "";
       }
 
       function completionWarningHtml(value, target = "") {
-        const items = [...missingCompletionItems(value), ...feedbackCrossNameItems(value, target)];
+        const items = feedbackReviewItems(value, target);
         return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? completionWarningContent(items) : ""}</div>`;
       }
 
       function completionWarningContent(items) {
         const list = (Array.isArray(items) ? items : []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-        return `还有未补完整内容，补齐后再归档：<ul>${list}</ul>`;
+        return `还有需要补齐或复核的内容，处理后再归档：<ul>${list}</ul>`;
       }
 
       function updateCompletionWarning(textarea) {
         if (!textarea) return [];
         const target = textarea.dataset.feedbackTarget || byId("aiTargetInput")?.value || "";
-        const items = [...missingCompletionItems(textarea.value), ...feedbackCrossNameItems(textarea.value, target)];
+        const items = feedbackReviewItems(textarea.value, target);
         textarea.classList.toggle("needs-completion", items.length > 0);
         const warning = textarea.parentElement?.querySelector("[data-completion-warning]");
         if (warning) {
@@ -1753,7 +1865,7 @@
         const now = new Date().toISOString();
         const sourceText = byId("aiInputText").value.trim();
         const leakWarnings = [];
-        const batchResults = latestBatchResults.length
+        let batchResults = latestBatchResults.length
           ? latestBatchResults.map((result, index) => {
             const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
             const text = removeOtherStudentReferences(
@@ -1761,10 +1873,6 @@
               name,
               names
             );
-            const leaks = crossStudentNameLeaks(text, name, names);
-            if (leaks.length) {
-              leakWarnings.push(`${name}：${leaks.join("、")}`);
-            }
             return {
               ...result,
               title: `${name}｜课堂反馈`,
@@ -1775,6 +1883,24 @@
             };
           })
           : buildBatchFeedbackResults(latestResult);
+        batchResults = batchResults.map((result, index) => {
+          const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
+          const text = removeOtherStudentReferences(
+            formatClassFeedbackText(result.parentMessage || result.polishedText || "", name),
+            name,
+            names
+          );
+          const leaks = crossStudentNameLeaks(text, name, names);
+          if (leaks.length) leakWarnings.push(`${name}：${leaks.join("、")}`);
+          return {
+            ...result,
+            title: `${name}｜课堂反馈`,
+            parentMessage: text,
+            polishedText: text,
+            target: name,
+            studentName: name
+          };
+        });
         if (leakWarnings.length) {
           byId("aiMessage").textContent = `批量草稿仍有串名：${leakWarnings.join("；")}。请先在整理结果里删除其他学生姓名和对应内容后再保存。`;
           document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
@@ -1945,15 +2071,9 @@
         const resolvedCourseName = ["feedback", "classFeedback"].includes(mode)
           ? feedbackCourseLabel({ lessonSeason: resolvedLessonSeason, lessonNumber: resolvedLessonNumber }, feedbackText).replace(/课堂反馈$/, "")
           : latestResult.className || latestResult.courseName || "-";
-        const missingItems = ["feedback", "classFeedback"].includes(mode) ? missingCompletionItems(feedbackText) : [];
-        if (missingItems.length) {
-          byId("aiMessage").textContent = `还有未补完整内容：${missingItems.join("、")}。请在右侧整理结果里补齐后再归档。`;
-          document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
-          return;
-        }
-        const crossNameItems = mode === "classFeedback" ? feedbackCrossNameItems(feedbackText, student) : [];
-        if (crossNameItems.length) {
-          byId("aiMessage").textContent = `${crossNameItems.join("、")}。请先删除其他学生姓名和对应内容后再归档。`;
+        const reviewItems = ["feedback", "classFeedback"].includes(mode) ? feedbackReviewItems(feedbackText, student) : [];
+        if (reviewItems.length) {
+          byId("aiMessage").textContent = `还有需要补齐或复核的内容：${reviewItems.join("、")}。请在右侧整理结果里处理后再归档。`;
           document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
           return;
         }
