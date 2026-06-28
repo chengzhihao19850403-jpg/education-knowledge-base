@@ -199,6 +199,7 @@ const checks = [
     title: "AI课堂反馈批量草稿清洗",
     pass: /looksLikeJsonText/.test(files.ai)
       && /cleanClassFeedbackResultForStudent/.test(files.ai)
+      && /targetNameTokens/.test(files.ai)
       && /sourceTextForStudent/.test(files.ai)
       && /removeOtherStudentReferences/.test(files.ai)
       && /buildBatchFeedbackResults/.test(files.ai)
