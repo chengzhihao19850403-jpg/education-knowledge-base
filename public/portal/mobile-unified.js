@@ -230,6 +230,26 @@
     const dock = document.createElement("div");
     dock.className = "jrc-feedback-dock";
     dock.innerHTML = `
+      <button class="jrc-help-button" type="button">使用方法AI提问助手</button>
+      <div class="jrc-help-panel" hidden>
+        <div class="jrc-feedback-head">
+          <strong>使用方法AI提问助手</strong>
+          <button type="button" class="jrc-help-close" aria-label="关闭使用方法助手">×</button>
+        </div>
+        <div class="jrc-help-quick">
+          <button type="button" data-jrc-help-question="这个页面应该先看哪里、先点哪里？">怎么用</button>
+          <button type="button" data-jrc-help-question="这个页面的数据不对，我应该怎么核对？">怎么核对</button>
+          <button type="button" data-jrc-help-question="我看不懂这个系统，应该怎么反馈问题？">怎么反馈</button>
+        </div>
+        <label>
+          你的问题
+          <textarea class="jrc-help-question" placeholder="例如：这个页面我应该先点哪里？试听结束后下一步怎么做？"></textarea>
+        </label>
+        <button class="jrc-help-submit" type="button">问 AI</button>
+        <div class="jrc-help-answer" aria-live="polite">
+          点上面的快捷问题，或输入当前页面的使用问题后点“问 AI”。
+        </div>
+      </div>
       <button class="jrc-feedback-button" type="button">反馈问题</button>
       <div class="jrc-feedback-panel" hidden>
         <div class="jrc-feedback-head">
@@ -283,6 +303,85 @@
     const severity = dock.querySelector(".jrc-feedback-severity");
     const historyStats = dock.querySelector(".jrc-feedback-history__stats");
     const historyList = dock.querySelector(".jrc-feedback-history__list");
+    const helpPanel = dock.querySelector(".jrc-help-panel");
+    const helpButton = dock.querySelector(".jrc-help-button");
+    const helpCloseButton = dock.querySelector(".jrc-help-close");
+    const helpQuestion = dock.querySelector(".jrc-help-question");
+    const helpSubmit = dock.querySelector(".jrc-help-submit");
+    const helpAnswer = dock.querySelector(".jrc-help-answer");
+
+    function pageUsageContext() {
+      const title = systemName();
+      const headings = [...document.querySelectorAll("h1, h2, .nav-item h3, .quick-card strong")]
+        .map((node) => node.textContent?.trim())
+        .filter(Boolean)
+        .slice(0, 18);
+      const actions = [...document.querySelectorAll(".trial-toolbar a, .top-actions a, .top-actions button, .section-actions button, .button")]
+        .map((node) => node.textContent?.trim())
+        .filter(Boolean)
+        .slice(0, 24);
+      return [
+        `当前页面：${title}`,
+        `页面地址：${location.pathname}`,
+        headings.length ? `页面栏目：${headings.join("、")}` : "",
+        actions.length ? `可见按钮：${actions.join("、")}` : "",
+        "请只回答当前工作台/当前页面怎么使用，不要闲聊。回答要短，直接告诉老师先看哪里、点哪里、核对哪里。"
+      ].filter(Boolean).join("\n");
+    }
+
+    function setHelpAnswer(text, tone = "") {
+      if (!helpAnswer) return;
+      helpAnswer.classList.toggle("is-error", tone === "error");
+      helpAnswer.classList.toggle("is-loading", tone === "loading");
+      helpAnswer.textContent = text || "";
+    }
+
+    function localUsageAnswer(question) {
+      const title = systemName();
+      const text = String(question || "");
+      if (/反馈|提问题|问题/.test(text)) {
+        return "如果只是看不懂或觉得不好用，点下面的“反馈问题”，写清楚页面、你点了什么、希望怎么改。提交后可以在“我的反馈”里查看处理状态。";
+      }
+      if (/核对|数据不对|不对/.test(text)) {
+        return `先在${title}里确认筛选条件、日期/老师/学生/负责人是否选对；再看页面里的明细或操作留痕。如果仍不一致，点“反馈问题”并写清楚学生、日期、页面和你认为不对的数据。`;
+      }
+      return `当前是${title}。先看页面顶部的主标题和快捷按钮，再按页面里的主导航进入对应板块；如果不确定下一步，输入具体问题后点“问 AI”。`;
+    }
+
+    async function askUsageHelp(question) {
+      const text = String(question || "").trim();
+      if (!text) {
+        setHelpAnswer("请先输入你想问的使用问题。", "error");
+        return;
+      }
+      if (!window.JRC_CLOUD?.aiAssistant) {
+        setHelpAnswer(localUsageAnswer(text));
+        return;
+      }
+      helpSubmit.disabled = true;
+      setHelpAnswer("正在按当前页面说明生成回答...", "loading");
+      try {
+        const employee = currentEmployee() || {};
+        const response = await window.JRC_CLOUD.aiAssistant({
+          mode: "help",
+          target: systemName(),
+          text: `${pageUsageContext()}\n\n老师问题：${text}`,
+          operatorName: employee.name || "",
+          operatorUsername: employee.username || "",
+          operatorRole: employee.role || ""
+        });
+        if (!response?.ok || response.data?.warning || response.data?.provider === "local") {
+          throw new Error(response?.data?.message || response?.message || "AI 暂时不可用");
+        }
+        const result = response.data?.result || {};
+        const answer = String(result.parentMessage || result.polishedText || result.summary || "").trim();
+        setHelpAnswer(answer || localUsageAnswer(text));
+      } catch {
+        setHelpAnswer(`AI 暂时不可用，先给你本地使用建议：\n${localUsageAnswer(text)}`);
+      } finally {
+        helpSubmit.disabled = false;
+      }
+    }
 
     function renderMyFeedbackHistory() {
       if (!historyList) return;
@@ -335,6 +434,7 @@
 
     openButton.addEventListener("click", () => {
       panel.hidden = !panel.hidden;
+      if (!panel.hidden && helpPanel) helpPanel.hidden = true;
       if (!panel.hidden) {
         hydrateFeedbackHistory();
         content.focus();
@@ -375,6 +475,31 @@
         panel.hidden = true;
         message.textContent = "提交后可在这里查看状态，也可进入试用反馈整改系统复核。";
       }, 1400);
+    });
+
+    helpButton?.addEventListener("click", () => {
+      helpPanel.hidden = !helpPanel.hidden;
+      if (!helpPanel.hidden && panel) panel.hidden = true;
+      if (!helpPanel.hidden) helpQuestion?.focus();
+    });
+    helpCloseButton?.addEventListener("click", () => {
+      helpPanel.hidden = true;
+    });
+    helpSubmit?.addEventListener("click", () => {
+      askUsageHelp(helpQuestion?.value || "");
+    });
+    helpQuestion?.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        askUsageHelp(helpQuestion.value);
+      }
+    });
+    dock.querySelectorAll("[data-jrc-help-question]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const question = button.getAttribute("data-jrc-help-question") || "";
+        if (helpQuestion) helpQuestion.value = question;
+        askUsageHelp(question);
+      });
     });
 
     renderMyFeedbackHistory();
