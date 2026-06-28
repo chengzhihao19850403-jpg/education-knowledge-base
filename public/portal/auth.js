@@ -559,9 +559,55 @@ function jrcWriteCustomEmployees(employees) {
 }
 
 function jrcGetAllEmployees() {
-  return [...JRC_EMPLOYEES, ...jrcReadCustomEmployees()].filter((employee) => {
+  const byUsername = new Map();
+  const putEmployee = (employee) => {
+    if (!employee || typeof employee !== "object") return;
+    const username = String(employee.username || "").trim().toLowerCase();
+    if (!username) return;
+    const existing = byUsername.get(username) || {};
+    byUsername.set(username, {
+      ...existing,
+      ...employee,
+      username,
+      password: employee.password || existing.password || JRC_INITIAL_PASSWORD
+    });
+  };
+  JRC_EMPLOYEES.forEach(putEmployee);
+  jrcReadCustomEmployees().forEach(putEmployee);
+  return [...byUsername.values()].filter((employee) => {
     return !JRC_DEPARTED_EMPLOYEE_USERNAMES.has(String(employee.username || "").trim().toLowerCase());
   });
+}
+
+function jrcSyncCustomEmployeesToCloud(employees) {
+  if (!window.JRC_CLOUD?.writeModuleData) return;
+  window.JRC_CLOUD.writeModuleData(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY, "employeeDirectory", Array.isArray(employees) ? employees : [], { replaceMode: "replace" }).catch((error) => {
+    console.warn("Failed to sync employee directory", error);
+  });
+}
+
+async function jrcHydrateCustomEmployeesFromCloud() {
+  if (!window.JRC_CLOUD?.readModuleData) return;
+  try {
+    const result = await window.JRC_CLOUD.readModuleData(JRC_EMPLOYEE_DIRECTORY_STORAGE_KEY);
+    const remoteRows = Array.isArray(result?.data?.payload) ? result.data.payload : [];
+    if (!remoteRows.length) return;
+    const map = new Map();
+    [...jrcReadCustomEmployees(), ...remoteRows].forEach((employee) => {
+      const username = String(employee?.username || "").trim().toLowerCase();
+      if (username) map.set(username, { ...(map.get(username) || {}), ...employee, username });
+    });
+    jrcWriteCustomEmployees([...map.values()]);
+    window.JRC_EMPLOYEES = jrcGetAllEmployees();
+    const currentEmployee = jrcResolveCurrentEmployee();
+    jrcEnsureEmployeeSummary();
+    jrcRenderEmployeeDirectory(currentEmployee);
+    jrcBindEmployeeDirectoryToggle();
+    jrcBindEmployeeDirectoryFilters();
+    jrcBindEmployeeAddForm(currentEmployee);
+  } catch (error) {
+    console.warn("Failed to hydrate employee directory", error);
+  }
 }
 
 function jrcReadSession() {
@@ -1321,6 +1367,11 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
           <div><dt>入职日期</dt><dd>${employee.hireDate || "-"}</dd></div>
           <div><dt>转正日期</dt><dd>${employee.regularDate || "-"}</dd></div>
         </dl>
+        ${jrcCanManageEmployees(currentEmployee) ? `
+          <div class="jrc-employee-card__actions">
+            <button type="button" class="jrc-employee-edit-button" data-employee-edit="${employee.username}">编辑资料</button>
+          </div>
+        ` : ""}
       </article>
     `;
   }).join("");
@@ -1344,7 +1395,7 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
     <div class="jrc-employee-directory__footer">
       ${jrcCanManageEmployees(currentEmployee) ? `
         <button type="button" class="jrc-employee-add-placeholder" data-employee-add-toggle>新增员工</button>
-        <span>新增后会立刻进入账号名单，并使用统一初始密码 10281028。</span>
+        <span>可新增员工，也可点员工卡片里的“编辑资料”补全已有员工信息。</span>
       ` : `
         <button type="button" class="jrc-employee-add-placeholder">新增员工入口（仅管理员）</button>
         <span>后面正式接管理员录入后，这里会直接新增员工姓名、岗位、手机号、权限和初始账号。</span>
@@ -1386,7 +1437,7 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
           </div>
         </div>
         <div class="jrc-employee-form__actions">
-          <button type="submit" class="jrc-employee-form__submit">保存新增员工</button>
+          <button type="submit" class="jrc-employee-form__submit" data-employee-form-submit>保存新增员工</button>
           <span data-employee-form-message>保存后自动使用统一初始密码 10281028。</span>
         </div>
       </form>
@@ -1438,40 +1489,77 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
   const toggle = document.querySelector("[data-employee-add-toggle]");
   const form = document.querySelector("[data-employee-form]");
   const message = document.querySelector("[data-employee-form-message]");
+  const submitButton = document.querySelector("[data-employee-form-submit]");
   if (!toggle || !form || !message) return;
+
+  const setFormMode = (employee = null) => {
+    const editing = Boolean(employee?.username);
+    form.dataset.editingUsername = editing ? String(employee.username || "").trim().toLowerCase() : "";
+    form.removeAttribute("hidden");
+    toggle.textContent = "收起员工表单";
+    if (submitButton) submitButton.textContent = editing ? "保存员工资料" : "保存新增员工";
+    message.textContent = editing ? `正在编辑 ${employee.name || employee.username}，保存后会按用户名覆盖补全资料。` : "保存后自动使用统一初始密码 10281028。";
+    if (!editing) {
+      form.reset();
+      form.querySelector("[name='username']")?.removeAttribute("readonly");
+      return;
+    }
+    const fields = ["name", "username", "role", "phone", "wechat", "scope", "subject", "hireDate", "regularDate", "commissionRate"];
+    fields.forEach((field) => {
+      const input = form.querySelector(`[name='${field}']`);
+      if (input) input.value = employee[field] || "";
+    });
+    form.querySelector("[name='username']")?.setAttribute("readonly", "readonly");
+    const permissions = Array.isArray(employee.permissions) ? employee.permissions : [];
+    form.querySelectorAll("[name='permissions']").forEach((input) => {
+      input.checked = permissions.includes(input.value);
+    });
+    form.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
 
   toggle.addEventListener("click", () => {
     const hidden = form.hasAttribute("hidden");
     if (hidden) {
-      form.removeAttribute("hidden");
-      toggle.textContent = "收起新增员工";
+      setFormMode(null);
     } else {
       form.setAttribute("hidden", "");
+      form.dataset.editingUsername = "";
       toggle.textContent = "新增员工";
     }
+  });
+
+  document.querySelectorAll("[data-employee-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const username = String(button.getAttribute("data-employee-edit") || "").trim().toLowerCase();
+      const employee = jrcGetAllEmployees().find((item) => String(item.username || "").trim().toLowerCase() === username);
+      if (employee) setFormMode(employee);
+    });
   });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    const username = String(formData.get("username") || "").trim().toLowerCase();
+    const editingUsername = String(form.dataset.editingUsername || "").trim().toLowerCase();
+    const username = editingUsername || String(formData.get("username") || "").trim().toLowerCase();
     const name = String(formData.get("name") || "").trim();
 
     if (!name || !username) {
       message.textContent = "老师姓名和用户名拼音必须填写。";
       return;
     }
-    if (jrcFindEmployeeByUsername(username)) {
+    if (!editingUsername && jrcFindEmployeeByUsername(username)) {
       message.textContent = "这个用户名已经存在，请换一个拼音。";
       return;
     }
 
     const customEmployees = jrcReadCustomEmployees();
     const permissions = formData.getAll("permissions").map((permission) => String(permission).trim()).filter(Boolean);
-    customEmployees.push({
+    const existing = jrcFindEmployeeByUsername(username) || {};
+    const row = {
+      ...existing,
       name,
       username,
-      password: "10281028",
+      password: existing.password || JRC_INITIAL_PASSWORD,
       role: String(formData.get("role") || "授课老师").trim(),
       phone: String(formData.get("phone") || "").trim(),
       wechat: String(formData.get("wechat") || "").trim(),
@@ -1481,11 +1569,16 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
       subject: String(formData.get("subject") || "").trim(),
       commissionRate: String(formData.get("commissionRate") || "").trim(),
       permissions
-    });
+    };
+    const index = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
+    if (index >= 0) customEmployees[index] = { ...customEmployees[index], ...row };
+    else customEmployees.push(row);
     jrcWriteCustomEmployees(customEmployees);
+    jrcSyncCustomEmployeesToCloud(customEmployees);
     window.JRC_EMPLOYEES = jrcGetAllEmployees();
-    message.textContent = `已新增 ${name}，初始密码 10281028。`;
+    message.textContent = editingUsername ? `已保存 ${name} 的员工资料。` : `已新增 ${name}，初始密码 10281028。`;
     form.reset();
+    form.dataset.editingUsername = "";
     jrcEnsureEmployeeSummary();
     jrcRenderEmployeeDirectory(currentEmployee);
     jrcBindEmployeeDirectoryToggle();
@@ -1959,6 +2052,22 @@ function jrcInjectStyles() {
       color: #172132;
       word-break: break-all;
     }
+    .jrc-employee-card__actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .jrc-employee-edit-button {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(13, 148, 136, 0.2);
+      background: rgba(13, 148, 136, 0.08);
+      color: #0f766e;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
     .jrc-employee-directory__footer {
       display: flex;
       align-items: center;
@@ -2013,6 +2122,10 @@ function jrcInjectStyles() {
       color: #172132;
       padding: 0 12px;
       font: inherit;
+    }
+    .jrc-employee-form input[readonly] {
+      background: rgba(241, 245, 249, 0.9);
+      color: #64748b;
     }
     .jrc-employee-form__actions {
       display: flex;
@@ -2321,6 +2434,7 @@ function jrcBootstrapAuth() {
   jrcBindEmployeeDirectoryToggle();
   jrcBindEmployeeDirectoryFilters();
   jrcBindEmployeeAddForm(currentEmployee);
+  jrcHydrateCustomEmployeesFromCloud();
   if (!currentEmployee) {
     const fallbackEmployee = jrcFindEmployeeByUsername(JRC_TEMP_AUTO_LOGIN_USERNAME);
     if (fallbackEmployee) {

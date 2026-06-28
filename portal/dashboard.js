@@ -1039,7 +1039,7 @@
   }
 
   function isHumanSuggestionTask(item) {
-    return !isOperationalFlowTask(item) && !isFeedbackReviewTask(item);
+    return !item?.moduleOwnerTask && !isOperationalFlowTask(item) && !isFeedbackReviewTask(item);
   }
 
   function suggestionTaskHref(task) {
@@ -1183,7 +1183,6 @@
 
   async function readSuggestionTasks() {
     let rows = readStore(suggestionsKey, []);
-    const feedbackRows = await readSiteFeedbackRows();
     let flowRows = [];
     if (window.JRC_CLOUD?.readModuleData) {
       try {
@@ -1197,17 +1196,7 @@
       }
     }
     rows = (Array.isArray(rows) ? rows : []).filter((row) => !isOperationalFlowTask(row));
-    const merged = mergeModuleOwnerTasks(rows);
-    rows = merged.rows;
-    const feedbackReviewMerged = mergeFeedbackReviewTasks(rows, feedbackRows);
-    rows = feedbackReviewMerged.rows;
     flowRows = await buildSystemFlowTasks();
-    if (merged.changed || feedbackReviewMerged.changed) {
-      localStorage.setItem(suggestionsKey, JSON.stringify(rows));
-      syncSuggestionTasksToCloud(rows).catch((error) => {
-        console.warn("Failed to queue generated task sync", error);
-      });
-    }
     return mergeTaskRows(Array.isArray(rows) ? rows : [], flowRows);
   }
 
@@ -1280,41 +1269,19 @@
     const listHolder = $("portalMyFeedbackList");
     const statsHolder = $("portalMyFeedbackStats");
     if (!listHolder) return;
-    const rows = (await readSiteFeedbackRows()).filter(feedbackRelatedToCurrentUser);
-    const closedRows = rows.filter(siteFeedbackIsClosed);
-    const reviewRows = rows.filter(siteFeedbackNeedsReview);
-    const reopenRows = rows.filter((row) => row.status === "继续反馈");
-    const pendingRows = rows.filter((row) => !siteFeedbackIsClosed(row) && !siteFeedbackNeedsReview(row));
-    const prioritizedRows = [...reviewRows, ...reopenRows, ...pendingRows, ...closedRows]
-      .filter((row, index, list) => list.findIndex((candidate) => candidate.id === row.id) === index);
-    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = String(reviewRows.length);
+    if ($("portalMyFeedbackBadge")) $("portalMyFeedbackBadge").textContent = "入口";
     if (statsHolder) {
       statsHolder.innerHTML = `
-        <div class="workbench-kpi-card"><span>已提交</span><strong>${rows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>待我复核</span><strong>${reviewRows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>已解决</span><strong>${closedRows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>处理中</span><strong>${pendingRows.length}</strong></div>
-        <div class="workbench-kpi-card"><span>继续反馈</span><strong>${reopenRows.length}</strong></div>
+        <div class="workbench-kpi-card"><span>个人反馈</span><strong>台账</strong></div>
+        <div class="workbench-kpi-card"><span>整改复核</span><strong>专项</strong></div>
       `;
     }
-    listHolder.innerHTML = prioritizedRows.length ? prioritizedRows.slice(0, 4).map((row) => {
-      const done = siteFeedbackIsClosed(row);
-      const needsReview = siteFeedbackNeedsReview(row);
-      const level = row.status === "继续反馈" || needsReview ? "紧急" : done ? "正常" : "提醒";
-      const title = `${row.type || "反馈"}｜${row.system || "未知页面"}`;
-      const progressText = feedbackProgressText(row);
-      const detail = [
-        `状态：${row.status || "待处理"}`,
-        `问题：${String(row.content || "").slice(0, 72)}${String(row.content || "").length > 72 ? "..." : ""}`,
-        `进展：${progressText.slice(0, 86)}${progressText.length > 86 ? "..." : ""}`
-      ].join("\n");
-      return todoItem(level, title, detail, feedbackHref(row), needsReview ? "去确认" : done ? "查看结果" : "看进展");
-    }).join("") : todoItem(
+    listHolder.innerHTML = todoItem(
       "正常",
-      "暂无个人反馈",
-      "试用时发现不好用、看不懂、数据不对，可以点右下角“反馈问题”。",
-      "./trial-feedback.html",
-      "查看反馈"
+      "试用反馈统一进专项台账",
+      "主页不再展开每条复核记录，减少加载和干扰。进入后点“只看自己”，可查看提交数量、处理进展、待复核和已解决记录。",
+      "./trial-feedback.html?filter=mine-review",
+      "进入台账"
     );
   }
 
@@ -1690,8 +1657,27 @@
     return names;
   }
 
+  function siteFeedbackTimelineEntries(row) {
+    const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+    return notes.map((note) => String(note?.text || ""));
+  }
+
+  function siteFeedbackHasConfirmedSolved(row) {
+    return (row?.status || "") === "已确认解决" ||
+      siteFeedbackTimelineEntries(row).some((text) => /确认解决|已解决|提交人已确认解决/.test(text));
+  }
+
+  function siteFeedbackHasLaterReopen(row) {
+    if ((row?.status || "") === "继续反馈") return true;
+    const notes = siteFeedbackTimelineEntries(row);
+    const lastSolvedIndex = notes.reduce((latest, text, index) => (
+      /确认解决|已解决|提交人已确认解决/.test(text) ? index : latest
+    ), -1);
+    return lastSolvedIndex >= 0 && notes.slice(lastSolvedIndex + 1).some((text) => /仍有问题|继续反馈|未解决|还有问题/.test(text));
+  }
+
   function siteFeedbackIsClosed(row) {
-    return (row?.status || "") === "已确认解决";
+    return siteFeedbackHasConfirmedSolved(row) && !siteFeedbackHasLaterReopen(row);
   }
 
   function siteFeedbackNeedsReview(row) {

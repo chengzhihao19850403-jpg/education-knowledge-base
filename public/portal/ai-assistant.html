@@ -385,24 +385,28 @@
         return [...map.values()].sort((left, right) => String(right.createdAt || right.updatedAt || "").localeCompare(String(left.createdAt || left.updatedAt || "")));
       }
 
-      function writeDrafts(rows, context = {}) {
+      async function writeDrafts(rows, context = {}) {
         const shouldReplace = context.replaceMode === "replace";
         const localRows = mergeDraftRows(rows).slice(0, 120);
         localStorage.setItem(DRAFT_KEY, JSON.stringify(localRows.slice(0, 80)));
-        if (!window.JRC_CLOUD?.writeModuleData) return;
-        (async () => {
-          let nextRows = localRows;
-          try {
-            if (!shouldReplace) {
-              const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
-              if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
-                nextRows = mergeDraftRows([...remote.data.payload, ...localRows]).slice(0, 120);
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(nextRows.slice(0, 80)));
-              }
+        if (!window.JRC_CLOUD?.writeModuleData) {
+          return { ok: true, cloudOk: false, message: "已先保存在当前设备；当前未连接云端。" };
+        }
+        let nextRows = localRows;
+        try {
+          if (!shouldReplace) {
+            const remote = await window.JRC_CLOUD?.readModuleData?.(DRAFT_KEY);
+            if (remote?.ok && remote.data?.found && Array.isArray(remote.data.payload)) {
+              nextRows = mergeDraftRows([...remote.data.payload, ...localRows]).slice(0, 120);
+              localStorage.setItem(DRAFT_KEY, JSON.stringify(nextRows.slice(0, 80)));
             }
-            await window.JRC_CLOUD.writeModuleData(DRAFT_KEY, "ai", nextRows, shouldReplace ? { replaceMode: "replace" } : {});
-          } catch (_) {}
-        })();
+          }
+          const result = await window.JRC_CLOUD.writeModuleData(DRAFT_KEY, "ai", nextRows, shouldReplace ? { replaceMode: "replace" } : {});
+          if (!result?.ok) throw new Error(result?.message || "云端保存失败");
+          return { ok: true, cloudOk: true, message: "已保存到云端，换设备登录同一账号也能看到。" };
+        } catch (error) {
+          return { ok: true, cloudOk: false, message: `已先保存在当前设备；云端同步失败：${error?.message || "请稍后重试"}` };
+        }
       }
 
       function canViewAllAiHistory() {
@@ -828,7 +832,7 @@
         if (button) button.textContent = editingDraftId ? "保存草稿修改" : "保存草稿";
       }
 
-      function updateDraftRow(id, patchBuilder) {
+      async function updateDraftRow(id, patchBuilder) {
         const rows = readDrafts();
         const index = rows.findIndex((row) => String(row.id || row.rowId || "") === String(id));
         if (index < 0) return null;
@@ -836,19 +840,19 @@
         const patch = typeof patchBuilder === "function" ? patchBuilder(current) : patchBuilder;
         const updated = { ...current, ...patch, updatedAt: new Date().toISOString() };
         rows[index] = updated;
-        writeDrafts(rows);
+        updated.saveResult = await writeDrafts(rows);
         renderDrafts(rows);
         return updated;
       }
 
-      function deleteDraftRow(id) {
+      async function deleteDraftRow(id) {
         const targetId = String(id || "");
         if (!targetId) return false;
         const rows = readDrafts();
         const nextRows = rows.filter((row) => String(row.id || row.rowId || "") !== targetId);
         if (nextRows.length === rows.length) return false;
         markDraftDeleted(targetId);
-        writeDrafts(nextRows, { replaceMode: "replace" });
+        const saveResult = await writeDrafts(nextRows, { replaceMode: "replace" });
         if (editingDraftId === targetId) {
           setEditingDraft("");
           latestResult = null;
@@ -856,7 +860,7 @@
           byId("aiResultBox").innerHTML = `<div class="result-item"><strong>等待整理</strong><p>输入内容后点击 AI 整理。</p></div>`;
         }
         renderDrafts(nextRows);
-        return true;
+        return saveResult;
       }
 
       function shortDateTime(value) {
@@ -1616,13 +1620,13 @@
         }
       }
 
-      function saveDraft() {
+      async function saveDraft() {
         if (!latestResult) {
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
         }
         if (latestBatchResults.length) {
-          saveBatchDrafts();
+          await saveBatchDrafts();
           return;
         }
         const currentMode = byId("aiModeInput").value;
@@ -1635,7 +1639,7 @@
           title: latestResult.title
         });
         if (editingDraftId) {
-          const updated = updateDraftRow(editingDraftId, (current) => ({
+          const updated = await updateDraftRow(editingDraftId, (current) => ({
             title: currentTitle || current.title || modeLabel(currentMode),
             mode: currentMode,
             modeLabel: modeLabel(currentMode),
@@ -1649,7 +1653,7 @@
             latestResult = updated.result;
             renderResult(latestResult);
             setEditingDraft(editingDraftId);
-            byId("aiMessage").textContent = "已保存草稿修改。";
+            byId("aiMessage").textContent = `已保存草稿修改。${updated.saveResult?.message || ""}`;
             return;
           }
           setEditingDraft("");
@@ -1666,13 +1670,13 @@
           createdByUsername: currentEmployee.username || "",
           createdAt: new Date().toISOString()
         };
-        writeDrafts([row, ...readDrafts()]);
+        const saveResult = await writeDrafts([row, ...readDrafts()]);
         setEditingDraft(row.id);
         renderDrafts();
-        byId("aiMessage").textContent = "已保存 AI 草稿。";
+        byId("aiMessage").textContent = `已保存 AI 草稿。${saveResult?.message || ""}`;
       }
 
-      function saveBatchDrafts() {
+      async function saveBatchDrafts() {
         if (!latestResult) {
           byId("aiMessage").textContent = "请先完成 AI 整理。";
           return;
@@ -1732,10 +1736,10 @@
             createdAt: now
           };
         });
-        writeDrafts([...rows, ...readDrafts()]);
+        const saveResult = await writeDrafts([...rows, ...readDrafts()]);
         setEditingDraft("");
         renderDrafts();
-        byId("aiMessage").textContent = `已为 ${rows.length} 个学生批量保存课堂反馈草稿。请到下方草稿库逐个打开检查，确认后带到右侧精修并归档学生服务。`;
+        byId("aiMessage").textContent = `已为 ${rows.length} 个学生批量保存课堂反馈草稿。${saveResult?.message || ""} 请到下方草稿库逐个打开检查，确认后带到右侧精修并归档学生服务。`;
       }
 
       async function saveToSuggestionTask() {
@@ -1848,9 +1852,9 @@
         return "";
       }
 
-      function markEditingDraftArchived(serviceRow) {
+      async function markEditingDraftArchived(serviceRow) {
         if (!editingDraftId) return;
-        updateDraftRow(editingDraftId, (current) => ({
+        await updateDraftRow(editingDraftId, (current) => ({
           result: latestResult,
           archivedAt: serviceRow.updatedAt || serviceRow.createdAt || new Date().toISOString(),
           archivedStudentServiceId: serviceRow.id,
@@ -1944,7 +1948,7 @@
           : mergeRowsById([serviceRow, ...(Array.isArray(rows) ? rows : [])]);
         localStorage.setItem(STUDENT_SERVICE_KEY, JSON.stringify(nextRows));
         const result = await window.JRC_CLOUD?.writeModuleData?.(STUDENT_SERVICE_KEY, "studentService", nextRows);
-        markEditingDraftArchived(serviceRow);
+        await markEditingDraftArchived(serviceRow);
         window.dispatchEvent(new CustomEvent("jrc-student-service-linked", {
           detail: { rows: [serviceRow], source: "aiAssistant", updated: updatedExisting }
         }));
@@ -2559,7 +2563,7 @@
         }
         const text = draftEditorTextFromButton(button, draftDisplayText(row));
         if (button.dataset.draftAction === "save-inline") {
-          const updated = updateDraftRow(button.dataset.draftId, (current) => {
+          const updated = await updateDraftRow(button.dataset.draftId, (current) => {
             const nextResult = resultFromDraftText(current, text);
             return {
               result: nextResult,
@@ -2572,7 +2576,7 @@
             renderResult(latestResult);
             setEditingDraft(editingDraftId);
           }
-          byId("aiMessage").textContent = updated ? "已保存这条草稿内容。" : "草稿保存失败，请刷新后重试。";
+          byId("aiMessage").textContent = updated ? `已保存这条草稿内容。${updated.saveResult?.message || ""}` : "草稿保存失败，请刷新后重试。";
           return;
         }
         if (button.dataset.draftAction === "copy") {
@@ -2583,8 +2587,8 @@
         if (button.dataset.draftAction === "delete") {
           const title = draftHistoryTitle(row);
           if (!confirm(`确定删除「${title}」这条草稿吗？`)) return;
-          const deleted = deleteDraftRow(button.dataset.draftId);
-          byId("aiMessage").textContent = deleted ? "已删除这条草稿。" : "草稿删除失败，请刷新后重试。";
+          const deleted = await deleteDraftRow(button.dataset.draftId);
+          byId("aiMessage").textContent = deleted ? `已删除这条草稿。${deleted.message || ""}` : "草稿删除失败，请刷新后重试。";
           return;
         }
         byId("aiModeInput").value = "classFeedback";

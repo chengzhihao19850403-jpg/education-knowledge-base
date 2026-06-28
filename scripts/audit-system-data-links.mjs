@@ -177,8 +177,10 @@ const checks = [
       && /answerAdmissionsHelp/.test(files.admissions)
       && /mode:\s*"help"/.test(files.admissions)
       && /buildAdmissionsHelpPrompt/.test(files.admissions)
-      && /admissionsHelpPanel/.test(readText("public/advice-system/index.html")),
-    detail: "招生页有本地常见问题和手动 AI 使用问答；页面打开不自动调用 MiniMax。"
+      && /mobile-unified\.js/.test(readText("public/advice-system/index.html"))
+      && /招生管理系统/.test(files.mobile)
+      && /advice-system/i.test(files.mobile),
+    detail: "招生页接入全站绿色使用方法 AI 提问助手；本地方法库优先，手动提问才调用 MiniMax，不再放重复页面内面板。"
   },
   {
     title: "全站系统使用方法库",
