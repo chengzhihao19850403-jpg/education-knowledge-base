@@ -483,6 +483,7 @@
 
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
+    <script src="/jrcedu/portal/feedback-review-plan.js?v=20260629b"></script>
     <script>
       (function () {
         const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
@@ -653,6 +654,47 @@
           return window.JRC_CLOUD.writeModuleData(SUGGESTION_STORAGE_KEY, "suggestions", suggestions, { replaceMode: "replace" });
         }
 
+        function applyFeedbackReviewPlanToRows() {
+          const planner = window.JRC_FEEDBACK_REVIEW_PLAN;
+          if (!planner?.findReviewPlan) return { changed: false, count: 0 };
+          const usedSeqs = new Set();
+          let changed = false;
+          let count = 0;
+          rows = rows.map((row) => {
+            const next = { ...(row || {}) };
+            const plan = planner.findReviewPlan(next, usedSeqs);
+            if (!plan) return next;
+            usedSeqs.add(plan.seq);
+            next.reviewPlanVersion = planner.version || "";
+            next.reviewPlanSeq = plan.seq;
+            next.reviewPlanStatus = plan.status;
+            next.reviewAction = plan.action;
+            if (!planner.shouldFeedbackEnterReview(next.status)) return next;
+            const nextResolution = `${plan.resolution}\n请复核：${plan.action}`;
+            const noteText = `系统自动标注：${plan.status}。${plan.resolution} 请复核：${plan.action}`;
+            next.reviewNotes = Array.isArray(next.reviewNotes) ? next.reviewNotes : [];
+            const hasNote = next.reviewNotes.some((note) => String(note?.text || "") === noteText);
+            if (next.status !== "已整改待复核" || next.resolution !== nextResolution || !hasNote) {
+              next.status = "已整改待复核";
+              next.resolution = nextResolution;
+              next.processedAt = next.processedAt || new Date().toISOString();
+              next.processedBy = "系统自动整改标注";
+              next.updatedAt = new Date().toISOString();
+              if (!hasNote) {
+                next.reviewNotes.push({ author: "系统自动整改标注", text: noteText, time: today() });
+              }
+              changed = true;
+              count += 1;
+            }
+            return next;
+          });
+          if (changed) {
+            rows = mergeById(rows);
+            localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(rows));
+          }
+          return { changed, count };
+        }
+
         async function hydrate() {
           rows = mergeById(readLocalRows(FEEDBACK_STORAGE_KEY));
           suggestions = mergeSuggestions(readLocalRows(SUGGESTION_STORAGE_KEY));
@@ -672,6 +714,16 @@
             }
           } else {
             setMessage("当前未检测到云端接口，显示本机缓存。");
+          }
+          const planned = applyFeedbackReviewPlanToRows();
+          if (planned.changed) {
+            writeFeedbackRows().finally(() => {
+              setMessage(`已读取试用反馈 ${rows.length} 条，并自动标注 ${planned.count} 条为已整改待复核。`);
+              setupSystemFilter();
+              render();
+              scrollTargetFeedback();
+            });
+            return;
           }
           setupSystemFilter();
           render();

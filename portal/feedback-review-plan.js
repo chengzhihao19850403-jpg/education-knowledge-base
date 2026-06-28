@@ -1,4 +1,5 @@
 (function () {
+  const reviewPlanVersion = "20260629-auto-review";
   const reviewPlan = [
     {
       seq: 1,
@@ -349,6 +350,46 @@
       status: "已修改待复核",
       resolution: "与第34条属于同类模板需求，已合并处理。",
       action: "按第34条一起复核；无问题后两条都可确认解决。"
+    },
+    {
+      seq: 36,
+      teacher: "李舒",
+      username: "lishu",
+      system: "AI 助手",
+      match: ["没有前面那么聪明", "模板规则"],
+      status: "已修改待复核",
+      resolution: "课堂反馈生成已改为 MiniMax 主写，本地规则只做称呼、段落、缺项和串名检查，不再用笨模板覆盖模型正文。",
+      action: "用同一段真实课堂口述重新生成一次，重点看知识点是否围绕真实上课内容、语气是否自然、是否不再机械套话。"
+    },
+    {
+      seq: 37,
+      teacher: "李舒",
+      username: "lishu",
+      system: "AI 助手",
+      match: ["两个同学", "乱码"],
+      status: "已修改待复核",
+      resolution: "多个关联对象已改为逐个学生分别调用 MiniMax 生成，系统只做姓名隔离和串名拦截，不再把一份反馈硬拆成多份。",
+      action: "在关联对象里填两个或三个学生名，检查是否生成对应数量草稿，且每份只出现本学生姓名和本学生表现。"
+    },
+    {
+      seq: 38,
+      teacher: "李舒",
+      username: "lishu",
+      system: "AI 助手",
+      match: ["三角形", "面积"],
+      status: "已修改待复核",
+      resolution: "课堂反馈已减少本地知识点硬匹配覆盖，让 MiniMax 根据老师口述主写知识点，避免把特殊三角形等内容机械写成无关面积公式。",
+      action: "用包含特殊三角形、直角三角形、等腰三角形、全等综合的口述重新生成，检查知识点要点是否对应这些主题。"
+    },
+    {
+      seq: 39,
+      teacher: "程志豪",
+      username: "chengzhihao",
+      system: "试用反馈整改系统",
+      match: ["自动", "复核"],
+      status: "已修改待复核",
+      resolution: "试用反馈整改台账已接入自动整改标注规则。以后我每次改完，会把本轮相关规则写进系统，老师打开台账时相关未关闭反馈会自动变成已整改待复核。",
+      action: "进入试用反馈整改系统，确认相关反馈是否自动进入待复核；已确认解决和仍有问题的记录不应被自动覆盖。"
     }
   ];
 
@@ -419,6 +460,7 @@
   }
 
   window.JRC_FEEDBACK_REVIEW_PLAN = {
+    version: reviewPlanVersion,
     rows: reviewPlan,
     findReviewPlan,
     groupRowsByReviewer,

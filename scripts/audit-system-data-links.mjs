@@ -252,10 +252,12 @@ const checks = [
       && /试用反馈整改系统/.test(files.trialFeedback)
       && /导出本轮(?:待讨论)? CSV/.test(files.trialFeedback)
       && /sourceFeedbackId/.test(files.trialFeedback)
+      && /feedback-review-plan\.js\?v=20260629b/.test(files.trialFeedback)
+      && /系统自动整改标注/.test(files.trialFeedback)
       && /trial-feedback\.html/.test(files.dashboard)
       && /trial-feedback\.html/.test(readText("portal/index.html"))
       && /trial-feedback\.html/.test(readText("portal/mobile-unified.js")),
-    detail: "试用反馈、新问题、整改复核和本轮导出已拆成临时专项页面，首页和反馈浮窗都指向该系统。"
+    detail: "试用反馈、新问题、整改复核和本轮导出已拆成临时专项页面，并接入自动整改标注规则。"
   },
   {
     title: "系统流动断点进入我的任务",
