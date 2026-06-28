@@ -1649,6 +1649,16 @@
         const list = byId("siteFeedbackList");
         if (!section || !list) return;
         section.hidden = false;
+        section.innerHTML = `
+          <p class="eyebrow">试用反馈整改台账</p>
+          <h2>已拆分为独立系统</h2>
+          <p class="hero-text">试用反馈、新问题、整改复核和本轮待讨论导出，统一进入“试用反馈整改系统”。建议与任务协同系统只保留日常建议和任务闭环。</p>
+          <div class="actions">
+            <a class="button" href="./trial-feedback.html">进入试用反馈整改系统</a>
+            <a class="button secondary" href="./trial-feedback.html?filter=mine-review">查看我的反馈复核</a>
+          </div>
+        `;
+        return;
         const keyword = String(byId("siteFeedbackSearch")?.value || "").trim().toLowerCase();
         const statusFilter = String(byId("siteFeedbackStatusFilter")?.value || "");
         const severityFilter = String(byId("siteFeedbackSeverityFilter")?.value || "");

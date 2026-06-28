@@ -707,7 +707,7 @@
         `).join("")}
         ${rows.length > previewRows.length ? `<section class="task-guide-block"><span>还有 ${escapeHtml(rows.length - previewRows.length)} 条</span><p>进入“我的反馈问题”查看并逐条确认。</p></section>` : ""}
         <div class="task-guide-actions">
-          <a class="task-guide-button" href="./suggestions.html#siteFeedbackTitle">打开我的反馈问题</a>
+          <a class="task-guide-button" href="./trial-feedback.html?filter=mine-review">打开我的反馈问题</a>
         </div>
       </div>
     `;
@@ -1049,7 +1049,7 @@
 
   function feedbackHref(row) {
     const id = encodeURIComponent(row?.id || "");
-    return id ? `./suggestions.html?feedback=${id}#siteFeedbackSection` : "./suggestions.html#siteFeedbackSection";
+    return id ? `./trial-feedback.html?feedback=${id}` : "./trial-feedback.html";
   }
 
   function feedbackRelatedToCurrentUser(item) {
@@ -1313,7 +1313,7 @@
       "正常",
       "暂无个人反馈",
       "试用时发现不好用、看不懂、数据不对，可以点右下角“反馈问题”。",
-      "./suggestions.html#siteFeedbackTitle",
+      "./trial-feedback.html",
       "查看反馈"
     );
   }
@@ -1333,7 +1333,7 @@
     if (isAdminLike()) {
       return [
         ["AI课堂反馈", "快速整理课堂反馈和工作记录", "./ai-assistant.html", "ai.access"],
-        ["反馈整改", "看待复核、仍有问题和本轮待处理", "./suggestions.html#siteFeedbackSection", "suggestions.access"],
+        ["反馈整改", "看待复核、仍有问题和本轮待处理", "./trial-feedback.html", "suggestions.access"],
         ["财务月结", "按老师工资单核对月结", "./finance.html", "finance.access"],
         ["学生服务", "点名、课消、反馈归档", "./student-service.html", "studentService.access"]
       ];
@@ -1342,7 +1342,7 @@
       return [
         ["老师工资单", "按月份和老师核对本月结算", "./finance.html", "finance.access"],
         ["只看待对账", "快速进入财务待核明细", "./finance.html#financeTeacherDetailSection", "finance.access"],
-        ["我的反馈", "复核自己提出的问题", "./suggestions.html#siteFeedbackSection", "suggestions.access"],
+        ["我的反馈", "复核自己提出的问题", "./trial-feedback.html", "suggestions.access"],
         ["AI财务核对", "把口述问题整理成核对草稿", "./ai-assistant.html", "ai.access"]
       ];
     }
@@ -1351,7 +1351,7 @@
         ["学生服务", "点名、缺勤、家长沟通", "./student-service.html", "studentService.access"],
         ["招生跟进", "线索、试听、报名交接", "/jrcedu/advice-system/index.html", "admissions.access"],
         ["AI沟通草稿", "整理家长沟通和课堂反馈", "./ai-assistant.html", "ai.access"],
-        ["我的反馈", "查看问题处理进展", "./suggestions.html#siteFeedbackSection", "suggestions.access"]
+        ["我的反馈", "查看问题处理进展", "./trial-feedback.html", "suggestions.access"]
       ];
     }
     if (profileText.includes("授课") || profileText.includes("教师") || profileText.includes("老师")) {
@@ -2009,9 +2009,9 @@
     if (openFeedback.length) {
       priorityActions.push({
         owner: "叶源泽",
-        system: "建议与任务协同系统",
+        system: "试用反馈整改系统",
         text: `全站还有 ${openFeedback.length} 条反馈未闭环，先判断是否转任务，再让提出人复核。`,
-        href: "./suggestions.html#siteFeedbackTitle",
+        href: "./trial-feedback.html",
         actionText: "看反馈台账"
       });
     }

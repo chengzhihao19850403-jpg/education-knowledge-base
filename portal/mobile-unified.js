@@ -260,11 +260,11 @@
           <textarea class="jrc-feedback-content" placeholder="请写清楚在哪个页面、点了什么、希望怎么改。"></textarea>
         </label>
         <button class="jrc-feedback-submit" type="button">提交反馈</button>
-        <p class="jrc-feedback-message">提交后可在这里查看状态，也可进入建议与任务系统复核。</p>
+        <p class="jrc-feedback-message">提交后可在这里查看状态，也可进入试用反馈整改系统复核。</p>
         <div class="jrc-feedback-history">
           <div class="jrc-feedback-history__head">
             <strong>我的反馈</strong>
-            <a href="/jrcedu/portal/suggestions.html">查看全部</a>
+            <a href="/jrcedu/portal/trial-feedback.html">查看全部</a>
           </div>
           <div class="jrc-feedback-history__stats"></div>
           <div class="jrc-feedback-history__list"></div>
@@ -373,7 +373,7 @@
       message.textContent = result.ok ? "已提交到云端，可在“我的反馈”查看处理状态。" : "已暂存在当前设备，云端连接恢复后可再同步。";
       window.setTimeout(() => {
         panel.hidden = true;
-        message.textContent = "提交后可在这里查看状态，也可进入建议与任务系统复核。";
+        message.textContent = "提交后可在这里查看状态，也可进入试用反馈整改系统复核。";
       }, 1400);
     });
 

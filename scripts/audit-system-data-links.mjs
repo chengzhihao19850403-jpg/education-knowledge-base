@@ -41,6 +41,7 @@ const files = {
   student: readText("portal/student-service.html"),
   ai: readText("portal/ai-assistant.html"),
   suggestions: readText("portal/suggestions.html"),
+  trialFeedback: readText("portal/trial-feedback.html"),
   teachingQuality: readText("portal/teaching-quality.html"),
   admissions: readText("public/advice-system/app.js"),
   dataSync: readText("portal/data-sync.js")
@@ -197,6 +198,17 @@ const checks = [
     title: "全站反馈转任务",
     pass: /FEEDBACK_STORAGE_KEY/.test(files.suggestions) && /sourceFeedbackId|t-feedback-/.test(files.suggestions),
     detail: "反馈问题可转建议任务，并让提出人复核。"
+  },
+  {
+    title: "试用反馈整改独立系统",
+    pass: /jrc-site-feedback-v1/.test(files.trialFeedback)
+      && /试用反馈整改系统/.test(files.trialFeedback)
+      && /导出本轮 CSV/.test(files.trialFeedback)
+      && /sourceFeedbackId/.test(files.trialFeedback)
+      && /trial-feedback\.html/.test(files.dashboard)
+      && /trial-feedback\.html/.test(readText("portal/index.html"))
+      && /trial-feedback\.html/.test(readText("portal/mobile-unified.js")),
+    detail: "试用反馈、新问题、整改复核和本轮导出已拆成临时专项页面，首页和反馈浮窗都指向该系统。"
   },
   {
     title: "系统流动断点进入我的任务",

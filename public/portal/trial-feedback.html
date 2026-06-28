@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>匠人程工作台｜试用反馈整改系统</title>
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --panel: rgba(255,255,255,0.96);
+        --ink: #1f2933;
+        --muted: #66717c;
+        --line: rgba(31,41,51,0.08);
+        --brand: #0d9488;
+        --brand-dark: #0f766e;
+        --orange: #bc582e;
+        --blue: #2563eb;
+        --red: #b91c1c;
+        --shadow: 0 18px 50px rgba(31,41,51,0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(13,148,136,0.12), transparent 28%),
+          radial-gradient(circle at top right, rgba(188,88,46,0.10), transparent 24%),
+          linear-gradient(180deg, #faf7f2 0%, #f0e7db 100%);
+      }
+      button, input, select, textarea { font: inherit; }
+      .shell {
+        width: min(1280px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+      .topbar,
+      .card,
+      .summary-card,
+      .focus-card {
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,0.66);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+      }
+      .brand-name { font-size: 18px; font-weight: 900; }
+      .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: var(--ink);
+        text-decoration: none;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .nav-link.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        border-color: transparent;
+      }
+      .card { padding: 22px; }
+      .card + .card { margin-top: 18px; }
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 17px; }
+      p { color: var(--muted); line-height: 1.7; }
+      .hero-text { margin-top: 12px; }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .tag,
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .tag { background: rgba(13,148,136,0.10); color: var(--brand-dark); }
+      .tag.warn { background: rgba(188,88,46,0.10); color: var(--orange); }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 900;
+        text-decoration: none;
+      }
+      .button.secondary {
+        background: rgba(255,255,255,0.82);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .button.danger {
+        background: rgba(185,28,28,0.10);
+        color: var(--red);
+      }
+      .button:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+      .summary-grid,
+      .focus-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .summary-card,
+      .focus-card {
+        padding: 16px;
+        text-align: left;
+      }
+      .focus-card {
+        cursor: pointer;
+        color: inherit;
+        min-height: 112px;
+      }
+      .focus-card.active,
+      .focus-card:hover {
+        border-color: rgba(13,148,136,0.42);
+        background: rgba(13,148,136,0.08);
+      }
+      .summary-card span,
+      .focus-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .summary-card strong,
+      .focus-card strong {
+        display: block;
+        margin-top: 8px;
+        color: var(--ink);
+        font-size: 28px;
+        line-height: 1;
+      }
+      .toolbar {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 120px 150px 150px 150px auto auto;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .toolbar input,
+      .toolbar select,
+      .modal-dialog input,
+      .modal-dialog select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 12px;
+        color: var(--ink);
+        background: rgba(255,255,255,0.92);
+      }
+      .utility-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .utility-row strong { color: var(--ink); }
+      .feedback-grid {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .feedback-card {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 18px;
+        background: rgba(255,255,255,0.80);
+      }
+      .feedback-card.is-done {
+        opacity: 0.76;
+      }
+      .feedback-card.target-highlight {
+        border-color: rgba(13,148,136,0.72);
+        box-shadow: 0 0 0 4px rgba(13,148,136,0.14);
+      }
+      .feedback-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .feedback-title {
+        color: var(--ink);
+        font-size: 18px;
+        font-weight: 900;
+      }
+      .feedback-meta {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .feedback-content {
+        margin-top: 12px;
+        color: var(--ink);
+        line-height: 1.75;
+        white-space: pre-wrap;
+      }
+      .status-pill.open { background: rgba(188,88,46,0.12); color: var(--orange); }
+      .status-pill.task { background: rgba(37,99,235,0.12); color: var(--blue); }
+      .status-pill.review { background: rgba(2,132,199,0.12); color: #0369a1; }
+      .status-pill.done { background: rgba(22,163,74,0.14); color: #15803d; }
+      .status-pill.reopen { background: rgba(185,28,28,0.10); color: var(--red); }
+      .comment-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .comment-item {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.88);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .comment-item strong { color: var(--ink); }
+      .comment-details {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .comment-details summary {
+        cursor: pointer;
+        color: var(--brand-dark);
+        font-weight: 900;
+      }
+      .card-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .rank-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .rank-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .rank-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 11px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.82);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .empty {
+        padding: 24px;
+        border: 1px dashed rgba(31,41,51,0.16);
+        border-radius: 18px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(15,23,42,0.38);
+      }
+      .modal[hidden] { display: none; }
+      .modal-dialog {
+        width: min(460px, 100%);
+        padding: 22px;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: var(--shadow);
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .notice {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border: 1px solid rgba(13,148,136,0.16);
+        border-radius: 16px;
+        background: rgba(13,148,136,0.08);
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      @media (max-width: 980px) {
+        .hero,
+        .summary-grid,
+        .focus-grid,
+        .rank-grid,
+        .toolbar {
+          grid-template-columns: 1fr;
+        }
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      @media (max-width: 640px) {
+        .shell {
+          width: min(100% - 20px, 1280px);
+          padding: 18px 0 36px;
+        }
+        .card,
+        .topbar,
+        .feedback-card {
+          border-radius: 18px;
+          padding: 16px;
+        }
+        .feedback-head,
+        .utility-row {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .button {
+          width: 100%;
+          min-height: 46px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar">
+        <div>
+          <div class="brand-name">匠人程工作台</div>
+          <div class="brand-subtitle">试用反馈整改系统</div>
+        </div>
+        <div class="nav">
+          <a class="nav-link" href="./index.html">回工作台</a>
+          <a class="nav-link" href="./suggestions.html">建议任务</a>
+          <a class="nav-link active" href="./trial-feedback.html">试用反馈</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <article class="card">
+          <p class="eyebrow">Trial Feedback</p>
+          <h1>试用反馈整改台账</h1>
+          <p class="hero-text">试用期专用：老师提交问题、管理员整改、提出人复核，都集中在这里。试用结束后可以导出归档，再从首页下线这个系统。</p>
+          <div class="tag-row">
+            <span class="tag">试用期临时系统</span>
+            <span class="tag">不混入员工建议池</span>
+            <span class="tag warn">已解决后不再进入下轮导出</span>
+          </div>
+          <div class="notice" id="feedbackMessage">正在读取云端反馈台账。</div>
+        </article>
+        <aside class="card">
+          <p class="eyebrow">闭环方法</p>
+          <h2>怎么用</h2>
+          <p class="hero-text">管理员先看“本轮待处理”，合理的问题转任务或标记已处理；老师看到“待我复核”后回原系统测试，确认解决或继续反馈。</p>
+          <div class="actions">
+            <button class="button secondary" type="button" data-quick-filter="actionable">本轮待处理</button>
+            <button class="button secondary" type="button" data-quick-filter="mine-review">待我复核</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="card" id="feedbackLedger">
+        <p class="eyebrow">台账</p>
+        <h2 id="ledgerTitle">试用反馈整改台账</h2>
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div class="focus-grid" id="focusGrid"></div>
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="搜索老师、系统、问题内容">
+          <button class="button secondary" type="button" id="mineToggle">只看自己</button>
+          <select id="statusFilter">
+            <option value="">全部状态</option>
+            <option value="待处理">新问题待讨论</option>
+            <option value="已转任务">已转任务</option>
+            <option value="已整改待复核">已整改待复核</option>
+            <option value="已确认解决">已确认解决</option>
+            <option value="继续反馈">继续反馈</option>
+          </select>
+          <select id="severityFilter">
+            <option value="">全部紧急度</option>
+            <option value="紧急">紧急</option>
+            <option value="普通">普通</option>
+            <option value="可后置">可后置</option>
+          </select>
+          <select id="systemFilter">
+            <option value="">全部系统</option>
+          </select>
+          <button class="button secondary" type="button" id="exportRoundButton">导出本轮 CSV</button>
+          <button class="button secondary" type="button" id="exportAllButton">导出全部 CSV</button>
+        </div>
+        <div class="utility-row">
+          <span>本系统只服务试用期整改；日常员工建议仍进入“建议与任务协同系统”。</span>
+          <strong id="listCount">0 条</strong>
+        </div>
+        <div class="feedback-grid" id="feedbackList"></div>
+      </section>
+
+      <section class="card" id="rankSection">
+        <p class="eyebrow">统计</p>
+        <h2>试用贡献与问题分布</h2>
+        <div class="rank-grid" id="rankGrid"></div>
+      </section>
+    </main>
+
+    <div class="modal" id="assignModal" hidden>
+      <div class="modal-dialog">
+        <p class="eyebrow">转任务</p>
+        <h2>选择处理人</h2>
+        <label class="field">
+          负责人
+          <select id="ownerSelect"></select>
+        </label>
+        <label class="field">
+          截止日期
+          <input id="dueInput" type="date">
+        </label>
+        <div class="actions">
+          <button class="button" type="button" id="assignConfirmButton">确认转任务</button>
+          <button class="button secondary" type="button" id="assignCancelButton">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
+    <script>
+      (function () {
+        const FEEDBACK_STORAGE_KEY = "jrc-site-feedback-v1";
+        const SUGGESTION_STORAGE_KEY = "jrc-suggestion-management-v2";
+        const closedStatuses = ["已确认解决"];
+        const doneLikeStatuses = ["已确认解决"];
+        const reviewStatuses = ["已整改待复核"];
+        const discussionStatuses = ["待处理", "已转任务", "继续反馈"];
+        const params = new URLSearchParams(window.location.search);
+        let rows = [];
+        let suggestions = [];
+        let mineOnly = !(window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false);
+        let quickFilter = params.get("filter") || "";
+        let targetFeedbackId = params.get("feedback") || "";
+        let pendingFeedback = null;
+
+        function byId(id) {
+          return document.getElementById(id);
+        }
+
+        function escapeHtml(value) {
+          return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+          }[char]));
+        }
+
+        function selectorValue(value) {
+          if (window.CSS?.escape) return window.CSS.escape(String(value || ""));
+          return String(value || "").replace(/["\\]/g, "\\$&");
+        }
+
+        function today() {
+          return new Date().toISOString().slice(0, 10);
+        }
+
+        function currentEmployee() {
+          return window.JRC_CURRENT_EMPLOYEE || null;
+        }
+
+        function currentName() {
+          return String(currentEmployee()?.name || "未登录").trim();
+        }
+
+        function currentUsername() {
+          return String(currentEmployee()?.username || "").trim().toLowerCase();
+        }
+
+        function canManage() {
+          return window.jrcHasPermission ? window.jrcHasPermission("suggestions.edit") : false;
+        }
+
+        function safeParse(raw, fallback) {
+          try {
+            return JSON.parse(raw || "null") ?? fallback;
+          } catch {
+            return fallback;
+          }
+        }
+
+        function readLocalRows(key) {
+          const value = safeParse(localStorage.getItem(key), []);
+          return Array.isArray(value) ? value : [];
+        }
+
+        function rowTime(row) {
+          const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+          const noteTime = notes.map((note) => Date.parse(note?.time || "") || 0).reduce((max, value) => Math.max(max, value), 0);
+          return Math.max(
+            Date.parse(row?.updatedAt || "") || 0,
+            Date.parse(row?.processedAt || "") || 0,
+            Date.parse(row?.confirmedAt || "") || 0,
+            Date.parse(row?.reopenedAt || "") || 0,
+            Date.parse(row?.createdAt || "") || 0,
+            noteTime
+          );
+        }
+
+        function normalizeFeedback(row) {
+          const normalized = { ...(row || {}) };
+          const type = String(normalized.type || "试用反馈");
+          normalized.id = String(normalized.id || "").trim() || `FB-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+          normalized.userName = normalized.userName || normalized.name || "未登录";
+          normalized.username = normalized.username || "";
+          normalized.role = normalized.role || "";
+          normalized.system = normalized.system || normalized.pageTitle || "未知页面";
+          normalized.type = type;
+          normalized.status = normalized.status || "待处理";
+          if (normalized.status === "已处理") normalized.status = "已整改待复核";
+          normalized.severity = normalized.severity || (["数据不对", "按钮点不开"].includes(type) ? "紧急" : "普通");
+          normalized.content = normalized.content || normalized.description || "";
+          normalized.url = normalized.url || "";
+          normalized.createdAt = normalized.createdAt || new Date().toISOString();
+          normalized.feedbackCategory = normalized.feedbackCategory || (type === "功能建议" ? "功能建议" : type === "数据不对" ? "数据错误" : type === "手机显示问题" ? "手机端问题" : "使用问题");
+          normalized.reviewNotes = Array.isArray(normalized.reviewNotes) ? normalized.reviewNotes : [];
+          normalized.owner = normalized.owner || "";
+          normalized.ownerUsername = normalized.ownerUsername || "";
+          normalized.taskId = normalized.taskId || "";
+          normalized.processedBy = normalized.processedBy || "";
+          normalized.processedAt = normalized.processedAt || "";
+          normalized.resolution = normalized.resolution || "";
+          return normalized;
+        }
+
+        function mergeById(list) {
+          const map = new Map();
+          list.forEach((row) => {
+            if (!row || typeof row !== "object") return;
+            const normalized = normalizeFeedback(row);
+            const id = String(normalized.id || "").trim();
+            const existing = map.get(id);
+            if (!existing) {
+              map.set(id, normalized);
+              return;
+            }
+            const incomingIsNewer = rowTime(normalized) >= rowTime(existing);
+            map.set(id, incomingIsNewer ? { ...existing, ...normalized, id } : { ...normalized, ...existing, id });
+          });
+          return [...map.values()]
+            .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
+            .slice(0, 500);
+        }
+
+        function mergeSuggestions(list) {
+          const map = new Map();
+          list.forEach((item) => {
+            if (!item || typeof item !== "object") return;
+            const id = String(item.id || item.taskId || "").trim();
+            if (!id) return;
+            const existing = map.get(id);
+            const incomingTime = Date.parse(item.updatedAt || item.completedAt || item.createdAt || "") || 0;
+            const existingTime = Date.parse(existing?.updatedAt || existing?.completedAt || existing?.createdAt || "") || 0;
+            map.set(id, !existing || incomingTime >= existingTime ? { ...existing, ...item, id } : { ...item, ...existing, id });
+          });
+          return [...map.values()].sort((left, right) => String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || "")));
+        }
+
+        function writeFeedbackRows() {
+          rows = mergeById(rows);
+          localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(rows));
+          if (!window.JRC_CLOUD?.writeModuleData) return Promise.resolve({ ok: false });
+          const writeMerged = (remoteRows = []) => {
+            rows = mergeById([...remoteRows, ...rows]);
+            localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(rows));
+            return window.JRC_CLOUD.writeModuleData(FEEDBACK_STORAGE_KEY, "siteFeedback", rows, { replaceMode: "replace" });
+          };
+          if (window.JRC_CLOUD.readModuleData) {
+            return window.JRC_CLOUD.readModuleData(FEEDBACK_STORAGE_KEY)
+              .then((result) => writeMerged(Array.isArray(result?.data?.payload) ? result.data.payload : []))
+              .catch(() => writeMerged([]));
+          }
+          return writeMerged([]);
+        }
+
+        function writeSuggestions() {
+          suggestions = mergeSuggestions(suggestions);
+          localStorage.setItem(SUGGESTION_STORAGE_KEY, JSON.stringify(suggestions));
+          if (!window.JRC_CLOUD?.writeModuleData) return Promise.resolve({ ok: false });
+          return window.JRC_CLOUD.writeModuleData(SUGGESTION_STORAGE_KEY, "suggestions", suggestions, { replaceMode: "replace" });
+        }
+
+        async function hydrate() {
+          rows = mergeById(readLocalRows(FEEDBACK_STORAGE_KEY));
+          suggestions = mergeSuggestions(readLocalRows(SUGGESTION_STORAGE_KEY));
+          if (window.JRC_CLOUD?.readModuleData) {
+            try {
+              const [feedbackResult, suggestionResult] = await Promise.all([
+                window.JRC_CLOUD.readModuleData(FEEDBACK_STORAGE_KEY),
+                window.JRC_CLOUD.readModuleData(SUGGESTION_STORAGE_KEY)
+              ]);
+              if (Array.isArray(feedbackResult?.data?.payload)) rows = mergeById([...rows, ...feedbackResult.data.payload]);
+              if (Array.isArray(suggestionResult?.data?.payload)) suggestions = mergeSuggestions([...suggestions, ...suggestionResult.data.payload]);
+              localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(rows));
+              localStorage.setItem(SUGGESTION_STORAGE_KEY, JSON.stringify(suggestions));
+              setMessage(`已读取云端试用反馈 ${rows.length} 条。`);
+            } catch (error) {
+              setMessage("云端读取暂时失败，当前显示本机缓存。");
+            }
+          } else {
+            setMessage("当前未检测到云端接口，显示本机缓存。");
+          }
+          setupSystemFilter();
+          render();
+          scrollTargetFeedback();
+        }
+
+        function setMessage(text) {
+          const node = byId("feedbackMessage");
+          if (node) node.textContent = text || "";
+        }
+
+        function personMatches(row) {
+          const name = currentName();
+          const username = currentUsername();
+          const rowNames = [row.userName, row.name, row.author, row.owner].map((value) => String(value || "").trim()).filter(Boolean);
+          const rowUsernames = [row.username, row.ownerUsername, row.authorUsername].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+          return Boolean((name && rowNames.includes(name)) || (username && rowUsernames.includes(username)));
+        }
+
+        function statusClass(status) {
+          if (status === "已确认解决") return "done";
+          if (status === "已整改待复核") return "review";
+          if (status === "已转任务") return "task";
+          if (status === "继续反馈") return "reopen";
+          return "open";
+        }
+
+        function feedbackIsClosed(row) {
+          return closedStatuses.includes(row.status || "");
+        }
+
+        function feedbackNeedsReview(row) {
+          return reviewStatuses.includes(row.status || "");
+        }
+
+        function latestReviewNoteText(row) {
+          const notes = Array.isArray(row?.reviewNotes) ? row.reviewNotes : [];
+          const latest = notes[notes.length - 1];
+          return latest ? `${latest.author || "反馈人"}：${latest.text || ""} ${latest.time || ""}` : "";
+        }
+
+        function feedbackTimelineText(row) {
+          return (Array.isArray(row?.reviewNotes) ? row.reviewNotes : [])
+            .map((note) => `${note.time || ""} ${note.author || "反馈人"}：${note.text || ""}`.trim())
+            .filter(Boolean)
+            .join("\n");
+        }
+
+        function shouldEnterRoundExport(row) {
+          const status = row.status || "待处理";
+          if (closedStatuses.includes(status)) return false;
+          if (reviewStatuses.includes(status)) return true;
+          if (status === "已转任务") return true;
+          if (status === "继续反馈") {
+            const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
+            const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
+            return !row.lastExportedAt || updatedAt > exportedAt;
+          }
+          if (discussionStatuses.includes(status)) {
+            const updatedAt = Date.parse(row.updatedAt || row.reopenedAt || row.createdAt || "") || 0;
+            const exportedAt = Date.parse(row.lastExportedAt || "") || 0;
+            return !row.lastExportedAt || updatedAt > exportedAt;
+          }
+          return !row.lastExportedAt;
+        }
+
+        function visibleBaseRows() {
+          return canManage() && !mineOnly ? rows : rows.filter(personMatches);
+        }
+
+        function filteredRows() {
+          const keyword = String(byId("searchInput")?.value || "").trim().toLowerCase();
+          const statusFilter = String(byId("statusFilter")?.value || "");
+          const severityFilter = String(byId("severityFilter")?.value || "");
+          const systemFilter = String(byId("systemFilter")?.value || "");
+          let list = visibleBaseRows()
+            .filter((row) => {
+              if (targetFeedbackId && String(row.id || "") === targetFeedbackId) return true;
+              const status = row.status || "待处理";
+              const haystack = [row.userName, row.username, row.role, row.system, row.type, row.content, row.url, row.resolution].join(" ").toLowerCase();
+              return (!keyword || haystack.includes(keyword)) &&
+                (!statusFilter || status === statusFilter) &&
+                (!severityFilter || row.severity === severityFilter) &&
+                (!systemFilter || row.system === systemFilter);
+            })
+            .filter((row) => {
+              if (!quickFilter) return true;
+              const status = row.status || "待处理";
+              if (quickFilter === "mine-review") return personMatches(row) && reviewStatuses.includes(status);
+              if (quickFilter === "reopened") return status === "继续反馈";
+              if (quickFilter === "new") return status === "待处理";
+              if (quickFilter === "actionable") return shouldEnterRoundExport(row);
+              return true;
+            })
+            .sort((left, right) => {
+              const leftDone = doneLikeStatuses.includes(left.status);
+              const rightDone = doneLikeStatuses.includes(right.status);
+              if (leftDone !== rightDone) return leftDone ? 1 : -1;
+              if (left.severity !== right.severity) return left.severity === "紧急" ? -1 : right.severity === "紧急" ? 1 : 0;
+              return String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || ""));
+            });
+          if (targetFeedbackId) {
+            const target = rows.find((row) => String(row.id || "") === targetFeedbackId);
+            if (target) list = [target, ...list.filter((row) => String(row.id || "") !== targetFeedbackId)];
+          }
+          return list;
+        }
+
+        function setupSystemFilter() {
+          const select = byId("systemFilter");
+          if (!select) return;
+          const current = select.value;
+          const systems = [...new Set(rows.map((row) => row.system).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+          select.innerHTML = `<option value="">全部系统</option>${systems.map((system) => `<option value="${escapeHtml(system)}">${escapeHtml(system)}</option>`).join("")}`;
+          if (systems.includes(current)) select.value = current;
+        }
+
+        function renderSummary() {
+          const base = visibleBaseRows();
+          const pendingRows = base.filter((row) => !doneLikeStatuses.includes(row.status));
+          const reviewRows = base.filter((row) => reviewStatuses.includes(row.status));
+          const solvedRows = base.filter((row) => closedStatuses.includes(row.status));
+          const reopenedRows = base.filter((row) => row.status === "继续反馈");
+          const urgentRows = base.filter((row) => row.severity === "紧急" && !doneLikeStatuses.includes(row.status));
+          const teacherNames = new Set(base.map((row) => row.userName || "未登录"));
+          const summaryRows = canManage() && !mineOnly ? [
+            ["试用反馈", base.length],
+            ["待我方处理", pendingRows.length],
+            ["待老师复核", reviewRows.length],
+            ["已解决", solvedRows.length],
+            ["紧急", urgentRows.length],
+            ["参与老师", teacherNames.size]
+          ] : [
+            ["我共提反馈", base.length],
+            ["待我复核", reviewRows.length],
+            ["已解决", solvedRows.length],
+            ["处理中", pendingRows.length],
+            ["继续反馈", reopenedRows.length]
+          ];
+          byId("summaryGrid").innerHTML = summaryRows.map(([label, value]) => `
+            <div class="summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+          `).join("");
+          const focusRows = [
+            ["mine-review", base.filter((row) => personMatches(row) && reviewStatuses.includes(row.status || "")).length, "待我复核", "管理员已处理，请回原系统确认是否解决。"],
+            ["reopened", base.filter((row) => row.status === "继续反馈").length, "仍有问题", "老师复核后认为还没解决。"],
+            ["new", base.filter((row) => (row.status || "待处理") === "待处理").length, "新问题", "还没讨论或处理的新反馈。"],
+            ["actionable", rows.filter(shouldEnterRoundExport).length, "本轮待处理", "导出时主要看这些。"],
+            ["all", base.length, "全部", "清空快捷筛选。"]
+          ];
+          byId("focusGrid").innerHTML = focusRows.map(([action, value, label, note]) => `
+            <button class="focus-card ${quickFilter === action || (!quickFilter && action === "all") ? "active" : ""}" type="button" data-quick-filter="${escapeHtml(action)}">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+              <span>${escapeHtml(note)}</span>
+            </button>
+          `).join("");
+        }
+
+        function renderRanks() {
+          const holder = byId("rankGrid");
+          const section = byId("rankSection");
+          if (!holder || !section) return;
+          section.hidden = !canManage() || mineOnly;
+          if (section.hidden) return;
+          const countBy = (field) => {
+            const map = new Map();
+            rows.forEach((row) => {
+              const key = String(row[field] || (field === "userName" ? "未登录" : "未知页面"));
+              map.set(key, (map.get(key) || 0) + 1);
+            });
+            return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN")).slice(0, 12);
+          };
+          const renderRank = (title, list) => `
+            <div class="card">
+              <h3>${escapeHtml(title)}</h3>
+              <div class="rank-list">
+                ${list.length ? list.map(([name, count]) => `<div class="rank-item"><span>${escapeHtml(name)}</span><strong>${count} 条</strong></div>`).join("") : `<div class="empty">暂无</div>`}
+              </div>
+            </div>
+          `;
+          holder.innerHTML = renderRank("试用贡献记录", countBy("userName")) + renderRank("系统反馈分布", countBy("system"));
+        }
+
+        function renderList() {
+          const list = byId("feedbackList");
+          const visible = filteredRows();
+          if (byId("listCount")) byId("listCount").textContent = `${visible.length} 条`;
+          if (byId("ledgerTitle")) byId("ledgerTitle").textContent = canManage() && !mineOnly ? "试用反馈整改台账" : "我的反馈复核与问题";
+          if (byId("mineToggle")) byId("mineToggle").textContent = mineOnly ? "查看全部" : "只看自己";
+          if (!visible.length) {
+            list.innerHTML = `<div class="empty">${canManage() ? "暂无符合条件的反馈。" : "你还没有提交过反馈；在任意模块右下角点“反馈问题”即可提交。"}</div>`;
+            return;
+          }
+          list.innerHTML = visible.map((row) => {
+            const mine = personMatches(row);
+            const done = closedStatuses.includes(row.status);
+            const canVerify = mine && reviewStatuses.includes(row.status || "");
+            const reviewNotes = Array.isArray(row.reviewNotes) ? row.reviewNotes : [];
+            const feedbackUrl = String(row.url || "").trim();
+            return `
+              <article class="feedback-card ${done ? "is-done" : ""} ${String(row.id || "") === targetFeedbackId ? "target-highlight" : ""}" data-feedback-id="${escapeHtml(row.id)}">
+                <div class="feedback-head">
+                  <div>
+                    <div class="feedback-title">${escapeHtml(row.type || "试用反馈")}</div>
+                    <div class="feedback-meta">
+                      ${escapeHtml(row.userName || "未登录")}｜${escapeHtml(row.system || "未知页面")}
+                      ｜${escapeHtml(row.feedbackCategory || "使用问题")}｜${escapeHtml(row.severity || "普通")}
+                      <br>${escapeHtml((row.createdAt || "").replace("T", " ").slice(0, 19))}
+                    </div>
+                  </div>
+                  <span class="status-pill ${statusClass(row.status || "待处理")}">${escapeHtml(row.status || "待处理")}</span>
+                </div>
+                <p class="feedback-content">${escapeHtml(row.content || "")}</p>
+                ${row.resolution ? `<div class="comment-item"><strong>处理结果：</strong>${escapeHtml(row.resolution)}</div>` : ""}
+                ${canVerify ? `<div class="comment-item"><strong>需要你复核：</strong>如果已经解决，点“确认已解决”；如果还有问题，点“仍有问题”补充说明。</div>` : ""}
+                ${reviewNotes.length ? `<details class="comment-details"><summary>复核记录 ${reviewNotes.length}</summary><div class="comment-list">${reviewNotes.map((note) => `<div class="comment-item"><strong>${escapeHtml(note.author || "反馈人")}：</strong>${escapeHtml(note.text || "")} <span>${escapeHtml(note.time || "")}</span></div>`).join("")}</div></details>` : ""}
+                <div class="card-tools">
+                  ${feedbackUrl ? `<a class="button secondary" href="${escapeHtml(feedbackUrl)}" target="_blank" rel="noreferrer">打开页面</a>` : ""}
+                  ${canManage() && !done && row.status !== "已转任务" ? `<button class="button" type="button" data-feedback-action="task">转为任务</button>` : ""}
+                  ${canManage() && !doneLikeStatuses.includes(row.status || "") ? `<button class="button secondary" type="button" data-feedback-action="done">标记已处理</button>` : ""}
+                  ${canVerify ? `<button class="button" type="button" data-feedback-action="confirm">确认已解决</button>` : ""}
+                  ${canVerify ? `<button class="button secondary" type="button" data-feedback-action="reopen">仍有问题</button>` : ""}
+                </div>
+              </article>
+            `;
+          }).join("");
+        }
+
+        function render() {
+          renderSummary();
+          renderRanks();
+          renderList();
+        }
+
+        function employees() {
+          return Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
+        }
+
+        function usernameForName(name) {
+          const text = String(name || "").trim();
+          return employees().find((employee) => employee.name === text)?.username || "";
+        }
+
+        function ownerOptions(current = "") {
+          const names = employees()
+            .map((employee) => employee.name)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, "zh-CN"));
+          const unique = [...new Set(current && !names.includes(current) ? [current, ...names] : names)];
+          return [`<option value="">请选择负责人</option>`, ...unique.map((name) => `<option value="${escapeHtml(name)}" ${name === current ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+        }
+
+        function openAssignModal(feedback) {
+          pendingFeedback = feedback;
+          const modal = byId("assignModal");
+          const ownerSelect = byId("ownerSelect");
+          const dueInput = byId("dueInput");
+          if (!modal || !ownerSelect || !dueInput) return;
+          ownerSelect.innerHTML = ownerOptions(feedback.owner || "");
+          dueInput.value = today();
+          modal.hidden = false;
+        }
+
+        function closeAssignModal() {
+          pendingFeedback = null;
+          const modal = byId("assignModal");
+          if (modal) modal.hidden = true;
+        }
+
+        function convertFeedbackToTask(feedback, owner, dueDate = "") {
+          if (!feedback) return false;
+          if (!owner || !owner.trim()) {
+            alert("请先选择负责人。");
+            return false;
+          }
+          const createdDate = today();
+          const highImpact = feedback.severity === "紧急" || ["数据不对", "按钮点不开"].includes(feedback.type);
+          const taskId = `task-feedback-${Date.now()}`;
+          suggestions.unshift({
+            id: `t-feedback-${Date.now()}`,
+            entryType: "task",
+            title: `处理反馈：${feedback.type || "试用问题"}`,
+            category: "技术工具",
+            impact: highImpact ? "high" : "medium",
+            content: `${feedback.content || ""}\n\n严重程度：${feedback.severity || "普通"}\n问题分类：${feedback.feedbackCategory || "使用问题"}\n来源页面：${feedback.system || "-"}\n反馈人：${feedback.userName || "未登录"}\n页面链接：${feedback.url || "-"}`,
+            author: feedback.userName || "系统反馈",
+            authorUsername: feedback.username || "",
+            anonymous: false,
+            createdAt: createdDate,
+            status: "assigned",
+            owner: owner.trim(),
+            ownerUsername: usernameForName(owner),
+            dueDate: dueDate || createdDate,
+            verifier: "",
+            taskId,
+            taskStandard: "处理人需要说明具体改了什么、在哪个页面验证过、是否需要反馈人复核；不能只写“已处理”。",
+            subtasks: [
+              "1. 先打开来源页面复现反馈问题。",
+              "2. 判断是使用说明问题、数据问题、权限问题还是功能缺陷。",
+              "3. 完成修改或给出明确处理说明。",
+              "4. 在任务里提交完成反馈，让提出人到试用反馈整改系统确认是否解决。"
+            ].join("\n"),
+            completionReport: "",
+            rewardLevel: "none",
+            rewardAmount: "",
+            rewardReason: "",
+            rewardStatus: "none",
+            votes: 0,
+            liked: false,
+            decision: "来自试用反馈整改系统，已转为执行任务。",
+            sourceFeedbackId: feedback.id,
+            comments: [{ author: currentName(), text: "试用反馈已转为任务。", time: createdDate }]
+          });
+          feedback.status = "已转任务";
+          feedback.taskId = taskId;
+          feedback.owner = owner.trim();
+          feedback.ownerUsername = usernameForName(owner);
+          feedback.resolution = `已转为任务，负责人：${owner.trim()}。请提交人后续在试用反馈整改系统复核处理效果。`;
+          feedback.processedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.processedAt;
+          feedback.processedBy = currentName();
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName(), text: feedback.resolution, time: today() });
+          return true;
+        }
+
+        function confirmAssignment() {
+          if (!pendingFeedback) return;
+          const owner = byId("ownerSelect")?.value || "";
+          const dueDate = byId("dueInput")?.value || "";
+          if (!convertFeedbackToTask(pendingFeedback, owner, dueDate)) return;
+          closeAssignModal();
+          Promise.all([writeSuggestions(), writeFeedbackRows()]).finally(() => {
+            setMessage("已转为任务，并同步试用反馈状态。");
+            render();
+          });
+        }
+
+        function findFeedbackFromButton(button) {
+          const card = button.closest("[data-feedback-id]");
+          if (!card) return null;
+          return rows.find((row) => row.id === card.getAttribute("data-feedback-id"));
+        }
+
+        function markFeedbackDone(feedback) {
+          const resolution = prompt("请填写处理结果，提交人会看到这段说明并复核是否真的解决：", feedback.resolution || "");
+          if (resolution === null) return;
+          feedback.status = "已整改待复核";
+          feedback.resolution = String(resolution || "").trim() || "管理员已处理，请提交人复核。";
+          feedback.processedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.processedAt;
+          feedback.processedBy = currentName();
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName(), text: `标记已处理：${feedback.resolution}`, time: today() });
+          writeFeedbackRows().finally(() => {
+            setMessage("已标记为已整改待复核，等待提交人确认。");
+            render();
+          });
+        }
+
+        function confirmSolved(feedback) {
+          if (!personMatches(feedback)) return;
+          feedback.status = "已确认解决";
+          feedback.confirmedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.confirmedAt;
+          feedback.confirmedBy = currentName();
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName(), text: "提交人已确认解决。", time: today() });
+          writeFeedbackRows().finally(() => {
+            setMessage("已确认解决，这条反馈不会进入下一轮待讨论导出。");
+            render();
+          });
+        }
+
+        function reopenFeedback(feedback) {
+          if (!personMatches(feedback)) return;
+          const text = prompt("请补充说明哪里还没解决，或者现在看到的新问题：");
+          if (!text || !text.trim()) return;
+          feedback.status = "继续反馈";
+          feedback.reopenedAt = new Date().toISOString();
+          feedback.updatedAt = feedback.reopenedAt;
+          feedback.reopenedBy = currentName();
+          feedback.reviewNotes = Array.isArray(feedback.reviewNotes) ? feedback.reviewNotes : [];
+          feedback.reviewNotes.push({ author: currentName(), text: `仍有问题：${text.trim()}`, time: today() });
+          writeFeedbackRows().finally(() => {
+            setMessage("已重新打开为继续反馈，会进入下一轮待讨论。");
+            render();
+          });
+        }
+
+        function feedbackCsvRows(exportRows) {
+          return [
+            ["反馈ID", "提交时间", "老师", "用户名", "角色", "系统页面", "问题类型", "问题分类", "紧急程度", "当前状态", "任务编号", "问题说明", "页面链接", "处理说明", "处理人", "处理时间", "复核结果", "复核说明/最新记录", "复核人", "复核时间", "上次导出时间", "导出次数", "完整复核时间线"],
+            ...exportRows.map((row) => [
+              row.id || "",
+              row.createdAt || "",
+              row.userName || "",
+              row.username || "",
+              row.role || "",
+              row.system || "",
+              row.type || "",
+              row.feedbackCategory || "",
+              row.severity || "普通",
+              row.status || "待处理",
+              row.taskId || "",
+              row.content || "",
+              row.url || "",
+              row.resolution || "",
+              row.processedBy || "",
+              row.processedAt || "",
+              row.status === "已确认解决" ? "已解决" : row.status === "继续反馈" ? "仍有问题" : reviewStatuses.includes(row.status || "") ? "待提交人复核" : "",
+              latestReviewNoteText(row),
+              row.confirmedBy || row.reopenedBy || "",
+              row.confirmedAt || row.reopenedAt || "",
+              row.lastExportedAt || "",
+              row.exportCount || "",
+              feedbackTimelineText(row)
+            ])
+          ];
+        }
+
+        function downloadCsv(fileName, exportRows) {
+          const csv = feedbackCsvRows(exportRows).map((row) => row.map((cell) => {
+            const text = String(cell ?? "");
+            return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+          }).join(",")).join("\n");
+          const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        }
+
+        function exportRound() {
+          const exportRows = rows.filter(shouldEnterRoundExport);
+          if (!exportRows.length) {
+            alert("当前没有本轮新问题或仍有问题的复核追问需要导出。");
+            return;
+          }
+          downloadCsv(`本轮待讨论反馈-${today()}.csv`, exportRows);
+          const time = new Date().toISOString();
+          exportRows.forEach((row) => {
+            row.lastExportedAt = time;
+            row.lastExportBatch = "本轮待讨论";
+            row.exportCount = Number(row.exportCount || 0) + 1;
+          });
+          writeFeedbackRows().finally(render);
+        }
+
+        function exportAll() {
+          downloadCsv(`全部反馈归档-${today()}.csv`, rows);
+        }
+
+        function scrollTargetFeedback() {
+          if (!targetFeedbackId) return;
+          window.setTimeout(() => {
+            document.querySelector(`[data-feedback-id="${selectorValue(targetFeedbackId)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+          }, 150);
+        }
+
+        function bindEvents() {
+          ["searchInput", "statusFilter", "severityFilter", "systemFilter"].forEach((id) => {
+            byId(id)?.addEventListener("input", () => {
+              quickFilter = quickFilter === "all" ? "" : quickFilter;
+              render();
+            });
+            byId(id)?.addEventListener("change", () => {
+              quickFilter = quickFilter === "all" ? "" : quickFilter;
+              render();
+            });
+          });
+          byId("mineToggle")?.addEventListener("click", () => {
+            mineOnly = !mineOnly;
+            quickFilter = "";
+            render();
+          });
+          document.addEventListener("click", (event) => {
+            const quick = event.target.closest("[data-quick-filter]");
+            if (quick) {
+              const action = quick.getAttribute("data-quick-filter") || "";
+              quickFilter = action === "all" ? "" : action;
+              if (action === "mine-review") mineOnly = true;
+              if (["reopened", "new", "actionable"].includes(action)) mineOnly = !canManage();
+              render();
+              byId("feedbackLedger")?.scrollIntoView({ block: "start", behavior: "smooth" });
+              return;
+            }
+            const actionButton = event.target.closest("[data-feedback-action]");
+            if (!actionButton) return;
+            const feedback = findFeedbackFromButton(actionButton);
+            if (!feedback) return;
+            const action = actionButton.getAttribute("data-feedback-action");
+            if (action === "task" && canManage()) openAssignModal(feedback);
+            if (action === "done" && canManage()) markFeedbackDone(feedback);
+            if (action === "confirm") confirmSolved(feedback);
+            if (action === "reopen") reopenFeedback(feedback);
+          });
+          byId("assignConfirmButton")?.addEventListener("click", confirmAssignment);
+          byId("assignCancelButton")?.addEventListener("click", closeAssignModal);
+          byId("assignModal")?.addEventListener("click", (event) => {
+            if (event.target?.id === "assignModal") closeAssignModal();
+          });
+          byId("exportRoundButton")?.addEventListener("click", exportRound);
+          byId("exportAllButton")?.addEventListener("click", exportAll);
+        }
+
+        bindEvents();
+        hydrate();
+      }());
+    </script>
+  </body>
+</html>
