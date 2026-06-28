@@ -461,6 +461,133 @@
           .filter(Boolean);
       }
 
+      function escapeRegExp(value) {
+        return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+
+      function textMentionsStudent(text, name) {
+        const student = cleanFeedbackStudentName(name);
+        if (!student) return false;
+        return new RegExp(escapeRegExp(student), "u").test(String(text || ""));
+      }
+
+      function mentionedStudentNames(text, names) {
+        return (Array.isArray(names) ? names : [])
+          .map((name) => cleanFeedbackStudentName(name))
+          .filter(Boolean)
+          .filter((name, index, list) => list.indexOf(name) === index)
+          .filter((name) => textMentionsStudent(text, name));
+      }
+
+      function isSharedMultiStudentUnit(unit, mentions) {
+        const text = String(unit || "");
+        const positions = mentions
+          .map((name) => ({ name, index: text.indexOf(name) }))
+          .filter((item) => item.index >= 0)
+          .sort((left, right) => left.index - right.index);
+        if (positions.length < 2) return false;
+        for (let index = 0; index < positions.length - 1; index += 1) {
+          const current = positions[index];
+          const next = positions[index + 1];
+          const between = text.slice(current.index + current.name.length, next.index);
+          if (!/^[、,，和跟与及以及\s]*$/.test(between)) return false;
+        }
+        const tail = text.slice(positions[positions.length - 1].index + positions[positions.length - 1].name.length).trim();
+        return Boolean(tail);
+      }
+
+      function removeOtherStudentNamesFromUnit(unit, target, names) {
+        const current = cleanFeedbackStudentName(target);
+        let next = String(unit || "");
+        mentionedStudentNames(next, names)
+          .filter((name) => name !== current)
+          .forEach((name) => {
+            const escaped = escapeRegExp(name);
+            next = next
+              .replace(new RegExp(`(?:和|跟|与|及|以及|、|,|，)?\\s*${escaped}\\s*(?:和|跟|与|及|以及|、|,|，)?`, "gu"), (match) => {
+                return /[、,，]$/.test(match) ? "" : "";
+              })
+              .replace(new RegExp(escaped, "gu"), "");
+          });
+        return cleanExtractedText(next.replace(/[、,，]{2,}/g, "，").replace(/^[、,，和跟与及以及\s]+/, ""));
+      }
+
+      function splitStudentFeedbackUnits(rawText, names) {
+        const uniqueNames = [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))];
+        return String(rawText || "")
+          .replace(/[：:]/g, "：")
+          .split(/[。；;\n，,]/)
+          .flatMap((rawUnit) => {
+            const unit = cleanExtractedText(rawUnit);
+            if (!unit) return [];
+            const mentions = mentionedStudentNames(unit, uniqueNames);
+            if (mentions.length < 2 || isSharedMultiStudentUnit(unit, mentions)) return [unit];
+            const positions = mentions
+              .map((name) => ({ name, index: unit.indexOf(name) }))
+              .filter((item) => item.index >= 0)
+              .sort((left, right) => left.index - right.index);
+            const pieces = [];
+            const prefix = cleanExtractedText(unit.slice(0, positions[0].index));
+            if (prefix && !mentionedStudentNames(prefix, uniqueNames).length) pieces.push(prefix);
+            positions.forEach((position, index) => {
+              const end = positions[index + 1]?.index ?? unit.length;
+              const piece = cleanExtractedText(unit.slice(position.index, end));
+              if (piece) pieces.push(piece);
+            });
+            return pieces;
+          })
+          .filter(Boolean);
+      }
+
+      function sourceTextForStudent(target, rawText, names) {
+        const current = cleanFeedbackStudentName(target);
+        const allNames = [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))];
+        if (!current || allNames.length < 2) return String(rawText || "").trim();
+        const commonParts = [];
+        const personalParts = [];
+        splitStudentFeedbackUnits(rawText, allNames).forEach((unit) => {
+          const mentions = mentionedStudentNames(unit, allNames);
+          if (!mentions.length) {
+            commonParts.push(unit);
+            return;
+          }
+          if (mentions.includes(current)) {
+            personalParts.push(removeOtherStudentNamesFromUnit(unit, current, allNames));
+          }
+        });
+        const combined = [...commonParts, ...personalParts].map((item) => cleanExtractedText(item)).filter(Boolean);
+        return combined.length ? combined.join("。") : `${current}本节课课堂情况待老师补充`;
+      }
+
+      function removeOtherStudentReferences(text, target, names) {
+        const current = cleanFeedbackStudentName(target);
+        const others = [...new Set((Array.isArray(names) ? names : []).map((name) => cleanFeedbackStudentName(name)).filter(Boolean))]
+          .filter((name) => name && name !== current);
+        if (!others.length) return String(text || "");
+        const lines = String(text || "").split("\n");
+        const cleanedLines = lines.map((line) => {
+          if (!mentionedStudentNames(line, others).length) return line;
+          if (/^.{1,18}?的家长您好/.test(line) || /^[一二三四五]、/.test(line.trim())) return line;
+          const parts = line.split(/([。；;，,])/);
+          let next = "";
+          for (let index = 0; index < parts.length; index += 2) {
+            const clause = parts[index] || "";
+            const separator = parts[index + 1] || "";
+            const clauseMentionsOthers = mentionedStudentNames(clause, others).length > 0;
+            if (!clauseMentionsOthers) {
+              next += clause + separator;
+            } else if (textMentionsStudent(clause, current)) {
+              const cleaned = removeOtherStudentNamesFromUnit(clause, current, [current, ...others]);
+              if (cleaned) next += cleaned + separator;
+            }
+          }
+          const trimmed = next.trim();
+          if (/^\d+[.、]\s*$/.test(trimmed)) return "";
+          return trimmed;
+        });
+        return cleanedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      }
+
       function targetHasMultipleStudents() {
         return isClassFeedbackMode() && splitTargetNames(byId("aiTargetInput")?.value || "").length > 1;
       }
@@ -471,7 +598,7 @@
         if (!to) return text;
         let next = String(text || "");
         if (from && from !== to) {
-          next = next.replace(new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), to);
+          next = next.replace(new RegExp(escapeRegExp(from), "g"), to);
         }
         next = next.replace(/^(.{1,16}?)(的家长您好，这是)/, `${to}$2`);
         if (!/^.{1,18}?的家长您好/.test(next)) {
@@ -1092,9 +1219,11 @@
       }
 
       function cleanClassFeedbackResultForStudent(result, name, sourceText, meta = {}) {
-        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || splitTargetNames(byId("aiTargetInput")?.value || "")[0] || name;
+        const names = splitTargetNames(byId("aiTargetInput")?.value || "");
+        const studentSourceText = sourceTextForStudent(name, sourceText, names);
+        const sourceName = cleanFeedbackStudentName(studentNameFromTarget()) || names[0] || name;
         const rawParent = String(result?.parentMessage || "");
-        const reusableParent = hasClassFeedbackTemplate(rawParent) && !classFeedbackNeedsRebuild(rawParent)
+        const reusableParent = names.length < 2 && hasClassFeedbackTemplate(rawParent) && !classFeedbackNeedsRebuild(rawParent)
           ? replaceFeedbackStudentName(rawParent, sourceName, name)
           : "";
         const normalized = ensureClassFeedbackTemplate({
@@ -1103,17 +1232,23 @@
           polishedText: reusableParent
         }, {
           target: name,
-          text: sourceText,
+          text: studentSourceText,
           lessonSeason: meta.lessonSeason || result?.lessonSeason || "",
           lessonNumber: meta.lessonNumber || result?.lessonNumber || ""
         });
-        const finalText = formatClassFeedbackText(normalized.parentMessage || buildClassFeedbackTemplate(name, sourceText, meta), name);
+        const fallbackText = buildClassFeedbackTemplate(name, studentSourceText, meta);
+        const finalText = removeOtherStudentReferences(
+          formatClassFeedbackText(normalized.parentMessage || fallbackText, name),
+          name,
+          names
+        );
         return {
           ...normalized,
           title: `${name}｜课堂反馈`,
           summary: "已按校区统一课堂反馈模板生成，请老师确认空缺字段后发送。",
           parentMessage: finalText,
           polishedText: finalText,
+          sourceText: studentSourceText,
           target: name,
           studentName: name,
           lessonSeason: normalized.lessonSeason || meta.lessonSeason,
@@ -1127,11 +1262,12 @@
         if (names.length < 2) return [];
         const sourceText = byId("aiInputText")?.value?.trim() || "";
         return names.map((name) => {
+          const studentSourceText = sourceTextForStudent(name, sourceText, names);
           const meta = feedbackMeta(name, sourceText, {
             lessonSeason: result.lessonSeason || "",
             lessonNumber: result.lessonNumber || ""
           });
-          return cleanClassFeedbackResultForStudent(result, name, sourceText, meta);
+          return cleanClassFeedbackResultForStudent(result, name, studentSourceText, meta);
         });
       }
 
@@ -1426,8 +1562,24 @@
         }
         const now = new Date().toISOString();
         const sourceText = byId("aiInputText").value.trim();
-        const batchResults = (latestBatchResults.length ? latestBatchResults : buildBatchFeedbackResults(latestResult))
-          .map((result, index) => cleanClassFeedbackResultForStudent(result, names[index] || result.studentName || result.target || `学生${index + 1}`, sourceText, result));
+        const batchResults = latestBatchResults.length
+          ? latestBatchResults.map((result, index) => {
+            const name = result.studentName || result.target || names[index] || `学生${index + 1}`;
+            const text = removeOtherStudentReferences(
+              formatClassFeedbackText(result.parentMessage || result.polishedText || "", name),
+              name,
+              names
+            );
+            return {
+              ...result,
+              title: `${name}｜课堂反馈`,
+              parentMessage: text,
+              polishedText: text,
+              target: name,
+              studentName: name
+            };
+          })
+          : buildBatchFeedbackResults(latestResult);
         const rows = batchResults.map((result, index) => {
           const text = result.parentMessage || result.polishedText || "";
           const name = result.studentName || result.target || names[index] || `学生${index + 1}`;

@@ -199,9 +199,11 @@ const checks = [
     title: "AI课堂反馈批量草稿清洗",
     pass: /looksLikeJsonText/.test(files.ai)
       && /cleanClassFeedbackResultForStudent/.test(files.ai)
+      && /sourceTextForStudent/.test(files.ai)
+      && /removeOtherStudentReferences/.test(files.ai)
       && /buildBatchFeedbackResults/.test(files.ai)
       && /ensureClassFeedbackTemplate/.test(files.ai),
-    detail: "多个关联对象会按学生逐个套用统一课堂反馈模板，避免 JSON/结构化对象混入草稿正文。"
+    detail: "多个关联对象会按学生切分原始口述、逐个套用统一模板，并剔除其他学生姓名，避免 JSON/结构化对象或串名混入草稿正文。"
   },
   {
     title: "MiniMax调用超时重试保护",
