@@ -1490,40 +1490,174 @@
         };
       }
 
-      async function runBatchClassFeedback(payload, names) {
-        const rows = [];
-        const sourceText = payload.text || "";
-        for (let index = 0; index < names.length; index += 1) {
-          const name = names[index];
-          const studentText = sourceTextForStudent(name, sourceText, names);
-          const meta = feedbackMeta(name, studentText, payload);
-          const studentPayload = {
-            ...payload,
+      function arrayFromStructuredValue(value) {
+        if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+        return String(value || "")
+          .split(/\n+|[；;]/)
+          .map((item) => cleanExtractedText(item.replace(/^\s*\d+[.、]\s*/, "")))
+          .filter(Boolean);
+      }
+
+      function firstStructuredValue(source, keys) {
+        const data = source && typeof source === "object" ? source : {};
+        for (const key of keys) {
+          const value = data[key];
+          if (Array.isArray(value) ? value.length : String(value || "").trim()) return value;
+        }
+        return "";
+      }
+
+      function findStructuredStudent(students, name) {
+        const target = cleanFeedbackStudentName(name);
+        return (Array.isArray(students) ? students : []).find((item) => {
+          const itemName = cleanFeedbackStudentName(item?.name || item?.student || item?.studentName || item?.target || "");
+          return itemName && itemName === target;
+        }) || null;
+      }
+
+      function normalizeSharedLesson(result, sourceText) {
+        const structured = result?.structuredData && typeof result.structuredData === "object" ? result.structuredData : {};
+        const shared = structured.sharedLesson || structured.shared || structured.lesson || {};
+        const fallback = parseClassFeedbackInput(sourceText);
+        const contentItems = arrayFromStructuredValue(firstStructuredValue(shared, [
+          "courseContentItems", "courseContents", "contentItems", "lessonContentItems", "courseContent"
+        ])).slice(0, 4);
+        const knowledgeItems = arrayFromStructuredValue(firstStructuredValue(shared, [
+          "knowledgePointItems", "knowledgePoints", "knowledgeItems", "keyPoints"
+        ])).slice(0, 4);
+        const homework = cleanExtractedText(firstStructuredValue(shared, ["homework", "homeworkText", "assignment"]) || fallback.homework || "");
+        return {
+          courseContentItems: contentItems.length ? contentItems : courseContentItems(sourceText),
+          knowledgePointItems: knowledgeItems.length ? knowledgeItems : buildKnowledgePointItems(sourceText),
+          homework: homework && !isWeakFeedbackPhrase(homework) ? homework : fallback.homework || "__"
+        };
+      }
+
+      function buildSharedClassFeedbackText(name, sharedLesson, studentPart, sourceText, meta = {}) {
+        const greeting = normalizeFeedbackRecipient(name);
+        const resolvedMeta = feedbackMeta(name, sourceText, meta);
+        const stateText = String(firstStructuredValue(studentPart, ["stateText", "state", "status", "classState"]) || "").trim()
+          || `${name}本节课个人课堂状态待老师补充。`;
+        const masteryItems = arrayFromStructuredValue(firstStructuredValue(studentPart, [
+          "masteryItems", "mastery", "learningMastery", "learningStatus", "learningFeedback"
+        ])).slice(0, 4);
+        const resolvedMastery = masteryItems.length
+          ? masteryItems
+          : (sharedLesson.courseContentItems || []).slice(0, 4).map((item, index) => {
+              const label = ["第一项", "第二项", "第三项", "第四项"][index] || "本项";
+              return `${label}“${item}”：${name}的具体掌握情况待老师补充。`;
+            });
+        return [
+          `${greeting}，这是${resolvedMeta.lessonSeason || "春季"}小课第${resolvedMeta.lessonNumber || "__"}次课程反馈：`,
+          "",
+          "一、上课状态：",
+          stateText,
+          "",
+          "二、本次课上课内容：",
+          numberedLines(sharedLesson.courseContentItems),
+          "",
+          "三、知识点要点：",
+          numberedLines(sharedLesson.knowledgePointItems),
+          "",
+          "四、学习掌握情况：",
+          numberedLines(resolvedMastery),
+          "",
+          "五、课后作业：",
+          `《${sharedLesson.homework || "__"}》做完`
+        ].join("\n");
+      }
+
+      function buildSharedBatchFeedbackResults(result, names, sourceText, meta = {}) {
+        const structured = result?.structuredData && typeof result.structuredData === "object" ? result.structuredData : {};
+        const students = Array.isArray(structured.students)
+          ? structured.students
+          : Array.isArray(structured.studentFeedbacks)
+            ? structured.studentFeedbacks
+            : [];
+        if (!students.length) return [];
+        const sharedLesson = normalizeSharedLesson(result, sourceText);
+        return names.map((name) => {
+          const studentPart = findStructuredStudent(students, name) || {};
+          const text = removeOtherStudentReferences(
+            formatClassFeedbackText(buildSharedClassFeedbackText(name, sharedLesson, studentPart, sourceText, {
+              lessonSeason: meta.lessonSeason || result?.lessonSeason || "",
+              lessonNumber: meta.lessonNumber || result?.lessonNumber || ""
+            }), name),
+            name,
+            names
+          );
+          return {
+            ...result,
+            title: `${name}｜课堂反馈`,
+            summary: "已按同一节课生成：上课内容、知识点和作业保持一致，个人状态和掌握情况按学生拆分。",
+            parentMessage: text,
+            polishedText: text,
+            sourceText,
             target: name,
-            text: studentText,
-            lessonSeason: meta.lessonSeason,
-            lessonNumber: meta.lessonNumber
+            studentName: name,
+            lessonSeason: result?.lessonSeason || meta.lessonSeason,
+            lessonNumber: result?.lessonNumber || meta.lessonNumber
           };
-          byId("aiMessage").textContent = `正在生成第 ${index + 1}/${names.length} 份课堂反馈：${name}`;
-          const response = await window.JRC_CLOUD?.aiAssistant?.(studentPayload);
+        });
+      }
+
+      async function runBatchClassFeedback(payload, names) {
+        const sourceText = payload.text || "";
+        const meta = feedbackMeta(names[0] || payload.target, sourceText, payload);
+        let rows = [];
+        byId("aiMessage").textContent = `正在按同一节课生成 ${names.length} 份课堂反馈...`;
+        const sharedPayload = {
+          ...payload,
+          target: names.join("、"),
+          batchStudents: names,
+          lessonSeason: meta.lessonSeason,
+          lessonNumber: meta.lessonNumber
+        };
+        try {
+          const response = await window.JRC_CLOUD?.aiAssistant?.(sharedPayload);
           if (!response?.ok || !response.data?.result) {
-            const errorMessage = response?.data?.message || response?.data?.error || `MiniMax 没有成功生成 ${name} 的课堂反馈。`;
+            const errorMessage = response?.data?.message || response?.data?.error || "MiniMax 没有成功返回同课多学生课堂反馈。";
             const error = new Error(errorMessage);
             error.response = response;
             throw error;
           }
-          rows.push(cleanClassFeedbackResultForStudent(response.data.result, name, studentText, meta));
+          rows = buildSharedBatchFeedbackResults(response.data.result, names, sourceText, meta);
+          if (!rows.length) throw new Error("MiniMax 未返回一课多生结构化字段，已切换为逐人生成兜底。");
+        } catch (error) {
+          console.warn("Shared class feedback generation failed, fallback to per-student generation.", error);
+          rows = [];
+          for (let index = 0; index < names.length; index += 1) {
+            const name = names[index];
+            const studentText = sourceTextForStudent(name, sourceText, names);
+            const studentMeta = feedbackMeta(name, studentText, payload);
+            const studentPayload = {
+              ...payload,
+              target: name,
+              text: studentText,
+              lessonSeason: studentMeta.lessonSeason,
+              lessonNumber: studentMeta.lessonNumber
+            };
+            byId("aiMessage").textContent = `同课生成未成功，正在生成第 ${index + 1}/${names.length} 份课堂反馈：${name}`;
+            const response = await window.JRC_CLOUD?.aiAssistant?.(studentPayload);
+            if (!response?.ok || !response.data?.result) {
+              const errorMessage = response?.data?.message || response?.data?.error || `MiniMax 没有成功生成 ${name} 的课堂反馈。`;
+              const nextError = new Error(errorMessage);
+              nextError.response = response;
+              throw nextError;
+            }
+            rows.push(cleanClassFeedbackResultForStudent(response.data.result, name, studentText, studentMeta));
+          }
         }
         latestResult = {
           title: `批量课堂反馈｜${names.length}人`,
-          summary: `已由 MiniMax 分别生成 ${names.length} 份课堂反馈，请逐份检查后保存草稿。`,
+          summary: `已按同一节课生成 ${names.length} 份课堂反馈，请逐份检查后保存草稿。`,
           parentMessage: rows.map((row) => row.parentMessage || "").filter(Boolean).join("\n\n---\n\n"),
           polishedText: rows.map((row) => row.polishedText || row.parentMessage || "").filter(Boolean).join("\n\n---\n\n"),
           todoItems: []
         };
         latestBatchResults = rows;
         byId("aiResultBox").innerHTML = `
-          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>MiniMax 已按学生分别生成，系统只做姓名隔离、格式检查和未补项提醒。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
+          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>系统优先按同一节课生成：公共上课内容、知识点和作业保持一致，个人状态和掌握情况按学生拆分。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
           <div class="result-item"><strong>下一步</strong><p>先检查每一份是否有黄色提醒和串名，再点“批量保存多学生草稿”；之后到草稿库逐个精修并归档学生服务。</p></div>
           ${latestBatchResults.map((item, index) => `
             <div class="result-item">

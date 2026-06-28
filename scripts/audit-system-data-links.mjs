@@ -230,8 +230,12 @@ const checks = [
       && /renderBatchSplitPreview/.test(files.ai)
       && /feedbackCrossNameItems/.test(files.ai)
       && /buildBatchFeedbackResults/.test(files.ai)
-      && /ensureClassFeedbackTemplate/.test(files.ai),
-    detail: "多个关联对象会显示姓名标签和拆分预览，按学生切分原始口述，并在归档前拦截串名。"
+      && /ensureClassFeedbackTemplate/.test(files.ai)
+      && /buildSharedBatchFeedbackResults/.test(files.ai)
+      && /normalizeSharedLesson/.test(files.ai)
+      && /sharedLesson\.courseContentItems/.test(files.api)
+      && /batchStudents/.test(files.api),
+    detail: "多个关联对象会显示姓名标签和拆分预览；同一节课优先保持上课内容、知识点、作业一致，再按学生拆分个人表现，并在归档前拦截串名。"
   },
   {
     title: "MiniMax调用超时重试保护",

@@ -1475,9 +1475,13 @@ function aiSystemPrompt() {
 
 function buildAiUserPrompt(body) {
   const mode = String(body.mode || "feedback");
+  const batchStudents = Array.isArray(body.batchStudents)
+    ? body.batchStudents.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
   return [
     `整理类型：${aiModeLabel(mode)}`,
     `关联对象：${body.target || "未填写"}`,
+    batchStudents.length > 1 ? `同课学生名单：${batchStudents.join("、")}` : "",
     `课程阶段：${body.lessonSeason || "未填写"}`,
     `课次：${body.lessonNumber || "未填写"}`,
     `提交人：${body.operatorName || "-"}｜${body.operatorRole || "-"}`,
@@ -1502,6 +1506,15 @@ function buildAiUserPrompt(body) {
       "如果老师只说了孩子状态，没有说具体学习内容，本次课上课内容写“本节课上课内容待老师补充”，知识点要点写“知识点待老师补充”。",
       "如果 C 包含任何明确数学/科学主题，D 必须覆盖这些主题本身；不要把泛化的几何、计算、复习要求当作具体知识点。",
       "学习掌握情况要逐条对应 C，但句式要自然变化，不能每条都以同一个固定短语开头。",
+      batchStudents.length > 1 ? [
+        "当前是“一课多生”模式：这些学生上同一节课，必须先提取整节课公共信息，再分别整理每个学生的个人表现。",
+        "公共信息必须一致：本次课上课内容、知识点要点、课后作业。",
+        "个人信息必须分别写：上课状态、纪律提醒、互动表现、掌握情况、薄弱点和建议。",
+        "structuredData 必须包含 sharedLesson 和 students：",
+        "sharedLesson.courseContentItems 为公共上课内容数组；sharedLesson.knowledgePointItems 为公共知识点要点数组；sharedLesson.homework 为公共作业。",
+        "students 为数组，每个元素包含 name, stateText, masteryItems；students 的 name 必须来自同课学生名单。",
+        "不要在某个学生的 stateText 或 masteryItems 里写其他学生姓名；如果原文没有某个学生的个人表现，就写该学生本节课个人表现待老师补充。"
+      ].join("\n") : "",
       "某某的家长您好，这是春季小课第__次课程反馈：",
       "一、上课状态：",
       "根据老师原始描述如实整理课堂表现、专注度、互动、纪律、提醒情况。",
@@ -1629,6 +1642,24 @@ function requireAiJson(text) {
 
 function ensureClassFeedbackResult(result, body) {
   if (String(body?.mode || "") !== "classFeedback") return result;
+  const structuredStudents = Array.isArray(result?.structuredData?.students)
+    ? result.structuredData.students
+    : Array.isArray(result?.structuredData?.studentFeedbacks)
+      ? result.structuredData.studentFeedbacks
+      : [];
+  if (Array.isArray(body?.batchStudents) && body.batchStudents.length > 1 && structuredStudents.length) {
+    return {
+      ...result,
+      title: result?.title || `批量课堂反馈｜${body.batchStudents.length}人`,
+      summary: result?.summary || "MiniMax 已按同一节课提取公共内容，并拆分每个学生个人表现。",
+      parentMessage: result?.parentMessage || result?.polishedText || "同课多学生结构化课堂反馈",
+      polishedText: result?.polishedText || result?.parentMessage || "同课多学生结构化课堂反馈",
+      lessonSeason: result?.lessonSeason || body?.lessonSeason || extractFeedbackSeason(body?.text || ""),
+      lessonNumber: result?.lessonNumber || body?.lessonNumber || resolveFeedbackLessonNumber(body?.target || "", body?.text || "", body),
+      todoItems: Array.isArray(result?.todoItems) ? result.todoItems : [],
+      internalNote: result?.internalNote || "MiniMax 已按一课多生模式返回结构化课堂反馈；系统会保持公共课程内容一致，并按学生拆分个人表现。"
+    };
+  }
   const rawAiText = String(result?._rawAiText || result?.polishedText || result?.parentMessage || "");
   const parentMessage = String(result?.parentMessage || rawAiText || "");
   const hasTemplate = parentMessage.includes("小课第") && parentMessage.includes("一、上课状态") && parentMessage.includes("本次课上课内容") && parentMessage.includes("知识点要点") && parentMessage.includes("学习掌握情况") && parentMessage.includes("课后作业");
