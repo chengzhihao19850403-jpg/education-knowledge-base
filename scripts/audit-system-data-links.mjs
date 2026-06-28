@@ -45,6 +45,7 @@ const files = {
   teachingQuality: readText("portal/teaching-quality.html"),
   admissions: readText("public/advice-system/app.js"),
   dataSync: readText("portal/data-sync.js"),
+  mobile: readText("portal/mobile-unified.js"),
   api: readText("deploy/aliyun/api/server.mjs")
 };
 
@@ -178,6 +179,15 @@ const checks = [
       && /buildAdmissionsHelpPrompt/.test(files.admissions)
       && /admissionsHelpPanel/.test(readText("public/advice-system/index.html")),
     detail: "招生页有本地常见问题和手动 AI 使用问答；页面打开不自动调用 MiniMax。"
+  },
+  {
+    title: "全站系统使用方法库",
+    pass: /jrc-system-usage-guides-v1/.test(files.mobile)
+      && /usageHelpGuideSections/.test(files.mobile)
+      && /hydrateUsageGuidesFromCloud/.test(files.mobile)
+      && /usageGuideText/.test(files.mobile)
+      && /系统使用方法库/.test(files.dataSync),
+    detail: "每个分系统都有内置使用方法库；云端 jrc-system-usage-guides-v1 可覆盖更新，并纳入整站备份。"
   },
   {
     title: "财务主动读取招生云端数据",

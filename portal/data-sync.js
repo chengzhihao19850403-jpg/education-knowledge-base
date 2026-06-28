@@ -23,6 +23,7 @@
     { key: "jrc-campus-operations-v2", label: "校区运营", shape: "array" },
     { key: "jrc-business-audit-log-v1", label: "操作日志", shape: "array" },
     { key: "jrc-system-link-events-v1", label: "系统联动日志", shape: "array" },
+    { key: "jrc-system-usage-guides-v1", label: "系统使用方法库", shape: "usageGuides" },
     { key: "jrc-employee-directory-extra", label: "新增员工", shape: "array" }
   ];
 
@@ -112,6 +113,9 @@
     }
     if (store.key === "jrc-finance-ledger-v1") {
       return Object.keys(store.parsed.periods || {}).length;
+    }
+    if (store.shape === "usageGuides") {
+      return Array.isArray(store.parsed.guides) ? store.parsed.guides.length : Array.isArray(store.parsed) ? store.parsed.length : 0;
     }
     return Object.keys(store.parsed).length;
   }

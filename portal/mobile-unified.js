@@ -1,6 +1,7 @@
 (function () {
   const feedbackStoreKey = "jrc-site-feedback-v1";
-  const usageHelpGuides = [
+  const usageGuideStoreKey = "jrc-system-usage-guides-v1";
+  const defaultUsageHelpGuides = [
     {
       name: "招生管理系统",
       match: [/advice-system/i, /admissions/i, /招生/],
@@ -124,6 +125,261 @@
     课堂反馈AI助手: ["课堂反馈怎么生成？", "多个学生怎么分开生成？", "草稿和归档在哪里看？"],
     学管知识库系统: ["家长沟通话术怎么查？", "知识库内容怎么新增？", "内容不准确怎么反馈？"]
   };
+  const usageHelpGuideSections = {
+    招生管理系统: [
+      {
+        title: "日常工作顺序",
+        items: [
+          "先录入线索，再持续跟进；约试听前必须确认学生、年级、联系方式、来源、负责人。",
+          "试听结束后当天补齐试听反馈、下一步状态、自动提醒时间，避免线索断档。",
+          "报名后进入报名建档，确认课程产品、实收金额、负责人、渠道归属、推荐人。"
+        ]
+      },
+      {
+        title: "必须核对",
+        items: [
+          "生源来源必须从线上客户、老生家长转介绍、扩科、其他中选择。",
+          "微信昵称及微信号、联系电话是两项信息；有哪个填哪个，尽量都补齐。",
+          "报名后归属链默认锁定，确实要改时走解锁并保留操作记录。"
+        ]
+      },
+      {
+        title: "常用入口",
+        items: [
+          "线索中心用于筛选、导出和复盘。",
+          "试听中心用于预约试听、填写试听反馈和推进下一步。",
+          "招生看板按日、周、月、年查看线索量、试听量、报名量和转化情况。"
+        ]
+      }
+    ],
+    排课系统: [
+      {
+        title: "老师习惯流程",
+        items: [
+          "先选平时课、暑假课或寒假课，再按老师查看该老师自己的排课表。",
+          "核对重点是日期、星期、开始时间、结束时间、班级、学生、教室、课次。",
+          "新增或调整排课时，先看老师时间是否冲突，再看教室是否被占用。"
+        ]
+      },
+      {
+        title: "教室与冲突",
+        items: [
+          "教室视图按日期和时间段查看空闲情况。",
+          "同一老师、同一教室、同一学生在同时间出现两条课，会进入冲突提示。",
+          "招生报名未排课会形成待排课名单，由排课负责人确认后手动排入课表。"
+        ]
+      },
+      {
+        title: "联动关系",
+        items: [
+          "排课确认后，学生服务系统可以按日期、时间、老师、班级生成点名名单。",
+          "点名保存后会带回排课来源键，财务系统据此核对课时费和课销。",
+          "排课数据缺失时反馈必须写清老师、日期、时间段、班级或学生。"
+        ]
+      }
+    ],
+    财务系统: [
+      {
+        title: "老师结算",
+        items: [
+          "先选月份，再选老师，优先看老师结算结果和核对结果。",
+          "老师结算重点核对上课次数、有效课时、课时费、试听补贴、扣款、合计应发。",
+          "待对账表示来源数据和当前结算口径还需要人工确认，不是最终结论。"
+        ]
+      },
+      {
+        title: "经营核算",
+        items: [
+          "产值、老师课时成本、其他费用、利润用于经营复盘。",
+          "招生实收会作为财务归因候选展示，最终仍要财务确认入账。",
+          "教学质量系数会进入财务候选，是否参与正式结算由财务复核。"
+        ]
+      },
+      {
+        title: "核对口径",
+        items: [
+          "排课、点名、工资表、收入表都可能是财务数据来源。",
+          "金额不一致时，先定位老师、月份、学生或班级、具体课次。",
+          "当前阶段适合和人工表并行试算，不直接作为唯一发薪依据。"
+        ]
+      }
+    ],
+    学生与家长服务系统: [
+      {
+        title: "系统入口",
+        items: [
+          "进入后先选择程老师班课、小班课或科学课，避免所有学生混在一起。",
+          "每个子系统只看对应学生群体，方便学管做家长服务和课后追踪。",
+          "招生报名后的学生会进入学生服务入学交接候选。"
+        ]
+      },
+      {
+        title: "点名课消",
+        items: [
+          "点名前选择日期、时间、老师、班级，系统按排课拉出学生名单。",
+          "学生状态默认空白，由老师手动点到课、迟到、请假、缺勤。",
+          "保存点名后，异常处理、财务核对、学生服务时间轴都会使用这条记录。"
+        ]
+      },
+      {
+        title: "服务沉淀",
+        items: [
+          "出门测成绩可以上传 Excel 或手动录入，支持按姓名和成绩排序。",
+          "缺勤异常按班级处理，不要在全量学生长表里找。",
+          "课堂反馈归档后进入学生历史服务记录，供学管复制、复盘和下次备课。"
+        ]
+      }
+    ],
+    教研与课程产品系统: [
+      {
+        title: "标准化资料",
+        items: [
+          "课件资料按年级、体系、学科、类型上传，支持图片、PDF、Word。",
+          "年级专家只能看和上传自己负责年级的标准化资料。",
+          "小学教研主任可看一到六年级，初中教研主任可看七到九年级，并有编辑能力。"
+        ]
+      },
+      {
+        title: "授课大纲",
+        items: [
+          "授课大纲分程老师授课大纲、小课老师授课大纲、科学老师授课大纲。",
+          "小课老师大纲按老师姓名、季节、年级查找；科学老师按海滢滢、姚老师、朱永乐查找。",
+          "同类大纲只展示最新版本，历史版本用于留痕和回溯。"
+        ]
+      },
+      {
+        title: "上传规范",
+        items: [
+          "上传时写清版本、年级、课程体系、适用场景，减少重复资料。",
+          "更新资料优先走版本更新，不要重复上传多个相似文件。",
+          "图片资料可在线打开查看，确需保存时再下载或另存。"
+        ]
+      }
+    ],
+    教学质量系统: [
+      {
+        title: "质量记录",
+        items: [
+          "巡课记录要写清老师、班级、日期、观察点、问题和建议动作。",
+          "课堂质量反馈用于改进教学，不建议把单条记录当作最终评价。",
+          "教学问题如果需要执行，可以转任务给责任人。"
+        ]
+      },
+      {
+        title: "整改闭环",
+        items: [
+          "负责人要看未闭环问题，推动复查和完成反馈。",
+          "问题完成后要记录处理结果，方便后续质量复盘。",
+          "质量等级或系数进入财务前需要管理层和财务核对。"
+        ]
+      },
+      {
+        title: "负责人权限",
+        items: [
+          "教学质量负责人需要有访问和编辑权限。",
+          "普通老师主要查看与自己相关的质量反馈。",
+          "发现权限异常时，在反馈问题里写清账号、模块和缺少的入口。"
+        ]
+      }
+    ],
+    建议与任务协同系统: [
+      {
+        title: "员工建议",
+        items: [
+          "员工建议池只放员工对公司、流程、系统的改进建议。",
+          "大家可以支持建议，后续按支持数量和实际贡献评估奖励。",
+          "需要执行的建议由管理员一键派任务给负责人。"
+        ]
+      },
+      {
+        title: "任务闭环",
+        items: [
+          "负责人会在我的任务里看到派给自己的任务。",
+          "完成后提交完成反馈，结果回写到建议系统。",
+          "建议处理完成后，页面应收起复杂处理区，方便大家看建议内容和支持数量。"
+        ]
+      },
+      {
+        title: "试用反馈",
+        items: [
+          "全站试用反馈和员工建议分开管理。",
+          "提出人可在我的反馈里复核：解决就确认，没解决就继续反馈。",
+          "导出待整改时重点导出新问题和复核仍有问题的内容。"
+        ]
+      }
+    ],
+    校区运营与人事系统: [
+      {
+        title: "三大模块",
+        items: [
+          "系统分校区运营、岗位排班、人事管理三块。",
+          "普通老师以查看为主，管理员入口只给有权限的人编辑。",
+          "从子模块返回时，应先回到校区运营与人事系统，再回工作台。"
+        ]
+      },
+      {
+        title: "岗位排班",
+        items: [
+          "岗位排班用于展示暑假排班、岗位安排和值班信息。",
+          "所有老师可查看，陈雨晴和程志豪可编辑。",
+          "排班变动应及时更新，避免老师查到旧安排。"
+        ]
+      },
+      {
+        title: "人事管理",
+        items: [
+          "人事管理用于员工档案、入职、转正、离职和权限交接。",
+          "离职处理应删除不必要信息，只保留本月排课和上课记录供结算对比。",
+          "转正提醒应能显示具体人员和日期，而不是只显示数字。"
+        ]
+      }
+    ],
+    课堂反馈AI助手: [
+      {
+        title: "生成流程",
+        items: [
+          "老师输入课堂口述或使用输入法语音转文字，关联对象填写一个或多个学生。",
+          "AI按统一课堂反馈模板生成家长可读内容。",
+          "生成结果可直接编辑，缺失字段会提示补齐，补齐后再保存草稿或归档。"
+        ]
+      },
+      {
+        title: "多人反馈",
+        items: [
+          "多个学生姓名可用顿号、逗号、空格或换行分隔。",
+          "系统会按学生切分草稿，每个草稿只保留本学生信息。",
+          "如果草稿里混入其他学生姓名，归档前会拦截并提示检查。"
+        ]
+      },
+      {
+        title: "草稿与归档",
+        items: [
+          "草稿库保留近期草稿，方便老师课后继续修改。",
+          "已归档内容进入学生服务系统，学管可查看历史反馈。",
+          "课堂反馈必须调用 MiniMax；调用失败时不会生成正式反馈。"
+        ]
+      }
+    ],
+    学管知识库系统: [
+      {
+        title: "使用场景",
+        items: [
+          "知识库沉淀学管常用话术、续费提醒、缺勤处理、家长沟通和投诉处理经验。",
+          "查询时先按场景找，再按关键词细查。",
+          "知识库提供服务口径，不替代具体学生服务记录。"
+        ]
+      },
+      {
+        title: "维护方法",
+        items: [
+          "新增内容要写清适用场景、建议话术、注意事项和负责人。",
+          "发现内容不准确时提交反馈，由负责人统一修订。",
+          "常用内容应逐步沉淀成标准流程，减少口头传递。"
+        ]
+      }
+    ]
+  };
+  let usageHelpGuides = defaultUsageHelpGuides.map((guide) => ({ ...guide }));
 
   function currentEmployee() {
     return window.JRC_CURRENT_EMPLOYEE || null;
@@ -183,6 +439,56 @@
 
   function writeFeedbackRows(rows) {
     localStorage.setItem(feedbackStoreKey, JSON.stringify(rows.slice(0, 300)));
+  }
+
+  function normalizeGuidePayload(payload) {
+    const rows = Array.isArray(payload?.guides) ? payload.guides : Array.isArray(payload) ? payload : [];
+    return rows
+      .filter((row) => row && typeof row === "object" && row.name)
+      .map((row) => ({
+        ...row,
+        name: String(row.name || "").trim(),
+        lines: Array.isArray(row.lines) ? row.lines.map((item) => String(item || "").trim()).filter(Boolean) : [],
+        sections: Array.isArray(row.sections) ? row.sections.map((section) => ({
+          title: String(section?.title || "").trim(),
+          items: Array.isArray(section?.items) ? section.items.map((item) => String(item || "").trim()).filter(Boolean) : []
+        })).filter((section) => section.title || section.items.length) : [],
+        questions: Array.isArray(row.questions) ? row.questions.map((item) => String(item || "").trim()).filter(Boolean) : []
+      }))
+      .filter((row) => row.name && (row.lines.length || row.sections.length || row.questions.length));
+  }
+
+  function mergeUsageGuides(remoteRows) {
+    if (!remoteRows.length) return;
+    const defaults = new Map(defaultUsageHelpGuides.map((guide) => [guide.name, guide]));
+    const next = defaultUsageHelpGuides.map((guide) => ({ ...guide }));
+    remoteRows.forEach((remote) => {
+      const base = defaults.get(remote.name);
+      const merged = {
+        ...(base || {}),
+        ...remote,
+        match: base?.match || remote.match || [new RegExp(remote.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))],
+        lines: remote.lines.length ? remote.lines : (base?.lines || []),
+        sections: remote.sections.length ? remote.sections : (usageHelpGuideSections[remote.name] || []),
+        questions: remote.questions.length ? remote.questions : (usageHelpQuestionSets[remote.name] || [])
+      };
+      const index = next.findIndex((guide) => guide.name === remote.name);
+      if (index >= 0) next[index] = merged;
+      else next.push(merged);
+    });
+    usageHelpGuides = next;
+  }
+
+  async function hydrateUsageGuidesFromCloud() {
+    if (!window.JRC_CLOUD?.readModuleData) return;
+    try {
+      const result = await window.JRC_CLOUD.readModuleData(usageGuideStoreKey);
+      const rows = normalizeGuidePayload(result?.data?.payload);
+      mergeUsageGuides(rows);
+      document.querySelectorAll(".jrc-feedback-dock").forEach(syncUsageHelpPanel);
+    } catch {
+      // Built-in usage guides remain available when cloud help library is offline.
+    }
   }
 
   function mergeFeedbackRows(...groups) {
@@ -254,7 +560,23 @@
   }
 
   function usageGuideQuestions(guide) {
-    return usageHelpQuestionSets[guide?.name] || ["这个页面应该先看哪里、先点哪里？", "这个页面的数据不对，我应该怎么核对？", "我看不懂这个系统，应该怎么反馈问题？"];
+    return guide?.questions?.length ? guide.questions : (usageHelpQuestionSets[guide?.name] || ["这个页面应该先看哪里、先点哪里？", "这个页面的数据不对，我应该怎么核对？", "我看不懂这个系统，应该怎么反馈问题？"]);
+  }
+
+  function usageGuideSections(guide) {
+    return guide?.sections?.length ? guide.sections : (usageHelpGuideSections[guide?.name] || []);
+  }
+
+  function usageGuideText(guide) {
+    const lines = Array.isArray(guide?.lines) ? guide.lines : [];
+    const sections = usageGuideSections(guide);
+    return [
+      ...lines.map((line, index) => `${index + 1}. ${line}`),
+      ...sections.map((section) => {
+        const items = section.items.map((item, index) => `${index + 1}. ${item}`).join("\n");
+        return `${section.title}\n${items}`;
+      })
+    ].join("\n");
   }
 
   function usageHelpIntro(guide) {
@@ -546,7 +868,7 @@
       return [
         `当前页面：${title}`,
         `页面地址：${location.pathname}`,
-        `当前系统说明：${guide.name}\n${guide.lines.map((line, index) => `${index + 1}. ${line}`).join("\n")}`,
+        `当前系统说明：${guide.name}\n${usageGuideText(guide)}`,
         headings.length ? `页面栏目：${headings.join("、")}` : "",
         actions.length ? `可见按钮：${actions.join("、")}` : "",
         "请只回答当前工作台/当前页面怎么使用，不要闲聊。回答要短，直接告诉老师先看哪里、点哪里、核对哪里。"
@@ -565,7 +887,7 @@
       const title = systemName();
       const text = String(question || "");
       const guide = currentUsageGuide();
-      const guideLines = guide.lines.map((line, index) => `${index + 1}. ${line}`).join("\n");
+      const guideLines = usageGuideText(guide);
       if (/反馈|提问题|问题/.test(text)) {
         return `当前是${guide.name}。\n如果只是看不懂或觉得不好用，点下面的“反馈问题”，写清楚页面、你点了什么、希望怎么改。提交后可以在“我的反馈”里查看处理状态。\n\n这个系统的使用重点：\n${guideLines}`;
       }
@@ -744,6 +1066,7 @@
     enhanceTables();
     enhanceActionGroups();
     ensureFloatingHome();
+    hydrateUsageGuidesFromCloud();
     const runDeferredEnhancements = () => {
       ensureSectionDock();
       ensureFeedbackDock();
