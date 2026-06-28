@@ -32,10 +32,14 @@
       }
       .topbar {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 16px;
         margin-bottom: 18px;
+      }
+      .title-wrap {
+        min-width: 260px;
+        flex: 1 1 420px;
       }
       .title-wrap p,
       .hint,
@@ -605,6 +609,35 @@
         border-color: rgba(124, 58, 237, 0.18);
         background: linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
       }
+      .top-help-panel {
+        width: min(520px, 100%);
+        flex: 0 1 520px;
+        padding: 14px;
+        border: 1px solid rgba(124, 58, 237, 0.18);
+        border-radius: 18px;
+        box-shadow: 0 14px 32px rgba(23, 33, 50, 0.07);
+      }
+      .top-help-panel h2 {
+        font-size: 18px;
+      }
+      .top-help-panel .section-head {
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .top-help-panel .help-faq-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 8px;
+      }
+      .top-help-panel .help-question-box {
+        margin-top: 8px;
+      }
+      .top-help-panel .help-question-box textarea {
+        min-height: 58px;
+      }
+      .top-help-panel .help-answer {
+        max-height: 150px;
+        overflow: auto;
+      }
       .main-help-panel {
         margin-top: 18px;
         padding: 16px;
@@ -676,6 +709,14 @@
         .layout {
           grid-template-columns: 1fr;
         }
+        .topbar {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+        .top-help-panel {
+          width: 100%;
+          flex-basis: auto;
+        }
       }
       @media (max-width: 900px) {
         .metrics {
@@ -743,6 +784,33 @@
           <div class="hint">新增线索、跟进、试听、反馈、报名建档。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
           <div class="readonly-note" id="permissionNotice" hidden></div>
+        </div>
+        <div class="admissions-help-card top-help-panel" id="admissionsHelpPanel">
+          <div class="section-head">
+            <div>
+              <h2>使用方法AI 提问助手</h2>
+              <div class="hint">先点常见问题；自由提问时才调用 AI。</div>
+            </div>
+          </div>
+          <div class="help-faq-grid" aria-label="招生系统常见问题">
+            <button type="button" data-admissions-help-question="新线索怎么录入？">新线索</button>
+            <button type="button" data-admissions-help-question="试听中心必须填哪些字段？">试听必填</button>
+            <button type="button" data-admissions-help-question="报名后归属锁定怎么处理？">归属锁定</button>
+            <button type="button" data-admissions-help-question="生源来源怎么填？">生源来源</button>
+            <button type="button" data-admissions-help-question="招生看板日周月年怎么看？">数据看板</button>
+            <button type="button" data-admissions-help-question="导出 Excel 在哪里？">导出 Excel</button>
+          </div>
+          <div class="help-question-box">
+            <textarea id="admissionsHelpQuestion" placeholder="例如：试听结束后我应该先填哪里？"></textarea>
+            <div class="section-actions" style="margin-top: 0;">
+              <button class="button small" id="askAdmissionsHelpButton" type="button">问 AI</button>
+              <a class="button secondary small" href="/jrcedu/portal/trial-feedback.html">提交反馈</a>
+            </div>
+          </div>
+          <div class="help-answer" id="admissionsHelpAnswer" aria-live="polite">
+            <strong>使用方法</strong>
+            点上面的常见问题可以立即查看；自由提问时才会调用 AI。
+          </div>
         </div>
       </div>
       <div class="trial-toolbar">
@@ -836,36 +904,6 @@
               <div class="quick-card" data-jump-view="enrollment">
                 <strong>追报名方案</strong>
                 <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
-              </div>
-            </div>
-            <div class="admissions-help-card main-help-panel" id="admissionsHelpPanel">
-              <div class="section-head">
-                <div>
-                  <h2>招生系统使用问答</h2>
-                  <div class="hint">先点常见问题；没有命中时，再手动问 AI。页面打开不会自动调用 AI。</div>
-                </div>
-                <div class="filters">
-                  <span class="status-chip">老师边用边问</span>
-                </div>
-              </div>
-              <div class="help-faq-grid" aria-label="招生系统常见问题">
-                <button type="button" data-admissions-help-question="新线索怎么录入？">新线索</button>
-                <button type="button" data-admissions-help-question="试听中心必须填哪些字段？">试听必填</button>
-                <button type="button" data-admissions-help-question="报名后归属锁定怎么处理？">归属锁定</button>
-                <button type="button" data-admissions-help-question="生源来源怎么填？">生源来源</button>
-                <button type="button" data-admissions-help-question="招生看板日周月年怎么看？">数据看板</button>
-                <button type="button" data-admissions-help-question="导出 Excel 在哪里？">导出 Excel</button>
-              </div>
-              <div class="help-question-box">
-                <textarea id="admissionsHelpQuestion" placeholder="例如：试听结束后我应该先填哪里？报名后归属为什么不能随便改？"></textarea>
-                <div class="section-actions" style="margin-top: 0;">
-                  <button class="button small" id="askAdmissionsHelpButton" type="button">问 AI</button>
-                  <a class="button secondary small" href="/jrcedu/portal/trial-feedback.html">提交反馈</a>
-                </div>
-              </div>
-              <div class="help-answer" id="admissionsHelpAnswer" aria-live="polite">
-                <strong>使用方法</strong>
-                点上面的常见问题可以立即查看；自由提问时才会调用 AI。
               </div>
             </div>
             <div class="section-head" style="margin-top: 18px;">
@@ -2623,7 +2661,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
     <script src="/jrcedu/portal/auth.js?v=20260623h"></script>
     <script src="/jrcedu/portal/business-modules.js?v=20260626h"></script>
-    <script src="./app.js?v=20260628b"></script>
+    <script src="./app.js?v=20260628c"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260623j"></script>
   </body>
 </html>
