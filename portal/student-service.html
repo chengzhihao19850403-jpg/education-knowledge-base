@@ -124,6 +124,23 @@
       .my-service-list { display: grid; gap: 8px; margin-top: 12px; }
       .my-service-item { padding: 11px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.6; }
       .my-service-item strong { color: var(--ink); }
+      .phase-entry-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .phase-entry-card {
+        display: grid;
+        gap: 8px;
+        min-height: 112px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        color: var(--ink);
+        text-decoration: none;
+        box-shadow: 0 10px 24px rgba(23,33,50,0.06);
+      }
+      .phase-entry-card strong { font-size: 17px; }
+      .phase-entry-card span { color: var(--muted); font-size: 13px; line-height: 1.6; }
+      .phase-entry-card:hover { border-color: rgba(13,148,136,0.42); background: rgba(13,148,136,0.06); }
+      .phase-secondary-section { display: none !important; }
       .service-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
       .service-module-card {
         width: 100%;
@@ -178,11 +195,32 @@
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .attendance-entry-panel {
+        padding: 16px;
+        border: 1px solid rgba(13,148,136,0.18);
+        border-radius: 18px;
+        background: rgba(13,148,136,0.06);
+      }
+      .attendance-entry-panel .section-head { margin-bottom: 12px; }
+      .attendance-entry-panel textarea { min-height: 120px; }
+      .roster-edit-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-end;
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+      }
+      .roster-edit-bar .field { flex: 1 1 220px; }
+      .roster-edit-note { color: var(--muted); font-size: 13px; line-height: 1.6; }
       .span-3 { grid-column: 1 / -1; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) {
         .topbar { align-items: flex-start; flex-direction: column; }
-        .metrics, .form-grid, .attendance-summary-grid, .attendance-next-panel, .my-service-grid, .service-module-grid { grid-template-columns: 1fr; }
+        .metrics, .form-grid, .attendance-summary-grid, .attendance-next-panel, .my-service-grid, .service-module-grid, .phase-entry-grid { grid-template-columns: 1fr; }
         .attendance-next-actions { justify-content: flex-start; }
         .span-3 { grid-column: auto; }
         .attendance-touch-actions { min-width: 520px; }
@@ -207,7 +245,7 @@
         <article class="card">
           <p class="eyebrow">学生服务</p>
           <h1>学生与家长服务系统</h1>
-          <p class="hero-text">先选择学生群体，再处理点名、出门测、缺勤异常、课堂反馈和家长跟进。</p>
+          <p class="hero-text">第一阶段先按四件事使用：选学生群体、今日点名、处理缺勤、查看课堂反馈。</p>
           <div class="tag-row">
             <span class="tag">学生档案</span>
             <span class="tag">上课点名</span>
@@ -216,6 +254,35 @@
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
+      </section>
+
+      <section class="card" id="studentServicePhaseEntrances">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">使用版</p>
+            <h2>四个入口</h2>
+            <p>先把日常必须用的流程跑顺，复杂台账先收起来。</p>
+          </div>
+          <span class="status-chip">第一阶段</span>
+        </div>
+        <div class="phase-entry-grid">
+          <a class="phase-entry-card" href="#studentServiceModuleChooser">
+            <strong>1. 选择学生群体</strong>
+            <span>程老师班课、小班课、科学课先分开，再进入点名和反馈。</span>
+          </a>
+          <a class="phase-entry-card" href="#attendanceSection">
+            <strong>2. 今日点名</strong>
+            <span>选日期、时间、老师、班级，也可以手工录入班级点名表。</span>
+          </a>
+          <a class="phase-entry-card" href="#attendanceFollowupSection">
+            <strong>3. 缺勤处理</strong>
+            <span>保存点名后，只处理请假、缺席、未点名等异常学生。</span>
+          </a>
+          <a class="phase-entry-card" href="#studentFeedbackTimelineSection" data-open-target="studentFeedbackTimelineSection">
+            <strong>4. 课堂反馈记录</strong>
+            <span>查看课堂反馈AI助手已经归档的反馈内容。</span>
+          </a>
+        </div>
       </section>
 
       <section class="card" id="studentServiceModuleChooser">
@@ -247,7 +314,7 @@
         <div class="service-module-current" id="activeServiceModuleNote">当前显示：程老师班课系统。</div>
       </section>
 
-      <section class="card">
+      <section class="card phase-secondary-section">
         <div class="section-head">
           <div>
             <p class="eyebrow">我的</p>
@@ -260,7 +327,7 @@
         <div class="my-service-list" id="myServiceList"></div>
       </section>
 
-      <details class="card service-detail-panel" id="studentAdmissionTransferPanel">
+      <details class="card service-detail-panel phase-secondary-section" id="studentAdmissionTransferPanel">
         <summary>招生转入建档</summary>
         <div class="section-head">
           <div>
@@ -282,6 +349,7 @@
       <section class="card" id="attendanceSection">
         <div class="section-head">
           <div>
+            <p class="eyebrow">今日点名</p>
             <h2>上课点名 / 出门测登分 / 课销确认</h2>
             <p>先选日期、时间、老师和班级，再进入点名。名单默认未点名，出门测可手填或用 Excel 自动匹配。</p>
           </div>
@@ -295,23 +363,39 @@
           <select id="attendanceLessonType" hidden><option>正常课</option></select>
           <select id="attendancePreimportSelect" hidden></select>
           <div class="notice span-3 attendance-source-status" id="attendanceSourceStatus">排课数据：正在同步。</div>
-          <label class="field span-3"><span>班级名称</span><input id="attendanceClass" placeholder="系统会自动带出；无匹配排课时可手动填写"></label>
-          <label class="field span-3"><span>学生名单</span><textarea id="attendanceRosterInput" placeholder="每行一个学生，或用顿号、逗号分隔。"></textarea></label>
         </div>
-        <div class="actions">
-          <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出所选班级名单</button>
-          <button class="button" id="attendanceBuildButton" type="button">开始点名</button>
-          <button class="button secondary" id="attendanceImportButton" type="button">上传名单 / 出门测登分 Excel</button>
-          <button class="button secondary" id="attendanceTemplateButton" type="button">下载名单模板</button>
-          <select id="attendanceRosterSort" style="min-height:38px; border:1px solid var(--line); border-radius:999px; padding:0 12px; background:#fff;">
-            <option value="manual">当前顺序</option>
-            <option value="name">按姓名首字母</option>
-            <option value="score-desc">按出门测成绩高到低</option>
-            <option value="score-asc">按出门测成绩低到高</option>
-          </select>
-          <button class="button secondary" id="attendanceSaveButton" type="button">保存本节点名</button>
-          <button class="button secondary" id="attendanceExportButton" type="button">导出点名 CSV</button>
-          <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
+        <div class="attendance-entry-panel">
+          <div class="section-head">
+            <div>
+              <h3>录入班级点名表</h3>
+              <p>可以带出排课名单，也可以粘贴名单、上传 Excel/CSV。生成后再逐个点名。</p>
+            </div>
+            <span class="status-chip">手工可录</span>
+          </div>
+          <div class="form-grid">
+            <label class="field span-3"><span>班级名称</span><input id="attendanceClass" placeholder="系统会自动带出；无匹配排课时可手动填写"></label>
+            <label class="field span-3"><span>粘贴学生名单 / 出门测成绩</span><textarea id="attendanceRosterInput" placeholder="每行一个学生；也可以直接从 Excel 复制“学生姓名、出门测成绩”等列粘贴。"></textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button secondary" id="attendanceLoadPreimportButton" type="button">带出所选班级名单</button>
+            <button class="button" id="attendanceBuildButton" type="button">生成点名表</button>
+            <button class="button secondary" id="attendanceImportButton" type="button">上传 Excel/CSV</button>
+            <button class="button secondary" id="attendanceTemplateButton" type="button">下载模板</button>
+            <select id="attendanceRosterSort" style="min-height:38px; border:1px solid var(--line); border-radius:999px; padding:0 12px; background:#fff;">
+              <option value="manual">当前顺序</option>
+              <option value="name">按姓名首字母</option>
+              <option value="score-desc">按出门测成绩高到低</option>
+              <option value="score-asc">按出门测成绩低到高</option>
+            </select>
+            <button class="button secondary" id="attendanceSaveButton" type="button">保存本节点名</button>
+            <button class="button secondary" id="attendanceExportButton" type="button">导出点名 CSV</button>
+            <input id="attendanceImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
+          </div>
+          <div class="roster-edit-bar">
+            <label class="field"><span>临时加人员</span><input id="attendanceAddStudentInput" placeholder="输入学生姓名"></label>
+            <button class="button secondary" id="attendanceAddStudentButton" type="button">加人员</button>
+            <div class="roster-edit-note">临时来的学生可直接加到本节点名表；误加的人可在名单里点“删除”。</div>
+          </div>
         </div>
         <div class="notice" id="attendanceMessage">名单生成后默认全部未点名，不预设到课；老师在手机或 iPad 上逐个点击确认。</div>
         <div class="attendance-next-panel" id="attendanceNextPanel" hidden>
@@ -335,12 +419,12 @@
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
-              <tr><th>学生</th><th>点名状态</th><th>出门测 / 小测</th><th>课销与课时规则</th><th>后续处理</th><th>系统判断</th></tr>
+              <tr><th>学生</th><th>点名状态</th><th>出门测 / 小测</th><th>课销与课时规则</th><th>后续处理</th><th>系统判断</th><th>操作</th></tr>
             </thead>
             <tbody id="attendanceRosterBody"></tbody>
           </table>
         </div>
-        <div class="table-wrap" style="margin-top:16px;">
+        <div class="table-wrap phase-secondary-section" style="margin-top:16px;">
           <table>
             <thead>
               <tr><th>日期</th><th>老师</th><th>班级 / 课程</th><th>人数</th><th>未落实</th><th>复核</th><th>特殊结算提示</th><th>保存时间</th></tr>
@@ -348,7 +432,7 @@
             <tbody id="attendanceHistoryBody"></tbody>
           </table>
         </div>
-        <div class="table-wrap" style="margin-top:16px;">
+        <div class="table-wrap phase-secondary-section" style="margin-top:16px;">
           <table>
             <thead>
               <tr><th>月份</th><th>老师</th><th>课程数</th><th>总人次</th><th>有效到课</th><th>普通财务人次</th><th>单独结算人次</th><th>待追踪</th><th>复核</th><th>结算口径</th></tr>
@@ -356,7 +440,15 @@
             <tbody id="attendanceSettlementBody"></tbody>
           </table>
         </div>
-        <div class="form-grid" id="attendanceFollowupSection" style="margin-top:16px;">
+        <div class="section-head" id="attendanceFollowupSection" style="margin-top:18px;">
+          <div>
+            <p class="eyebrow">缺勤处理</p>
+            <h2>缺勤异常处理</h2>
+            <p>保存点名后，这里只显示需要处理的请假、缺席、未点名和待核对学生。</p>
+          </div>
+          <span class="status-chip">按班级处理</span>
+        </div>
+        <div class="form-grid" style="margin-top:16px;">
           <label class="field"><span>异常日期</span><select id="followupDateSelect"><option value="">暂无异常</option></select></label>
           <label class="field"><span>时间段</span><select id="followupTimeSelect"><option value="">暂无异常</option></select></label>
           <label class="field"><span>任课老师</span><select id="followupTeacherSelect"><option value="">暂无异常</option></select></label>
@@ -372,7 +464,7 @@
         </div>
       </section>
 
-      <details class="card service-detail-panel">
+      <details class="card service-detail-panel phase-secondary-section">
         <summary>出门测成绩分析</summary>
         <div class="section-head">
           <div>
@@ -397,7 +489,7 @@
         </div>
       </details>
 
-      <details class="card service-detail-panel">
+      <details class="card service-detail-panel phase-secondary-section">
         <summary>学生服务总览</summary>
         <div class="section-head">
           <div>
@@ -422,7 +514,7 @@
         </div>
       </details>
 
-      <details class="card service-detail-panel">
+      <details class="card service-detail-panel" id="studentFeedbackTimelineSection" open>
         <summary>课堂反馈时间轴</summary>
         <div class="section-head">
           <div>
@@ -446,7 +538,7 @@
         <div class="notice" id="studentFeedbackTimelineMessage">普通老师只看本人归档反馈；学管、教务和管理员可查看全量。</div>
       </details>
 
-      <details class="card service-detail-panel">
+      <details class="card service-detail-panel phase-secondary-section">
         <summary>学生服务台账与手工录入</summary>
       <section class="grid">
         <article class="card">
@@ -494,7 +586,7 @@
       </section>
       </details>
 
-      <details class="card service-detail-panel">
+      <details class="card service-detail-panel phase-secondary-section">
         <summary>操作日志</summary>
         <div class="section-head">
           <div>
@@ -639,6 +731,8 @@
         const attendanceFinanceLink = document.getElementById("attendanceFinanceLink");
         const sourceStatus = document.getElementById("attendanceSourceStatus");
         const rosterBody = document.getElementById("attendanceRosterBody");
+        const addStudentInput = document.getElementById("attendanceAddStudentInput");
+        const addStudentButton = document.getElementById("attendanceAddStudentButton");
         const historyBody = document.getElementById("attendanceHistoryBody");
         const settlementBody = document.getElementById("attendanceSettlementBody");
         const followupBody = document.getElementById("attendanceFollowupBody");
@@ -1170,6 +1264,56 @@
         const setMessage = (text) => {
           if (message) message.textContent = text;
         };
+        const syncRosterInputFromDraft = () => {
+          if (!fields.rosterInput) return;
+          const hasScores = draftRows.some((row) => String(row.exitScore || "").trim());
+          if (hasScores) {
+            fields.rosterInput.value = [
+              "学生姓名\t出门测成绩",
+              ...draftRows.map((row) => [row.studentName, row.exitScore || ""].join("\t"))
+            ].join("\n");
+            return;
+          }
+          fields.rosterInput.value = draftRows.map((row) => row.studentName).join("\n");
+        };
+        const addDraftStudent = () => {
+          if (!canUseAttendance()) return;
+          const studentName = String(addStudentInput?.value || "").trim();
+          if (!studentName) {
+            setMessage("请先填写要加入的学生姓名。");
+            return;
+          }
+          const key = compactText(studentName);
+          if (draftRows.some((row) => compactText(row.studentName) === key)) {
+            setMessage(`${studentName} 已经在当前点名表里。`);
+            return;
+          }
+          const teacher = getSelectedTeacher();
+          draftRows.push({
+            studentName,
+            teacher,
+            serviceModule: activeServiceModule,
+            status: UNMARKED_STATUS,
+            exitScore: "",
+            followup: defaultFollowup(UNMARKED_STATUS),
+            manualAdded: true
+          });
+          if (addStudentInput) addStudentInput.value = "";
+          syncRosterInputFromDraft();
+          renderRoster();
+          renderAttendanceNextStep();
+          setMessage(`已临时加入 ${studentName}，默认未点名。`);
+        };
+        const removeDraftStudent = (index) => {
+          if (!canUseAttendance()) return;
+          const row = draftRows[index];
+          if (!row) return;
+          draftRows.splice(index, 1);
+          syncRosterInputFromDraft();
+          renderRoster();
+          renderAttendanceNextStep();
+          setMessage(`已从当前点名表移除 ${row.studentName || "该学生"}。`);
+        };
         const splitRosterNames = (value) => String(value || "")
           .split(/[\n,，、;；]+/)
           .map((name) => name.trim())
@@ -1502,13 +1646,13 @@
         };
         const renderRoster = () => {
           if (!draftRows.length) {
-            rosterBody.innerHTML = `<tr><td colspan="6">先填写班级和学生名单，再点“生成点名名单”；有匹配排课时也可以直接带出名单。</td></tr>`;
+            rosterBody.innerHTML = `<tr><td colspan="7">先选择班级带出名单，或在“录入班级点名表”里粘贴/上传名单，再点“生成点名表”。也可以用“加人员”临时加入学生。</td></tr>`;
             renderDraftMetrics();
             return;
           }
           rosterBody.innerHTML = sortedDraftEntries().map(({ row, index }) => `
             <tr>
-              <td><strong>${escapeHtml(row.studentName)}</strong><br><span class="tag ${row.status === UNMARKED_STATUS ? "review" : ""}">${escapeHtml(row.status || UNMARKED_STATUS)}</span></td>
+              <td><strong>${escapeHtml(row.studentName)}</strong><br><span class="tag ${row.status === UNMARKED_STATUS ? "review" : ""}">${escapeHtml(row.status || UNMARKED_STATUS)}</span>${row.manualAdded ? "<br><span class=\"tag warn\">临时加入</span>" : ""}</td>
               <td>
                 <div class="attendance-touch-actions">
                   ${ATTENDANCE_STATUSES.map((status) => `
@@ -1524,6 +1668,7 @@
                 </select>
               </td>
               <td>${escapeHtml(attendanceJudgement(row))}${needsFollowup(row) ? "<br><span class=\"tag warn\">待落实</span>" : ""}</td>
+              <td><button class="button secondary" data-remove-roster-row="${index}" type="button">删除</button></td>
             </tr>
           `).join("");
           renderDraftMetrics();
@@ -2151,6 +2296,18 @@
         templateButton.addEventListener("click", () => {
           downloadTemplate();
         });
+        addStudentButton?.addEventListener("click", addDraftStudent);
+        addStudentInput?.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          addDraftStudent();
+        });
+        document.querySelectorAll("[data-open-target]").forEach((link) => {
+          link.addEventListener("click", () => {
+            const target = document.getElementById(link.getAttribute("data-open-target"));
+            if (target?.tagName === "DETAILS") target.open = true;
+          });
+        });
         buildButton.addEventListener("click", () => {
           if (!canUseAttendance()) return;
           const parsed = parseRosterRecords(fields.rosterInput?.value || "");
@@ -2298,6 +2455,11 @@
           });
         });
         rosterBody.addEventListener("click", (event) => {
+          const removeButton = event.target.closest("[data-remove-roster-row]");
+          if (removeButton) {
+            removeDraftStudent(Number(removeButton.getAttribute("data-remove-roster-row")));
+            return;
+          }
           const button = event.target.closest("[data-attendance-status]");
           if (!button || !canUseAttendance()) return;
           const index = Number(button.getAttribute("data-attendance-status"));
