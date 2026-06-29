@@ -218,10 +218,39 @@ function getLessonQuestions(lesson) {
   return (lesson?.questionIds || []).map((id) => questionMap.get(id)).filter(Boolean);
 }
 
+function splitAnswerParagraphs(value) {
+  const text = String(value || '').trim();
+  if (!text) return [];
+
+  const rawParts = text
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (rawParts.length > 1) return rawParts;
+
+  return text
+    .split(/(?<=。|！|？|；)\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function AnswerText({ value, className = 'answer-text' }) {
+  return (
+    <div className={className}>
+      {splitAnswerParagraphs(value).map((paragraph, index) => (
+        <p key={`${paragraph.slice(0, 20)}-${index}`}>{paragraph}</p>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
-  const [activeView, setActiveView] = useState('search');
+  const [activeView, setActiveView] = useState('home');
+  const [classroomView, setClassroomView] = useState('lessons');
   const [query, setQuery] = useState('');
   const [selectedQuestionId, setSelectedQuestionId] = useState('');
+  const [selectedCategoryName, setSelectedCategoryName] = useState(knowledgeBase.categories?.[0]?.name || '');
   const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id || '');
   const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id || '');
   const [testAnswers, setTestAnswers] = useState({});
@@ -231,6 +260,12 @@ export default function Home() {
   const selectedQuestion = selectedQuestionId
     ? allQuestions.find((item) => item.id === selectedQuestionId)
     : searchResults.items[0] || allQuestions[0];
+  const selectedCategory = (knowledgeBase.categories || []).find((category) => category.name === selectedCategoryName) || knowledgeBase.categories?.[0];
+  const selectedCategoryQuestions = (selectedCategory?.questions || []).map((item) => ({
+    ...item,
+    category: selectedCategory.name,
+    categoryDescription: selectedCategory.description,
+  }));
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedLessonQuestions = getLessonQuestions(selectedLesson);
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
@@ -250,7 +285,13 @@ export default function Home() {
 
   const selectResult = (id) => {
     setSelectedQuestionId(id);
-    setActiveView('search');
+    setActiveView('qa');
+  };
+
+  const selectCategory = (categoryName) => {
+    setSelectedCategoryName(categoryName);
+    setSelectedQuestionId('');
+    setActiveView('qa');
   };
 
   const openUnifiedPortal = () => {
@@ -298,7 +339,7 @@ export default function Home() {
         <span>{item.source}</span>
       </div>
       <h2>{item.q}</h2>
-      <div className="answer-text">{item.a}</div>
+      <AnswerText value={item.a} />
       {(item.keywords || []).length > 0 && (
         <div className="keyword-row">
           {item.keywords.slice(0, 12).map((keyword) => (
@@ -319,12 +360,32 @@ export default function Home() {
           <div>
             <div className="eyebrow">学管服务标准话术</div>
             <h1>学管知识库系统</h1>
-            <p>把家长原话、关键词或相似问题放进来，系统会优先匹配最接近的标准问答。</p>
+            <p>问答查询和学管课堂分开使用。查家长问题进问答系统，学习培训和测试进学管课堂系统。</p>
           </div>
           <button type="button" className="portal-button" onClick={openUnifiedPortal}>进入员工统一工作台</button>
         </section>
 
-        <section className="search-panel">
+        {activeView === 'home' && (
+          <section className="entry-grid">
+            <button type="button" className="entry-card" onClick={() => setActiveView('qa')}>
+              <span>问答查询系统</span>
+              <strong>{knowledgeBase.total} 条完整问答</strong>
+              <p>输入家长原话、关键词或类似问法，查找标准回复话术。</p>
+            </button>
+            <button type="button" className="entry-card" onClick={() => setActiveView('classroom')}>
+              <span>学管课堂系统</span>
+              <strong>{trainingProgram.lessons?.length || 0} 节课 · 20 套测试</strong>
+              <p>按课程学习 49 条问答，并完成阶段测试和错题订正。</p>
+            </button>
+          </section>
+        )}
+
+        {activeView === 'qa' && (
+          <section className="search-panel">
+            <div className="system-toolbar">
+              <button type="button" className="back-link" onClick={() => setActiveView('home')}>返回学管知识库系统</button>
+              <strong>问答查询系统</strong>
+            </div>
           <div className="search-row">
             <input
               value={query}
@@ -343,18 +404,13 @@ export default function Home() {
           </div>
           <div className="metric-grid">
             <div><strong>{knowledgeBase.total}</strong><span>完整问答</span></div>
-            <div><strong>{trainingProgram.lessons?.length || 0}</strong><span>学管课堂</span></div>
-            <div><strong>100</strong><span>测试总分</span></div>
+            <div><strong>{knowledgeBase.categories?.length || 0}</strong><span>问答分类</span></div>
+            <div><strong>强</strong><span>模糊匹配</span></div>
           </div>
         </section>
+        )}
 
-        <nav className="view-tabs" aria-label="学管知识库功能">
-          <button type="button" className={activeView === 'search' ? 'active' : ''} onClick={() => setActiveView('search')}>问答查询</button>
-          <button type="button" className={activeView === 'lessons' ? 'active' : ''} onClick={() => setActiveView('lessons')}>学管课堂</button>
-          <button type="button" className={activeView === 'tests' ? 'active' : ''} onClick={() => setActiveView('tests')}>阶段测试</button>
-        </nav>
-
-        {activeView === 'search' && (
+        {activeView === 'qa' && (
           <section className="workspace-grid">
             <div className="result-list">
               <div className="section-head">
@@ -378,26 +434,57 @@ export default function Home() {
                 ))
               ) : (
                 (knowledgeBase.categories || []).map((category) => (
-                  <div key={category.name} className="category-card">
+                  <div key={category.name} className={`category-card ${selectedCategoryName === category.name ? 'active' : ''}`}>
                     <div>
                       <strong>{category.name}</strong>
                       <span>{category.questions.length} 条问答</span>
                     </div>
-                    <button type="button" onClick={() => {
-                      const firstQuestion = category.questions[0];
-                      if (firstQuestion) selectResult(firstQuestion.id);
-                    }}>
+                    <button type="button" onClick={() => selectCategory(category.name)}>
                       查看
                     </button>
                   </div>
                 ))
               )}
             </div>
-            <div>{selectedQuestion && renderQuestionDetail(selectedQuestion)}</div>
+            <div>
+              {query.trim() ? (
+                selectedQuestion && renderQuestionDetail(selectedQuestion)
+              ) : (
+                <article className="detail-card">
+                  <div className="detail-meta">
+                    <span>{selectedCategory?.name}</span>
+                    <span>{selectedCategoryQuestions.length} 条完整问答</span>
+                  </div>
+                  <h2>{selectedCategory?.name}</h2>
+                  <p className="lesson-overview">以下为本分类下全部标准问答，老师可以逐条查看和学习。</p>
+                  <div className="qa-stack">
+                    {selectedCategoryQuestions.map((item) => (
+                      <section key={item.id} className="qa-card">
+                        <div className="qa-question">{item.q}</div>
+                        <AnswerText value={item.a} className="qa-answer" />
+                      </section>
+                    ))}
+                  </div>
+                </article>
+              )}
+            </div>
           </section>
         )}
 
-        {activeView === 'lessons' && (
+        {activeView === 'classroom' && (
+          <>
+            <section className="classroom-header">
+              <div>
+                <button type="button" className="back-link" onClick={() => setActiveView('home')}>返回学管知识库系统</button>
+                <h2>学管课堂系统</h2>
+                <p>先学习 20 节课，再进入阶段测试。学习和测试在这个系统内完成，不和问答查询混在一起。</p>
+              </div>
+              <div className="classroom-tabs">
+                <button type="button" className={classroomView === 'lessons' ? 'active' : ''} onClick={() => setClassroomView('lessons')}>学习内容</button>
+                <button type="button" className={classroomView === 'tests' ? 'active' : ''} onClick={() => setClassroomView('tests')}>阶段测试</button>
+              </div>
+            </section>
+            {classroomView === 'lessons' && (
           <section className="workspace-grid">
             <div className="result-list">
               <div className="section-head">
@@ -439,7 +526,7 @@ export default function Home() {
                     {selectedLessonQuestions.map((item) => (
                       <section key={item.id} className="qa-card">
                         <div className="qa-question">{item.q}</div>
-                        <div className="qa-answer">{item.a}</div>
+                        <AnswerText value={item.a} className="qa-answer" />
                       </section>
                     ))}
                   </div>
@@ -452,9 +539,11 @@ export default function Home() {
               </article>
             )}
           </section>
+            )}
+          </>
         )}
 
-        {activeView === 'tests' && (
+        {activeView === 'classroom' && classroomView === 'tests' && (
           <section className="test-workspace">
             <div className="test-toolbar">
               <div>
@@ -618,6 +707,104 @@ export default function Home() {
           border-radius: 8px;
           background: #ffffff;
         }
+        .entry-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+          margin-top: 18px;
+        }
+        .entry-card {
+          min-height: 190px;
+          padding: 24px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          text-align: left;
+          box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+        }
+        .entry-card span {
+          display: inline-flex;
+          min-height: 28px;
+          align-items: center;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: #e8f5f2;
+          color: #0f766e;
+          font-size: 13px;
+          font-weight: 900;
+        }
+        .entry-card strong {
+          display: block;
+          margin-top: 16px;
+          color: #14213d;
+          font-size: 26px;
+          line-height: 1.25;
+        }
+        .entry-card p {
+          margin: 12px 0 0;
+          color: #52627a;
+          line-height: 1.75;
+        }
+        .system-toolbar, .classroom-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+          margin-bottom: 14px;
+        }
+        .system-toolbar strong {
+          color: #14213d;
+          font-size: 18px;
+        }
+        .back-link {
+          min-height: 36px;
+          padding: 0 12px;
+          border: 1px solid #d0dbe7;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #1f3a5f;
+          font-size: 13px;
+          font-weight: 800;
+        }
+        .classroom-header {
+          margin-top: 16px;
+          padding: 20px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+        }
+        .classroom-header h2 {
+          margin: 12px 0 6px;
+          color: #14213d;
+          font-size: 24px;
+        }
+        .classroom-header p {
+          margin: 0;
+          max-width: 680px;
+          color: #52627a;
+          line-height: 1.7;
+        }
+        .classroom-tabs {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .classroom-tabs button {
+          min-height: 42px;
+          padding: 0 18px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #52627a;
+          font-weight: 800;
+        }
+        .classroom-tabs button.active {
+          border-color: #0f766e;
+          background: #e8f5f2;
+          color: #0f766e;
+        }
         .search-row {
           display: grid;
           grid-template-columns: 1fr auto;
@@ -751,6 +938,10 @@ export default function Home() {
           border-radius: 8px;
           background: #fbfcfe;
         }
+        .category-card.active {
+          border-color: #0f766e;
+          background: #f0faf8;
+        }
         .category-card strong, .category-card span {
           display: block;
         }
@@ -806,7 +997,12 @@ export default function Home() {
           color: #334155;
           font-size: 15px;
           line-height: 1.9;
-          white-space: pre-line;
+        }
+        .answer-text p, .qa-answer p {
+          margin: 0 0 16px;
+        }
+        .answer-text p:last-child, .qa-answer p:last-child {
+          margin-bottom: 0;
         }
         .keyword-row {
           display: flex;
@@ -1015,6 +1211,9 @@ export default function Home() {
             width: 100%;
           }
           .workspace-grid {
+            grid-template-columns: 1fr;
+          }
+          .entry-grid {
             grid-template-columns: 1fr;
           }
           .result-list {
