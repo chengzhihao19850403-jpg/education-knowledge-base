@@ -58,8 +58,8 @@ const importTemplateFields = [
 ].join("\t");
 const admissionsHelpKnowledgeBase = [
   "招生系统目标：先用最简单的五步跑起来：登记咨询、约试听、填试听反馈、报名或搁置、找班和转介绍返现。复杂台账、导入和统计只在需要核对时使用。",
-  "日常第一屏用法：先在“快速新增线索”登记新咨询，再在“招生流水线”看每个客户处在哪一步，直接点约试听、填反馈、报名或搁置。",
-  "新线索录入：最少填写学生姓名、年级、家长电话、生源来源、负责人和首条备注；后续学校、微信、班级等信息可以在试听或详情里补。",
+  "日常第一屏用法：先在“新增咨询客户”登记新咨询，再在“当前客户处理区”看每个客户处在哪一步，直接点约试听、填反馈、报名或搁置。",
+  "新咨询录入：最少填写学生姓名、年级、家长电话、生源来源、负责人和咨询内容；后续学校、微信、班级等信息可以在试听或详情里补。",
   "生源来源必须填：线上客户、老生家长转介绍、扩科、其他。选择其他时要补一句来源说明；转介绍要写推荐人。",
   "约试听：选择学生后填写试听日期时间、试听老师、试听班级、联系方式和预约备注；保存后客户进入待试听。",
   "试听反馈：试听后当天填写课堂反馈、家长异议、意向等级和下次跟进时间；反馈后再判断报名、继续跟进或搁置。",
@@ -76,21 +76,21 @@ const admissionsHelpFaqs = [
     keywords: ["每天", "顺序", "怎么用", "流程", "简单"],
     answer: [
       "日常按五步走，不需要先看复杂表格：",
-      "1. 有新咨询，先在首页“快速新增线索”登记。",
-      "2. 能约试听的，在“招生流水线”里点“约试听”。",
+      "1. 有新咨询，先在首页“新增咨询客户”登记。",
+      "2. 能约试听的，在“当前客户处理区”里点“约试听”。",
       "3. 试听结束后，点“填反馈”，当天补课堂反馈和下一步。",
       "4. 报名的点“报名”，暂时不报名的点“搁置”。",
       "5. 报名后再补课程、开课时间、推荐人返现信息。"
     ].join("\n")
   },
   {
-    title: "新线索怎么录入？",
-    keywords: ["新线索", "录入", "新增", "线索怎么"],
+    title: "新咨询怎么录入？",
+    keywords: ["新线索", "新咨询", "录入", "新增", "线索怎么", "客户怎么"],
     answer: [
-      "1. 在首页点“新增线索”，先填学生姓名、年级、联系方式、生源来源、负责人和意向等级。",
+      "1. 在首页“新增咨询客户”里，先填学生姓名、年级、联系方式、生源来源、负责人和咨询内容。",
       "2. 生源来源一定要选清楚：线上客户、老生家长转介绍、扩科、其他。",
       "3. 如果是转介绍，推荐人 / 其他来源说明里写推荐人；如果是其他来源，写几字说明。",
-      "4. 保存后，这个学生会进入首页“招生流水线”，后面可以继续跟进、预约试听、报名或搁置。"
+      "4. 保存后，这个学生会进入首页“当前客户处理区”，后面可以继续跟进、预约试听、报名或搁置。"
     ].join("\n")
   },
   {
@@ -100,7 +100,7 @@ const admissionsHelpFaqs = [
       "试听中心要把“约课”和“试听后反馈”分开看。",
       "预约时重点填：学生、试听日期时间、试听老师、试听班级、联系方式。",
       "试听结束后重点填：到课情况、试听反馈、意向等级、下一步状态、下次跟进时间。",
-      "如果下拉里找不到学生，可以先回首页或线索中心新增线索，再回来预约试听。"
+      "如果下拉里找不到学生，可以先回首页新增咨询客户，再回来预约试听。"
     ].join("\n")
   },
   {
@@ -108,7 +108,7 @@ const admissionsHelpFaqs = [
     keywords: ["搁置", "不报名", "暂时", "回访", "沉睡"],
     answer: [
       "家长暂时不报名时，不要直接删除。",
-      "1. 在首页“招生流水线”对应学生卡片点“搁置”。",
+      "1. 在首页“当前客户处理区”对应学生卡片点“搁置”。",
       "2. 系统会把状态改为“搁置待回访”，并保留前面的咨询和试听记录。",
       "3. 后面定期回访时再写新的跟进记录；如果重新有意向，可以继续约试听或报名。"
     ].join("\n")
@@ -1178,7 +1178,7 @@ function renderLeadTable() {
     )
     .join("") || `
       <tr>
-        <td colspan="10">当前筛选条件下没有线索。可以清空搜索或切换筛选条件。</td>
+        <td colspan="10">当前筛选条件下没有客户。可以清空搜索或切换筛选条件。</td>
       </tr>
     `;
   bindLeadActions();
@@ -1221,8 +1221,8 @@ function renderLeadCards(filteredLeads, editable) {
     : `
       <article class="lead-card">
         <div class="lead-card-title">
-          <strong>没有匹配线索</strong>
-          <span>清空搜索条件，或先新增一条线索。</span>
+          <strong>没有匹配客户</strong>
+          <span>清空搜索条件，或先新增一个咨询客户。</span>
         </div>
       </article>
     `;
@@ -1294,7 +1294,7 @@ function renderAdmissionTasks() {
         <tr>
           <td>暂无</td>
           <td>当前没有紧急招生待办</td>
-          <td>可以继续录入新线索，或查看渠道看板。</td>
+          <td>可以继续录入新咨询客户，或查看统计看板。</td>
           <td>-</td>
           <td>-</td>
         </tr>
@@ -1413,7 +1413,6 @@ function renderSimplePipelineBoard() {
       return `
         <section class="pipeline-column">
           <h3>${stage.title}<span>${leads.length}</span></h3>
-          <p>${stage.hint}</p>
           <div class="pipeline-list">
             ${cards}
             ${hiddenCount ? `<div class="pipeline-empty">还有 ${hiddenCount} 条，点“客户台账”查看全部。</div>` : ""}
@@ -1611,19 +1610,19 @@ function renderLeadDetail() {
   if (!lead) {
     const unlockButton = byId("unlockAttributionButton");
     if (unlockButton) unlockButton.disabled = true;
-    byId("detailStudentName").textContent = "暂无线索";
-    byId("detailGradeSubject").textContent = "请先新增线索或批量导入";
+    byId("detailStudentName").textContent = "暂无客户";
+    byId("detailGradeSubject").textContent = "请先新增咨询客户或批量导入";
     byId("detailOwner").textContent = "-";
     byId("detailStatus").textContent = "待录入";
     byId("detailChannel").textContent = "-";
     byId("detailChannelMeta").textContent = "-";
-    byId("detailNextAction").textContent = "先从 Excel 复制线索到批量导入区，或手动新增第一条线索。";
+    byId("detailNextAction").textContent = "先新增咨询客户，或到更多里批量导入。";
     byId("detailFollowup").textContent = "暂无跟进记录";
     byId("detailFollowupCount").textContent = "0 条记录";
     byId("detailFollowupTimeline").innerHTML = `
       <div class="timeline-item">
-        <div class="timeline-time">暂无线索</div>
-        <p>新增或导入线索后，这里会显示该学生的完整跟进历史。</p>
+        <div class="timeline-time">暂无客户</div>
+        <p>新增或导入客户后，这里会显示该学生的完整跟进历史。</p>
       </div>
     `;
     return;
@@ -2526,10 +2525,10 @@ function bindQuickLeadCreate() {
     byId("quickLeadPhone").value = "";
     if (byId("quickLeadSourceDetail")) byId("quickLeadSourceDetail").value = "";
     byId("quickLeadNote").value = "";
-    logAudit("首页新增线索", studentName, `生源来源 ${channel}，负责人 ${owner}。`);
-    if (message) message.textContent = `已保存 ${studentName}，现在可以在线索中心继续补试听和跟进。`;
+    logAudit("首页新增咨询客户", studentName, `生源来源 ${channel}，负责人 ${owner}。`);
+    if (message) message.textContent = `已保存 ${studentName}，现在可以继续约试听、补跟进或报名。`;
     setInlineMessage("quickCreateLeadMessage", `已保存 ${studentName}`, "success");
-    showToast(`已保存新线索：${studentName}`);
+    showToast(`已保存咨询客户：${studentName}`);
     renderAll();
   });
 }
@@ -2554,7 +2553,7 @@ function bindFeedbackSave() {
         (targetName && lead.studentName === targetName)
     );
     if (!target) {
-      setInlineMessage("saveFeedbackMessage", "没有找到对应线索，请先新增线索再保存试听反馈。", "error");
+      setInlineMessage("saveFeedbackMessage", "没有找到对应客户，请先新增咨询客户再保存试听反馈。", "error");
       return;
     }
     target.intent = byId("feedbackIntent").value;
@@ -2600,7 +2599,7 @@ function bindEnrollmentCreate() {
     }
     const target = state.leads.find((lead) => lead.studentName === name);
     if (!target) {
-      setInlineMessage("createEnrollmentMessage", "没有找到这名学生，请先在线索中心新增。", "error");
+      setInlineMessage("createEnrollmentMessage", "没有找到这名学生，请先新增咨询客户。", "error");
       return;
     }
     const nextChannel = resolveEnrollmentChannel() || target.channel;
@@ -2702,7 +2701,7 @@ function bindFollowupCreate() {
       nextDate: byId("quickFollowupNextDateInput")?.value || "",
     });
     if (!saved) {
-      setInlineMessage("quickFollowupMessage", "请选择线索并填写沟通记录。", "error");
+      setInlineMessage("quickFollowupMessage", "请选择客户并填写沟通记录。", "error");
       return;
     }
     byId("quickFollowupInput").value = "";
