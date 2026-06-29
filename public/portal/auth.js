@@ -1336,7 +1336,7 @@ function jrcEnsureEmployeeSummary() {
   holder.innerHTML = `
     <div class="jrc-employee-summary__head">
       <strong>当前已录入 ${employeeCount} 名员工账号</strong>
-      <button type="button" class="jrc-employee-directory-toggle" data-employee-directory-toggle>全员名单</button>
+      <button type="button" class="jrc-employee-directory-toggle" data-employee-directory-toggle>在职员工名单</button>
     </div>
   `;
 }
@@ -1383,7 +1383,7 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
 
   holder.innerHTML = `
     <div class="jrc-employee-directory__head">
-      <strong>全员名单</strong>
+      <strong>在职员工名单</strong>
       <span>${jrcCanManageEmployees(currentEmployee) ? "可新增和维护员工账号。" : "员工基础信息。"}</span>
     </div>
     <div class="jrc-employee-directory__tools">
@@ -1590,6 +1590,41 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
     jrcBindEmployeeDirectoryFilters();
     jrcBindEmployeeAddForm(currentEmployee);
   });
+}
+
+function jrcMarkEmployeeDeparted(employeeName, options = {}) {
+  const name = String(employeeName || "").trim();
+  if (!name) return { ok: false, message: "未提供员工姓名。" };
+  const allEmployees = jrcGetAllEmployees();
+  const target = allEmployees.find((employee) => String(employee.name || "").trim() === name);
+  if (!target) return { ok: false, message: `没有在在职员工名单中找到 ${name}。` };
+  const username = String(target.username || "").trim().toLowerCase();
+  const customEmployees = jrcReadCustomEmployees();
+  const index = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
+  const row = {
+    ...target,
+    ...(index >= 0 ? customEmployees[index] : {}),
+    username,
+    employmentStatus: "departed",
+    status: "离职",
+    accountStatus: "disabled",
+    departedAt: options.departedAt || new Date().toISOString(),
+    departedReason: options.reason || "人事离职事项保存",
+    permissions: []
+  };
+  if (index >= 0) customEmployees[index] = row;
+  else customEmployees.push(row);
+  jrcWriteCustomEmployees(customEmployees);
+  jrcSyncCustomEmployeesToCloud(customEmployees);
+  window.JRC_EMPLOYEES = jrcGetAllEmployees();
+  const currentEmployee = jrcResolveCurrentEmployee();
+  jrcEnsureEmployeeSummary();
+  jrcRenderEmployeeDirectory(currentEmployee);
+  jrcBindEmployeeDirectoryToggle();
+  jrcBindEmployeeDirectoryFilters();
+  jrcBindEmployeeAddForm(currentEmployee);
+  window.dispatchEvent(new CustomEvent("jrc-employee-directory-updated", { detail: { action: "departed", employee: row } }));
+  return { ok: true, employee: row, message: `${name} 已从在职员工名单移出，并标记为离职。` };
 }
 
 function jrcApplyPermissionDecorations(currentEmployee) {
@@ -2434,6 +2469,7 @@ function jrcBootstrapAuth() {
   window.JRC_EMPLOYEES = jrcGetAllEmployees();
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
+  window.JRC_MARK_EMPLOYEE_DEPARTED = jrcMarkEmployeeDeparted;
   const currentEmployee = jrcResolveCurrentEmployee();
   jrcRenderEmployeeDirectory(currentEmployee);
   jrcBindEmployeeDirectoryToggle();
