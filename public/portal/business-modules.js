@@ -2401,7 +2401,7 @@
         const nextRows = dedupeRoleRowsByTitle(roleRows);
         const changed = JSON.stringify(nextRows) !== JSON.stringify(roleRows);
         roleRows = nextRows;
-        if (options.persist !== false && (changed || options.forceWrite)) {
+        if (canEdit && options.persist !== false && (changed || options.forceWrite)) {
           writeStore(roleDirectoryKey, roleRows, { restoreDeleted: false, replaceMode: "replace" });
         }
         return changed;
