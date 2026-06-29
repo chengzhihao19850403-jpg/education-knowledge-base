@@ -5,6 +5,7 @@
     "jrc-student-service-v2": "studentService",
     "jrc-curriculum-products-v2": "curriculum",
     "jrc-hr-training-tasks-v2": "hr",
+    "jrc-hr-role-directory-v1": "hr",
     "jrc-hr-summer-schedule-v1": "hr",
     "jrc-campus-operations-v2": "campus",
     "jrc-suggestion-management-v2": "suggestions"
@@ -2103,6 +2104,7 @@
     const moduleKey = "hr";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-hr-training-tasks-v2";
+    const roleDirectoryKey = "jrc-hr-role-directory-v1";
     const summerScheduleKey = "jrc-hr-summer-schedule-v1";
     const canViewHrPrivate = hasPermission("hr.access");
     const canEditSummerSchedule = () => {
@@ -2267,11 +2269,19 @@
 
     function initSummerSchedule() {
       const body = $("hrSummerScheduleBody");
-      if (!body) return;
+      const roleBoard = $("hrRoleBoard");
+      if (!body && !roleBoard) return;
       const canEdit = canEditSummerSchedule();
       const editor = $("hrSummerEditorPanel");
       const editorToggle = $("hrSummerEditorToggle");
+      const roleEditor = $("hrRoleEditorPanel");
+      const roleEditorToggle = $("hrRoleEditorToggle");
+      const roleAdminToolbar = $("hrRoleAdminToolbar");
+      const roleTableWrap = $("hrRoleTableWrap");
       if (editor) editor.hidden = true;
+      if (roleEditor) roleEditor.hidden = true;
+      if (roleAdminToolbar) roleAdminToolbar.hidden = !canEdit;
+      if (roleTableWrap) roleTableWrap.hidden = !canEdit;
       if (editorToggle) {
         editorToggle.hidden = !canEdit;
         editorToggle.addEventListener("click", () => {
@@ -2280,12 +2290,138 @@
           setText("hrSummerEditorToggle", editor.hidden ? "编辑排班" : "收起编辑");
         });
       }
+      if (roleEditorToggle) {
+        roleEditorToggle.addEventListener("click", () => {
+          if (!roleEditor) return;
+          roleEditor.hidden = !roleEditor.hidden;
+          setText("hrRoleEditorToggle", roleEditor.hidden ? "新增岗位" : "收起编辑");
+        });
+      }
       const editorMessage = canEdit
         ? "当前为展示模式；需要维护时点击“编辑排班”。"
         : "岗位排班表对全员开放查看；只有陈雨晴和程志豪可以修改。";
       setText("hrSummerMessage", editorMessage);
+      setText("hrRoleMessage", canEdit
+        ? "岗位设置对全员展示；你可以在这里维护岗位、人员和状态。"
+        : "岗位设置对全员展示；只有陈雨晴和程志豪可以新增、修改和删除。");
+      let roleRows = mergeRowsById(readStore(roleDirectoryKey, []), roleDirectoryKey);
       let summerRows = mergeRowsById(readStore(summerScheduleKey, []), summerScheduleKey);
+      let editingRoleIndex = -1;
       let editingSummerIndex = -1;
+      let activeSummerRole = "";
+      let currentRoleMembers = [];
+
+      function uniqueNames(values) {
+        return [...new Set((Array.isArray(values) ? values : []).map((value) => normalizeName(value)).filter(Boolean))]
+          .sort((left, right) => left.localeCompare(right, "zh-CN"));
+      }
+
+      function roleTitleOf(row) {
+        return normalizeText(row?.title || row?.role);
+      }
+
+      function roleDescriptionOf(row) {
+        return normalizeText(row?.description || row?.note);
+      }
+
+      function roleMemberListOf(row) {
+        return uniqueNames(Array.isArray(row?.members)
+          ? row.members
+          : String(row?.membersText || row?.employee || "")
+            .split(/[、,，/]+/));
+      }
+
+      function scheduleRoleCounts() {
+        const counts = new Map();
+        summerRows.forEach((row) => {
+          const role = normalizeText(row?.role);
+          if (!role) return;
+          counts.set(role, (counts.get(role) || 0) + 1);
+        });
+        return counts;
+      }
+
+      function syncRoleEmployeeOptions() {
+        const datalist = $("hrRoleEmployeeOptions");
+        if (!datalist) return;
+        datalist.innerHTML = activeHrEmployees().map((employee) => {
+          const name = normalizeName(employee.name);
+          const meta = [employee.role, employee.subject, employee.scope].map(normalizeText).filter(Boolean).join(" / ");
+          return `<option value="${escapeHtml(name)}"${meta ? ` label="${escapeHtml(meta)}"` : ""}></option>`;
+        }).join("");
+      }
+
+      function syncRoleNameOptions() {
+        const datalist = $("hrRoleNameOptions");
+        if (!datalist) return;
+        const names = new Set();
+        roleRows.forEach((row) => {
+          const name = roleTitleOf(row);
+          if (name) names.add(name);
+        });
+        summerRows.forEach((row) => {
+          const name = normalizeText(row?.role);
+          if (name) names.add(name);
+        });
+        datalist.innerHTML = [...names].sort((left, right) => left.localeCompare(right, "zh-CN"))
+          .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+          .join("");
+      }
+
+      function findRoleRowByTitle(title) {
+        const normalized = normalizeText(title);
+        if (!normalized) return null;
+        return roleRows.find((row) => roleTitleOf(row) === normalized) || null;
+      }
+
+      function renderSelectedRoleMembers() {
+        const container = $("hrRoleSelectedMembers");
+        if (!container) return;
+        if (!currentRoleMembers.length) {
+          container.innerHTML = `<span style="color:#637083; font-size:12px;">还没有添加人员。输入老师姓名后点击“加入人员”。</span>`;
+          return;
+        }
+        container.innerHTML = currentRoleMembers.map((name) => `
+          <span class="person-chip">
+            ${escapeHtml(name)}
+            <button type="button" data-role-member-remove="${escapeHtml(name)}" aria-label="移除 ${escapeHtml(name)}">×</button>
+          </span>
+        `).join("");
+      }
+
+      function resetRoleForm() {
+        ["hrRoleTitleInput", "hrRoleLocationInput", "hrRoleDescriptionInput", "hrRoleMemberInput"].forEach((id) => {
+          const node = $(id);
+          if (node) node.value = "";
+        });
+        const statusInput = $("hrRoleStatusInput");
+        if (statusInput) statusInput.value = "启用";
+        currentRoleMembers = [];
+        editingRoleIndex = -1;
+        renderSelectedRoleMembers();
+        setText("hrRoleSaveButton", "保存岗位设置");
+      }
+
+      function closeRoleEditor() {
+        if (roleEditor) roleEditor.hidden = true;
+        setText("hrRoleEditorToggle", "新增岗位");
+        resetRoleForm();
+      }
+
+      function openRoleEditor(row, index) {
+        if (!roleEditor) return;
+        roleEditor.hidden = false;
+        setText("hrRoleEditorToggle", "收起编辑");
+        $("hrRoleTitleInput").value = roleTitleOf(row) || "";
+        $("hrRoleLocationInput").value = normalizeText(row?.location) || "";
+        $("hrRoleStatusInput").value = normalizeText(row?.status) || "启用";
+        $("hrRoleDescriptionInput").value = roleDescriptionOf(row) || "";
+        $("hrRoleMemberInput").value = "";
+        currentRoleMembers = roleMemberListOf(row);
+        editingRoleIndex = index;
+        renderSelectedRoleMembers();
+        setText("hrRoleSaveButton", "保存修改");
+      }
 
       function clearSummerForm() {
         ["hrSummerDateInput", "hrSummerTimeInput", "hrSummerEmployeeInput", "hrSummerRoleInput", "hrSummerLocationInput", "hrSummerNoteInput"].forEach((id) => {
@@ -2296,11 +2432,94 @@
         setText("hrSummerSaveButton", "保存排班");
       }
 
+      function sortedRoleEntries() {
+        return roleRows
+          .map((row, index) => ({ row, index }))
+          .sort((left, right) => {
+            const leftStatus = normalizeText(left.row?.status) === "停用" ? 1 : 0;
+            const rightStatus = normalizeText(right.row?.status) === "停用" ? 1 : 0;
+            return leftStatus - rightStatus || roleTitleOf(left.row).localeCompare(roleTitleOf(right.row), "zh-CN");
+          });
+      }
+
+      function renderRoleBoard() {
+        if (!roleBoard) return;
+        const entries = sortedRoleEntries();
+        const counts = scheduleRoleCounts();
+        if (!entries.length) {
+          const scheduleRoles = [...counts.keys()];
+          roleBoard.innerHTML = `<div class="role-empty">${scheduleRoles.length
+            ? `当前排班里已经出现 ${scheduleRoles.length} 个岗位名称，但还没有正式岗位设置。建议点击“新增岗位”把长期岗位和负责人补齐。`
+            : "暂无岗位设置。新增后，这里会展示岗位名称、当前人员和状态。"
+          }</div>`;
+          return;
+        }
+        roleBoard.innerHTML = [
+          `
+            <button type="button" class="role-card ${!activeSummerRole ? "active" : ""}" data-role-filter="">
+              <div class="role-card-head">
+                <span class="role-card-title">全部岗位</span>
+                <span class="tag green">${entries.length} 个岗位</span>
+              </div>
+              <p>查看全部岗位，并同时查看下面所有排班安排。</p>
+            </button>
+          `,
+          ...entries.map(({ row }) => {
+            const title = roleTitleOf(row) || "未命名岗位";
+            const members = roleMemberListOf(row);
+            const location = normalizeText(row?.location);
+            const description = roleDescriptionOf(row);
+            const status = normalizeText(row?.status) || "启用";
+            const scheduleCount = counts.get(title) || 0;
+            return `
+              <button type="button" class="role-card ${activeSummerRole === title ? "active" : ""}" data-role-filter="${escapeHtml(title)}">
+                <div class="role-card-head">
+                  <span class="role-card-title">${escapeHtml(title)}</span>
+                  ${status === "停用" ? `<span class="tag">停用</span>` : `<span class="tag green">${members.length || 0} 人</span>`}
+                </div>
+                <div class="person-row" style="margin-top:10px;">
+                  ${members.length ? members.map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("") : `<span class="person-chip">暂未安排</span>`}
+                </div>
+                <p>${location ? `地点：${escapeHtml(location)}` : "地点待补充"}${scheduleCount ? `｜排班 ${scheduleCount} 条` : "｜暂无排班"}${description ? `<br>${escapeHtml(description)}` : ""}</p>
+              </button>
+            `;
+          })
+        ].join("");
+      }
+
+      function renderRoleTable() {
+        const tableBody = $("hrRoleTableBody");
+        if (!tableBody) return;
+        const entries = sortedRoleEntries();
+        tableBody.innerHTML = entries.length ? entries.map(({ row, index }) => `
+          <tr>
+            <td><strong>${escapeHtml(roleTitleOf(row) || "-")}</strong></td>
+            <td>${roleMemberListOf(row).length ? roleMemberListOf(row).map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("") : "-"}</td>
+            <td>${escapeHtml(normalizeText(row?.location) || "-")}</td>
+            <td>${normalizeText(row?.status) === "停用" ? tag("停用", "warn") : tag("启用", "good")}</td>
+            <td>${escapeHtml(roleDescriptionOf(row) || "-")}</td>
+            <td>${canEdit ? actionButtons(index, { update: true, delete: true }) : tag("仅查看", "neutral")}</td>
+          </tr>
+        `).join("") : `<tr><td colspan="6">暂无岗位设置。新增后，这里会形成长期岗位台账。</td></tr>`;
+      }
+
+      function renderRoleViews() {
+        syncRoleEmployeeOptions();
+        syncRoleNameOptions();
+        renderSelectedRoleMembers();
+        renderRoleBoard();
+        renderRoleTable();
+      }
+
       function sortedSummerEntries() {
         const keyword = $("hrSummerFilterInput")?.value.trim().toLowerCase() || "";
         return summerRows
           .map((row, index) => ({ row, index }))
-          .filter(({ row }) => rowMatches(row, keyword))
+          .filter(({ row }) => {
+            const matchesKeyword = rowMatches(row, keyword);
+            const matchesRole = !activeSummerRole || normalizeText(row.role) === activeSummerRole;
+            return matchesKeyword && matchesRole;
+          })
           .sort((left, right) => {
             const leftKey = `${left.row.date || ""} ${left.row.time || ""}`;
             const rightKey = `${right.row.date || ""} ${right.row.time || ""}`;
@@ -2320,8 +2539,149 @@
             <td>${escapeHtml(row.note || "-")}</td>
             <td>${canEdit ? actionButtons(index, { update: true, delete: true }) : tag("仅查看", "neutral")}</td>
           </tr>
-        `).join("") : `<tr><td colspan="7">暂无岗位排班记录。陈雨晴或程志豪录入后，所有老师都可以在这里查询。</td></tr>`;
+        `).join("") : `<tr><td colspan="7">${activeSummerRole ? `当前岗位“${escapeHtml(activeSummerRole)}”暂无符合条件的排班记录。` : "暂无岗位排班记录。陈雨晴或程志豪录入后，所有老师都可以在这里查询。"}</td></tr>`;
       }
+
+      function applyRoleDefaultsToSchedule() {
+        const roleName = normalizeText($("hrSummerRoleInput")?.value);
+        const roleRow = findRoleRowByTitle(roleName);
+        if (!roleRow) return;
+        const locationInput = $("hrSummerLocationInput");
+        if (locationInput && !normalizeText(locationInput.value)) {
+          locationInput.value = normalizeText(roleRow.location) || "";
+        }
+      }
+
+      $("hrRoleAddMemberButton")?.addEventListener("click", () => {
+        if (!canEdit) {
+          setText("hrRoleMessage", "当前账号只能查看岗位设置，不能修改。");
+          return;
+        }
+        const input = $("hrRoleMemberInput");
+        const rawName = normalizeName(input?.value);
+        if (!rawName) {
+          setText("hrRoleMessage", "请先输入要加入岗位的老师姓名。");
+          return;
+        }
+        const matched = matchActiveHrEmployee(rawName);
+        if (activeHrEmployees().length && !matched) {
+          setText("hrRoleMessage", "请从在职员工名单里选择完整姓名后再加入。");
+          return;
+        }
+        const employeeName = normalizeName(matched?.name || rawName);
+        if (currentRoleMembers.includes(employeeName)) {
+          setText("hrRoleMessage", `${employeeName} 已经在当前岗位人员里了。`);
+          return;
+        }
+        currentRoleMembers = uniqueNames([...currentRoleMembers, employeeName]);
+        if (input) input.value = "";
+        renderSelectedRoleMembers();
+        setText("hrRoleMessage", `已把 ${employeeName} 加入当前岗位人员。`);
+      });
+      $("hrRoleMemberInput")?.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        $("hrRoleAddMemberButton")?.click();
+      });
+      $("hrRoleSelectedMembers")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-role-member-remove]");
+        if (!button) return;
+        const targetName = normalizeName(button.getAttribute("data-role-member-remove"));
+        currentRoleMembers = currentRoleMembers.filter((name) => name !== targetName);
+        renderSelectedRoleMembers();
+        setText("hrRoleMessage", `已移除 ${targetName}。`);
+      });
+      $("hrRoleBoard")?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-role-filter]");
+        if (!button) return;
+        activeSummerRole = normalizeText(button.getAttribute("data-role-filter"));
+        renderRoleBoard();
+        renderSummerSchedule();
+      });
+      $("hrRoleSaveButton")?.addEventListener("click", () => {
+        if (!canEdit) {
+          setText("hrRoleMessage", "当前账号只能查看岗位设置，不能修改。");
+          return;
+        }
+        const title = normalizeText($("hrRoleTitleInput")?.value);
+        if (!title) {
+          setText("hrRoleMessage", "请先填写岗位名称。");
+          return;
+        }
+        const payload = {
+          title,
+          role: title,
+          location: normalizeText($("hrRoleLocationInput")?.value) || "-",
+          status: normalizeText($("hrRoleStatusInput")?.value) || "启用",
+          description: normalizeText($("hrRoleDescriptionInput")?.value) || "-",
+          note: normalizeText($("hrRoleDescriptionInput")?.value) || "-",
+          members: uniqueNames(currentRoleMembers),
+          membersText: uniqueNames(currentRoleMembers).join("、"),
+          employee: uniqueNames(currentRoleMembers).join("、"),
+          updatedAt: nowText(),
+          updatedBy: currentOperator().name || ""
+        };
+        const previousTitle = editingRoleIndex >= 0 ? roleTitleOf(roleRows[editingRoleIndex]) : "";
+        if (editingRoleIndex >= 0) {
+          roleRows[editingRoleIndex] = {
+            ...roleRows[editingRoleIndex],
+            ...payload,
+            createdAt: roleRows[editingRoleIndex].createdAt || nowText(),
+            createdBy: roleRows[editingRoleIndex].createdBy || currentOperator().name || ""
+          };
+          if (previousTitle && previousTitle !== payload.title) {
+            const relatedSchedules = summerRows.filter((row) => normalizeText(row.role) === previousTitle);
+            if (relatedSchedules.length && window.confirm(`岗位名称已从“${previousTitle}”改为“${payload.title}”。是否把现有 ${relatedSchedules.length} 条排班明细里的岗位名称一起改掉？`)) {
+              summerRows = summerRows.map((row) => normalizeText(row.role) === previousTitle
+                ? { ...row, role: payload.title, updatedAt: nowText(), updatedBy: currentOperator().name || "" }
+                : row);
+              writeStore(summerScheduleKey, summerRows);
+            }
+          }
+          if (activeSummerRole === previousTitle && previousTitle !== payload.title) activeSummerRole = payload.title;
+          recordAudit(moduleKey, "更新岗位设置", title, payload.membersText || "未安排人员");
+          setText("hrRoleMessage", `已更新岗位“${title}”。`);
+        } else {
+          roleRows.unshift({
+            ...payload,
+            createdAt: nowText(),
+            createdBy: currentOperator().name || ""
+          });
+          recordAudit(moduleKey, "新增岗位设置", title, payload.membersText || "未安排人员");
+          setText("hrRoleMessage", `已新增岗位“${title}”。`);
+        }
+        writeStore(roleDirectoryKey, roleRows);
+        renderRoleViews();
+        renderSummerSchedule();
+        closeRoleEditor();
+      });
+      $("hrRoleCancelButton")?.addEventListener("click", () => {
+        closeRoleEditor();
+        setText("hrRoleMessage", "已取消岗位设置编辑。");
+      });
+      bindRowActions("hrRoleTableBody", {
+        onEdit(index) {
+          if (!canEdit) return;
+          openRoleEditor(roleRows[index], index);
+          setText("hrRoleMessage", `正在编辑岗位“${roleTitleOf(roleRows[index]) || "未命名岗位"}”。`);
+        },
+        onDelete(index) {
+          if (!canEdit) return;
+          const row = roleRows[index];
+          const title = roleTitleOf(row) || "未命名岗位";
+          const relatedScheduleCount = summerRows.filter((scheduleRow) => normalizeText(scheduleRow.role) === title).length;
+          if (!window.confirm(`确定删除岗位“${title}”吗？${relatedScheduleCount ? ` 当前还有 ${relatedScheduleCount} 条排班在使用这个岗位名，删除岗位设置不会删除排班明细。` : ""}`)) return;
+          markRowDeleted(roleDirectoryKey, row);
+          roleRows.splice(index, 1);
+          writeStore(roleDirectoryKey, roleRows, { restoreDeleted: false });
+          recordAudit(moduleKey, "删除岗位设置", title, relatedScheduleCount ? `保留 ${relatedScheduleCount} 条历史排班` : "无关联排班");
+          if (activeSummerRole === title && !relatedScheduleCount) activeSummerRole = "";
+          closeRoleEditor();
+          renderRoleViews();
+          renderSummerSchedule();
+          setText("hrRoleMessage", `已删除岗位“${title}”。`);
+        }
+      }, { update: canEdit, delete: canEdit }, "hrRoleMessage");
 
       $("hrSummerSaveButton")?.addEventListener("click", () => {
         if (!canEdit) {
@@ -2364,11 +2724,13 @@
         }
         writeStore(summerScheduleKey, summerRows);
         clearSummerForm();
+        renderRoleViews();
         renderSummerSchedule();
       });
 
       $("hrSummerCancelButton")?.addEventListener("click", clearSummerForm);
       $("hrSummerFilterInput")?.addEventListener("input", renderSummerSchedule);
+      $("hrSummerRoleInput")?.addEventListener("change", applyRoleDefaultsToSchedule);
       $("hrSummerExportButton")?.addEventListener("click", () => downloadCsv("岗位排班表.csv", summerRows, [
         { label: "日期", value: "date" },
         { label: "时间段", value: "time" },
@@ -2404,13 +2766,23 @@
           writeStore(summerScheduleKey, summerRows, { restoreDeleted: false });
           recordAudit(moduleKey, "删除岗位排班", row.employee || "-", `${row.date || ""} ${row.time || ""}`);
           clearSummerForm();
+          renderRoleViews();
           renderSummerSchedule();
           setText("hrSummerMessage", "已删除该岗位排班。");
         }
       }, { update: canEdit, delete: canEdit }, "hrSummerMessage");
+
+      renderRoleViews();
       renderSummerSchedule();
+      readCloudStore(roleDirectoryKey, (cloudRows) => {
+        roleRows = mergeRowsById(cloudRows, roleDirectoryKey);
+        renderRoleViews();
+        renderSummerSchedule();
+        setText("hrRoleMessage", canEdit ? "已同步云端岗位设置，可继续维护。" : "已同步云端岗位设置。");
+      });
       readCloudStore(summerScheduleKey, (cloudRows) => {
         summerRows = mergeRowsById(cloudRows, summerScheduleKey);
+        renderRoleViews();
         renderSummerSchedule();
         setText("hrSummerMessage", canEdit ? "已同步云端岗位排班表；需要维护时点击“编辑排班”。" : "已同步云端岗位排班表。");
       });

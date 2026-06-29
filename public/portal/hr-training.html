@@ -74,6 +74,21 @@
       .hr-flow-hint strong { color: var(--ink); }
       .span-3 { grid-column: 1 / -1; }
       .schedule-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+      .role-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
+      .role-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: linear-gradient(180deg, #ffffff 0%, rgba(124,58,237,0.05) 100%); color: var(--ink); cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; }
+      .role-card:hover { transform: translateY(-1px); border-color: rgba(124,58,237,0.22); box-shadow: 0 12px 28px rgba(23,33,50,0.08); }
+      .role-card.active { border-color: rgba(124,58,237,0.36); box-shadow: 0 0 0 3px rgba(124,58,237,0.10); }
+      .role-card-head, .person-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .role-card-title { font-size: 16px; font-weight: 800; color: var(--ink); }
+      .role-card p { margin-top: 10px; font-size: 12px; line-height: 1.6; }
+      .person-chip { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid rgba(23,33,50,0.08); color: var(--ink); font-size: 12px; font-weight: 700; }
+      .person-chip button { border: 0; background: transparent; color: #7c3aed; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+      .role-admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 14px; }
+      .role-admin-toolbar[hidden] { display: none !important; }
+      .role-picker { display: flex; gap: 8px; align-items: center; }
+      .role-picker input { flex: 1; min-width: 180px; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+      .role-selected { display: flex; flex-wrap: wrap; gap: 8px; min-height: 42px; padding: 10px 12px; border: 1px dashed rgba(23,33,50,0.16); border-radius: 12px; background: rgba(255,255,255,0.72); }
+      .role-empty { padding: 16px; border: 1px dashed rgba(23,33,50,0.16); border-radius: 16px; background: rgba(255,255,255,0.72); color: var(--muted); line-height: 1.7; }
       .schedule-toolbar input { flex: 1; min-width: 220px; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
       .admin-editor-toggle[hidden] { display: none !important; }
       .schedule-editor[hidden], [data-hr-private][hidden] { display: none !important; }
@@ -151,8 +166,57 @@
       <section class="card" id="summerScheduleSection">
         <div class="section-head">
           <div>
+            <h2>岗位设置</h2>
+            <p>先维护长期岗位和对应人员，再在下面安排每天的值班和临时排班。</p>
+          </div>
+          <span class="status-chip">长期维护</span>
+        </div>
+        <div class="role-board" id="hrRoleBoard"></div>
+        <div class="notice" id="hrRoleMessage">岗位设置对全员展示；只有陈雨晴和程志豪可以新增、修改和删除。</div>
+        <div class="role-admin-toolbar" id="hrRoleAdminToolbar" hidden>
+          <button class="button secondary admin-editor-toggle" id="hrRoleEditorToggle" type="button">新增岗位</button>
+        </div>
+        <div class="schedule-editor" id="hrRoleEditorPanel" hidden>
+          <h3 style="margin-top:18px;">新增 / 修改岗位设置</h3>
+          <div class="form-grid">
+            <label class="field"><span>岗位名称</span><input id="hrRoleTitleInput" list="hrRoleNameOptions" placeholder="例如：前台值班 / 教室巡查"></label>
+            <label class="field"><span>校区 / 地点</span><input id="hrRoleLocationInput" placeholder="例如：江南校区"></label>
+            <label class="field"><span>状态</span><select id="hrRoleStatusInput"><option>启用</option><option>停用</option></select></label>
+            <label class="field span-3"><span>岗位说明</span><textarea id="hrRoleDescriptionInput" placeholder="一句话说明这个岗位负责什么、老师查看时要注意什么。"></textarea></label>
+            <label class="field span-3">
+              <span>当前人员</span>
+              <div class="role-picker">
+                <input id="hrRoleMemberInput" list="hrRoleEmployeeOptions" placeholder="输入老师姓名后加入岗位">
+                <button class="button secondary" id="hrRoleAddMemberButton" type="button">加入人员</button>
+              </div>
+            </label>
+            <datalist id="hrRoleEmployeeOptions"></datalist>
+            <datalist id="hrRoleNameOptions"></datalist>
+            <div class="field span-3">
+              <span>已选人员</span>
+              <div class="role-selected" id="hrRoleSelectedMembers"></div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="button" id="hrRoleSaveButton" type="button">保存岗位设置</button>
+            <button class="button secondary" id="hrRoleCancelButton" type="button">取消编辑</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="hrRoleTableWrap" hidden>
+          <table>
+            <thead>
+              <tr><th>岗位</th><th>当前人员</th><th>校区 / 地点</th><th>状态</th><th>岗位说明</th><th>操作</th></tr>
+            </thead>
+            <tbody id="hrRoleTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="summerScheduleSectionDetail">
+        <div class="section-head">
+          <div>
             <h2>岗位排班</h2>
-            <p>老师可查询自己的值班、校区支持和临时排班安排。</p>
+            <p>在岗位设置基础上，安排每天的值班、校区支持和临时排班。</p>
           </div>
           <span class="status-chip">全员可看</span>
         </div>
@@ -176,7 +240,7 @@
             <label class="field"><span>日期</span><input id="hrSummerDateInput" type="date"></label>
             <label class="field"><span>时间段</span><input id="hrSummerTimeInput" placeholder="例如：08:30-12:00"></label>
             <label class="field"><span>员工姓名</span><input id="hrSummerEmployeeInput" placeholder="填写员工姓名"></label>
-            <label class="field"><span>岗位 / 任务</span><input id="hrSummerRoleInput" placeholder="例如：前台值班 / 教室巡查"></label>
+            <label class="field"><span>岗位 / 任务</span><input id="hrSummerRoleInput" list="hrRoleNameOptions" placeholder="例如：前台值班 / 教室巡查"></label>
             <label class="field"><span>校区 / 地点</span><input id="hrSummerLocationInput" placeholder="例如：江南校区"></label>
             <label class="field span-3"><span>备注</span><textarea id="hrSummerNoteInput" placeholder="补充说明、换班记录或注意事项。"></textarea></label>
           </div>
