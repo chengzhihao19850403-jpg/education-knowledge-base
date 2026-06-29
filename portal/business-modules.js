@@ -2202,7 +2202,7 @@
     function buildOffboardingChecklist(employee) {
       return [
         { key: "account", label: "停用账号和系统权限", done: false },
-        { key: "directory", label: "从在职员工名单移出", done: true },
+        { key: "directory", label: "确认可以从在职员工名单移出", done: false },
         { key: "schedule", label: "检查未来排课并改派/取消", done: false },
         { key: "history", label: "保留历史排课、点名、上课记录", done: true },
         { key: "finance", label: "生成本月离职结算提醒", done: false },
@@ -2217,11 +2217,17 @@
       return `离职流程 ${done}/${checklist.length}`;
     }
 
+    function isOffboardingReady(row) {
+      const checklist = Array.isArray(row?.offboardingChecklist) ? row.offboardingChecklist : [];
+      return row?.type === "离职" && checklist.length > 0 && checklist.every((item) => item.done);
+    }
+
     function renderOffboardingChecklist(row, index) {
       if (row?.type !== "离职") return "";
       const checklist = Array.isArray(row.offboardingChecklist) && row.offboardingChecklist.length
         ? row.offboardingChecklist
         : buildOffboardingChecklist(row.employee || "");
+      const ready = checklist.every((item) => item.done);
       return `
         <div style="margin-top:8px; display:grid; gap:6px;">
           ${checklist.map((item, itemIndex) => `
@@ -2230,6 +2236,8 @@
               <span>${escapeHtml(item.label)}${item.updatedAt ? `｜${escapeHtml(item.updatedAt)}` : ""}</span>
             </label>
           `).join("")}
+          ${ready && row.status !== "已完成" ? `<button type="button" data-hr-complete-offboard="${index}" style="width:max-content; min-height:32px; padding:0 12px; border-radius:999px; border:1px solid rgba(15,118,110,0.18); background:rgba(15,118,110,0.10); color:#0f766e; cursor:pointer;">完成离职并归档</button>` : ""}
+          ${row.status === "已完成" ? `<span class="tag green">离职已完成归档</span>` : ""}
         </div>
       `;
     }
@@ -2559,7 +2567,7 @@
             <td>${escapeHtml(row.type)}</td>
             <td>${escapeHtml(row.employee)}</td>
             <td>${escapeHtml(row.system)}</td>
-            <td>${workStatusTag(row.status)}</td>
+            <td>${workStatusTag(row.status)}${isOffboardingReady(row) && row.status !== "已完成" ? "<br><span class=\"tag green\">可完成</span>" : ""}</td>
             <td>${escapeHtml(row.owner)}</td>
             <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}${offboardingProgress(row) ? `<br><span class="tag green">${escapeHtml(offboardingProgress(row))}</span>` : ""}${renderOffboardingChecklist(row, index)}</td>
             <td>${actionButtons(index, capabilities)}</td>
@@ -2614,21 +2622,14 @@
         createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
         updatedAt: nowText()
       };
-      if (type === "离职" && typeof window.JRC_MARK_EMPLOYEE_DEPARTED === "function") {
-        const result = window.JRC_MARK_EMPLOYEE_DEPARTED(employee, { reason: payload.note || "人事离职事项保存" });
-        if (!result.ok) {
-          setText("hrMessage", result.message || "离职员工标记失败，请先确认员工姓名。");
-          return;
-        }
-      }
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
         recordAudit(moduleKey, "更新", employee, `${payload.type} / ${payload.status}`);
-        setText("hrMessage", type === "离职" ? `已更新 ${employee} 的离职事项，并同步在职名单。` : `已更新 ${employee} 的事项。`);
+        setText("hrMessage", type === "离职" ? `已更新 ${employee} 的离职流程。清单全部确认后，请点击“完成离职并归档”结束流程。` : `已更新 ${employee} 的事项。`);
       } else {
         rows.unshift(payload);
         recordAudit(moduleKey, "新增", employee, `${payload.type} / ${payload.status}`);
-        setText("hrMessage", type === "离职" ? `已保存 ${employee} 的离职事项，并从在职员工名单移出。` : `已保存 ${employee} 的事项。`);
+        setText("hrMessage", type === "离职" ? `已创建 ${employee} 的离职流程。清单全部确认后，会出现“完成离职并归档”按钮。` : `已保存 ${employee} 的事项。`);
       }
       writeStore(key, rows);
       resetForm();
@@ -2671,6 +2672,40 @@
       recordAudit(moduleKey, "离职流程", rows[rowIndex].employee, `${checklist[itemIndex].label}：${checkbox.checked ? "已完成" : "未完成"}`);
       render();
       setText("hrMessage", `已更新 ${rows[rowIndex].employee} 的离职流程。`);
+    });
+    $("hrTaskTableBody")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-hr-complete-offboard]");
+      if (!button) return;
+      if (!capabilities.update) {
+        denyAction("hrMessage", "修改");
+        return;
+      }
+      const rowIndex = Number(button.getAttribute("data-hr-complete-offboard"));
+      const row = rows[rowIndex];
+      if (!row || row.type !== "离职") return;
+      const checklist = Array.isArray(row.offboardingChecklist) ? row.offboardingChecklist : [];
+      if (!checklist.length || !checklist.every((item) => item.done)) {
+        setText("hrMessage", "离职流程还没有全部勾选完成，暂不能归档。");
+        return;
+      }
+      if (typeof window.JRC_MARK_EMPLOYEE_DEPARTED === "function") {
+        const result = window.JRC_MARK_EMPLOYEE_DEPARTED(row.employee, { reason: row.note || "离职流程完成归档" });
+        if (!result.ok) {
+          setText("hrMessage", result.message || "离职归档失败，请确认员工是否仍在在职名单。");
+          return;
+        }
+      }
+      rows[rowIndex] = {
+        ...row,
+        status: "已完成",
+        next: "离职流程已完成归档",
+        offboardingCompletedAt: nowText(),
+        updatedAt: nowText()
+      };
+      writeStore(key, rows);
+      recordAudit(moduleKey, "完成离职", row.employee, "离职流程已完成归档");
+      render();
+      setText("hrMessage", `${row.employee} 的离职流程已完成归档，并已从在职员工名单移出。`);
     });
     $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事管理事项数据.csv", rows, [
       { label: "事项类型", value: "type" },

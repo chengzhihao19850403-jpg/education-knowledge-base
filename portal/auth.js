@@ -576,7 +576,15 @@ function jrcGetAllEmployees() {
   JRC_EMPLOYEES.forEach(putEmployee);
   jrcReadCustomEmployees().forEach(putEmployee);
   return [...byUsername.values()].filter((employee) => {
-    return !JRC_DEPARTED_EMPLOYEE_USERNAMES.has(String(employee.username || "").trim().toLowerCase());
+    const username = String(employee.username || "").trim().toLowerCase();
+    const statusText = [
+      employee.status,
+      employee.employmentStatus,
+      employee.workStatus,
+      employee.employeeStatus,
+      employee.accountStatus
+    ].filter(Boolean).join(" ");
+    return !JRC_DEPARTED_EMPLOYEE_USERNAMES.has(username) && !/离职|停用|禁用|已离开|departed|inactive|disabled/i.test(statusText);
   });
 }
 
@@ -1595,9 +1603,12 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
 function jrcMarkEmployeeDeparted(employeeName, options = {}) {
   const name = String(employeeName || "").trim();
   if (!name) return { ok: false, message: "未提供员工姓名。" };
-  const allEmployees = jrcGetAllEmployees();
+  const allEmployees = [
+    ...JRC_EMPLOYEES,
+    ...jrcReadCustomEmployees()
+  ];
   const target = allEmployees.find((employee) => String(employee.name || "").trim() === name);
-  if (!target) return { ok: false, message: `没有在在职员工名单中找到 ${name}。` };
+  if (!target) return { ok: false, message: `没有找到 ${name} 的员工档案。` };
   const username = String(target.username || "").trim().toLowerCase();
   const customEmployees = jrcReadCustomEmployees();
   const index = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
