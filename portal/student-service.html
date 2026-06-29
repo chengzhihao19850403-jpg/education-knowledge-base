@@ -60,6 +60,31 @@
       }
       .notice { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
       .attendance-source-status { margin-top: 0; padding: 12px 14px; }
+      .attendance-legacy-filter { display: none !important; }
+      .attendance-day-panel {
+        grid-column: 1 / -1;
+        padding: 16px;
+        border: 1px solid rgba(13,148,136,0.18);
+        border-radius: 18px;
+        background: rgba(13,148,136,0.06);
+      }
+      .attendance-class-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .attendance-class-card {
+        width: 100%;
+        min-height: 112px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        color: var(--ink);
+        text-align: left;
+        cursor: pointer;
+        box-shadow: 0 10px 22px rgba(23,33,50,0.05);
+      }
+      .attendance-class-card strong { display: block; font-size: 16px; }
+      .attendance-class-card span { display: block; margin-top: 7px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+      .attendance-class-card.active { border-color: rgba(13,148,136,0.52); background: rgba(13,148,136,0.10); box-shadow: 0 14px 28px rgba(13,148,136,0.14); }
+      .attendance-class-empty { padding: 14px; border: 1px dashed rgba(99,112,131,0.34); border-radius: 14px; background: rgba(255,255,255,0.74); color: var(--muted); line-height: 1.7; }
       .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
       .metric { padding: 16px; }
       .metric span { color: var(--muted); font-size: 13px; }
@@ -220,7 +245,7 @@
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) {
         .topbar { align-items: flex-start; flex-direction: column; }
-        .metrics, .form-grid, .attendance-summary-grid, .attendance-next-panel, .my-service-grid, .service-module-grid, .phase-entry-grid { grid-template-columns: 1fr; }
+        .metrics, .form-grid, .attendance-summary-grid, .attendance-next-panel, .my-service-grid, .service-module-grid, .phase-entry-grid, .attendance-class-grid { grid-template-columns: 1fr; }
         .attendance-next-actions { justify-content: flex-start; }
         .span-3 { grid-column: auto; }
         .attendance-touch-actions { min-width: 520px; }
@@ -351,18 +376,28 @@
           <div>
             <p class="eyebrow">今日点名</p>
             <h2>上课点名 / 出门测登分 / 课销确认</h2>
-            <p>先选日期、时间、老师和班级，再进入点名。名单默认未点名，出门测可手填或用 Excel 自动匹配。</p>
+            <p>先选日期，再点当天班级卡片进入点名。名单默认未点名，出门测可手填或用 Excel 自动匹配。</p>
           </div>
           <span class="status-chip">全体老师</span>
         </div>
         <div class="form-grid">
           <label class="field"><span>日期</span><input id="attendanceDate" type="date"></label>
-          <label class="field"><span>时间段</span><select id="attendanceTimeSlot"><option value="">先选择日期和老师</option></select></label>
-          <label class="field" id="attendanceTeacherField"><span>任课老师</span><select id="attendanceTeacher"></select><div class="fixed-teacher-note" id="attendanceTeacherFixed" hidden>程志豪</div></label>
-          <label class="field span-3"><span>班级</span><select id="attendanceClassSelect"><option value="">先选择日期、时间和老师</option></select></label>
+          <label class="field attendance-legacy-filter"><span>时间段</span><select id="attendanceTimeSlot"><option value="">先选择日期和老师</option></select></label>
+          <label class="field" id="attendanceTeacherField"><span>任课老师（手工录入时使用）</span><select id="attendanceTeacher"></select><div class="fixed-teacher-note" id="attendanceTeacherFixed" hidden>程志豪</div></label>
+          <label class="field span-3 attendance-legacy-filter"><span>班级</span><select id="attendanceClassSelect"><option value="">先选择日期后点下方班级</option></select></label>
           <select id="attendanceLessonType" hidden><option>正常课</option></select>
           <select id="attendancePreimportSelect" hidden></select>
           <div class="notice span-3 attendance-source-status" id="attendanceSourceStatus">排课数据：正在同步。</div>
+          <div class="attendance-day-panel">
+            <div class="section-head">
+              <div>
+                <h3>当天班级</h3>
+                <p>选择日期后，这里直接显示当天可点名的班级。点一个班级即可带出学生名单。</p>
+              </div>
+              <span class="status-chip" id="attendanceClassCardCount">正在读取</span>
+            </div>
+            <div class="attendance-class-grid" id="attendanceClassCardGrid"></div>
+          </div>
         </div>
         <div class="attendance-entry-panel">
           <div class="section-head">
@@ -730,6 +765,8 @@
         const attendanceNextText = document.getElementById("attendanceNextText");
         const attendanceFinanceLink = document.getElementById("attendanceFinanceLink");
         const sourceStatus = document.getElementById("attendanceSourceStatus");
+        const classCardGrid = document.getElementById("attendanceClassCardGrid");
+        const classCardCount = document.getElementById("attendanceClassCardCount");
         const rosterBody = document.getElementById("attendanceRosterBody");
         const addStudentInput = document.getElementById("attendanceAddStudentInput");
         const addStudentButton = document.getElementById("attendanceAddStudentButton");
@@ -1065,13 +1102,17 @@
               syncSelectedClassName();
               loadPreimportRoster();
             } else if (options?.length === 1) {
-              fields.classSelect.value = fields.classSelect.options[0]?.value || "";
+              const firstClassOption = Array.from(fields.classSelect.options || []).find((option) => option.value);
+              fields.classSelect.value = firstClassOption?.value || "";
               syncSelectedClassName();
               loadPreimportRoster();
             } else if (fields.className) {
               fields.className.value = attendanceDeepLink.className;
             }
           } else if (options?.length === 1) {
+            const firstClassOption = Array.from(fields.classSelect?.options || []).find((option) => option.value);
+            if (firstClassOption && fields.classSelect) fields.classSelect.value = firstClassOption.value;
+            syncSelectedClassName();
             loadPreimportRoster();
           }
           attendanceDeepLinkApplied = true;
@@ -1183,7 +1224,7 @@
             option.textContent = name;
             fields.teacher.appendChild(option);
           }
-          if (options.select && canManageAll()) fields.teacher.value = name;
+          if (options.select) fields.teacher.value = name;
         };
         const applyRosterImport = (parsed, sourceLabel) => {
           if (!parsed.rows.length) {
@@ -1256,6 +1297,8 @@
           URL.revokeObjectURL(url);
         };
         const getSelectedTeacher = () => {
+          const selectedClass = selectedClassPayload();
+          if (selectedClass?.teacherName) return selectedClass.teacherName;
           if (activeServiceModule === "cheng") return "程志豪";
           const employee = currentEmployee();
           if (!canManageAll() && employee?.role === "授课老师") return employee.name;
@@ -1438,8 +1481,24 @@
           ...rowsFromPreimportBundle(),
           ...rowsFromPaikeRegularState()
         ]);
-        const filterScheduleBaseRows = (rows) => {
+        const scheduleTeacherVisibleToCurrentUser = (rowTeacher) => {
+          const employee = currentEmployee();
+          if (!employee || employee.role !== "授课老师" || canManageAll()) return true;
+          const teacherName = String(rowTeacher || "").trim();
+          if (teacherName === employee.name) return true;
+          return activeServiceModule === "cheng" && /程志豪|程老师/.test(teacherName);
+        };
+        const filterScheduleDayRows = (rows) => {
           const date = fields.date?.value || "";
+          return rows.filter((row) => {
+            if (date && row.date !== date) return false;
+            if (serviceModuleForRecord(row) !== activeServiceModule) return false;
+            if (!scheduleTeacherVisibleToCurrentUser(row.teacherName)) return false;
+            return row.studentName;
+          });
+        };
+        const filterScheduleBaseRows = (rows) => {
+          const dayRows = filterScheduleDayRows(rows);
           const teacher = getSelectedTeacher();
           const teacherMatches = (rowTeacher) => {
             const value = String(rowTeacher || "").trim();
@@ -1447,12 +1506,7 @@
             if (activeServiceModule === "cheng" && /程志豪|程老师/.test(value)) return true;
             return false;
           };
-          return rows.filter((row) => {
-            if (date && row.date !== date) return false;
-            if (!teacherMatches(row.teacherName)) return false;
-            if (serviceModuleForRecord(row) !== activeServiceModule) return false;
-            return row.studentName;
-          });
+          return dayRows.filter((row) => teacherMatches(row.teacherName));
         };
         const filterScheduleRosterRows = (rows) => {
           const timeSlot = fields.timeSlot?.value || "";
@@ -1463,10 +1517,9 @@
         };
         const autoAlignScheduleFilter = (rows) => {
           if (!fields.date || fields.date.dataset.userSelected === "1") return;
-          if (filterScheduleRosterRows(rows).length) return;
-          const teacher = getSelectedTeacher();
-          const teacherRows = rows.filter((row) => !teacher || row.teacherName === teacher);
-          const candidate = teacherRows.find((row) => row.date >= today()) || teacherRows[0];
+          if (filterScheduleDayRows(rows).length) return;
+          const candidateRows = rows.filter((row) => serviceModuleForRecord(row) === activeServiceModule && scheduleTeacherVisibleToCurrentUser(row.teacherName));
+          const candidate = candidateRows.find((row) => row.date >= today()) || candidateRows[0];
           if (candidate?.date) fields.date.value = candidate.date;
         };
         const updateAttendanceSourceStatus = (allRows, matchedRows, groupedCount) => {
@@ -1477,7 +1530,7 @@
           }
           const totalSessions = new Set(allRows.map(scheduleSessionKey)).size;
           const matchedSessions = groupedCount ?? new Set(matchedRows.map(scheduleSessionKey)).size;
-          sourceStatus.textContent = `排课数据：已接入 ${totalSessions} 节 / ${allRows.length} 人次；当前筛选匹配 ${matchedSessions} 节 / ${matchedRows.length} 人次。`;
+          sourceStatus.textContent = `排课数据：已接入 ${totalSessions} 节 / ${allRows.length} 人次；当前日期匹配 ${matchedSessions} 节 / ${matchedRows.length} 人次。`;
         };
         const getPreimportSessions = () => {
           const rows = getAllScheduleRosterRows();
@@ -1496,6 +1549,39 @@
         const syncSelectedClassName = () => {
           const item = selectedClassPayload();
           if (fields.className) fields.className.value = item?.className || "";
+          if (item?.teacherName) ensureTeacherOption(item.teacherName, { select: true });
+          if (item && fields.timeSlot) {
+            const timeLabel = scheduleTimeLabel(item);
+            const exists = Array.from(fields.timeSlot.options || []).some((option) => option.value === timeLabel);
+            if (timeLabel && !exists) {
+              const option = document.createElement("option");
+              option.value = timeLabel;
+              option.textContent = timeLabel;
+              fields.timeSlot.appendChild(option);
+            }
+            if (timeLabel) fields.timeSlot.value = timeLabel;
+          }
+        };
+        const classOptionValue = (item) => encodeURIComponent(JSON.stringify(item));
+        const renderClassCards = (options) => {
+          if (!classCardGrid) return;
+          const selectedValue = fields.classSelect?.value || "";
+          if (classCardCount) classCardCount.textContent = options.length ? `${options.length} 节课` : "暂无班级";
+          if (!options.length) {
+            classCardGrid.innerHTML = `<div class="attendance-class-empty">当前日期没有匹配到可点名班级。可以换日期，或在下方“录入班级点名表”里手工录入。</div>`;
+            return;
+          }
+          classCardGrid.innerHTML = options.map((item) => {
+            const payload = classOptionValue(item);
+            const timeLabel = scheduleTimeLabel(item);
+            return `
+              <button class="attendance-class-card ${payload === selectedValue ? "active" : ""}" type="button" data-class-card="${escapeHtml(payload)}">
+                <strong>${escapeHtml(item.className || "未填班级")}</strong>
+                <span>${escapeHtml(timeLabel || "未填时间")}｜${escapeHtml(item.teacherName || "未填老师")}</span>
+                <span>${escapeHtml(item.classroomName || "未填教室")}｜${item.students.length} 人｜${escapeHtml(item.sourceType || "排课")}</span>
+              </button>
+            `;
+          }).join("");
         };
         const renderPreimportOptions = () => {
           const allRows = getAllScheduleRosterRows();
@@ -1504,19 +1590,19 @@
               .forEach((teacherName) => ensureTeacherOption(teacherName));
           }
           autoAlignScheduleFilter(allRows);
-          const baseRows = filterScheduleBaseRows(allRows);
+          const dayRows = filterScheduleDayRows(allRows);
           if (fields.timeSlot) {
             const previousTime = fields.timeSlot.value;
-            const timeOptions = Array.from(new Set(baseRows.map(scheduleTimeLabel).filter(Boolean)));
+            const timeOptions = Array.from(new Set(dayRows.map(scheduleTimeLabel).filter(Boolean)));
             if (!timeOptions.length) {
-              fields.timeSlot.innerHTML = `<option value="">当前日期和老师暂无课程</option>`;
+              fields.timeSlot.innerHTML = `<option value="">当前日期暂无课程</option>`;
               fields.timeSlot.value = "";
             } else {
               fields.timeSlot.innerHTML = timeOptions.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
-              fields.timeSlot.value = timeOptions.includes(previousTime) ? previousTime : timeOptions[0];
+              fields.timeSlot.value = timeOptions.includes(previousTime) ? previousTime : "";
             }
           }
-          const matchedRows = filterScheduleRosterRows(allRows);
+          const matchedRows = dayRows;
           const grouped = new Map();
           matchedRows.forEach((row) => {
             const key = scheduleSessionKey(row);
@@ -1537,15 +1623,16 @@
           const options = Array.from(grouped.values()).sort((a, b) => `${a.date}${a.teacherName}${a.className}`.localeCompare(`${b.date}${b.teacherName}${b.className}`, "zh-CN"));
           updateAttendanceSourceStatus(allRows, matchedRows, options.length);
           if (!options.length) {
-            const label = preimportBundle ? "当前日期和老师没有匹配排课" : "可手动粘贴名单点名";
+            const label = preimportBundle ? "当前日期没有匹配排课" : "可手动粘贴名单点名";
             if (fields.preimportSelect) fields.preimportSelect.innerHTML = `<option value="">${label}</option>`;
             if (fields.classSelect) fields.classSelect.innerHTML = `<option value="">${label}</option>`;
             if (fields.className) fields.className.value = "";
+            renderClassCards([]);
             return [];
           }
           const previousClass = fields.classSelect?.value || "";
-          const optionHtml = options.map((item) => {
-            const payload = encodeURIComponent(JSON.stringify(item));
+          const optionHtml = `<option value="">请选择下方班级</option>` + options.map((item) => {
+            const payload = classOptionValue(item);
             const timeLabel = item.startTime ? ` ${escapeHtml(item.startTime)}${item.endTime ? `-${escapeHtml(item.endTime)}` : ""}` : "";
             return `<option value="${payload}">${escapeHtml(timeLabel.trim() || "未填时间")}｜${escapeHtml(item.className)}｜${item.students.length}人</option>`;
           }).join("");
@@ -1554,15 +1641,18 @@
             fields.classSelect.innerHTML = optionHtml;
             if (previousClass && Array.from(fields.classSelect.options).some((option) => option.value === previousClass)) {
               fields.classSelect.value = previousClass;
+            } else {
+              fields.classSelect.value = "";
             }
           }
           syncSelectedClassName();
+          renderClassCards(options);
           return options;
         };
         const loadPreimportRoster = () => {
           const selectedValue = fields.classSelect?.value || fields.preimportSelect?.value || "";
           if (!selectedValue) {
-            setMessage("当前日期和老师没有可带出的已上传排课。可以换日期/老师，或手动粘贴名单。");
+            setMessage("请先在“当天班级”里点一个班级；如果当天没有排课，可以手动粘贴名单。");
             return;
           }
           let item = null;
@@ -1577,6 +1667,7 @@
           }
           if (fields.date) fields.date.value = item.date || fields.date.value;
           ensureTeacherOption(item.teacherName, { select: true });
+          if (fields.timeSlot) fields.timeSlot.value = scheduleTimeLabel(item) || fields.timeSlot.value;
           if (fields.className) fields.className.value = item.className || "";
           fields.rosterInput.value = item.students.join("\n");
           draftRows = item.students.map((studentName) => ({
@@ -2266,12 +2357,30 @@
         populateTeachers();
         fields.date?.addEventListener("change", () => {
           fields.date.dataset.userSelected = "1";
+          if (fields.classSelect) fields.classSelect.value = "";
+          if (fields.preimportSelect) fields.preimportSelect.value = "";
+          if (fields.className) fields.className.value = "";
+          if (fields.rosterInput) fields.rosterInput.value = "";
+          draftRows = [];
+          renderRoster();
+          renderAttendanceNextStep();
           renderPreimportOptions();
         });
         fields.teacher?.addEventListener("change", renderPreimportOptions);
         fields.timeSlot?.addEventListener("change", renderPreimportOptions);
         fields.classSelect?.addEventListener("change", () => {
           syncSelectedClassName();
+          loadPreimportRoster();
+        });
+        classCardGrid?.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-class-card]");
+          if (!button) return;
+          const value = button.getAttribute("data-class-card") || "";
+          if (!value) return;
+          if (fields.classSelect) fields.classSelect.value = value;
+          if (fields.preimportSelect) fields.preimportSelect.value = value;
+          syncSelectedClassName();
+          renderPreimportOptions();
           loadPreimportRoster();
         });
         moduleCards.forEach((card) => {
