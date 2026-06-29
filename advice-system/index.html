@@ -189,6 +189,9 @@
         line-height: 1.65;
         font-size: 13px;
       }
+      .nav-item p {
+        display: none;
+      }
       .metrics {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -221,6 +224,126 @@
       .quick-card p {
         font-size: 13px;
         line-height: 1.7;
+      }
+      .simple-flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .simple-step,
+      .pipeline-column,
+      .pipeline-card {
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+      .simple-step {
+        min-height: 112px;
+        padding: 14px;
+        border-radius: 16px;
+      }
+      .simple-step strong {
+        display: block;
+        color: var(--ink);
+        font-size: 15px;
+        margin-bottom: 8px;
+      }
+      .simple-step p {
+        font-size: 12px;
+        line-height: 1.65;
+      }
+      .pipeline-board {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .pipeline-column {
+        border-radius: 16px;
+        padding: 12px;
+        min-width: 180px;
+      }
+      .pipeline-column h3 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .pipeline-column h3 span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        min-height: 24px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .pipeline-column > p {
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .pipeline-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .pipeline-card {
+        border-radius: 14px;
+        padding: 11px;
+      }
+      .pipeline-card strong {
+        display: block;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .pipeline-card p {
+        margin-top: 5px;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .pipeline-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        margin-top: 10px;
+      }
+      .pipeline-empty {
+        padding: 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .dashboard-secondary,
+      .dashboard-docs,
+      .internal-docs {
+        display: none !important;
+      }
+      .frontdesk-note {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .frontdesk-note span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: #f8fafc;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
       }
       .worklist-grid {
         display: grid;
@@ -722,6 +845,12 @@
         .metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .simple-flow {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .pipeline-board {
+          grid-template-columns: repeat(5, minmax(220px, 1fr));
+        }
         .status-flow {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -741,7 +870,8 @@
       }
       @media (max-width: 640px) {
         .metrics,
-        .quick-actions {
+        .quick-actions,
+        .simple-flow {
           grid-template-columns: 1fr;
         }
         .trial-toolbar {
@@ -780,48 +910,48 @@
       <div class="topbar">
         <div class="title-wrap">
           <p>招生</p>
-          <h1>招生管理系统</h1>
-          <div class="hint">新增线索、跟进、试听、反馈、报名建档。</div>
+          <h1>招生工作台</h1>
+          <div class="hint">前台使用版：登记、跟进、试听、报名、搁置。</div>
           <div class="operator-strip" id="operatorHint">正在读取当前登录员工信息…</div>
           <div class="readonly-note" id="permissionNotice" hidden></div>
         </div>
       </div>
       <div class="trial-toolbar">
-        <a href="#quickLeadStudentName">新增线索</a>
-        <a href="#quickFollowupLeadSelect">快捷跟进</a>
-        <a href="#trialLeadSelect" data-jump-view="trials">预约试听</a>
-        <a href="#enrollStudentName" data-jump-view="enrollment">报名登记</a>
-        <a href="#importBatchInput" data-jump-view="settings">批量导入</a>
-        <a href="#leadTableBody" data-jump-view="leads">线索主表</a>
+        <a href="#quickLeadStudentName">新增咨询</a>
+        <a href="#trialLeadSelect" data-jump-view="trials">约试听</a>
+        <a href="#feedbackLeadSelect" data-jump-view="trials">试听反馈</a>
+        <a href="#enrollStudentName" data-jump-view="enrollment">报名/搁置</a>
+        <a href="#leadTableBody" data-jump-view="leads">客户台账</a>
+        <a href="#importBatchInput" data-jump-view="settings">更多</a>
       </div>
 
       <div class="layout">
         <aside class="panel">
-          <h2>主导航</h2>
+          <h2>入口</h2>
           <div class="nav-list">
             <div class="nav-item active" data-nav-target="dashboard">
-              <h3>招生工作台</h3>
-              <p>今天该跟进什么、该约哪些试听、哪些试听还没回填反馈。</p>
+              <h3>极简工作台</h3>
+              <p>按咨询、试听、反馈、报名、搁置五步处理。</p>
             </div>
             <div class="nav-item" data-nav-target="leads">
-              <h3>线索中心</h3>
-              <p>统一录入渠道来源、负责人、意向年级和家长电话。</p>
+              <h3>客户台账</h3>
+              <p>查看和修改所有咨询客户的完整资料。</p>
             </div>
             <div class="nav-item" data-nav-target="trials">
-              <h3>试听中心</h3>
-              <p>预约试听、试听日历、试听反馈、试听转化追踪。</p>
+              <h3>试听反馈</h3>
+              <p>约试听、填试听反馈、继续推进报名。</p>
             </div>
             <div class="nav-item" data-nav-target="enrollment">
-              <h3>报名建档</h3>
-              <p>记录实收金额、课程班型、归属链和报名结果。</p>
+              <h3>报名/返现</h3>
+              <p>记录报名结果、找班信息和转介绍返现。</p>
             </div>
             <div class="nav-item" data-nav-target="insights">
-              <h3>渠道与看板</h3>
-              <p>渠道来源、转化漏斗、报名金额和负责人表现。</p>
+              <h3>统计看板</h3>
+              <p>看渠道来源、转化漏斗和负责人表现。</p>
             </div>
             <div class="nav-item" data-nav-target="settings">
-              <h3>导入与规则</h3>
-              <p>Excel 导入、渠道配置、提成规则、通知触达和推荐二维码。</p>
+              <h3>更多</h3>
+              <p>批量导入、渠道、统计和推荐二维码。</p>
             </div>
           </div>
         </aside>
@@ -830,7 +960,8 @@
           <section class="panel content-section" data-section-group="dashboard">
             <div class="section-head">
               <div>
-                <h2>今日工作台</h2>
+                <h2>招生前台使用版</h2>
+                <div class="hint">不用看说明，按按钮处理客户。</div>
               </div>
               <div class="filters">
                 <span class="status-chip" id="todayFollowupChip">今日待跟进 0</span>
@@ -838,7 +969,36 @@
                 <span class="status-chip" id="todayFeedbackChip">待反馈 0</span>
               </div>
             </div>
-            <div class="metrics">
+            <div class="frontdesk-note">
+              <span>新客户先登记</span>
+              <span>聊完补跟进</span>
+              <span>能来的约试听</span>
+              <span>试听后填反馈</span>
+              <span>报名或搁置</span>
+            </div>
+            <div class="simple-flow dashboard-docs" aria-label="招生极简流程">
+              <div class="simple-step">
+                <strong>1. 登记咨询</strong>
+                <p>有人加微信、家长转介绍、线上咨询，先录姓名、年级、电话、来源和负责人。</p>
+              </div>
+              <div class="simple-step">
+                <strong>2. 约试听</strong>
+                <p>能推进就定试听时间、试听老师和试听班级，不要长期停在聊天记录里。</p>
+              </div>
+              <div class="simple-step">
+                <strong>3. 填反馈</strong>
+                <p>试听后当天写课堂表现、家长反馈、意向等级和下一次跟进时间。</p>
+              </div>
+              <div class="simple-step">
+                <strong>4. 报名或搁置</strong>
+                <p>报名就登记金额和课程；暂不报名就搁置待回访，后面定期再联系。</p>
+              </div>
+              <div class="simple-step">
+                <strong>5. 找班和返现</strong>
+                <p>报名后交接班级；转介绍客户补推荐人和返现状态，方便财务核对。</p>
+              </div>
+            </div>
+            <div class="metrics dashboard-secondary">
               <div class="metric">
                 <div class="metric-meta">本周新增线索</div>
                 <strong id="weeklyLeadCount">0</strong>
@@ -860,31 +1020,31 @@
                 <div class="metric-meta">需要继续推进</div>
               </div>
             </div>
-            <div class="quick-actions">
+            <div class="quick-actions dashboard-secondary">
               <div class="quick-card" data-jump-view="leads">
-                <strong>先清新线索</strong>
-                <p>先处理“新建未联系”和“已沟通待邀约”，不要让新线索过夜没人接。</p>
+                <strong>客户台账</strong>
+                <p>查一个学生现在在哪一步、谁负责、上次聊了什么。</p>
               </div>
               <div class="quick-card" data-jump-view="trials">
-                <strong>再定试听</strong>
-                <p>把今天有希望推进的家长先约试听，优先锁定老师和时间段。</p>
+                <strong>约试听/填反馈</strong>
+                <p>已经沟通好的客户，直接进入试听流程处理。</p>
               </div>
               <div class="quick-card" data-jump-view="trials">
-                <strong>回填反馈</strong>
-                <p>试听结束当天必须回填课堂吸收、家长异议、意向等级和是否进群。</p>
+                <strong>试听后推进</strong>
+                <p>试听完的客户，优先判断报名、继续跟进或搁置。</p>
               </div>
               <div class="quick-card" data-jump-view="enrollment">
-                <strong>追报名方案</strong>
-                <p>对 A / B 意向但还没成交的家长，48 小时内要给明确报名方案。</p>
+                <strong>报名/返现</strong>
+                <p>报名客户补课程、金额、开课时间、推荐人返现。</p>
               </div>
             </div>
             <div class="section-head" style="margin-top: 18px;">
               <div>
-                <h2>快速新增线索</h2>
-                <div class="hint">先录最常用字段。</div>
+                <h2>新增咨询客户</h2>
+                <div class="hint">先填能联系上的信息，其他以后再补。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">首页直接录入</span>
+                <span class="status-chip">常用</span>
               </div>
             </div>
             <div class="form-grid">
@@ -935,7 +1095,7 @@
                   <option>程志豪</option>
                 </select>
               </div>
-              <div class="field">
+              <div class="field dashboard-secondary">
                 <label>意向等级</label>
                 <select id="quickLeadIntent">
                   <option>B 中意向</option>
@@ -945,27 +1105,27 @@
                 </select>
               </div>
               <div class="field span-3">
-                <label>首条备注</label>
+                <label>咨询内容</label>
                 <textarea id="quickLeadNote" placeholder="例如：家长咨询暑假班，孩子计算薄弱，明天晚上可试听。"></textarea>
               </div>
             </div>
             <div class="section-actions">
-              <button class="button small" id="quickCreateLeadButton" type="button">保存新线索</button>
-              <button class="button small secondary" type="button" data-jump-view="leads">去线索中心看完整表</button>
+              <button class="button small" id="quickCreateLeadButton" type="button">保存咨询客户</button>
+              <button class="button small secondary" type="button" data-jump-view="leads">看客户台账</button>
               <span class="inline-message" id="quickCreateLeadMessage">学生姓名和家长电话必填。</span>
             </div>
             <div class="section-head" style="margin-top: 18px;">
               <div>
-                <h2>手机快捷跟进</h2>
-                <div class="hint">电话或微信后马上补记录。</div>
+                <h2>补一条沟通记录</h2>
+                <div class="hint">电话或微信聊完，马上记一句。</div>
               </div>
               <div class="filters">
-                <span class="status-chip">适合微信 / 电话后马上记录</span>
+                <span class="status-chip">常用</span>
               </div>
             </div>
             <div class="form-grid">
               <div class="field">
-                <label>跟进对象</label>
+                <label>客户</label>
                 <select id="quickFollowupLeadSelect"></select>
               </div>
               <div class="field">
@@ -991,7 +1151,17 @@
               <button class="button small" id="quickFollowupButton" type="button">保存快捷跟进</button>
               <span class="inline-message" id="quickFollowupMessage"></span>
             </div>
-            <div class="worklist-grid">
+            <div class="section-head" style="margin-top: 18px;">
+              <div>
+                <h2>当前客户处理区</h2>
+                <div class="hint">看客户在哪一步，直接点按钮。</div>
+              </div>
+              <div class="filters">
+                <span class="status-chip">常用</span>
+              </div>
+            </div>
+            <div class="pipeline-board" id="simplePipelineBoard"></div>
+            <div class="worklist-grid dashboard-secondary">
               <div>
                 <div class="section-head" style="margin-top: 18px;">
                   <div>
@@ -1051,7 +1221,7 @@
             </div>
           </section>
 
-          <section class="panel content-section" data-section-group="leads">
+          <section class="panel content-section internal-docs" data-section-group="leads">
             <div class="section-head">
               <div>
                 <h2>线索状态流转</h2>
@@ -1087,8 +1257,8 @@
                 <p>进入报名建档和归属锁定。</p>
               </div>
               <div class="flow-step">
-                <strong>7. 无效 / 沉睡</strong>
-                <p>暂未成交，保留后续跟进记录。</p>
+                <strong>7. 搁置待回访</strong>
+                <p>暂未成交，保留记录，后面定期回访。</p>
               </div>
             </div>
           </section>
@@ -1096,8 +1266,8 @@
           <section class="panel content-section" data-section-group="leads">
             <div class="section-head">
               <div>
-                <h2>线索主表</h2>
-                <div class="hint">来源、负责人、状态、试听、进群、报名集中管理。</div>
+                <h2>客户台账</h2>
+                <div class="hint">查看和修改咨询客户。</div>
               </div>
               <div class="filters">
                 <button class="status-chip" id="filterAllButton" type="button">全部</button>
@@ -1143,7 +1313,7 @@
                 </thead>
                 <tbody id="leadTableBody">
                   <tr>
-                    <td colspan="10">当前还没有真实线索。请先手动新增，或到“批量导入”粘贴老师 Excel 里的线索表。</td>
+                    <td colspan="10">当前还没有咨询客户。请先在首页新增，或到“更多”里批量导入。</td>
                   </tr>
                 </tbody>
               </table>
@@ -1166,7 +1336,7 @@
               <div class="field">
                 <label>跟进对象</label>
                 <select id="followupLeadSelect">
-                  <option value="">暂无线索</option>
+                  <option value="">暂无客户</option>
                 </select>
               </div>
               <div class="field">
@@ -1217,15 +1387,15 @@
           <section class="panel content-section" data-section-group="leads">
             <div class="section-head">
               <div>
-                <h2>线索详情区</h2>
-                <div class="hint">当前选中线索的完整信息。</div>
+                <h2>客户详情</h2>
+                <div class="hint">当前选中客户的完整信息。</div>
               </div>
             </div>
             <div class="metrics" id="leadDetailPanel">
-              <div class="metric">
-                <div class="metric-meta">当前学生</div>
-                <strong id="detailStudentName">暂无线索</strong>
-                <div class="metric-meta" id="detailGradeSubject">请先新增或导入</div>
+                <div class="metric">
+                  <div class="metric-meta">当前学生</div>
+                <strong id="detailStudentName">暂无客户</strong>
+                  <div class="metric-meta" id="detailGradeSubject">请先新增或导入</div>
               </div>
               <div class="metric">
                 <div class="metric-meta">负责人</div>
@@ -1237,10 +1407,10 @@
                 <strong id="detailChannel">-</strong>
                 <div class="metric-meta" id="detailChannelMeta">-</div>
               </div>
-              <div class="metric">
-                <div class="metric-meta">下一步</div>
-                <strong id="detailNextAction">先录入第一条线索</strong>
-                <div class="metric-meta" id="detailFollowup">暂无跟进记录</div>
+                <div class="metric">
+                  <div class="metric-meta">下一步</div>
+                <strong id="detailNextAction">先新增咨询客户</strong>
+                  <div class="metric-meta" id="detailFollowup">暂无跟进记录</div>
               </div>
             </div>
             <div class="form-grid">
@@ -1264,6 +1434,7 @@
                   <option>已预约试听</option>
                   <option>试听完成待转化</option>
                   <option>持续跟进中</option>
+                  <option>搁置待回访</option>
                   <option>定金 / 已报名</option>
                   <option>无效沉睡线索</option>
                 </select>
@@ -1337,14 +1508,14 @@
               </div>
             </div>
             <div class="section-actions">
-              <button class="button small" id="saveDetailButton" type="button">保存当前线索修改</button>
+              <button class="button small" id="saveDetailButton" type="button">保存客户修改</button>
               <button class="button small secondary" id="unlockAttributionButton" type="button">解锁归属链</button>
               <span class="inline-message" id="saveDetailMessage"></span>
             </div>
             <div class="section-head" style="margin-top: 20px;">
               <div>
-                <h2>当前线索跟进历史</h2>
-                <div class="hint">查看这个家长前面每一次沟通、报名、试听、导入和状态变化，避免只凭记忆交接。</div>
+                <h2>客户跟进历史</h2>
+                <div class="hint">查看这个家长前面每一次沟通、报名、试听和状态变化。</div>
               </div>
               <div class="filters">
                 <span class="status-chip" id="detailFollowupCount">0 条记录</span>
@@ -1356,8 +1527,8 @@
           <section class="panel content-section" data-section-group="leads">
             <div class="section-head">
               <div>
-                <h2>新增线索</h2>
-                <div class="hint">按统一字段录入，避免老师各写各的。</div>
+                <h2>新增咨询客户</h2>
+                <div class="hint">按常用字段录入，后面可以继续补充。</div>
               </div>
               <div class="filters">
                 <span class="status-chip">必填：学生姓名</span>
@@ -1430,6 +1601,7 @@
                   <option>新建未联系</option>
                   <option>已沟通待邀约</option>
                   <option>已预约试听</option>
+                  <option>搁置待回访</option>
                 </select>
               </div>
               <div class="field span-3">
@@ -1438,7 +1610,7 @@
               </div>
             </div>
             <div class="section-actions">
-              <button class="button small" id="createLeadButton" type="button">新增线索</button>
+              <button class="button small" id="createLeadButton" type="button">新增咨询客户</button>
               <span class="inline-message" id="createLeadMessage"></span>
             </div>
           </section>
