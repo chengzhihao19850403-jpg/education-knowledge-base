@@ -30,6 +30,7 @@ let toastTimer = null;
 const statusClassMap = {
   "已沟通待邀约": "amber",
   "试听完成待转化": "red",
+  "搁置待回访": "amber",
 };
 
 const ownerOptions = ["待分配", "陈雨晴", "高芳燕", "颜雨涵", "周珊", "徐嘉丽", "程志豪"];
@@ -56,10 +57,13 @@ const importTemplateFields = [
   "下一步动作",
 ].join("\t");
 const admissionsHelpKnowledgeBase = [
-  "招生系统目标：把线索录入、跟进、试听、反馈、报名建档、归属锁定、转介绍、导出复盘串起来。",
-  "新线索录入：填写学生姓名、学校、年级、联系方式、微信昵称及微信号或联系电话、生源来源、意向课程、负责人、下一步动作。",
+  "招生系统目标：先用最简单的五步跑起来：登记咨询、约试听、填试听反馈、报名或搁置、找班和转介绍返现。复杂台账、导入和统计只在需要核对时使用。",
+  "日常第一屏用法：先在“快速新增线索”登记新咨询，再在“招生流水线”看每个客户处在哪一步，直接点约试听、填反馈、报名或搁置。",
+  "新线索录入：最少填写学生姓名、年级、家长电话、生源来源、负责人和首条备注；后续学校、微信、班级等信息可以在试听或详情里补。",
   "生源来源必须填：线上客户、老生家长转介绍、扩科、其他。选择其他时要补一句来源说明；转介绍要写推荐人。",
-  "试听中心必填：试听学生学校、年级、试听班级、微信昵称及微信号、联系电话、试听日期时间、试听老师、跟进对象、跟进内容、自动提醒时间、试听反馈、下一步状态。",
+  "约试听：选择学生后填写试听日期时间、试听老师、试听班级、联系方式和预约备注；保存后客户进入待试听。",
+  "试听反馈：试听后当天填写课堂反馈、家长异议、意向等级和下次跟进时间；反馈后再判断报名、继续跟进或搁置。",
+  "搁置待回访：家长暂不报名但以后可能继续联系时使用。系统会保留历史记录，并默认提醒后续回访。",
   "试听流程：录入或选择线索，预约试听，记录试听老师和时间，试听结束后填试听反馈，再选择下一步状态。",
   "报名归属锁定：报名后负责人和渠道归属会锁定；需要调整时走解锁并留痕，避免后续归属和提成争议。",
   "转介绍：记录推荐人、被推荐学生、奖励金额、发放状态，后续按转介绍贡献做统计和排序。",
@@ -68,13 +72,25 @@ const admissionsHelpKnowledgeBase = [
 ];
 const admissionsHelpFaqs = [
   {
+    title: "每天按什么顺序用？",
+    keywords: ["每天", "顺序", "怎么用", "流程", "简单"],
+    answer: [
+      "日常按五步走，不需要先看复杂表格：",
+      "1. 有新咨询，先在首页“快速新增线索”登记。",
+      "2. 能约试听的，在“招生流水线”里点“约试听”。",
+      "3. 试听结束后，点“填反馈”，当天补课堂反馈和下一步。",
+      "4. 报名的点“报名”，暂时不报名的点“搁置”。",
+      "5. 报名后再补课程、开课时间、推荐人返现信息。"
+    ].join("\n")
+  },
+  {
     title: "新线索怎么录入？",
     keywords: ["新线索", "录入", "新增", "线索怎么"],
     answer: [
       "1. 在首页点“新增线索”，先填学生姓名、年级、联系方式、生源来源、负责人和意向等级。",
       "2. 生源来源一定要选清楚：线上客户、老生家长转介绍、扩科、其他。",
       "3. 如果是转介绍，推荐人 / 其他来源说明里写推荐人；如果是其他来源，写几字说明。",
-      "4. 保存后，这个学生会进入线索中心，后面可以继续跟进、预约试听、报名建档。"
+      "4. 保存后，这个学生会进入首页“招生流水线”，后面可以继续跟进、预约试听、报名或搁置。"
     ].join("\n")
   },
   {
@@ -85,6 +101,16 @@ const admissionsHelpFaqs = [
       "预约时重点填：学生、试听日期时间、试听老师、试听班级、联系方式。",
       "试听结束后重点填：到课情况、试听反馈、意向等级、下一步状态、下次跟进时间。",
       "如果下拉里找不到学生，可以先回首页或线索中心新增线索，再回来预约试听。"
+    ].join("\n")
+  },
+  {
+    title: "暂时不报名怎么处理？",
+    keywords: ["搁置", "不报名", "暂时", "回访", "沉睡"],
+    answer: [
+      "家长暂时不报名时，不要直接删除。",
+      "1. 在首页“招生流水线”对应学生卡片点“搁置”。",
+      "2. 系统会把状态改为“搁置待回访”，并保留前面的咨询和试听记录。",
+      "3. 后面定期回访时再写新的跟进记录；如果重新有意向，可以继续约试听或报名。"
     ].join("\n")
   },
   {
@@ -278,6 +304,15 @@ function defaultTrialDateTime() {
   return `${year}-${month}-${day}T19:00`;
 }
 
+function addDaysDateString(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + Number(days || 0));
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function parseMaybeDate(value) {
   if (!value) return null;
   const date = new Date(String(value).replace(" ", "T"));
@@ -319,6 +354,14 @@ function isCurrentYear(value) {
   const date = parseMaybeDate(value);
   if (!date) return false;
   return date.getFullYear() === new Date().getFullYear();
+}
+
+function isAdmissionDormantStatus(status) {
+  return status === "搁置待回访" || status === "无效沉睡线索";
+}
+
+function isAdmissionEnrolled(lead) {
+  return Number(lead?.enrolledAmount || 0) > 0 || lead?.status === "定金 / 已报名";
 }
 
 function leadActivityDate(lead) {
@@ -954,7 +997,7 @@ function getFilteredLeads() {
     if (state.activeLeadFilter === "new" && lead.status !== "新建未联系") return false;
     if (state.activeLeadFilter === "trial")
       if (!(lead.status === "已预约试听" || lead.status === "试听完成待转化")) return false;
-    if (state.activeLeadFilter === "enrolled" && lead.status !== "定金 / 已报名") return false;
+    if (state.activeLeadFilter === "enrolled" && !isAdmissionEnrolled(lead)) return false;
     const query = normalizeText(state.leadSearchQuery);
     if (query) {
       const haystack = normalizeText([
@@ -1256,6 +1299,129 @@ function renderAdmissionTasks() {
           <td>-</td>
         </tr>
       `;
+  bindLeadActions();
+}
+
+function getSimplePipelineStage(lead) {
+  if (isAdmissionEnrolled(lead)) return "enrolled";
+  if (lead.status === "已预约试听") return "trial";
+  if (lead.status === "试听完成待转化") return "feedback";
+  if (lead.status === "持续跟进中" || isAdmissionDormantStatus(lead.status)) return "followup";
+  return "consult";
+}
+
+function buildPipelineActionButtons(lead, stageKey, editable) {
+  const studentName = escapeHtml(lead.studentName);
+  const disabled = editable ? "" : "disabled";
+  const button = (label, action, primary = false) =>
+    `<button class="button small ${primary ? "" : "secondary"}" type="button" data-action="${action}" data-student="${studentName}" ${action === "view-detail" ? "" : disabled}>${label}</button>`;
+
+  if (stageKey === "consult") {
+    return [
+      button("约试听", "assign-trial", true),
+      button("详情", "view-detail"),
+    ].join("");
+  }
+  if (stageKey === "trial") {
+    return [
+      button("填反馈", "complete-trial", true),
+      button("详情", "view-detail"),
+    ].join("");
+  }
+  if (stageKey === "feedback") {
+    return [
+      button("报名", "enroll-lead", true),
+      button("搁置", "mark-shelved"),
+    ].join("");
+  }
+  if (stageKey === "followup") {
+    return [
+      button("报名", "enroll-lead", true),
+      button("约试听", "assign-trial"),
+      button("搁置", "mark-shelved"),
+      button("详情", "view-detail"),
+    ].join("");
+  }
+  return button("详情", "view-detail", true);
+}
+
+function renderSimplePipelineBoard() {
+  const box = byId("simplePipelineBoard");
+  if (!box) return;
+  const editable = canEditAdmissions();
+  const stages = [
+    {
+      key: "consult",
+      title: "登记咨询",
+      hint: "新加微信、转介绍、线上咨询，先首联并确认是否约试听。",
+      empty: "暂无新咨询。",
+    },
+    {
+      key: "trial",
+      title: "待试听",
+      hint: "已经定好试听，重点确认到场和老师时间。",
+      empty: "暂无待试听。",
+    },
+    {
+      key: "feedback",
+      title: "试听后",
+      hint: "试听已完成，先填反馈，再判断报名或搁置。",
+      empty: "暂无待反馈客户。",
+    },
+    {
+      key: "followup",
+      title: "跟进/搁置",
+      hint: "还没报名，继续跟进；暂时不报就定期回访。",
+      empty: "暂无跟进或搁置客户。",
+    },
+    {
+      key: "enrolled",
+      title: "已报名",
+      hint: "补班级、开课时间、推荐人和返现信息。",
+      empty: "暂无已报名客户。",
+    },
+  ];
+  const grouped = stages.reduce((result, stage) => {
+    result[stage.key] = [];
+    return result;
+  }, {});
+  state.leads.forEach((lead) => {
+    const key = getSimplePipelineStage(lead);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(lead);
+  });
+  Object.keys(grouped).forEach((key) => {
+    grouped[key].sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
+  });
+
+  box.innerHTML = stages
+    .map((stage) => {
+      const leads = grouped[stage.key] || [];
+      const visible = leads.slice(0, 6);
+      const hiddenCount = Math.max(0, leads.length - visible.length);
+      const cards = visible.length
+        ? visible.map((lead) => `
+          <article class="pipeline-card">
+            <strong>${escapeHtml(lead.studentName || "未命名学生")}</strong>
+            <p>${escapeHtml([lead.grade, lead.parentPhone || lead.wechat || "待补联系方式"].filter(Boolean).join(" / "))}</p>
+            <p>${escapeHtml(`负责人：${lead.owner || "待分配"}｜来源：${normalizeLeadChannelValue(lead.channel)}`)}</p>
+            <p>${escapeHtml(lead.nextAction || lead.note || "待补下一步动作")}</p>
+            <div class="pipeline-actions">${buildPipelineActionButtons(lead, stage.key, editable)}</div>
+          </article>
+        `).join("")
+        : `<div class="pipeline-empty">${stage.empty}</div>`;
+      return `
+        <section class="pipeline-column">
+          <h3>${stage.title}<span>${leads.length}</span></h3>
+          <p>${stage.hint}</p>
+          <div class="pipeline-list">
+            ${cards}
+            ${hiddenCount ? `<div class="pipeline-empty">还有 ${hiddenCount} 条，点“客户台账”查看全部。</div>` : ""}
+          </div>
+        </section>
+      `;
+    })
+    .join("");
   bindLeadActions();
 }
 
@@ -1749,10 +1915,10 @@ function renderEnrollmentLeadOptions() {
   const input = byId("enrollStudentName");
   if (!input) return;
   const lead = getSelectedLead();
-  if (lead && lead.status !== "定金 / 已报名") {
+  if (lead && !isAdmissionEnrolled(lead)) {
     input.value = lead.studentName;
   } else if (!input.value) {
-    const candidate = state.leads.find((leadItem) => leadItem.status !== "定金 / 已报名");
+    const candidate = state.leads.find((leadItem) => !isAdmissionEnrolled(leadItem));
     if (candidate) {
       input.value = candidate.studentName;
     }
@@ -1925,7 +2091,7 @@ function renderTrialLeadOptions() {
   const currentValue = select.value;
   const candidates = state.leads.filter(
     (lead) =>
-      lead.status !== "定金 / 已报名" && lead.status !== "无效沉睡线索"
+      !isAdmissionEnrolled(lead) && !isAdmissionDormantStatus(lead.status)
   );
   select.innerHTML = candidates.length
     ? candidates
@@ -2004,22 +2170,22 @@ function renderPublicPool() {
 
 function renderMetrics() {
   const total = state.leads.length;
-  const online = state.leads.filter((lead) => lead.channel.includes("抖音") || lead.channel.includes("官网")).length;
+  const online = state.leads.filter((lead) => normalizeLeadChannelValue(lead.channel) === "线上客户").length;
   const referral = state.leads.filter((lead) => lead.channel.includes("转介绍")).length;
-  const visit = state.leads.filter((lead) => lead.channel.includes("自然")).length;
+  const visit = state.leads.filter((lead) => normalizeLeadChannelValue(lead.channel) === "其他").length;
   const scheduled = state.leads.filter((lead) => lead.status === "已预约试听").length;
   const feedbackPending = state.leads.filter((lead) => lead.status === "试听完成待转化").length;
-  const enrolled = state.leads.filter((lead) => lead.enrolledAmount > 0).length;
+  const enrolled = state.leads.filter((lead) => isAdmissionEnrolled(lead)).length;
   const enrolledAmount = state.leads.reduce((sum, lead) => sum + (lead.enrolledAmount || 0), 0);
   const highIntent = state.leads.filter((lead) => lead.intent.startsWith("A") && lead.enrolledAmount <= 0).length;
   const contacted = state.leads.filter((lead) => lead.status !== "新建未联系").length;
   const trialTotal = state.leads.filter((lead) =>
     lead.status === "已预约试听" ||
     lead.status === "试听完成待转化" ||
-    lead.status === "定金 / 已报名"
+    isAdmissionEnrolled(lead)
   ).length;
 
-  byId("todayFollowupChip").textContent = `今日待跟进 ${state.leads.filter((lead) => lead.status !== "定金 / 已报名").length}`;
+  byId("todayFollowupChip").textContent = `今日待跟进 ${state.leads.filter((lead) => !isAdmissionEnrolled(lead) && !isAdmissionDormantStatus(lead.status)).length}`;
   byId("todayTrialChip").textContent = `待约试听 ${scheduled}`;
   byId("todayFeedbackChip").textContent = `待反馈 ${feedbackPending}`;
   byId("weeklyLeadCount").textContent = String(total);
@@ -2040,10 +2206,10 @@ function renderMetrics() {
 
 function getDormantLeads() {
   return state.leads
-    .filter((lead) => lead.status !== "定金 / 已报名" && Number(lead.enrolledAmount || 0) <= 0)
+    .filter((lead) => !isAdmissionEnrolled(lead))
     .map((lead) => {
       const gap = daysSince(lead.nextFollowupDate || lead.createdAt || "");
-      const isDormantStatus = lead.status === "无效沉睡线索";
+      const isDormantStatus = isAdmissionDormantStatus(lead.status);
       return {
         lead,
         days: gap === null && isDormantStatus ? 30 : gap,
@@ -2080,7 +2246,7 @@ function renderChannelRoi() {
     }
     const item = groups.get(key);
     item.leads += 1;
-    if (Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名") {
+    if (isAdmissionEnrolled(lead)) {
       item.enrolled += 1;
       item.amount += Number(lead.enrolledAmount || 0);
     }
@@ -2114,9 +2280,9 @@ function renderConsultantStats() {
   const targetName = employee && !isManager ? employee.name : "";
   const leads = targetName ? state.leads.filter((lead) => lead.owner === targetName) : state.leads;
   const trialCount = leads.filter((lead) =>
-    ["已预约试听", "试听完成待转化", "定金 / 已报名"].includes(lead.status)
+    ["已预约试听", "试听完成待转化"].includes(lead.status) || isAdmissionEnrolled(lead)
   ).length;
-  const enrolled = leads.filter((lead) => Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名");
+  const enrolled = leads.filter((lead) => isAdmissionEnrolled(lead));
   const amount = enrolled.reduce((sum, lead) => sum + Number(lead.enrolledAmount || 0), 0);
   if (byId("consultantLeadCount")) byId("consultantLeadCount").textContent = String(leads.length);
   if (byId("consultantLeadMeta")) byId("consultantLeadMeta").textContent = targetName ? `${targetName}负责线索` : "全部招生线索";
@@ -2135,9 +2301,9 @@ function renderConsultantStats() {
   periodBody.innerHTML = periods.map(([label, predicate]) => {
     const periodLeads = leads.filter(predicate);
     const periodTrial = periodLeads.filter((lead) =>
-      ["已预约试听", "试听完成待转化", "定金 / 已报名"].includes(lead.status)
+      ["已预约试听", "试听完成待转化"].includes(lead.status) || isAdmissionEnrolled(lead)
     );
-    const periodEnrolled = periodLeads.filter((lead) => Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名");
+    const periodEnrolled = periodLeads.filter((lead) => isAdmissionEnrolled(lead));
     const periodAmount = periodEnrolled.reduce((sum, lead) => sum + Number(lead.enrolledAmount || 0), 0);
     return `
       <tr>
@@ -2221,7 +2387,7 @@ function renderReminderStats() {
 function renderManagementStats() {
   const total = state.leads.length;
   const hasFollowup = state.leads.filter((lead) => lead.note && lead.note !== "待补首条记录").length;
-  const enrolled = state.leads.filter((lead) => Number(lead.enrolledAmount || 0) > 0 || lead.status === "定金 / 已报名");
+  const enrolled = state.leads.filter((lead) => isAdmissionEnrolled(lead));
   const referralEnrolled = enrolled.filter((lead) => lead.channel?.includes("转介绍")).length;
   if (byId("adminTotalLeads")) byId("adminTotalLeads").textContent = String(total);
   if (byId("adminFollowupRate")) byId("adminFollowupRate").textContent = percent(hasFollowup, total);
@@ -3136,6 +3302,42 @@ function bindLeadActions() {
     };
   });
 
+  document.querySelectorAll("[data-action='mark-shelved']").forEach((button) => {
+    button.onclick = () => {
+      const studentName = button.getAttribute("data-student");
+      const target = state.leads.find((lead) => lead.studentName === studentName);
+      if (!target) return;
+      if (!canEditAdmissions()) return;
+      const nextDate = target.nextFollowupDate || addDaysDateString(30);
+      target.status = "搁置待回访";
+      touchLead(target);
+      target.nextFollowupDate = nextDate;
+      target.nextAction = `搁置待回访：${nextDate}`;
+      target.lastFollowup = "刚刚搁置";
+      pushFollowup(target.studentName, `已搁置待回访，建议 ${nextDate} 前后重新联系家长。`);
+      logAudit("搁置待回访", target.studentName, `下次回访 ${nextDate}。`);
+      syncSelectedLead(target.studentName);
+      renderAll();
+      showToast(`${target.studentName} 已进入搁置待回访`);
+    };
+  });
+
+  document.querySelectorAll("[data-action='enroll-lead']").forEach((button) => {
+    button.onclick = () => {
+      const studentName = button.getAttribute("data-student");
+      const target = state.leads.find((lead) => lead.studentName === studentName);
+      if (!target) return;
+      syncSelectedLead(target.studentName);
+      renderAll();
+      const enrollInput = byId("enrollStudentName");
+      if (enrollInput) {
+        enrollInput.value = target.studentName;
+        enrollInput.dispatchEvent(new Event("change"));
+      }
+      switchAdmissionView("enrollment", "#enrollStudentName");
+    };
+  });
+
   document.querySelectorAll("[data-action='reassign-owner']").forEach((button) => {
     button.onclick = () => {
       const studentName = button.getAttribute("data-student");
@@ -3396,6 +3598,7 @@ function renderAll() {
   renderPendingLeadFixes();
   renderStudentArchive();
   renderMetrics();
+  renderSimplePipelineBoard();
   renderDormantStats();
   renderChannelRoi();
   renderConsultantStats();
