@@ -1,337 +1,257 @@
 'use client';
 
-import { useState } from 'react';
+import Head from 'next/head';
+import { useMemo, useState } from 'react';
 
 import knowledgeBase from '../data/knowledge_base.json';
 import trainingProgram from '../data/training_program.json';
 
+const synonymGroups = [
+  ['学费', '收费', '费用', '价格', '多少钱', '贵', '太贵'],
+  ['学而思', '高斯', '举一反三', '机构区别', '普通机构'],
+  ['提前学', '超前学', '进度快', '学得快', '初中内容', '高中内容'],
+  ['跟不上', '听不懂', '插班', '中途进班', '基础弱', '补课'],
+  ['出门测', '测试', '订正', '纸质版', '成绩'],
+  ['大讲堂', '科技素养', '强基', '培优营'],
+  ['宁外', '贯通', '2+4', '直升', '培优营'],
+  ['蛟川', '联培', '联合培养', '学籍', '淘汰'],
+  ['定向分配', '中考定向', '名额分配', '志愿'],
+  ['旁听', '上楼', '厕所', '安全', '家长进楼'],
+  ['请假', '补课', '课冲突', '缺课'],
+  ['反馈', '课堂反馈', '学习情况', '课后辅导', '家长沟通'],
+  ['红榜', '牛娃', '成绩榜', '推荐'],
+  ['班型', '一班', '二班', '三班', '分班', '适合哪个班'],
+];
+
 function normalizeText(value) {
-  return String(value || '').toLowerCase().replace(/\s+/g, '');
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[\s、,，.。:：;；!?？！()（）【】\[\]《》"'“”‘’\-—_/\\|]/g, '');
 }
 
-function normalizeLoose(value) {
-  return String(value || '').toLowerCase().replace(/[\s、,，.。:：;；!?？！()（）【】\[\]《》"'“”‘’\-—_/\\]/g, '');
-}
+function getNgrams(value) {
+  const text = normalizeText(value);
+  const grams = new Set();
+  if (!text) return grams;
 
-function getSearchTokens(value) {
-  const normalized = normalizeText(value).replace(/[^\u4e00-\u9fa5a-z0-9]/g, '');
-  const ignoredTokens = new Set(['完全', '不', '无', '有', '没有', '多少', '怎么', '什么', '问题', '答案']);
-  const tokens = new Set();
-
-  for (const char of normalized) {
-    if (!ignoredTokens.has(char)) tokens.add(char);
+  for (const char of text) {
+    grams.add(char);
   }
 
-  for (let index = 0; index < normalized.length - 1; index += 1) {
-    const token = normalized.slice(index, index + 2);
-    if (!ignoredTokens.has(token)) tokens.add(token);
-  }
-
-  return tokens;
-}
-
-function getPhrases(value) {
-  const text = normalizeLoose(value);
-  const phrases = new Set();
-
-  for (let index = 0; index < text.length - 1; index += 1) {
-    phrases.add(text.slice(index, index + 2));
-  }
-
-  for (let index = 0; index < text.length - 2; index += 1) {
-    phrases.add(text.slice(index, index + 3));
-  }
-
-  return phrases;
-}
-
-function getTokenWeight(token) {
-  return token.length === 1 ? 1 : 3;
-}
-
-function weightedOverlap(queryTokens, targetTokens) {
-  let overlap = 0;
-
-  for (const token of queryTokens) {
-    if (targetTokens.has(token)) overlap += getTokenWeight(token);
-  }
-
-  return overlap;
-}
-
-function weightedPhraseOverlap(queryPhrases, targetPhrases) {
-  let overlap = 0;
-
-  for (const phrase of queryPhrases) {
-    if (targetPhrases.has(phrase)) overlap += phrase.length === 2 ? 2 : 3;
-  }
-
-  return overlap;
-}
-
-function inferQueryIntent(query) {
-  const text = normalizeLoose(query);
-
-  if (/学费|费用|收费|价格|多少钱|优惠|折扣|退费|转账/.test(text)) return 'pricing';
-  if (/试听|预约|到校|地址|上楼|接孩子|带什么|准备/.test(text)) return 'trial';
-  if (/跟不上|听不懂|基础弱|基础差|分班|哪个班|快班|慢班|小课|补弱|适合/.test(text)) return 'placement';
-  if (/考虑|犹豫|嫌贵|太贵|异议|不想报|没时间|时间冲突/.test(text)) return 'objection';
-  if (/反馈|课后|学情|表现|优秀|一般|中等|偏弱|错题|专注/.test(text)) return 'feedback';
-  if (/续报|转介绍|推荐朋友|朋友圈|早鸟/.test(text)) return 'retention';
-  if (/中考|强基|定向|统招|重高|升学|志愿|学籍|综评/.test(text)) return 'policy';
-  if (/学到|进度|课表|上课时间|周[一二三四五六日天]|课程体系/.test(text)) return 'course';
-  if (/课本|目录|哪一册|章节|知识点|浙教版|人教版/.test(text)) return 'catalog';
-  if (/学而思|机构|区别|优势|品牌|普通补课/.test(text)) return 'brand';
-
-  return '';
-}
-
-function applyIntentScore(score, queryIntent, item) {
-  if (!queryIntent) return score;
-  if (item.intent === queryIntent) return score + 120;
-  if (queryIntent === 'brand' && item.intent === 'objection') return score + 40;
-  if (queryIntent === 'objection' && item.intent === 'brand') return score + 25;
-  if (queryIntent === 'course' && item.intent === 'catalog') return score + 20;
-  if (queryIntent === 'catalog' && item.intent === 'course') return score + 20;
-  return score - 80;
-}
-
-function similarityScore(query, item, categoryName) {
-  const queryTokens = getSearchTokens(query);
-  const queryPhrases = getPhrases(query);
-  if (queryTokens.size === 0) return 0;
-
-  const maxScore = Array.from(queryTokens).reduce((sum, token) => sum + getTokenWeight(token), 0);
-  const questionOverlap = weightedOverlap(queryTokens, getSearchTokens(item.q));
-  const keywordOverlap = weightedOverlap(queryTokens, getSearchTokens((item.keywords || []).join(' ')));
-  const answerOverlap = weightedOverlap(queryTokens, getSearchTokens(item.a));
-  const sourceOverlap = weightedOverlap(queryTokens, getSearchTokens(`${item.source || ''} ${item.source_section || ''}`));
-  const categoryOverlap = weightedOverlap(queryTokens, getSearchTokens(categoryName));
-  const aliasOverlap = weightedOverlap(queryTokens, getSearchTokens((item.aliases || []).join(' ')));
-  const teacherOverlap = weightedOverlap(queryTokens, getSearchTokens((item.teacher_questions || []).join(' ')));
-  const intentOverlap = weightedOverlap(queryTokens, getSearchTokens(item.intent_label || ''));
-  const scenarioOverlap = weightedOverlap(queryTokens, getSearchTokens(item.scenario || ''));
-  const stepOverlap = weightedOverlap(queryTokens, getSearchTokens((item.steps || []).join(' ')));
-  const followupOverlap = weightedOverlap(queryTokens, getSearchTokens((item.followups || []).join(' ')));
-  const boundaryOverlap = weightedOverlap(queryTokens, getSearchTokens((item.boundaries || []).join(' ')));
-  const phraseOverlap = weightedPhraseOverlap(
-    queryPhrases,
-    getPhrases(`${item.q} ${item.a} ${(item.aliases || []).join(' ')} ${(item.teacher_questions || []).join(' ')} ${item.scenario || ''}`)
-  );
-  const coverage = Math.max(
-    questionOverlap,
-    keywordOverlap,
-    answerOverlap,
-    sourceOverlap,
-    categoryOverlap,
-    aliasOverlap,
-    teacherOverlap,
-    intentOverlap,
-    scenarioOverlap,
-    stepOverlap,
-    followupOverlap,
-    boundaryOverlap,
-    phraseOverlap
-  ) / maxScore;
-  const question = normalizeText(item.q);
-  const answer = normalizeText(item.a);
-  const category = normalizeText(categoryName);
-  const queryLower = normalizeText(query);
-  let overlap = questionOverlap * 4
-    + keywordOverlap * 3
-    + answerOverlap
-    + sourceOverlap
-    + categoryOverlap
-    + aliasOverlap * 4
-    + teacherOverlap * 4
-    + intentOverlap * 3
-    + scenarioOverlap * 3
-    + stepOverlap * 2
-    + followupOverlap * 2
-    + boundaryOverlap * 2
-    + phraseOverlap * 3;
-
-  if (coverage < 0.25) return 0;
-
-  if (question.includes(queryLower.slice(0, 2))) overlap += 2;
-  if (answer.includes(queryLower.slice(0, 2))) overlap += 1;
-  if (category.includes(queryLower.slice(0, 2))) overlap += 1;
-
-  return overlap;
-}
-
-function createResult(item, categoryName, score, isSimilar = false) {
-  return {
-    id: item.id,
-    question: item.q,
-    answer: item.a,
-    category: categoryName,
-    keywords: item.keywords || [],
-    aliases: item.aliases || [],
-    teacherQuestions: item.teacher_questions || [],
-    intent: item.intent,
-    intentLabel: item.intent_label,
-    scenario: item.scenario,
-    steps: item.steps || [],
-    followups: item.followups || [],
-    boundaries: item.boundaries || [],
-    source: item.source,
-    sourceSection: item.source_section,
-    reviewStatus: item.review_status,
-    score,
-    isSimilar,
-  };
-}
-
-function getPriorityBoost(item) {
-  let boost = Number(item.priority || 0) / 2;
-
-  if (item.review_status === '原文最高优先级') boost += 600;
-  if (item.source_section?.includes('最高优先级原文15条')) boost += 400;
-  if (String(item.id || '').startsWith('CORE015')) boost += 300;
-  if (item.review_status === '拆分检索') boost -= 120;
-  if (String(item.id || '').startsWith('HQ015')) boost -= 80;
-
-  return boost;
-}
-
-function uniqueResults(items, limit) {
-  const seen = new Set();
-  const output = [];
-
-  for (const item of items) {
-    const key = `${item.question}\n${item.answer}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(item);
-    if (output.length >= limit) break;
-  }
-
-  return output;
-}
-
-function searchKnowledge(query) {
-  const queryLower = normalizeText(query);
-  const queryIntent = inferQueryIntent(query);
-  const results = [];
-  const similarResults = [];
-
-  for (const category of knowledgeBase.categories || []) {
-    for (const item of category.questions || []) {
-      const question = normalizeText(item.q);
-      const answer = normalizeText(item.a);
-      const keywords = normalizeText((item.keywords || []).join(' '));
-      const aliases = normalizeText((item.aliases || []).join(' '));
-      const teacherQuestions = normalizeText((item.teacher_questions || []).join(' '));
-      const scenario = normalizeText(item.scenario || '');
-      const steps = normalizeText((item.steps || []).join(' '));
-      const followups = normalizeText((item.followups || []).join(' '));
-      const boundaries = normalizeText((item.boundaries || []).join(' '));
-      const intentLabel = normalizeText(item.intent_label || '');
-      const source = normalizeText(`${item.source || ''} ${item.source_section || ''}`);
-      const categoryName = normalizeText(category.name);
-      let score = 0;
-
-      if (question.includes(queryLower)) score += 10;
-      if (aliases.includes(queryLower)) score += 9;
-      if (teacherQuestions.includes(queryLower)) score += 9;
-      if (categoryName.includes(queryLower)) score += 7;
-      if (intentLabel.includes(queryLower)) score += 6;
-      if (scenario.includes(queryLower)) score += 5;
-      if (keywords.includes(queryLower)) score += 6;
-      if (steps.includes(queryLower)) score += 4;
-      if (followups.includes(queryLower)) score += 4;
-      if (boundaries.includes(queryLower)) score += 4;
-      if (answer.includes(queryLower)) score += 3;
-      if (source.includes(queryLower)) score += 1;
-      if (['小学课本目录', '初中课本目录'].includes(category.name) && score > 0) score += 8;
-
-      if (score > 0) {
-        score += Number(item.quality_score || 0) / 2;
-        score += getPriorityBoost(item);
-        if (item.review_status === '最新动态资料') score += 8;
-        if (item.review_status === '人工复审') score += 6;
-        if (item.review_status === '人工精修') score += 12;
-        if (item.review_status === '历史参考') score -= 10;
-        score = applyIntentScore(score, queryIntent, item);
-        results.push(createResult(item, category.name, score));
-      } else {
-        const similarScore = similarityScore(query, item, category.name);
-        if (similarScore >= 5) {
-          let qualityScore = similarScore
-            + Number(item.quality_score || 0) / 2
-            + getPriorityBoost(item)
-            + (item.review_status === '最新动态资料' ? 8 : 0)
-            + (item.review_status === '人工复审' ? 6 : 0)
-            + (item.review_status === '人工精修' ? 12 : 0)
-            - (item.review_status === '历史参考' ? 10 : 0);
-          qualityScore = applyIntentScore(qualityScore, queryIntent, item);
-          similarResults.push(createResult(item, category.name, qualityScore, true));
-        }
-      }
+  for (let size = 2; size <= 4; size += 1) {
+    for (let index = 0; index <= text.length - size; index += 1) {
+      grams.add(text.slice(index, index + size));
     }
   }
 
-  if (results.length > 0) {
-    return {
-      items: uniqueResults(results.sort((a, b) => b.score - a.score), 50),
-      isFallback: false,
-    };
-  }
-
-  return {
-    items: uniqueResults(similarResults.sort((a, b) => b.score - a.score), 12),
-    isFallback: true,
-  };
+  return grams;
 }
 
-function formatAnswer(item) {
-  const sections = [item.answer];
+function expandQuery(value) {
+  const original = String(value || '');
+  const normalized = normalizeText(original);
+  const additions = [];
 
-  if (item.steps?.length) {
-    sections.push(`处理步骤：${item.steps.map((step, index) => `${index + 1}. ${step}`).join(' ')}`);
+  for (const group of synonymGroups) {
+    if (group.some((term) => normalized.includes(normalizeText(term)))) {
+      additions.push(...group);
+    }
   }
 
-  if (item.followups?.length) {
-    sections.push(`建议追问：${item.followups.slice(0, 4).join('；')}`);
-  }
-
-  if (item.boundaries?.length) {
-    sections.push(`边界提醒：${item.boundaries.join(' ')}`);
-  }
-
-  return sections.join('\n\n');
+  return `${original} ${additions.join(' ')}`;
 }
 
-function getLessonKnowledgeModules(lesson) {
-  if (!lesson) return [];
+function weightedOverlap(queryGrams, targetGrams) {
+  let score = 0;
+  for (const gram of queryGrams) {
+    if (!targetGrams.has(gram)) continue;
+    if (gram.length >= 4) score += 10;
+    else if (gram.length === 3) score += 6;
+    else if (gram.length === 2) score += 3;
+    else score += 0.7;
+  }
+  return score;
+}
 
-  const categories = knowledgeBase.categories || knowledgeBase.bd || [];
+function longestCommonRun(a, b) {
+  const left = normalizeText(a);
+  const right = normalizeText(b);
+  if (!left || !right) return 0;
+  let best = 0;
+  const previous = Array(right.length + 1).fill(0);
+  const current = Array(right.length + 1).fill(0);
 
-  return (lesson.sources || [])
-    .map((sourceName) => {
-      const category = categories.find((item) => item.name === sourceName);
-      const questions = category?.questions || [];
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      current[j] = left[i - 1] === right[j - 1] ? previous[j - 1] + 1 : 0;
+      if (current[j] > best) best = current[j];
+    }
+    for (let j = 0; j <= right.length; j += 1) {
+      previous[j] = current[j];
+      current[j] = 0;
+    }
+  }
 
-      return {
-        name: sourceName,
-        count: questions.length,
-        questions,
-      };
-    })
-    .filter((module) => module.count > 0);
+  return best;
+}
+
+function flattenKnowledgeBase() {
+  const items = [];
+
+  for (const category of knowledgeBase.categories || []) {
+    for (const item of category.questions || []) {
+      items.push({
+        ...item,
+        category: category.name,
+        categoryDescription: category.description,
+      });
+    }
+  }
+
+  return items;
+}
+
+const allQuestions = flattenKnowledgeBase();
+const questionMap = new Map(allQuestions.map((item) => [item.id, item]));
+
+function scoreQuestion(query, item) {
+  const expandedQuery = expandQuery(query);
+  const queryText = normalizeText(expandedQuery);
+  const originalQueryText = normalizeText(query);
+  const questionText = normalizeText(item.q);
+  const answerText = normalizeText(item.a);
+  const keywordText = normalizeText((item.keywords || []).join(' '));
+  const aliasText = normalizeText((item.aliases || []).join(' '));
+  const categoryText = normalizeText(item.category);
+  const corpusText = `${item.q} ${item.a} ${(item.keywords || []).join(' ')} ${(item.aliases || []).join(' ')} ${item.category}`;
+
+  if (!queryText) return 0;
+
+  const queryGrams = getNgrams(expandedQuery);
+  const questionScore = weightedOverlap(queryGrams, getNgrams(item.q));
+  const answerScore = weightedOverlap(queryGrams, getNgrams(item.a));
+  const keywordScore = weightedOverlap(queryGrams, getNgrams((item.keywords || []).join(' ')));
+  const aliasScore = weightedOverlap(queryGrams, getNgrams((item.aliases || []).join(' ')));
+  const categoryScore = weightedOverlap(queryGrams, getNgrams(item.category));
+  const commonRun = longestCommonRun(query, item.q);
+
+  let score = questionScore * 5 + aliasScore * 5 + keywordScore * 4 + categoryScore * 2 + answerScore * 1.2 + commonRun * 12;
+
+  if (questionText.includes(queryText)) score += 520;
+  if (aliasText.includes(queryText)) score += 420;
+  if (keywordText.includes(queryText)) score += 260;
+  if (categoryText.includes(queryText)) score += 160;
+  if (answerText.includes(queryText)) score += 120;
+  if (queryText.includes(questionText.slice(0, Math.min(12, questionText.length)))) score += 160;
+
+  const queryChars = Array.from(new Set(queryText.split('')));
+  const corpus = normalizeText(corpusText);
+  const charHits = queryChars.filter((char) => corpus.includes(char)).length;
+  const coverage = charHits / Math.max(queryChars.length, 1);
+  score += coverage * 120;
+
+  if (queryText.length <= 4 && corpus.includes(queryText)) score += 180;
+  if (coverage < 0.18 && commonRun < 2) score *= 0.35;
+
+  const strongIntentRules = [
+    { pattern: /学费|收费|费用|价格|太贵|嫌贵|多少钱/, ids: ['XG015'] },
+    { pattern: /装订|成册|资料乱|一张一张|讲义乱/, ids: ['XG017'] },
+    { pattern: /纸质|出门测|订正|下发/, ids: ['XG021'] },
+    { pattern: /学而思|高斯|举一反三|机构区别/, ids: ['XG001', 'XG016'] },
+    { pattern: /听不懂|课后辅导|上课难|觉得难/, ids: ['XG047'] },
+    { pattern: /插班|中途|前面没学|跟不上/, ids: ['XG008', 'XG049'] },
+    { pattern: /大讲堂|科技素养/, ids: ['XG025', 'XG026', 'XG027', 'XG028'] },
+    { pattern: /宁外|贯通|直升|2\+4/, ids: ['XG029', 'XG030', 'XG031', 'XG032', 'XG033'] },
+    { pattern: /蛟川|联培|联合培养/, ids: ['XG034', 'XG035', 'XG036', 'XG037', 'XG038'] },
+    { pattern: /旁听|上楼|厕所|家长.*楼|安全/, ids: ['XG039'] },
+    { pattern: /定向|名额|志愿|降分/, ids: ['XG040', 'XG041', 'XG042', 'XG043'] },
+    { pattern: /请假|补课|课冲突|缺课/, ids: ['XG046'] },
+    { pattern: /红榜|牛娃|只关注自己/, ids: ['XG024'] },
+    { pattern: /课内成绩.*下降|成绩反而下降|奥数.*下降/, ids: ['XG007'] },
+  ];
+
+  for (const rule of strongIntentRules) {
+    if (rule.pattern.test(originalQueryText)) {
+      if (rule.ids.includes(item.id)) score += 900;
+      else score -= 120;
+    }
+  }
+
+  return score;
+}
+
+function searchKnowledge(query) {
+  const text = String(query || '').trim();
+  if (!text) return { items: [], isFallback: false };
+
+  const scored = allQuestions
+    .map((item) => ({ ...item, score: scoreQuestion(text, item) }))
+    .sort((a, b) => b.score - a.score);
+
+  const strongResults = scored.filter((item) => item.score >= 35).slice(0, 16);
+  if (strongResults.length > 0) {
+    return { items: strongResults, isFallback: false };
+  }
+
+  return { items: scored.slice(0, 8), isFallback: true };
+}
+
+function isSameAnswer(left, right) {
+  if (Array.isArray(right)) {
+    const leftArray = Array.isArray(left) ? left : [];
+    return leftArray.length === right.length && right.every((item) => leftArray.includes(item));
+  }
+  return left === right;
+}
+
+function getCorrectIndexes(question) {
+  if (Array.isArray(question.answerIndexes)) return question.answerIndexes;
+  if (Number.isInteger(question.answerIndex)) return [question.answerIndex];
+  return [];
+}
+
+function formatChoice(index) {
+  return String.fromCharCode(65 + index);
+}
+
+function getLessonQuestions(lesson) {
+  return (lesson?.questionIds || []).map((id) => questionMap.get(id)).filter(Boolean);
 }
 
 export default function Home() {
+  const [activeView, setActiveView] = useState('search');
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [isFallback, setIsFallback] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id);
-  const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id);
+  const [selectedQuestionId, setSelectedQuestionId] = useState('');
+  const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id || '');
+  const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id || '');
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
-  const [activeTrainingModule, setActiveTrainingModule] = useState(null);
+
+  const searchResults = useMemo(() => searchKnowledge(query), [query]);
+  const selectedQuestion = selectedQuestionId
+    ? allQuestions.find((item) => item.id === selectedQuestionId)
+    : searchResults.items[0] || allQuestions[0];
+  const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
+  const selectedLessonQuestions = getLessonQuestions(selectedLesson);
+  const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
+  const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
+  const totalAnswered = selectedTest?.questions?.filter((question) => testAnswers[question.id] !== undefined).length || 0;
+  const correctCount = selectedTest?.questions?.filter((question) => {
+    const correct = Array.isArray(question.answerIndexes) ? question.answerIndexes : question.answerIndex;
+    return isSameAnswer(testAnswers[question.id], correct);
+  }).length || 0;
+  const score = correctCount * (selectedTest?.scorePerQuestion || 2);
+  const wrongQuestions = testSubmitted
+    ? (selectedTest?.questions || []).filter((question) => {
+      const correct = Array.isArray(question.answerIndexes) ? question.answerIndexes : question.answerIndex;
+      return !isSameAnswer(testAnswers[question.id], correct);
+    })
+    : [];
+
+  const selectResult = (id) => {
+    setSelectedQuestionId(id);
+    setActiveView('search');
+  };
 
   const openUnifiedPortal = () => {
     if (typeof window !== 'undefined') {
@@ -339,38 +259,7 @@ export default function Home() {
     }
   };
 
-  const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
-  const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
-  const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
-  const lessonKnowledgeModules = getLessonKnowledgeModules(selectedLesson);
-  const lessonKnowledgeCount = lessonKnowledgeModules.reduce((count, module) => count + module.count, 0);
-  const testScore = selectedTest?.questions?.reduce((score, question) => {
-    return score + (testAnswers[question.id] === question.answerIndex ? 1 : 0);
-  }, 0) || 0;
-
-  const handleSearch = () => {
-    if (!query.trim()) {
-      setResults([]);
-      setIsFallback(false);
-      return;
-    }
-    const searchResults = searchKnowledge(query);
-    setResults(searchResults.items);
-    setIsFallback(searchResults.isFallback);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  const openTrainingModule = (moduleName) => {
-    setActiveTrainingModule(moduleName);
-  };
-
   const selectLesson = (lessonId) => {
-    setActiveTrainingModule('lessons');
     setSelectedLessonId(lessonId);
     const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === lessonId);
     if (linkedTest) {
@@ -381,7 +270,6 @@ export default function Home() {
   };
 
   const selectTest = (testId) => {
-    setActiveTrainingModule('tests');
     setSelectedTestId(testId);
     setTestAnswers({});
     setTestSubmitted(false);
@@ -389,964 +277,780 @@ export default function Home() {
     if (linkedTest) setSelectedLessonId(linkedTest.lessonId);
   };
 
-  const chooseAnswer = (questionId, answerIndex) => {
+  const toggleAnswer = (question, optionIndex) => {
     if (testSubmitted) return;
-    setTestAnswers((current) => ({ ...current, [questionId]: answerIndex }));
+    setTestAnswers((current) => {
+      if (question.type === 'multiple') {
+        const existing = Array.isArray(current[question.id]) ? current[question.id] : [];
+        const next = existing.includes(optionIndex)
+          ? existing.filter((item) => item !== optionIndex)
+          : [...existing, optionIndex].sort((a, b) => a - b);
+        return { ...current, [question.id]: next };
+      }
+      return { ...current, [question.id]: optionIndex };
+    });
   };
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>匠人程学校知识库</h1>
-        <p style={styles.subtitle}>输入问题，快速找到答案</p>
-        <div style={styles.versionInfo}>知识库 {knowledgeBase.version} · {knowledgeBase.total} 条问答</div>
-        <div style={styles.portalActions}>
-          <button onClick={openUnifiedPortal} style={styles.portalButton}>进入员工统一工作台</button>
-          <button onClick={() => setActiveTrainingModule(null)} style={styles.portalGhostButton}>返回知识库首页</button>
-        </div>
+  const renderQuestionDetail = (item) => (
+    <article className="detail-card">
+      <div className="detail-meta">
+        <span>{item.category}</span>
+        <span>{item.source}</span>
       </div>
-
-      <div style={styles.searchContainer}>
-        <div style={{
-          ...styles.searchBox,
-          boxShadow: focused ? '0 4px 30px rgba(13, 148, 136, 0.12)' : '0 2px 20px rgba(0,0,0,0.04)'
-        }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={handleKeyPress}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="搜索问题..."
-            style={styles.input}
-          />
-          <button onClick={handleSearch} style={styles.button}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
-            </svg>
-            查询
-          </button>
-        </div>
-
-      </div>
-
-      <div style={styles.jiaoguanSection}>
-        <div style={styles.jiaoguanHeader}>
-          <h2 style={styles.jiaoguanTitle}>学管课堂</h2>
-          <p style={styles.jiaoguanSubtitle}>20 节新人培训课 · 20 套线上小测试</p>
-        </div>
-
-        {!activeTrainingModule ? (
-          <div style={styles.moduleGrid}>
-            <button onClick={() => openTrainingModule('lessons')} style={styles.moduleCard}>
-              <div style={styles.moduleIcon}>📚</div>
-              <div style={styles.moduleTitle}>学习内容</div>
-            </button>
-            <button onClick={() => openTrainingModule('tests')} style={styles.moduleCard}>
-              <div style={styles.moduleIcon}>📝</div>
-              <div style={styles.moduleTitle}>阶段测试</div>
-            </button>
-          </div>
-        ) : (
-          <div style={styles.trainingShell}>
-            <div style={styles.moduleToolbar}>
-              <button onClick={() => setActiveTrainingModule(null)} style={styles.backButton}>返回学管课堂</button>
-              <div style={styles.moduleToolbarTitle}>
-                {activeTrainingModule === 'lessons' ? '学习内容' : '阶段测试'}
-              </div>
-            </div>
-
-            {activeTrainingModule === 'lessons' && (
-              <>
-                <div style={styles.lessonList}>
-                  {(trainingProgram.lessons || []).map((lesson) => (
-                    <button
-                      key={lesson.id}
-                      onClick={() => selectLesson(lesson.id)}
-                      style={{
-                        ...styles.lessonButton,
-                        ...(lesson.id === selectedLessonId ? styles.lessonButtonActive : {}),
-                      }}
-                    >
-                      <span style={styles.lessonButtonId}>{lesson.id}</span>
-                      <span style={styles.lessonButtonText}>{lesson.title}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {selectedLesson && (
-                  <div style={styles.lessonDetail}>
-                    <div style={styles.lessonMetaRow}>
-                      <span style={styles.lessonTag}>{selectedLesson.category}</span>
-                      <span style={styles.lessonTag}>{selectedLesson.duration}</span>
-                    </div>
-                    <h3 style={styles.lessonTitle}>{selectedLesson.id} {selectedLesson.title}</h3>
-
-                    <div style={styles.trainingBlock}>
-                      <div style={styles.trainingBlockTitle}>学习目标</div>
-                      <ul style={styles.trainingList}>
-                        {selectedLesson.objectives.map((item) => <li key={item}>{item}</li>)}
-                      </ul>
-                    </div>
-
-                    <div style={styles.trainingBlock}>
-                      <div style={styles.trainingBlockTitle}>课程内容</div>
-                      {selectedLesson.content.map((item, index) => (
-                        <p key={`${item}-${index}`} style={styles.lessonParagraph}>{item}</p>
-                      ))}
-                    </div>
-
-                    {(selectedLesson.expandedSections || []).map((section) => (
-                      <div key={section.title} style={styles.trainingBlock}>
-                        <div style={styles.trainingBlockTitle}>{section.title}</div>
-                        <ul style={styles.trainingList}>
-                          {(section.items || []).map((item, index) => (
-                            <li key={`${section.title}-${index}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-
-                    <div style={styles.trainingBlock}>
-                      <div style={styles.trainingBlockTitle}>关键要点</div>
-                      <div style={styles.keyPointWrap}>
-                        {selectedLesson.keyPoints.map((item, index) => <span key={`${item}-${index}`} style={styles.keyPoint}>{item}</span>)}
-                      </div>
-                    </div>
-
-                    {(selectedLesson.referenceQa || []).length > 0 && (
-                      <div style={styles.trainingBlock}>
-                        <div style={styles.trainingBlockTitle}>本节重点参考问答</div>
-                        <div style={styles.referenceQaList}>
-                          {selectedLesson.referenceQa.map((item, index) => (
-                            <div key={`${item.question}-${index}`} style={styles.referenceQaItem}>
-                              <div style={styles.referenceQuestion}>问：{item.question}</div>
-                              <div style={styles.referenceAnswer}>答：{item.answer}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {(selectedLesson.trainerNotes || []).length > 0 && (
-                      <div style={styles.trainingBlock}>
-                        <div style={styles.trainingBlockTitle}>讲师提示</div>
-                        <ul style={styles.trainingList}>
-                          {selectedLesson.trainerNotes.map((item, index) => (
-                            <li key={`trainer-note-${index}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {lessonKnowledgeModules.length > 0 && (
-                      <div style={styles.trainingBlock}>
-                        <div style={styles.trainingBlockTitle}>本节全量知识库明细</div>
-                        <p style={styles.lessonParagraph}>
-                          本节关联 {lessonKnowledgeModules.length} 个知识模块，共 {lessonKnowledgeCount} 条问答。以下内容是新员工必须逐条学习和熟悉的完整资料。
-                        </p>
-
-                        <div style={styles.sourceModuleList}>
-                          {lessonKnowledgeModules.map((module) => (
-                            <div key={module.name} style={styles.sourceModule}>
-                              <div style={styles.sourceModuleHeader}>
-                                <span>{module.name}</span>
-                                <span style={styles.sourceModuleCount}>{module.count} 条</span>
-                              </div>
-
-                              <div style={styles.referenceQaList}>
-                                {module.questions.map((item, index) => (
-                                  <div key={`${module.name}-${item.id || index}`} style={styles.referenceQaItem}>
-                                    <div style={styles.referenceQuestion}>问：{item.q}</div>
-                                    <div style={styles.referenceAnswer}>答：{item.a}</div>
-                                    {(item.source || item.source_section || item.review_status) && (
-                                      <div style={styles.referenceMeta}>
-                                        来源：{item.source || module.name}
-                                        {item.source_section ? ` · ${item.source_section}` : ''}
-                                        {item.review_status ? ` · ${item.review_status}` : ''}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div style={styles.trainingBlock}>
-                      <div style={styles.trainingBlockTitle}>课后练习</div>
-                      <p style={styles.lessonParagraph}>{selectedLesson.practice}</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {activeTrainingModule === 'tests' && (
-              <>
-                <div style={styles.lessonList}>
-                  {(trainingProgram.tests || []).map((test) => {
-                    const lesson = (trainingProgram.lessons || []).find((item) => item.id === test.lessonId);
-                    return (
-                      <button
-                        key={test.id}
-                        onClick={() => selectTest(test.id)}
-                        style={{
-                          ...styles.lessonButton,
-                          ...(test.id === selectedTestId ? styles.lessonButtonActive : {}),
-                        }}
-                      >
-                        <span style={styles.lessonButtonId}>{test.id}</span>
-                        <span style={styles.lessonButtonText}>{lesson?.title || test.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={styles.testPanel}>
-                  <div style={styles.testHeader}>
-                    <div>
-                      <div style={styles.trainingBlockTitle}>线上小测试</div>
-                      <div style={styles.testSubtitle}>{selectedTestLesson?.id} {selectedTestLesson?.title}</div>
-                    </div>
-                    <select
-                      value={selectedTestId}
-                      onChange={(event) => selectTest(event.target.value)}
-                      style={styles.testSelect}
-                    >
-                      {(trainingProgram.tests || []).map((test) => (
-                        <option key={test.id} value={test.id}>{test.id}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {selectedTest?.questions?.map((question, questionIndex) => (
-                    <div key={question.id} style={styles.questionBlock}>
-                      <div style={styles.questionTitle}>{questionIndex + 1}. {question.question}</div>
-                      <div style={styles.optionList}>
-                        {question.options.map((option, optionIndex) => {
-                          const isChosen = testAnswers[question.id] === optionIndex;
-                          const isCorrect = question.answerIndex === optionIndex;
-                          const showCorrect = testSubmitted && isCorrect;
-                          const showWrong = testSubmitted && isChosen && !isCorrect;
-                          return (
-                            <button
-                              key={option}
-                              onClick={() => chooseAnswer(question.id, optionIndex)}
-                              style={{
-                                ...styles.optionButton,
-                                ...(isChosen ? styles.optionButtonChosen : {}),
-                                ...(showCorrect ? styles.optionButtonCorrect : {}),
-                                ...(showWrong ? styles.optionButtonWrong : {}),
-                              }}
-                            >
-                              {String.fromCharCode(65 + optionIndex)}. {option}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {testSubmitted && <div style={styles.explanation}>解析：{question.explanation}</div>}
-                    </div>
-                  ))}
-
-                  <div style={styles.testActions}>
-                    <button
-                      onClick={() => setTestSubmitted(true)}
-                      style={styles.testSubmitButton}
-                    >
-                      提交测试
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTestAnswers({});
-                        setTestSubmitted(false);
-                      }}
-                      style={styles.testResetButton}
-                    >
-                      重新作答
-                    </button>
-                    {testSubmitted && (
-                      <div style={styles.scoreText}>
-                        得分：{testScore}/{selectedTest.questions.length}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {!activeTrainingModule && (
-        <div style={styles.results}>
-          {results.length > 0 ? (
-            <>
-              <div style={styles.resultSummary}>
-                {isFallback
-                  ? `没有找到完全匹配，显示 ${results.length} 条相似问题`
-                  : `找到 ${results.length} 条最相关结果`}
-              </div>
-              {results.map((item) => (
-                <div key={item.id} style={styles.resultItem}>
-                  <div style={styles.resultQuestion}>{item.question}</div>
-                  <div style={styles.resultIntentRow}>
-                    {item.intentLabel && <span style={styles.intentTag}>{item.intentLabel}</span>}
-                    {item.scenario && <span style={styles.scenarioTag}>{item.scenario}</span>}
-                  </div>
-                  <div style={styles.resultAnswer}>{formatAnswer(item)}</div>
-                  <div style={styles.metaRow}>
-                    <span style={styles.resultCategory}>{item.category}</span>
-                    {item.isSimilar && <span style={styles.similarTag}>相似问题</span>}
-                    {item.reviewStatus && <span style={styles.statusTag}>{item.reviewStatus}</span>}
-                  </div>
-                  {(item.source || item.sourceSection) && (
-                    <div style={styles.sourceText}>来源：{item.source}{item.sourceSection ? ` · ${item.sourceSection}` : ''}</div>
-                  )}
-                </div>
-              ))}
-            </>
-          ) : query.trim() ? (
-            <div style={styles.noResults}>未找到相关答案</div>
-          ) : (
-            <div style={styles.tipsBox}>
-              输入关键词搜索知识库内容
-            </div>
-          )}
+      <h2>{item.q}</h2>
+      <div className="answer-text">{item.a}</div>
+      {(item.keywords || []).length > 0 && (
+        <div className="keyword-row">
+          {item.keywords.slice(0, 12).map((keyword) => (
+            <span key={keyword}>{keyword}</span>
+          ))}
         </div>
       )}
+    </article>
+  );
 
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif; }
-        input::placeholder { color: #A0AEC0; }
-        button:hover { opacity: 0.9; }
-        button:active { transform: scale(0.98); }
+  return (
+    <>
+      <Head>
+        <title>学管知识库系统</title>
+      </Head>
+      <main className="knowledge-page">
+        <section className="hero">
+          <div>
+            <div className="eyebrow">学管服务标准话术</div>
+            <h1>学管知识库系统</h1>
+            <p>把家长原话、关键词或相似问题放进来，系统会优先匹配最接近的标准问答。</p>
+          </div>
+          <button type="button" className="portal-button" onClick={openUnifiedPortal}>进入员工统一工作台</button>
+        </section>
+
+        <section className="search-panel">
+          <div className="search-row">
+            <input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelectedQuestionId('');
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && searchResults.items[0]) {
+                  selectResult(searchResults.items[0].id);
+                }
+              }}
+              placeholder="输入家长原话、关键词或类似问题"
+            />
+            <button type="button" onClick={() => searchResults.items[0] && selectResult(searchResults.items[0].id)}>查询</button>
+          </div>
+          <div className="metric-grid">
+            <div><strong>{knowledgeBase.total}</strong><span>完整问答</span></div>
+            <div><strong>{trainingProgram.lessons?.length || 0}</strong><span>学管课堂</span></div>
+            <div><strong>100</strong><span>测试总分</span></div>
+          </div>
+        </section>
+
+        <nav className="view-tabs" aria-label="学管知识库功能">
+          <button type="button" className={activeView === 'search' ? 'active' : ''} onClick={() => setActiveView('search')}>问答查询</button>
+          <button type="button" className={activeView === 'lessons' ? 'active' : ''} onClick={() => setActiveView('lessons')}>学管课堂</button>
+          <button type="button" className={activeView === 'tests' ? 'active' : ''} onClick={() => setActiveView('tests')}>阶段测试</button>
+        </nav>
+
+        {activeView === 'search' && (
+          <section className="workspace-grid">
+            <div className="result-list">
+              <div className="section-head">
+                <h2>{query.trim() ? '匹配结果' : '问答分类'}</h2>
+                {query.trim() && (
+                  <span>{searchResults.isFallback ? '相似匹配' : `${searchResults.items.length} 条结果`}</span>
+                )}
+              </div>
+
+              {query.trim() ? (
+                searchResults.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`result-button ${selectedQuestion?.id === item.id ? 'active' : ''}`}
+                    onClick={() => selectResult(item.id)}
+                  >
+                    <span>{item.category}</span>
+                    <strong>{item.q}</strong>
+                  </button>
+                ))
+              ) : (
+                (knowledgeBase.categories || []).map((category) => (
+                  <div key={category.name} className="category-card">
+                    <div>
+                      <strong>{category.name}</strong>
+                      <span>{category.questions.length} 条问答</span>
+                    </div>
+                    <button type="button" onClick={() => {
+                      const firstQuestion = category.questions[0];
+                      if (firstQuestion) selectResult(firstQuestion.id);
+                    }}>
+                      查看
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div>{selectedQuestion && renderQuestionDetail(selectedQuestion)}</div>
+          </section>
+        )}
+
+        {activeView === 'lessons' && (
+          <section className="workspace-grid">
+            <div className="result-list">
+              <div className="section-head">
+                <h2>学习内容</h2>
+                <span>{trainingProgram.lessons?.length || 0} 节</span>
+              </div>
+              {(trainingProgram.lessons || []).map((lesson) => (
+                <button
+                  key={lesson.id}
+                  type="button"
+                  className={`lesson-button ${lesson.id === selectedLesson?.id ? 'active' : ''}`}
+                  onClick={() => selectLesson(lesson.id)}
+                >
+                  <span>学管课堂</span>
+                  <strong>{lesson.title}</strong>
+                </button>
+              ))}
+            </div>
+
+            {selectedLesson && (
+              <article className="detail-card">
+                <div className="detail-meta">
+                  <span>{selectedLesson.category}</span>
+                  <span>{selectedLesson.duration}</span>
+                </div>
+                <h2>{selectedLesson.title}</h2>
+                <p className="lesson-overview">{selectedLesson.overview}</p>
+
+                <div className="learning-block">
+                  <h3>学习目标</h3>
+                  <ul>
+                    {(selectedLesson.objectives || []).map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+
+                <div className="learning-block">
+                  <h3>本课完整问答</h3>
+                  <div className="qa-stack">
+                    {selectedLessonQuestions.map((item) => (
+                      <section key={item.id} className="qa-card">
+                        <div className="qa-question">{item.q}</div>
+                        <div className="qa-answer">{item.a}</div>
+                      </section>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="learning-block">
+                  <h3>课后练习</h3>
+                  <p>{selectedLesson.practice}</p>
+                </div>
+              </article>
+            )}
+          </section>
+        )}
+
+        {activeView === 'tests' && (
+          <section className="test-workspace">
+            <div className="test-toolbar">
+              <div>
+                <h2>{selectedTest?.title}</h2>
+                <p>{selectedTestLesson?.title} · 已答 {totalAnswered}/{selectedTest?.questions?.length || 0}</p>
+              </div>
+              <div className="test-controls">
+                <select value={selectedTestId} onChange={(event) => selectTest(event.target.value)}>
+                  {(trainingProgram.tests || []).map((test) => (
+                    <option key={test.id} value={test.id}>{test.title}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setTestSubmitted(true)}>交卷</button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setTestAnswers({});
+                    setTestSubmitted(false);
+                  }}
+                >
+                  重做
+                </button>
+              </div>
+              {testSubmitted && (
+                <div className="score-card">
+                  <strong>{score}</strong>
+                  <span>总分 100 · 正确 {correctCount} 题</span>
+                </div>
+              )}
+            </div>
+
+            <div className="question-stack">
+              {(selectedTest?.questions || []).map((question, index) => {
+                const selected = testAnswers[question.id];
+                const correctIndexes = getCorrectIndexes(question);
+                const correctValue = question.type === 'multiple' ? correctIndexes : correctIndexes[0];
+                const questionCorrect = testSubmitted && isSameAnswer(selected, correctValue);
+
+                return (
+                  <section key={question.id} className={`test-question ${questionCorrect ? 'correct' : ''}`}>
+                    <div className="test-question-head">
+                      <strong>{index + 1}. {question.question}</strong>
+                      <span>{question.type === 'multiple' ? '多选' : '单选'}</span>
+                    </div>
+                    <div className="option-grid">
+                      {question.options.map((option, optionIndex) => {
+                        const isSelected = Array.isArray(selected) ? selected.includes(optionIndex) : selected === optionIndex;
+                        const isCorrect = correctIndexes.includes(optionIndex);
+                        return (
+                          <button
+                            key={`${question.id}-${optionIndex}`}
+                            type="button"
+                            className={[
+                              'option-button',
+                              isSelected ? 'selected' : '',
+                              testSubmitted && isCorrect ? 'right' : '',
+                              testSubmitted && isSelected && !isCorrect ? 'wrong' : '',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => toggleAnswer(question, optionIndex)}
+                          >
+                            <span>{formatChoice(optionIndex)}</span>
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {testSubmitted && <p className="explanation">解析：{question.explanation}</p>}
+                  </section>
+                );
+              })}
+            </div>
+
+            {testSubmitted && wrongQuestions.length > 0 && (
+              <section className="wrong-panel">
+                <h2>错题订正</h2>
+                {wrongQuestions.map((question, index) => {
+                  const correctIndexes = getCorrectIndexes(question);
+                  return (
+                    <div key={`wrong-${question.id}`} className="wrong-item">
+                      <strong>{index + 1}. {question.question}</strong>
+                      <p>正确答案：{correctIndexes.map((item) => `${formatChoice(item)}. ${question.options[item]}`).join('；')}</p>
+                      <p>{question.explanation}</p>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+          </section>
+        )}
+      </main>
+
+      <style jsx global>{`
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: #f5f7fb;
+          color: #14213d;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        button, input, select {
+          font: inherit;
+        }
+        button {
+          cursor: pointer;
+        }
       `}</style>
-    </div>
+      <style jsx>{`
+        .knowledge-page {
+          width: min(1180px, calc(100% - 32px));
+          margin: 0 auto;
+          padding: 28px 0 72px;
+        }
+        .hero {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 20px;
+          align-items: end;
+          padding: 28px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 12px 28px rgba(20, 33, 61, 0.06);
+        }
+        .eyebrow {
+          color: #0f766e;
+          font-size: 13px;
+          font-weight: 800;
+          margin-bottom: 8px;
+        }
+        .hero h1 {
+          margin: 0;
+          color: #14213d;
+          font-size: clamp(30px, 4vw, 46px);
+          line-height: 1.08;
+          letter-spacing: 0;
+        }
+        .hero p {
+          max-width: 720px;
+          margin: 12px 0 0;
+          color: #52627a;
+          font-size: 16px;
+          line-height: 1.7;
+        }
+        .portal-button, .search-row button, .test-controls button {
+          min-height: 42px;
+          padding: 0 18px;
+          border: 0;
+          border-radius: 8px;
+          background: #0f766e;
+          color: #ffffff;
+          font-weight: 800;
+        }
+        .portal-button {
+          background: #1f3a5f;
+        }
+        .search-panel {
+          margin-top: 16px;
+          padding: 18px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+        }
+        .search-row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+        }
+        .search-row input {
+          width: 100%;
+          min-height: 50px;
+          padding: 0 16px;
+          border: 1px solid #cbd6e2;
+          border-radius: 8px;
+          color: #14213d;
+          outline: none;
+          background: #fbfcfe;
+        }
+        .search-row input:focus {
+          border-color: #0f766e;
+          box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+        }
+        .metric-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 14px;
+        }
+        .metric-grid div {
+          min-height: 70px;
+          padding: 14px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #f8fafc;
+        }
+        .metric-grid strong {
+          display: block;
+          color: #14213d;
+          font-size: 22px;
+          line-height: 1;
+        }
+        .metric-grid span {
+          display: block;
+          margin-top: 8px;
+          color: #65758b;
+          font-size: 13px;
+        }
+        .view-tabs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin: 18px 0;
+        }
+        .view-tabs button {
+          min-height: 42px;
+          padding: 0 18px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #52627a;
+          font-weight: 800;
+        }
+        .view-tabs button.active {
+          border-color: #0f766e;
+          background: #e8f5f2;
+          color: #0f766e;
+        }
+        .workspace-grid {
+          display: grid;
+          grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+          gap: 18px;
+          align-items: start;
+        }
+        .result-list, .detail-card, .test-workspace, .wrong-panel {
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+        }
+        .result-list {
+          padding: 14px;
+          display: grid;
+          gap: 10px;
+          max-height: calc(100vh - 220px);
+          overflow: auto;
+        }
+        .section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 4px 2px 8px;
+        }
+        .section-head h2 {
+          margin: 0;
+          font-size: 18px;
+        }
+        .section-head span {
+          color: #7a8799;
+          font-size: 13px;
+        }
+        .result-button, .lesson-button {
+          width: 100%;
+          padding: 13px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #ffffff;
+          text-align: left;
+        }
+        .result-button.active, .lesson-button.active {
+          border-color: #0f766e;
+          background: #f0faf8;
+        }
+        .result-button span, .lesson-button span {
+          display: block;
+          margin-bottom: 6px;
+          color: #0f766e;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .result-button strong, .lesson-button strong {
+          display: block;
+          color: #14213d;
+          font-size: 14px;
+          line-height: 1.55;
+        }
+        .category-card {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: center;
+          padding: 14px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #fbfcfe;
+        }
+        .category-card strong, .category-card span {
+          display: block;
+        }
+        .category-card strong {
+          font-size: 15px;
+        }
+        .category-card span {
+          margin-top: 6px;
+          color: #65758b;
+          font-size: 13px;
+        }
+        .category-card button {
+          min-height: 34px;
+          padding: 0 12px;
+          border: 1px solid #d0dbe7;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #1f3a5f;
+          font-weight: 800;
+        }
+        .detail-card {
+          padding: clamp(18px, 3vw, 30px);
+        }
+        .detail-meta {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 14px;
+        }
+        .detail-meta span, .keyword-row span {
+          display: inline-flex;
+          align-items: center;
+          min-height: 26px;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: #eef4fb;
+          color: #52627a;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .detail-meta span:first-child {
+          background: #e8f5f2;
+          color: #0f766e;
+        }
+        .detail-card h2 {
+          margin: 0 0 16px;
+          color: #14213d;
+          font-size: clamp(22px, 3vw, 30px);
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .answer-text, .qa-answer {
+          color: #334155;
+          font-size: 15px;
+          line-height: 1.9;
+          white-space: pre-line;
+        }
+        .keyword-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 20px;
+        }
+        .lesson-overview, .learning-block p {
+          color: #52627a;
+          line-height: 1.8;
+        }
+        .learning-block {
+          margin-top: 22px;
+          padding-top: 18px;
+          border-top: 1px solid #e3eaf2;
+        }
+        .learning-block h3 {
+          margin: 0 0 12px;
+          color: #14213d;
+          font-size: 17px;
+        }
+        .learning-block ul {
+          margin: 0;
+          padding-left: 22px;
+          color: #334155;
+          line-height: 1.8;
+        }
+        .qa-stack, .question-stack {
+          display: grid;
+          gap: 12px;
+        }
+        .qa-card {
+          padding: 16px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #fbfcfe;
+        }
+        .qa-question {
+          margin-bottom: 10px;
+          color: #14213d;
+          font-weight: 900;
+          line-height: 1.6;
+        }
+        .test-workspace {
+          padding: clamp(16px, 3vw, 24px);
+        }
+        .test-toolbar {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto auto;
+          gap: 16px;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        .test-toolbar h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+        .test-toolbar p {
+          margin: 8px 0 0;
+          color: #65758b;
+        }
+        .test-controls {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .test-controls select {
+          min-height: 42px;
+          padding: 0 12px;
+          border: 1px solid #cbd6e2;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #14213d;
+        }
+        .test-controls .ghost {
+          border: 1px solid #d0dbe7;
+          background: #ffffff;
+          color: #1f3a5f;
+        }
+        .score-card {
+          min-width: 150px;
+          padding: 12px 14px;
+          border-radius: 8px;
+          background: #fff7ed;
+          color: #9a3412;
+        }
+        .score-card strong {
+          display: block;
+          font-size: 30px;
+          line-height: 1;
+        }
+        .score-card span {
+          display: block;
+          margin-top: 8px;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .test-question {
+          padding: 18px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #ffffff;
+        }
+        .test-question.correct {
+          border-color: #86efac;
+          background: #f0fdf4;
+        }
+        .test-question-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .test-question-head strong {
+          color: #14213d;
+          line-height: 1.6;
+        }
+        .test-question-head span {
+          flex: 0 0 auto;
+          color: #0f766e;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .option-grid {
+          display: grid;
+          gap: 8px;
+        }
+        .option-button {
+          display: grid;
+          grid-template-columns: 28px 1fr;
+          gap: 10px;
+          align-items: start;
+          width: 100%;
+          min-height: 44px;
+          padding: 10px 12px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #fbfcfe;
+          color: #334155;
+          text-align: left;
+          line-height: 1.55;
+        }
+        .option-button span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          background: #eef4fb;
+          color: #1f3a5f;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .option-button.selected {
+          border-color: #1f3a5f;
+          background: #eef4fb;
+        }
+        .option-button.right {
+          border-color: #16a34a;
+          background: #dcfce7;
+          color: #14532d;
+        }
+        .option-button.wrong {
+          border-color: #dc2626;
+          background: #fef2f2;
+          color: #991b1b;
+        }
+        .explanation {
+          margin: 12px 0 0;
+          color: #52627a;
+          font-size: 14px;
+          line-height: 1.7;
+        }
+        .wrong-panel {
+          margin-top: 18px;
+          padding: 20px;
+        }
+        .wrong-panel h2 {
+          margin: 0 0 14px;
+        }
+        .wrong-item {
+          padding: 14px 0;
+          border-top: 1px solid #e3eaf2;
+        }
+        .wrong-item strong {
+          display: block;
+          line-height: 1.6;
+        }
+        .wrong-item p {
+          margin: 8px 0 0;
+          color: #52627a;
+          line-height: 1.7;
+        }
+        @media (max-width: 900px) {
+          .knowledge-page {
+            width: min(100% - 20px, 760px);
+            padding-top: 10px;
+          }
+          .hero {
+            grid-template-columns: 1fr;
+            padding: 22px;
+          }
+          .portal-button {
+            width: 100%;
+          }
+          .workspace-grid {
+            grid-template-columns: 1fr;
+          }
+          .result-list {
+            max-height: none;
+          }
+          .test-toolbar {
+            grid-template-columns: 1fr;
+          }
+          .test-controls {
+            justify-content: stretch;
+          }
+          .test-controls select, .test-controls button {
+            flex: 1 1 140px;
+          }
+        }
+        @media (max-width: 560px) {
+          .knowledge-page {
+            width: min(100% - 14px, 520px);
+          }
+          .hero, .search-panel, .detail-card, .test-workspace {
+            border-radius: 8px;
+          }
+          .hero h1 {
+            font-size: 30px;
+          }
+          .search-row, .metric-grid {
+            grid-template-columns: 1fr;
+          }
+          .view-tabs button {
+            flex: 1 1 100%;
+          }
+          .option-button {
+            grid-template-columns: 26px 1fr;
+          }
+        }
+      `}</style>
+    </>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#FFFFFF',
-    paddingBottom: '80px',
-  },
-  header: {
-    textAlign: 'center',
-    padding: '80px 24px 48px',
-  },
-  title: {
-    fontSize: '36px',
-    fontWeight: '700',
-    color: '#1A202C',
-    letterSpacing: '-0.02em',
-    marginBottom: '10px',
-  },
-  subtitle: {
-    fontSize: '24px',
-    fontWeight: '400',
-    color: '#718096',
-    marginTop: '0',
-  },
-  versionInfo: {
-    display: 'inline-block',
-    marginTop: '18px',
-    padding: '6px 12px',
-    borderRadius: '999px',
-    background: '#EFF7F6',
-    color: '#0D9488',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  portalActions: {
-    marginTop: '18px',
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '10px',
-    flexWrap: 'wrap',
-  },
-  portalButton: {
-    minHeight: '42px',
-    padding: '0 18px',
-    borderRadius: '999px',
-    border: '1px solid #D7E8E5',
-    background: '#FFFFFF',
-    color: '#0D9488',
-    fontSize: '14px',
-    fontWeight: '700',
-    cursor: 'pointer',
-  },
-  portalGhostButton: {
-    minHeight: '42px',
-    padding: '0 18px',
-    borderRadius: '999px',
-    border: '1px solid #E2E8F0',
-    background: '#F8FAFC',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: '700',
-    cursor: 'pointer',
-  },
-  searchContainer: {
-    maxWidth: '600px',
-    margin: '0 auto',
-    padding: '0 24px',
-  },
-  searchBox: {
-    display: 'flex',
-    background: '#F5F7FA',
-    borderRadius: '22px',
-    padding: '6px',
-    transition: 'box-shadow 0.3s ease',
-  },
-  input: {
-    flex: 1,
-    padding: '16px 24px',
-    border: 'none',
-    background: 'transparent',
-    fontSize: '17px',
-    outline: 'none',
-    color: '#1A202C',
-  },
-  button: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '14px 26px',
-    background: '#0D9488',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '18px',
-    fontSize: '16px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  },
-  results: {
-    maxWidth: '700px',
-    margin: '40px auto',
-    padding: '0 24px',
-  },
-  resultSummary: {
-    color: '#718096',
-    fontSize: '14px',
-    marginBottom: '14px',
-    textAlign: 'center',
-  },
-  resultItem: {
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    padding: '24px',
-    marginBottom: '16px',
-    border: '1px solid #E2E8F0',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-  },
-  resultQuestion: {
-    fontSize: '17px',
-    fontWeight: '600',
-    color: '#1A202C',
-    marginBottom: '12px',
-    lineHeight: '1.5',
-  },
-  resultAnswer: {
-    fontSize: '15px',
-    color: '#4A5568',
-    lineHeight: '1.7',
-    marginBottom: '12px',
-    whiteSpace: 'pre-line',
-  },
-  resultIntentRow: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginBottom: '10px',
-  },
-  intentTag: {
-    display: 'inline-block',
-    padding: '4px 10px',
-    background: '#E6FFFA',
-    color: '#0F766E',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600',
-  },
-  scenarioTag: {
-    display: 'inline-block',
-    padding: '4px 10px',
-    background: '#F8FAFC',
-    color: '#475569',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600',
-  },
-  resultCategory: {
-    display: 'inline-block',
-    padding: '4px 12px',
-    background: '#EFF7F6',
-    color: '#0D9488',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  metaRow: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginBottom: '8px',
-  },
-  statusTag: {
-    display: 'inline-block',
-    padding: '4px 10px',
-    background: '#F7FAFC',
-    color: '#718096',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  similarTag: {
-    display: 'inline-block',
-    padding: '4px 10px',
-    background: '#FFF7ED',
-    color: '#C2410C',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  sourceText: {
-    color: '#A0AEC0',
-    fontSize: '12px',
-    lineHeight: '1.5',
-  },
-  noResults: {
-    textAlign: 'center',
-    padding: '60px 24px',
-    color: '#A0AEC0',
-    fontSize: '15px',
-  },
-
-  jiaoguanSection: {
-    maxWidth: '1100px',
-    margin: '88px auto 40px',
-    padding: '0 24px',
-    paddingTop: '0',
-  },
-  jiaoguanHeader: {
-    textAlign: 'center',
-    marginBottom: '24px',
-  },
-  jiaoguanTitle: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: '#1A202C',
-    marginBottom: '8px',
-  },
-  jiaoguanSubtitle: {
-    fontSize: '14px',
-    color: '#A0AEC0',
-    margin: '0',
-  },
-  moduleGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: '12px',
-    maxWidth: '600px',
-    margin: '0 auto',
-  },
-  moduleCard: {
-    minHeight: '52px',
-    padding: '12px 16px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#1A202C',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    cursor: 'pointer',
-  },
-  moduleIcon: {
-    fontSize: '18px',
-    lineHeight: '1',
-  },
-  moduleTitle: {
-    fontSize: '15px',
-    fontWeight: '700',
-  },
-  trainingShell: {
-    display: 'flex',
-    gap: '18px',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-  },
-  moduleToolbar: {
-    flex: '1 1 100%',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-    marginBottom: '2px',
-  },
-  backButton: {
-    padding: '9px 12px',
-    border: '1px solid #D7E8E5',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#0D9488',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  moduleToolbarTitle: {
-    color: '#1A202C',
-    fontSize: '18px',
-    fontWeight: '700',
-  },
-  lessonList: {
-    flex: '0 1 280px',
-    display: 'grid',
-    gap: '8px',
-  },
-  lessonButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    width: '100%',
-    minHeight: '44px',
-    padding: '10px 12px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#1A202C',
-    textAlign: 'left',
-    cursor: 'pointer',
-    fontSize: '13px',
-  },
-  lessonButtonActive: {
-    borderColor: '#0D9488',
-    background: '#EFF7F6',
-  },
-  lessonButtonId: {
-    flex: '0 0 auto',
-    color: '#0D9488',
-    fontSize: '12px',
-    fontWeight: '600',
-  },
-  lessonButtonText: {
-    lineHeight: '1.35',
-  },
-  lessonDetail: {
-    flex: '1 1 420px',
-    minWidth: '280px',
-    padding: '22px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-  },
-  lessonMetaRow: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginBottom: '10px',
-  },
-  lessonTag: {
-    display: 'inline-block',
-    padding: '4px 10px',
-    borderRadius: '12px',
-    background: '#F7FAFC',
-    color: '#718096',
-    fontSize: '12px',
-  },
-  lessonTitle: {
-    margin: '0 0 16px',
-    color: '#1A202C',
-    fontSize: '22px',
-    lineHeight: '1.35',
-  },
-  trainingBlock: {
-    marginTop: '16px',
-  },
-  trainingBlockTitle: {
-    color: '#1A202C',
-    fontSize: '15px',
-    fontWeight: '700',
-    marginBottom: '8px',
-  },
-  trainingList: {
-    margin: '0',
-    paddingLeft: '20px',
-    color: '#4A5568',
-    fontSize: '14px',
-    lineHeight: '1.7',
-  },
-  lessonParagraph: {
-    margin: '0 0 10px',
-    color: '#4A5568',
-    fontSize: '14px',
-    lineHeight: '1.8',
-  },
-  keyPointWrap: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  keyPoint: {
-    display: 'inline-block',
-    padding: '5px 10px',
-    borderRadius: '12px',
-    background: '#EFF7F6',
-    color: '#0D9488',
-    fontSize: '12px',
-    fontWeight: '600',
-  },
-  referenceQaList: {
-    display: 'grid',
-    gap: '10px',
-  },
-  referenceQaItem: {
-    padding: '12px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FAFCFC',
-  },
-  referenceQuestion: {
-    color: '#1A202C',
-    fontSize: '13px',
-    fontWeight: '700',
-    lineHeight: '1.6',
-    marginBottom: '6px',
-  },
-  referenceAnswer: {
-    color: '#4A5568',
-    fontSize: '13px',
-    lineHeight: '1.7',
-  },
-  referenceMeta: {
-    marginTop: '8px',
-    color: '#A0AEC0',
-    fontSize: '12px',
-    lineHeight: '1.5',
-  },
-  sourceModuleList: {
-    display: 'grid',
-    gap: '18px',
-    marginTop: '12px',
-  },
-  sourceModule: {
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    padding: '14px',
-    background: '#FFFFFF',
-  },
-  sourceModuleHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '12px',
-    alignItems: 'center',
-    color: '#1A202C',
-    fontSize: '15px',
-    fontWeight: '700',
-    marginBottom: '12px',
-  },
-  sourceModuleCount: {
-    flex: '0 0 auto',
-    padding: '4px 8px',
-    borderRadius: '12px',
-    background: '#EFF7F6',
-    color: '#0D9488',
-    fontSize: '12px',
-    fontWeight: '700',
-  },
-  testPanel: {
-    flex: '1 1 100%',
-    padding: '22px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-  },
-  testHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '12px',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginBottom: '16px',
-  },
-  testSubtitle: {
-    color: '#718096',
-    fontSize: '13px',
-  },
-  testSelect: {
-    minWidth: '110px',
-    padding: '9px 10px',
-    border: '1px solid #CBD5E0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#1A202C',
-  },
-  questionBlock: {
-    padding: '16px 0',
-    borderTop: '1px solid #EDF2F7',
-  },
-  questionTitle: {
-    color: '#1A202C',
-    fontSize: '15px',
-    fontWeight: '600',
-    lineHeight: '1.5',
-    marginBottom: '10px',
-  },
-  optionList: {
-    display: 'grid',
-    gap: '8px',
-  },
-  optionButton: {
-    width: '100%',
-    padding: '10px 12px',
-    border: '1px solid #E2E8F0',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#4A5568',
-    textAlign: 'left',
-    fontSize: '14px',
-    lineHeight: '1.45',
-    cursor: 'pointer',
-  },
-  optionButtonChosen: {
-    borderColor: '#0D9488',
-    background: '#EFF7F6',
-    color: '#1A202C',
-  },
-  optionButtonCorrect: {
-    borderColor: '#16A34A',
-    background: '#F0FDF4',
-    color: '#166534',
-  },
-  optionButtonWrong: {
-    borderColor: '#DC2626',
-    background: '#FEF2F2',
-    color: '#991B1B',
-  },
-  explanation: {
-    marginTop: '8px',
-    color: '#718096',
-    fontSize: '13px',
-    lineHeight: '1.6',
-  },
-  testActions: {
-    display: 'flex',
-    gap: '10px',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    paddingTop: '16px',
-    borderTop: '1px solid #EDF2F7',
-  },
-  testSubmitButton: {
-    padding: '10px 16px',
-    border: 'none',
-    borderRadius: '8px',
-    background: '#0D9488',
-    color: '#FFFFFF',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  testResetButton: {
-    padding: '10px 16px',
-    border: '1px solid #D7E8E5',
-    borderRadius: '8px',
-    background: '#FFFFFF',
-    color: '#0D9488',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  scoreText: {
-    color: '#1A202C',
-    fontSize: '15px',
-    fontWeight: '700',
-  },
-  tipsBox: {
-    textAlign: 'center',
-    padding: '60px 24px',
-    color: '#A0AEC0',
-    fontSize: '15px',
-  },
-  loginOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(15, 23, 42, 0.42)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px',
-    zIndex: 50,
-  },
-  loginModal: {
-    width: '100%',
-    maxWidth: '360px',
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '22px',
-    boxShadow: '0 18px 45px rgba(15, 23, 42, 0.22)',
-    border: '1px solid #E2E8F0',
-  },
-  loginTitle: {
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#1A202C',
-    marginBottom: '16px',
-  },
-  loginInput: {
-    width: '100%',
-    height: '44px',
-    padding: '0 12px',
-    borderRadius: '8px',
-    border: '1px solid #CBD5E0',
-    marginBottom: '10px',
-    fontSize: '14px',
-    outline: 'none',
-    color: '#1A202C',
-  },
-  loginError: {
-    color: '#C53030',
-    fontSize: '13px',
-    marginTop: '4px',
-    marginBottom: '10px',
-  },
-  loginActions: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-    marginTop: '8px',
-  },
-  loginCancelButton: {
-    height: '40px',
-    padding: '0 14px',
-    borderRadius: '8px',
-    border: '1px solid #D7E8E5',
-    background: '#FFFFFF',
-    color: '#0D9488',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  loginSubmitButton: {
-    height: '40px',
-    padding: '0 14px',
-    borderRadius: '8px',
-    border: 'none',
-    background: '#0D9488',
-    color: '#FFFFFF',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-};
