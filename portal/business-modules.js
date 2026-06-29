@@ -447,7 +447,7 @@
     if (options.restoreDeleted !== false) restoreDeletedRows(key, rows);
     const mergedRows = filterDeletedRows(key, mergeRowsById(rows, key));
     localStorage.setItem(key, JSON.stringify(mergedRows));
-    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], mergedRows);
+    if (cloudStoreModules[key]) writeCloudStore(key, cloudStoreModules[key], mergedRows, options);
   }
 
   function readCloudStore(key, onRows) {
@@ -479,9 +479,11 @@
     });
   }
 
-  function writeCloudStore(key, moduleKey, rows) {
+  function writeCloudStore(key, moduleKey, rows, options = {}) {
     if (!window.JRC_CLOUD?.writeModuleData) return;
-    const context = Array.isArray(rows) && rows.length === 0 ? { replaceMode: "replace" } : {};
+    const context = options.replaceMode === "replace" || (Array.isArray(rows) && rows.length === 0)
+      ? { replaceMode: "replace" }
+      : {};
     window.JRC_CLOUD.writeModuleData(key, moduleKey, filterDeletedRows(key, rows), context).catch((error) => {
       console.warn("云端数据保存失败", key, error);
     });
@@ -2283,71 +2285,6 @@
       const roleBoard = $("hrRoleBoard");
       if (!roleBoard) return;
       const canEdit = canEditSummerSchedule();
-      const defaultRoleSeeds = [
-        {
-          title: "教务专责",
-          members: ["颜雨涵"],
-          location: "校区统筹",
-          description: "负责排课调课、课时与班级管理，处理各类教务及家长课堂相关问题。",
-          sortOrder: 10
-        },
-        {
-          title: "互联网运营专责",
-          members: ["高芳燕"],
-          location: "线上统筹",
-          description: "负责线上社群、宣传活动运营，维护线上家长并配合线上招生工作；统筹全体员工考勤、排班统计管理。",
-          sortOrder: 20
-        },
-        {
-          title: "小课专责",
-          members: ["周珊"],
-          location: "小班教务",
-          description: "统筹小班课师生排课、课堂协调，做好小班学员、授课老师及家长的日常教务对接管理。",
-          sortOrder: 30
-        },
-        {
-          title: "招聘及出门测专责",
-          members: ["李舒"],
-          location: "质检统筹",
-          description: "统筹出门测视频录制安排，完成录制后的内容质检工作。",
-          sortOrder: 40
-        },
-        {
-          title: "财务及初中教研专责",
-          members: ["刘大君"],
-          location: "财务 / 初中教研",
-          description: "登记校区收支、核对课酬；统筹初中教研资料、组织教师备课磨课。",
-          sortOrder: 50
-        },
-        {
-          title: "人事专责",
-          members: ["叶源泽"],
-          location: "人事统筹",
-          description: "统筹人员面试招聘，办理员工入职、转岗、离职手续；关注员工心理动态，疏导员工情绪，搭建内部沟通渠道。",
-          sortOrder: 60
-        },
-        {
-          title: "小学教研及刷题班专责",
-          members: ["赵萱"],
-          location: "小学教研",
-          description: "搭建标准化小学课件，组织小学教师备课、模课教研；规划刷题班授课内容，统筹刷题班授课老师安排。",
-          sortOrder: 70
-        },
-        {
-          title: "课程质量专责",
-          members: ["郑嘉艺"],
-          location: "质量管控",
-          description: "搭建小班课质量管控体系，统一授课标准，完善课程监管与教师晋级细则；统筹线上课程、配套习题的录制与编辑工作。",
-          sortOrder: 80
-        },
-        {
-          title: "会计及互联网招募专责",
-          members: ["陈雨晴"],
-          location: "财务 / 线上招募",
-          description: "负责账务核算、票据与财务报表；跟进线上线索、邀约试听转化学员。",
-          sortOrder: 90
-        }
-      ];
       const roleEditor = $("hrRoleEditorPanel");
       const roleEditorToggle = $("hrRoleEditorToggle");
       const roleAdminToolbar = $("hrRoleAdminToolbar");
@@ -2401,64 +2338,72 @@
         return max >= 9999 ? 10 : max + 10;
       }
 
-      function ensureDefaultRoleRows() {
-        let changed = false;
-        const seededRows = [];
-        defaultRoleSeeds.forEach((seed) => {
-          const existing = roleRows.find((row) => roleTitleOf(row) === seed.title);
-          if (existing) {
-            const members = roleMemberListOf(existing).length ? roleMemberListOf(existing) : seed.members;
-            const merged = {
-              ...existing,
-              sortOrder: Number.isFinite(Number(existing.sortOrder)) && Number(existing.sortOrder) > 0 ? Number(existing.sortOrder) : seed.sortOrder,
-              location: normalizeText(existing.location) || seed.location,
-              description: roleDescriptionOf(existing) || seed.description,
-              note: roleDescriptionOf(existing) || seed.description,
-              members,
-              membersText: members.join("、"),
-              employee: members.join("、")
-            };
-            if (JSON.stringify(merged) !== JSON.stringify(existing)) {
-              seededRows.push(merged);
-              changed = true;
-            } else {
-              seededRows.push(existing);
-            }
-            return;
-          }
-          seededRows.push({
-            title: seed.title,
-            role: seed.title,
-            sortOrder: seed.sortOrder,
-            location: seed.location,
-            status: "启用",
-            description: seed.description,
-            note: seed.description,
-            members: seed.members,
-            membersText: seed.members.join("、"),
-            employee: seed.members.join("、"),
-            createdAt: nowText(),
-            createdBy: "系统预置",
-            updatedAt: nowText(),
-            updatedBy: "系统预置"
-          });
-          changed = true;
-        });
-        if (!changed) return false;
-        const extraRows = roleRows.filter((row) => !defaultRoleSeeds.some((seed) => seed.title === roleTitleOf(row)));
-        roleRows = mergeRowsById([...extraRows, ...seededRows], roleDirectoryKey);
-        writeStore(roleDirectoryKey, roleRows);
-        return true;
+      function roleRowTime(row) {
+        const value = normalizeText(row?.updatedAt || row?.createdAt || row?.at || "");
+        const parsed = Date.parse(value.replace(/[年月.]/g, "/").replace(/日/g, " "));
+        return Number.isFinite(parsed) ? parsed : 0;
       }
 
-      function ensureRoleRowIds() {
-        let changed = false;
-        roleRows = roleRows.map((row) => {
+      function isSystemPresetRoleRow(row) {
+        const createdBy = normalizeText(row?.createdBy);
+        const updatedBy = normalizeText(row?.updatedBy);
+        return createdBy === "系统预置" && (!updatedBy || updatedBy === "系统预置");
+      }
+
+      function roleManualRank(row) {
+        const operators = [row?.createdBy, row?.updatedBy].map(normalizeText).filter(Boolean);
+        if (operators.some((operator) => operator !== "系统预置")) return 2;
+        return isSystemPresetRoleRow(row) ? 0 : 1;
+      }
+
+      function preferredRoleRow(rows) {
+        return [...rows].sort((left, right) => {
+          return roleManualRank(right) - roleManualRank(left)
+            || roleRowTime(right) - roleRowTime(left)
+            || roleSortOrderOf(left) - roleSortOrderOf(right);
+        })[0];
+      }
+
+      function dedupeRoleRowsByTitle(rows) {
+        const groups = new Map();
+        mergeRowsById(rows, roleDirectoryKey).forEach((row) => {
+          if (isSystemPresetRoleRow(row)) return;
           const normalized = ensureRowId(row, roleDirectoryKey);
-          if (normalized.rowId !== row?.rowId) changed = true;
-          return normalized;
+          const title = roleTitleOf(normalized);
+          const key = title ? `title:${title}` : `row:${roleRowIdOf(normalized)}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(normalized);
         });
-        if (changed) writeStore(roleDirectoryKey, roleRows);
+        return [...groups.values()].map((group) => {
+          const preferred = preferredRoleRow(group) || group[0];
+          const fallbackMembers = group.map(roleMemberListOf).find((members) => members.length) || [];
+          const members = roleMemberListOf(preferred).length ? roleMemberListOf(preferred) : fallbackMembers;
+          const description = roleDescriptionOf(preferred) || group.map(roleDescriptionOf).find(Boolean) || "";
+          const title = roleTitleOf(preferred);
+          return ensureRowId({
+            ...preferred,
+            title,
+            role: title || normalizeText(preferred?.role) || "",
+            sortOrder: roleSortOrderOf(preferred),
+            description,
+            note: description,
+            members,
+            membersText: members.join("、"),
+            employee: members.join("、")
+          }, roleDirectoryKey);
+        }).sort((left, right) => {
+          return roleSortOrderOf(left) - roleSortOrderOf(right)
+            || roleTitleOf(left).localeCompare(roleTitleOf(right), "zh-CN");
+        });
+      }
+
+      function normalizeRoleRows(options = {}) {
+        const nextRows = dedupeRoleRowsByTitle(roleRows);
+        const changed = JSON.stringify(nextRows) !== JSON.stringify(roleRows);
+        roleRows = nextRows;
+        if (options.persist !== false && (changed || options.forceWrite)) {
+          writeStore(roleDirectoryKey, roleRows, { restoreDeleted: false, replaceMode: "replace" });
+        }
         return changed;
       }
 
@@ -2613,7 +2558,7 @@
           updatedAt: nowText(),
           updatedBy: currentOperator().name || ""
         }));
-        writeStore(roleDirectoryKey, roleRows);
+        normalizeRoleRows({ forceWrite: true });
         renderRoleViews();
         recordAudit(moduleKey, "调整岗位顺序", "岗位宣传栏", `${orderedRows.length} 个岗位`);
         setText("hrRoleMessage", "岗位展示顺序已保存到云端，其他老师刷新后会看到新顺序。");
@@ -2749,7 +2694,7 @@
           recordAudit(moduleKey, "新增岗位设置", title, payload.membersText || "未安排人员");
           setText("hrRoleMessage", `已新增岗位“${title}”。`);
         }
-        writeStore(roleDirectoryKey, roleRows);
+        normalizeRoleRows({ forceWrite: true });
         renderRoleViews();
         closeRoleEditor();
       });
@@ -2772,7 +2717,7 @@
           if (!window.confirm(`确定删除岗位“${title}”吗？`)) return;
           markRowDeleted(roleDirectoryKey, row);
           roleRows.splice(index, 1);
-          writeStore(roleDirectoryKey, roleRows, { restoreDeleted: false });
+          normalizeRoleRows({ forceWrite: true });
           recordAudit(moduleKey, "删除岗位设置", title, row?.membersText || "未安排人员");
           closeRoleEditor();
           renderRoleViews();
@@ -2780,13 +2725,11 @@
         }
       }, { update: canEdit, delete: canEdit }, "hrRoleMessage");
 
-      ensureDefaultRoleRows();
-      ensureRoleRowIds();
+      normalizeRoleRows({ persist: !window.JRC_CLOUD?.readModuleData, forceWrite: !window.JRC_CLOUD?.readModuleData });
       renderRoleViews();
       readCloudStore(roleDirectoryKey, (cloudRows) => {
         roleRows = mergeRowsById(cloudRows, roleDirectoryKey);
-        ensureDefaultRoleRows();
-        ensureRoleRowIds();
+        normalizeRoleRows({ forceWrite: true });
         renderRoleViews();
         setText("hrRoleMessage", canEdit ? "已同步云端岗位设置，可继续维护。" : "已同步云端岗位设置。");
       });
