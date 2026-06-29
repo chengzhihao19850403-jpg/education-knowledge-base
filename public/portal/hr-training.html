@@ -75,9 +75,13 @@
       .span-3 { grid-column: 1 / -1; }
       .role-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
       .role-card { border: 1px solid var(--line); border-radius: 18px; padding: 18px; background: linear-gradient(180deg, #ffffff 0%, rgba(124,58,237,0.05) 100%); color: var(--ink); box-shadow: 0 10px 24px rgba(23,33,50,0.06); }
+      .role-card[draggable="true"] { cursor: grab; }
+      .role-card[draggable="true"]:active { cursor: grabbing; }
+      .role-card.dragging { opacity: 0.58; transform: scale(0.99); }
       .role-card-name { font-size: 24px; line-height: 1.2; font-weight: 900; color: var(--ink); }
       .role-card-title { margin-top: 8px; font-size: 15px; line-height: 1.5; font-weight: 800; color: var(--brand-dark); }
       .role-card p { margin-top: 12px; font-size: 13px; line-height: 1.75; }
+      .role-drag-hint { display: inline-flex; margin-top: 12px; padding: 4px 9px; border-radius: 999px; background: rgba(124,58,237,0.10); color: var(--brand-dark); font-size: 12px; font-weight: 800; }
       .person-chip { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid rgba(23,33,50,0.08); color: var(--ink); font-size: 12px; font-weight: 700; }
       .person-chip button { border: 0; background: transparent; color: #7c3aed; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
       .role-admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 14px; }
@@ -132,7 +136,7 @@
               <p>展示各专责负责人、岗位名称和职责说明。</p>
               <span>查看岗位宣传栏</span>
             </a>
-            <a class="mini-item module-link" data-requires-permission="hr.access" href="#hrManagementSection">
+            <a class="mini-item module-link" data-hr-private hidden href="#hrManagementSection">
               <strong>人事管理</strong>
               <p>员工档案、岗位权限、入职转正、培训记录和提成档位。</p>
               <span>进入人事管理</span>
@@ -155,7 +159,7 @@
           <li><strong>排课联动</strong>：教室可用情况会影响排课判断，后续继续和排课系统打通。</li>
         </ul>
         <div class="actions">
-          <a class="button" data-requires-permission="campus.access" href="./campus-operations.html">进入校区运营</a>
+          <a class="button" href="./campus-operations.html">进入校区运营</a>
         </div>
       </section>
 

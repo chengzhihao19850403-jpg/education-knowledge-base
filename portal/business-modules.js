@@ -497,6 +497,24 @@
     return window.jrcHasPermission(permission);
   }
 
+  function isCoreOpsAdmin() {
+    const operator = window.JRC_CURRENT_EMPLOYEE || {};
+    const username = normalizeText(operator.username).toLowerCase();
+    const name = normalizeName(operator.name);
+    return ["程志豪", "陈雨晴"].includes(name) || ["chengzhihao", "czh", "chenyuqing"].includes(username);
+  }
+
+  function fixedCapabilities(allowed) {
+    return {
+      create: Boolean(allowed),
+      update: Boolean(allowed),
+      delete: Boolean(allowed),
+      import: Boolean(allowed),
+      export: Boolean(allowed),
+      reset: Boolean(allowed)
+    };
+  }
+
   function moduleCapabilities(moduleKey) {
     const manage = hasPermission(`${moduleKey}.edit`);
     return {
@@ -2101,16 +2119,12 @@
   function initHrTraining() {
     if (!$("hrTaskTableBody") && !$("hrRoleBoard")) return;
     const moduleKey = "hr";
-    const capabilities = moduleCapabilities(moduleKey);
+    const canManageCoreOps = isCoreOpsAdmin();
+    const capabilities = fixedCapabilities(canManageCoreOps);
     const key = "jrc-hr-training-tasks-v2";
     const roleDirectoryKey = "jrc-hr-role-directory-v1";
-    const canViewHrPrivate = hasPermission("hr.access");
-    const canEditSummerSchedule = () => {
-      const operator = currentOperator();
-      const name = normalizeName(operator.name);
-      const username = normalizeText(operator.username).toLowerCase();
-      return ["程志豪", "陈雨晴"].includes(name) || ["chengzhihao", "czh", "chenyuqing"].includes(username);
-    };
+    const canViewHrPrivate = canManageCoreOps;
+    const canEditSummerSchedule = () => canManageCoreOps;
     const defaults = {
       type: "入职",
       employee: "",
@@ -2373,6 +2387,15 @@
             .split(/[、,，/]+/));
       }
 
+      function roleRowIdOf(row) {
+        return String(ensureRowId(row, roleDirectoryKey)?.rowId || "").trim();
+      }
+
+      function cssAttrEscape(value) {
+        const text = String(value || "");
+        return window.CSS?.escape ? window.CSS.escape(text) : text.replace(/["\\\]]/g, "\\$&");
+      }
+
       function nextRoleSortOrder() {
         const max = roleRows.reduce((highest, row) => Math.max(highest, roleSortOrderOf(row)), 0);
         return max >= 9999 ? 10 : max + 10;
@@ -2426,6 +2449,17 @@
         roleRows = mergeRowsById([...extraRows, ...seededRows], roleDirectoryKey);
         writeStore(roleDirectoryKey, roleRows);
         return true;
+      }
+
+      function ensureRoleRowIds() {
+        let changed = false;
+        roleRows = roleRows.map((row) => {
+          const normalized = ensureRowId(row, roleDirectoryKey);
+          if (normalized.rowId !== row?.rowId) changed = true;
+          return normalized;
+        });
+        if (changed) writeStore(roleDirectoryKey, roleRows);
+        return changed;
       }
 
       function syncRoleEmployeeOptions() {
@@ -2526,11 +2560,13 @@
           const members = roleMemberListOf(row);
           const displayName = members.length ? members.join("、") : "待安排";
           const description = roleDescriptionOf(row) || "岗位职责待补充。";
+          const rowId = roleRowIdOf(row);
           return `
-            <div class="role-card">
+            <div class="role-card" ${canEdit ? `draggable="true" data-role-row-id="${escapeHtml(rowId)}"` : ""}>
               <div class="role-card-name">${escapeHtml(displayName)}</div>
               <div class="role-card-title">${escapeHtml(title)}</div>
               <p>${escapeHtml(description)}</p>
+              ${canEdit ? `<span class="role-drag-hint">拖动调整展示顺序</span>` : ""}
             </div>
           `;
         }).join("");
@@ -2560,6 +2596,55 @@
         renderRoleBoard();
         renderRoleTable();
       }
+
+      function saveRoleBoardOrder() {
+        if (!canEdit) return;
+        const orderedIds = [...roleBoard.querySelectorAll(".role-card[data-role-row-id]")]
+          .map((node) => normalizeText(node.getAttribute("data-role-row-id")))
+          .filter(Boolean);
+        if (!orderedIds.length) return;
+        const idSet = new Set(orderedIds);
+        const byId = new Map(roleRows.map((row) => [roleRowIdOf(row), row]));
+        const orderedRows = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+        const restRows = roleRows.filter((row) => !idSet.has(roleRowIdOf(row)));
+        roleRows = [...orderedRows, ...restRows].map((row, index) => ({
+          ...row,
+          sortOrder: (index + 1) * 10,
+          updatedAt: nowText(),
+          updatedBy: currentOperator().name || ""
+        }));
+        writeStore(roleDirectoryKey, roleRows);
+        renderRoleViews();
+        recordAudit(moduleKey, "调整岗位顺序", "岗位宣传栏", `${orderedRows.length} 个岗位`);
+        setText("hrRoleMessage", "岗位展示顺序已保存到云端，其他老师刷新后会看到新顺序。");
+      }
+
+      let draggedRoleRowId = "";
+      roleBoard.addEventListener("dragstart", (event) => {
+        if (!canEdit) return;
+        const card = event.target.closest(".role-card[data-role-row-id]");
+        if (!card) return;
+        draggedRoleRowId = normalizeText(card.getAttribute("data-role-row-id"));
+        card.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", draggedRoleRowId);
+      });
+      roleBoard.addEventListener("dragover", (event) => {
+        if (!canEdit || !draggedRoleRowId) return;
+        const draggedCard = roleBoard.querySelector(`.role-card[data-role-row-id="${cssAttrEscape(draggedRoleRowId)}"]`);
+        const targetCard = event.target.closest(".role-card[data-role-row-id]");
+        if (!draggedCard || !targetCard || targetCard === draggedCard) return;
+        event.preventDefault();
+        const rect = targetCard.getBoundingClientRect();
+        const beforeTarget = event.clientY < rect.top + rect.height / 2;
+        roleBoard.insertBefore(draggedCard, beforeTarget ? targetCard : targetCard.nextSibling);
+      });
+      roleBoard.addEventListener("dragend", () => {
+        if (!canEdit || !draggedRoleRowId) return;
+        roleBoard.querySelectorAll(".role-card.dragging").forEach((node) => node.classList.remove("dragging"));
+        draggedRoleRowId = "";
+        saveRoleBoardOrder();
+      });
 
       if (roleEditorToggle) {
         roleEditorToggle.addEventListener("click", () => {
@@ -2696,10 +2781,12 @@
       }, { update: canEdit, delete: canEdit }, "hrRoleMessage");
 
       ensureDefaultRoleRows();
+      ensureRoleRowIds();
       renderRoleViews();
       readCloudStore(roleDirectoryKey, (cloudRows) => {
         roleRows = mergeRowsById(cloudRows, roleDirectoryKey);
         ensureDefaultRoleRows();
+        ensureRoleRowIds();
         renderRoleViews();
         setText("hrRoleMessage", canEdit ? "已同步云端岗位设置，可继续维护。" : "已同步云端岗位设置。");
       });
@@ -3093,7 +3180,8 @@
   function initCampusOperations() {
     if (!$("campusTableBody")) return;
     const moduleKey = "campus";
-    const capabilities = moduleCapabilities(moduleKey);
+    const canManageCoreOps = isCoreOpsAdmin();
+    const capabilities = fixedCapabilities(canManageCoreOps);
     const key = "jrc-campus-operations-v2";
     const defaults = {
       title: "",
@@ -3106,14 +3194,21 @@
     };
     function sanitizeRows(input) {
       const oldSeedTitles = ["教室可用状态核对", "暑假值班表", "门店异常记录"];
-      return (Array.isArray(input) ? input : []).filter((row) => !oldSeedTitles.includes(row.title));
+      return (Array.isArray(input) ? input : [])
+        .filter((row) => !oldSeedTitles.includes(row.title))
+        .map((row) => ({
+          ...row,
+          type: ["岗位排班", "暑假排班"].includes(row?.type) ? "值班" : row?.type
+        }));
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
-    const canEditCampus = capabilities.create || capabilities.update || capabilities.delete || capabilities.import || capabilities.reset;
+    const canEditCampus = canManageCoreOps;
     const campusEditor = $("campusEditorPanel");
     const campusEditorToggle = $("campusEditorToggle");
+    const campusExportButton = $("campusExportButton");
     if (campusEditor) campusEditor.hidden = true;
+    if (campusExportButton) campusExportButton.hidden = !canEditCampus;
     if (campusEditorToggle) {
       campusEditorToggle.hidden = !canEditCampus;
       campusEditorToggle.addEventListener("click", () => {
@@ -3157,7 +3252,7 @@
           </tr>
         `).join("") : `<tr><td colspan="8">暂无校区运营事项。可以新增教室、值班、卫生、安全检查或异常记录。</td></tr>`;
       setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
-      setText("campusMetricDuty", rows.filter((row) => row.type === "值班" || row.type === "岗位排班" || row.type === "暑假排班").length);
+      setText("campusMetricDuty", rows.filter((row) => row.type === "值班").length);
       setText("campusMetricSafety", rows.filter((row) => row.type === "安全检查").length);
       setText("campusMetricOpen", rows.filter((row) => row.status !== "已完成").length);
       renderAuditLog(moduleKey, "campusAuditTableBody");
@@ -3258,7 +3353,7 @@
         if (!title) return null;
         return {
           title,
-          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"], "异常记录").replace("暑假排班", "岗位排班"),
+          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"], "异常记录").replace(/岗位排班|暑假排班/g, "值班"),
           area: normalizeText(readField(row, ["area", "位置 / 范围", "位置", "范围"], "-")) || "-",
           owner: normalizeName(readField(row, ["owner", "责任人", "负责人"], "-")) || "-",
           status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成", "需复盘"], "待处理"),

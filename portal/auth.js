@@ -1160,7 +1160,7 @@ function jrcGetPermissionHint(permissionKey, employee = jrcResolveCurrentEmploye
     "finance.access": "财务系统只给财务和总管理员使用，避免收入、成本和分红数据被误改。",
     "admissions.access": "招生管理系统主要给学管和招生相关管理员使用。",
     "hr.access": "人事管理涉及员工档案和权限，仅总管理员使用。",
-    "campus.access": "校区运营已开放查看；修改值班、排班和校区事务仍需学管或管理员权限。",
+    "campus.access": "校区运营已开放查看；修改值班和校区事务仅限程志豪、陈雨晴。",
     "paike.edit": "排课修改权限只给排课管理员开放，其他老师可以查看课表。",
     "admin.access": "该入口仅总管理员可用。"
   };
