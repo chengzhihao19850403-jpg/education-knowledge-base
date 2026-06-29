@@ -70,6 +70,8 @@
       label.field { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+      .hr-flow-hint { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid rgba(124,58,237,0.16); border-radius: 14px; background: rgba(124,58,237,0.06); color: var(--muted); line-height: 1.7; font-size: 13px; }
+      .hr-flow-hint strong { color: var(--ink); }
       .span-3 { grid-column: 1 / -1; }
       .schedule-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
       .schedule-toolbar input { flex: 1; min-width: 220px; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
@@ -247,12 +249,14 @@
           <p>记录人事调整、权限调整、培训安排和离职交接。</p>
           <div class="form-grid">
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>离职</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
-            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" placeholder="填写员工姓名"></label>
+            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" list="hrActiveEmployeeOptions" placeholder="输入姓氏或名字检索在职员工"></label>
+            <datalist id="hrActiveEmployeeOptions"></datalist>
             <label class="field"><span>关联系统</span><input id="hrSystemInput" placeholder="例如：财务 / 排课 / 学管知识库"></label>
             <label class="field"><span>处理状态</span><select id="hrStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option></select></label>
             <label class="field"><span>负责人</span><input id="hrOwnerInput" placeholder="填写负责人"></label>
             <label class="field"><span>下一步</span><input id="hrNextInput" placeholder="例如：补齐信息并归档"></label>
             <label class="field span-3"><span>事项说明</span><textarea id="hrNoteInput" placeholder="记录调整原因、执行时间和是否需要财务同步。"></textarea></label>
+            <div class="hr-flow-hint" id="hrFlowHint">这里是人事事项留痕：事项类型说明发生什么事；员工姓名是处理对象；关联系统说明哪些系统要同步；处理状态和负责人用于闭环；下一步写下一件必须完成的动作；事项说明记录原因、时间和交接细节。</div>
           </div>
           <div class="actions">
             <button class="button" id="hrSaveButton" type="button">保存人事管理事项</button>
@@ -283,7 +287,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260629b"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>

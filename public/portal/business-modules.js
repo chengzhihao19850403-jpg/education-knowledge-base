@@ -2120,6 +2120,101 @@
       next: "",
       note: ""
     };
+    const departedEmployeePattern = /离职|停用|禁用|已离开|departed|inactive|disabled/i;
+    const hrTypeGuides = {
+      入职: {
+        system: "统一登录、人事档案、权限、岗位排班",
+        next: "补齐手机号、微信、岗位权限，确认入职日期和转正日期",
+        notePlaceholder: "建议写清：入职日期、岗位、手机号/微信、初始权限、试用期安排、转正日期和培训安排。",
+        hint: "<strong>入职事项怎么填：</strong>员工姓名可填写新员工；关联系统用于提醒创建登录账号、人事档案、岗位排班和基础权限；下一步写清还差哪些入职资料或权限；事项说明记录入职日期、岗位、试用期和培训安排。"
+      },
+      转正: {
+        system: "人事档案、权限、财务",
+        next: "核对入职日期和转正日期，确认薪资/提成/权限是否调整",
+        notePlaceholder: "建议写清：原入职日期、转正日期、考核结论、薪资或提成是否调整、权限是否变化。",
+        hint: "<strong>转正事项怎么填：</strong>员工姓名从在职名单选择；关联系统通常是人事档案、权限和财务；下一步写清是否需要调整工资、提成或权限；事项说明记录转正日期、考核结论和调整依据。"
+      },
+      离职: {
+        system: "统一登录、权限、排课、财务、学生服务",
+        next: "确认离职日期；停用账号权限；保留排课上课和本月结算记录",
+        notePlaceholder: "建议写清：离职日期、最后上课/排课日期、账号权限停用、工作交接、财务结算月份和是否仍需保留历史排课/上课数据。",
+        hint: "<strong>离职办理口径：</strong>员工姓名请从在职名单选择；关联系统用于提醒统一登录、权限、排课、财务、学生服务同步处理；下一步用于写清还差哪一步；事项说明记录离职日期、交接内容、账号停用和本月结算口径。"
+      },
+      权限调整: {
+        system: "统一登录、系统权限",
+        next: "确认需要开通或关闭的模块权限，并通知本人复核",
+        notePlaceholder: "建议写清：调整原因、开通/关闭哪些系统、是否允许新增/编辑/导出、生效时间。",
+        hint: "<strong>权限调整怎么填：</strong>员工姓名从在职名单选择；关联系统写需要变更的模块；下一步写清谁确认、何时生效；事项说明记录具体开通或关闭的权限，避免只写“调权限”。"
+      },
+      提成调整: {
+        system: "财务、人事档案",
+        next: "确认新提成口径、生效月份，并同步财务核算",
+        notePlaceholder: "建议写清：调整前后提成口径、生效月份、适用课程/岗位、审批原因和财务同步方式。",
+        hint: "<strong>提成调整怎么填：</strong>员工姓名从在职名单选择；关联系统重点写财务；下一步写清生效月份和谁复核；事项说明记录调整前后口径，方便月结对账。"
+      },
+      培训记录: {
+        system: "人事培训、学管知识库",
+        next: "归档培训主题、参训人、考核结果和后续补训安排",
+        notePlaceholder: "建议写清：培训主题、培训时间、参训人员、考核结果、是否需要补训或复盘。",
+        hint: "<strong>培训记录怎么填：</strong>员工姓名可填个人，也可以填小组；关联系统通常是人事培训和知识库；下一步写清是否还要补训、考核或复盘；事项说明记录培训主题、结果和后续要求。"
+      }
+    };
+
+    function employeeStatusText(employee) {
+      return normalizeText([
+        employee?.status,
+        employee?.employmentStatus,
+        employee?.workStatus,
+        employee?.employeeStatus,
+        employee?.accountStatus
+      ].filter(Boolean).join(" "));
+    }
+
+    function isActiveHrEmployee(employee) {
+      const name = normalizeName(employee?.name);
+      if (!name) return false;
+      const statusText = employeeStatusText(employee);
+      return !departedEmployeePattern.test(statusText);
+    }
+
+    function activeHrEmployees() {
+      return (Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [])
+        .filter(isActiveHrEmployee)
+        .sort((left, right) => normalizeName(left.name).localeCompare(normalizeName(right.name), "zh-CN"));
+    }
+
+    function renderHrEmployeeOptions() {
+      const datalist = $("hrActiveEmployeeOptions");
+      if (!datalist) return;
+      datalist.innerHTML = activeHrEmployees().map((employee) => {
+        const name = normalizeName(employee.name);
+        const meta = [employee.role, employee.subject, employee.scope].map(normalizeText).filter(Boolean).join(" / ");
+        return `<option value="${escapeHtml(name)}"${meta ? ` label="${escapeHtml(meta)}"` : ""}></option>`;
+      }).join("");
+    }
+
+    function matchActiveHrEmployee(name) {
+      const target = normalizeName(name);
+      if (!target) return null;
+      return activeHrEmployees().find((employee) => normalizeName(employee.name) === target) || null;
+    }
+
+    function updateHrTypeGuidance(options = {}) {
+      const type = $("hrTypeInput")?.value || "入职";
+      const flowHint = $("hrFlowHint");
+      const systemInput = $("hrSystemInput");
+      const nextInput = $("hrNextInput");
+      const noteInput = $("hrNoteInput");
+      const guide = hrTypeGuides[type] || hrTypeGuides.培训记录;
+      if (systemInput && (!systemInput.value.trim() || options.forceDefaults)) {
+        systemInput.value = guide.system;
+      }
+      if (nextInput && (!nextInput.value.trim() || options.forceDefaults)) {
+        nextInput.value = guide.next;
+      }
+      if (noteInput) noteInput.placeholder = guide.notePlaceholder;
+      if (flowHint) flowHint.innerHTML = guide.hint;
+    }
 
     function applyHrVisibility() {
       document.querySelectorAll("[data-hr-private]").forEach((node) => {
@@ -2297,12 +2392,14 @@
       $("hrOwnerInput").value = row.owner || "";
       $("hrNextInput").value = row.next || "";
       $("hrNoteInput").value = row.note || "";
+      updateHrTypeGuidance();
     }
 
     function resetForm() {
       fillForm(defaults);
       editingIndex = -1;
       setText("hrSaveButton", "保存人事管理事项");
+      updateHrTypeGuidance();
     }
 
     function buildRegularizationReminders(employees) {
@@ -2434,6 +2531,7 @@
           </tr>
         `).join("") : `<tr><td colspan="7">暂无人事事项。员工基础名单已在上方，全员名单可展开查看；新增培训、转正、权限调整后会显示在这里。</td></tr>`;
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
+      renderHrEmployeeOptions();
       setText("hrMetricEmployees", employees.length || 0);
       renderRegularizationMetric(employees);
       setText("hrMetricCommission", employees.filter((employee) => employee.commissionRate).length);
@@ -2459,8 +2557,14 @@
         setText("hrMessage", "请先填写员工姓名或对象。");
         return;
       }
+      const type = $("hrTypeInput")?.value || "培训记录";
+      const exactEmployeeRequiredTypes = ["离职", "转正", "权限调整", "提成调整"];
+      if (exactEmployeeRequiredTypes.includes(type) && activeHrEmployees().length && !matchActiveHrEmployee(employee)) {
+        setText("hrMessage", `${type}事项请从在职员工候选里选择完整员工姓名。可以输入姓氏或名字后，在弹出的候选里点选。`);
+        return;
+      }
       const payload = {
-        type: $("hrTypeInput")?.value || "培训记录",
+        type,
         employee,
         system: normalizeText($("hrSystemInput")?.value) || "-",
         status: $("hrStatusInput")?.value || "待处理",
@@ -2482,6 +2586,16 @@
       writeStore(key, rows);
       resetForm();
       render();
+    });
+    $("hrTypeInput")?.addEventListener("change", () => {
+      updateHrTypeGuidance({ forceDefaults: true });
+    });
+    $("hrEmployeeInput")?.addEventListener("change", () => {
+      const type = $("hrTypeInput")?.value || "";
+      const employee = normalizeName($("hrEmployeeInput")?.value);
+      if (["离职", "转正", "权限调整", "提成调整"].includes(type) && employee && activeHrEmployees().length && !matchActiveHrEmployee(employee)) {
+        setText("hrMessage", `${type}事项建议从候选名单选择完整姓名，避免只填姓氏或同名误选。`);
+      }
     });
     $("hrFilterInput")?.addEventListener("input", render);
     $("hrSortSelect")?.addEventListener("change", render);
