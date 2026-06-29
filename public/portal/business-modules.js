@@ -2272,6 +2272,71 @@
       const roleBoard = $("hrRoleBoard");
       if (!body && !roleBoard) return;
       const canEdit = canEditSummerSchedule();
+      const defaultRoleSeeds = [
+        {
+          title: "教务专责",
+          members: ["颜雨涵"],
+          location: "校区统筹",
+          description: "负责排课调课、课时与班级管理，处理各类教务及家长课堂相关问题。",
+          sortOrder: 10
+        },
+        {
+          title: "互联网运营专责",
+          members: ["高芳燕"],
+          location: "线上统筹",
+          description: "负责线上社群、宣传活动运营，维护线上家长并配合线上招生工作；统筹全体员工考勤、排班统计管理。",
+          sortOrder: 20
+        },
+        {
+          title: "小课专责",
+          members: ["周珊"],
+          location: "小班教务",
+          description: "统筹小班课师生排课、课堂协调，做好小班学员、授课老师及家长的日常教务对接管理。",
+          sortOrder: 30
+        },
+        {
+          title: "招聘及出门测专责",
+          members: ["李舒"],
+          location: "质检统筹",
+          description: "统筹出门测视频录制安排，完成录制后的内容质检工作。",
+          sortOrder: 40
+        },
+        {
+          title: "财务及初中教研专责",
+          members: ["刘大君"],
+          location: "财务 / 初中教研",
+          description: "登记校区收支、核对课酬；统筹初中教研资料、组织教师备课磨课。",
+          sortOrder: 50
+        },
+        {
+          title: "人事专责",
+          members: ["叶源泽"],
+          location: "人事统筹",
+          description: "统筹人员面试招聘，办理员工入职、转岗、离职手续；关注员工心理动态，疏导员工情绪，搭建内部沟通渠道。",
+          sortOrder: 60
+        },
+        {
+          title: "小学教研及刷题班专责",
+          members: ["赵萱"],
+          location: "小学教研",
+          description: "搭建标准化小学课件，组织小学教师备课、模课教研；规划刷题班授课内容，统筹刷题班授课老师安排。",
+          sortOrder: 70
+        },
+        {
+          title: "课程质量专责",
+          members: ["郑嘉艺"],
+          location: "质量管控",
+          description: "搭建小班课质量管控体系，统一授课标准，完善课程监管与教师晋级细则；统筹线上课程、配套习题的录制与编辑工作。",
+          sortOrder: 80
+        },
+        {
+          title: "会计及互联网招募专责",
+          members: ["陈雨晴"],
+          location: "财务 / 线上招募",
+          description: "负责账务核算、票据与财务报表；跟进线上线索、邀约试听转化学员。",
+          sortOrder: 90
+        }
+      ];
       const editor = $("hrSummerEditorPanel");
       const editorToggle = $("hrSummerEditorToggle");
       const roleEditor = $("hrRoleEditorPanel");
@@ -2324,11 +2389,70 @@
         return normalizeText(row?.description || row?.note);
       }
 
+      function roleSortOrderOf(row) {
+        const value = Number(row?.sortOrder);
+        return Number.isFinite(value) && value > 0 ? value : 9999;
+      }
+
       function roleMemberListOf(row) {
         return uniqueNames(Array.isArray(row?.members)
           ? row.members
           : String(row?.membersText || row?.employee || "")
             .split(/[、,，/]+/));
+      }
+
+      function nextRoleSortOrder() {
+        const max = roleRows.reduce((highest, row) => Math.max(highest, roleSortOrderOf(row)), 0);
+        return max >= 9999 ? 10 : max + 10;
+      }
+
+      function ensureDefaultRoleRows() {
+        let changed = false;
+        const seededRows = [];
+        defaultRoleSeeds.forEach((seed) => {
+          const existing = roleRows.find((row) => roleTitleOf(row) === seed.title);
+          if (existing) {
+            const merged = {
+              ...existing,
+              sortOrder: Number.isFinite(Number(existing.sortOrder)) && Number(existing.sortOrder) > 0 ? Number(existing.sortOrder) : seed.sortOrder,
+              location: normalizeText(existing.location) || seed.location,
+              description: roleDescriptionOf(existing) || seed.description,
+              note: roleDescriptionOf(existing) || seed.description,
+              members: roleMemberListOf(existing).length ? roleMemberListOf(existing) : seed.members,
+              membersText: roleMemberListOf(existing).length ? roleMemberListOf(existing).join("、") : seed.members.join("、"),
+              employee: roleMemberListOf(existing).length ? roleMemberListOf(existing).join("、") : seed.members.join("、")
+            };
+            if (JSON.stringify(merged) !== JSON.stringify(existing)) {
+              seededRows.push(merged);
+              changed = true;
+            } else {
+              seededRows.push(existing);
+            }
+            return;
+          }
+          seededRows.push({
+            title: seed.title,
+            role: seed.title,
+            sortOrder: seed.sortOrder,
+            location: seed.location,
+            status: "启用",
+            description: seed.description,
+            note: seed.description,
+            members: seed.members,
+            membersText: seed.members.join("、"),
+            employee: seed.members.join("、"),
+            createdAt: nowText(),
+            createdBy: "系统预置",
+            updatedAt: nowText(),
+            updatedBy: "系统预置"
+          });
+          changed = true;
+        });
+        if (!changed) return false;
+        const extraRows = roleRows.filter((row) => !defaultRoleSeeds.some((seed) => seed.title === roleTitleOf(row)));
+        roleRows = mergeRowsById([...extraRows, ...seededRows], roleDirectoryKey);
+        writeStore(roleDirectoryKey, roleRows);
+        return true;
       }
 
       function scheduleRoleCounts() {
@@ -2390,12 +2514,14 @@
       }
 
       function resetRoleForm() {
-        ["hrRoleTitleInput", "hrRoleLocationInput", "hrRoleDescriptionInput", "hrRoleMemberInput"].forEach((id) => {
+        ["hrRoleTitleInput", "hrRoleLocationInput", "hrRoleDescriptionInput", "hrRoleMemberInput", "hrRoleSortInput"].forEach((id) => {
           const node = $(id);
           if (node) node.value = "";
         });
         const statusInput = $("hrRoleStatusInput");
         if (statusInput) statusInput.value = "启用";
+        const sortInput = $("hrRoleSortInput");
+        if (sortInput) sortInput.value = String(nextRoleSortOrder());
         currentRoleMembers = [];
         editingRoleIndex = -1;
         renderSelectedRoleMembers();
@@ -2412,6 +2538,7 @@
         if (!roleEditor) return;
         roleEditor.hidden = false;
         setText("hrRoleEditorToggle", "收起编辑");
+        $("hrRoleSortInput").value = String(roleSortOrderOf(row));
         $("hrRoleTitleInput").value = roleTitleOf(row) || "";
         $("hrRoleLocationInput").value = normalizeText(row?.location) || "";
         $("hrRoleStatusInput").value = normalizeText(row?.status) || "启用";
@@ -2438,7 +2565,9 @@
           .sort((left, right) => {
             const leftStatus = normalizeText(left.row?.status) === "停用" ? 1 : 0;
             const rightStatus = normalizeText(right.row?.status) === "停用" ? 1 : 0;
-            return leftStatus - rightStatus || roleTitleOf(left.row).localeCompare(roleTitleOf(right.row), "zh-CN");
+            return leftStatus - rightStatus
+              || roleSortOrderOf(left.row) - roleSortOrderOf(right.row)
+              || roleTitleOf(left.row).localeCompare(roleTitleOf(right.row), "zh-CN");
           });
       }
 
@@ -2471,16 +2600,19 @@
             const description = roleDescriptionOf(row);
             const status = normalizeText(row?.status) || "启用";
             const scheduleCount = counts.get(title) || 0;
+            const leadName = members[0] || "待安排";
+            const supportMembers = members.slice(1);
             return `
               <button type="button" class="role-card ${activeSummerRole === title ? "active" : ""}" data-role-filter="${escapeHtml(title)}">
                 <div class="role-card-head">
+                  <span class="role-card-order">#${escapeHtml(String(roleSortOrderOf(row)))}</span>
                   <span class="role-card-title">${escapeHtml(title)}</span>
                   ${status === "停用" ? `<span class="tag">停用</span>` : `<span class="tag green">${members.length || 0} 人</span>`}
                 </div>
-                <div class="person-row" style="margin-top:10px;">
-                  ${members.length ? members.map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("") : `<span class="person-chip">暂未安排</span>`}
-                </div>
-                <p>${location ? `地点：${escapeHtml(location)}` : "地点待补充"}${scheduleCount ? `｜排班 ${scheduleCount} 条` : "｜暂无排班"}${description ? `<br>${escapeHtml(description)}` : ""}</p>
+                <div class="role-card-name">${escapeHtml(leadName)}</div>
+                <div class="role-card-meta">${location ? `地点：${escapeHtml(location)}` : "地点待补充"}${scheduleCount ? `｜排班 ${scheduleCount} 条` : "｜暂无排班"}</div>
+                ${supportMembers.length ? `<div class="person-row" style="margin-top:10px;">${supportMembers.map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("")}</div>` : ""}
+                <p>${description ? escapeHtml(description) : "岗位职责待补充。"}</p>
               </button>
             `;
           })
@@ -2493,6 +2625,7 @@
         const entries = sortedRoleEntries();
         tableBody.innerHTML = entries.length ? entries.map(({ row, index }) => `
           <tr>
+            <td>${escapeHtml(String(roleSortOrderOf(row)))}</td>
             <td><strong>${escapeHtml(roleTitleOf(row) || "-")}</strong></td>
             <td>${roleMemberListOf(row).length ? roleMemberListOf(row).map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("") : "-"}</td>
             <td>${escapeHtml(normalizeText(row?.location) || "-")}</td>
@@ -2500,7 +2633,7 @@
             <td>${escapeHtml(roleDescriptionOf(row) || "-")}</td>
             <td>${canEdit ? actionButtons(index, { update: true, delete: true }) : tag("仅查看", "neutral")}</td>
           </tr>
-        `).join("") : `<tr><td colspan="6">暂无岗位设置。新增后，这里会形成长期岗位台账。</td></tr>`;
+        `).join("") : `<tr><td colspan="7">暂无岗位设置。新增后，这里会形成长期岗位台账。</td></tr>`;
       }
 
       function renderRoleViews() {
@@ -2608,9 +2741,15 @@
           setText("hrRoleMessage", "请先填写岗位名称。");
           return;
         }
+        const duplicated = roleRows.find((row, index) => roleTitleOf(row) === title && index !== editingRoleIndex);
+        if (duplicated) {
+          setText("hrRoleMessage", `岗位“${title}”已经存在，请直接编辑原岗位，避免重复建立。`);
+          return;
+        }
         const payload = {
           title,
           role: title,
+          sortOrder: Math.max(1, Number($("hrRoleSortInput")?.value) || nextRoleSortOrder()),
           location: normalizeText($("hrRoleLocationInput")?.value) || "-",
           status: normalizeText($("hrRoleStatusInput")?.value) || "启用",
           description: normalizeText($("hrRoleDescriptionInput")?.value) || "-",
@@ -2675,7 +2814,7 @@
           roleRows.splice(index, 1);
           writeStore(roleDirectoryKey, roleRows, { restoreDeleted: false });
           recordAudit(moduleKey, "删除岗位设置", title, relatedScheduleCount ? `保留 ${relatedScheduleCount} 条历史排班` : "无关联排班");
-          if (activeSummerRole === title && !relatedScheduleCount) activeSummerRole = "";
+          if (activeSummerRole === title) activeSummerRole = "";
           closeRoleEditor();
           renderRoleViews();
           renderSummerSchedule();
@@ -2774,8 +2913,12 @@
 
       renderRoleViews();
       renderSummerSchedule();
+      ensureDefaultRoleRows();
+      renderRoleViews();
+      renderSummerSchedule();
       readCloudStore(roleDirectoryKey, (cloudRows) => {
         roleRows = mergeRowsById(cloudRows, roleDirectoryKey);
+        ensureDefaultRoleRows();
         renderRoleViews();
         renderSummerSchedule();
         setText("hrRoleMessage", canEdit ? "已同步云端岗位设置，可继续维护。" : "已同步云端岗位设置。");

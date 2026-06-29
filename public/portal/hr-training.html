@@ -75,12 +75,15 @@
       .span-3 { grid-column: 1 / -1; }
       .schedule-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
       .role-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
-      .role-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: linear-gradient(180deg, #ffffff 0%, rgba(124,58,237,0.05) 100%); color: var(--ink); cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; }
+      .role-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: linear-gradient(180deg, #ffffff 0%, rgba(124,58,237,0.05) 100%); color: var(--ink); cursor: pointer; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; }
       .role-card:hover { transform: translateY(-1px); border-color: rgba(124,58,237,0.22); box-shadow: 0 12px 28px rgba(23,33,50,0.08); }
       .role-card.active { border-color: rgba(124,58,237,0.36); box-shadow: 0 0 0 3px rgba(124,58,237,0.10); }
       .role-card-head, .person-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-      .role-card-title { font-size: 16px; font-weight: 800; color: var(--ink); }
-      .role-card p { margin-top: 10px; font-size: 12px; line-height: 1.6; }
+      .role-card-order { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; min-height: 34px; padding: 0 8px; border-radius: 999px; background: rgba(124,58,237,0.10); color: var(--brand-dark); font-size: 13px; font-weight: 800; }
+      .role-card-title { font-size: 13px; font-weight: 800; color: var(--brand-dark); letter-spacing: 0.02em; }
+      .role-card-name { margin-top: 12px; font-size: 24px; line-height: 1.2; font-weight: 900; color: var(--ink); }
+      .role-card-meta { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+      .role-card p { margin-top: 12px; font-size: 13px; line-height: 1.75; }
       .person-chip { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid rgba(23,33,50,0.08); color: var(--ink); font-size: 12px; font-weight: 700; }
       .person-chip button { border: 0; background: transparent; color: #7c3aed; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
       .role-admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 14px; }
@@ -166,8 +169,8 @@
       <section class="card" id="summerScheduleSection">
         <div class="section-head">
           <div>
-            <h2>岗位设置</h2>
-            <p>先维护长期岗位和对应人员，再在下面安排每天的值班和临时排班。</p>
+            <h2>岗位宣传栏</h2>
+            <p>展示各专责负责人、岗位顺序和职责说明；下面管理员可继续维护岗位设置。</p>
           </div>
           <span class="status-chip">长期维护</span>
         </div>
@@ -179,10 +182,11 @@
         <div class="schedule-editor" id="hrRoleEditorPanel" hidden>
           <h3 style="margin-top:18px;">新增 / 修改岗位设置</h3>
           <div class="form-grid">
+            <label class="field"><span>展示排序</span><input id="hrRoleSortInput" type="number" min="1" step="1" placeholder="例如：1"></label>
             <label class="field"><span>岗位名称</span><input id="hrRoleTitleInput" list="hrRoleNameOptions" placeholder="例如：前台值班 / 教室巡查"></label>
             <label class="field"><span>校区 / 地点</span><input id="hrRoleLocationInput" placeholder="例如：江南校区"></label>
             <label class="field"><span>状态</span><select id="hrRoleStatusInput"><option>启用</option><option>停用</option></select></label>
-            <label class="field span-3"><span>岗位说明</span><textarea id="hrRoleDescriptionInput" placeholder="一句话说明这个岗位负责什么、老师查看时要注意什么。"></textarea></label>
+            <label class="field span-3"><span>岗位职责说明</span><textarea id="hrRoleDescriptionInput" placeholder="这里写岗位职责说明，展示时会放在岗位名称和负责人下面。"></textarea></label>
             <label class="field span-3">
               <span>当前人员</span>
               <div class="role-picker">
@@ -205,7 +209,7 @@
         <div class="table-wrap" id="hrRoleTableWrap" hidden>
           <table>
             <thead>
-              <tr><th>岗位</th><th>当前人员</th><th>校区 / 地点</th><th>状态</th><th>岗位说明</th><th>操作</th></tr>
+              <tr><th>排序</th><th>岗位</th><th>当前人员</th><th>校区 / 地点</th><th>状态</th><th>岗位职责说明</th><th>操作</th></tr>
             </thead>
             <tbody id="hrRoleTableBody"></tbody>
           </table>
@@ -351,7 +355,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260629b"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260629c"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260629d"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>
