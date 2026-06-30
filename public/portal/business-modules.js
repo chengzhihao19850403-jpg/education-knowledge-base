@@ -1352,6 +1352,7 @@
     const allGradeOptions = ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "初一", "初二", "初三"];
     const defaultOutlineCategory = "普通课程资料";
     const outlineCategoryOptions = [defaultOutlineCategory, "程老师授课大纲", "科学老师授课大纲", "小课老师授课大纲"];
+    const teachingOutlineCategories = ["程老师授课大纲", "小课老师授课大纲", "科学老师授课大纲"];
     const seasonOptions = ["春季", "暑假", "秋季", "寒假", "通用"];
     const scienceOutlineTeachers = ["海滢滢", "姚老师", "朱永乐"];
     const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit");
@@ -1470,12 +1471,73 @@
       }
     }
 
+    function outlineTeacherSelectId(category) {
+      if (category === "小课老师授课大纲") return "curriculumSmallOutlineTeacherSelect";
+      if (category === "科学老师授课大纲") return "curriculumScienceOutlineTeacherSelect";
+      return "";
+    }
+
+    function selectedOutlineTeacher(category) {
+      const id = outlineTeacherSelectId(category);
+      return id ? normalizeName($(id)?.value || "") : "";
+    }
+
+    function renderOutlineTeacherSelectors() {
+      [
+        ["小课老师授课大纲", "curriculumSmallOutlineTeacherSelect", "全部小课老师"],
+        ["科学老师授课大纲", "curriculumScienceOutlineTeacherSelect", "全部科学老师"]
+      ].forEach(([category, id, label]) => {
+        const select = $(id);
+        if (!select) return;
+        const selected = select.value || "";
+        const previousActive = activeOutlineFilter;
+        activeOutlineFilter = category;
+        const names = teacherFilterNamesForActiveOutline();
+        activeOutlineFilter = previousActive;
+        select.innerHTML = `<option value="">${escapeHtml(label)}</option>${names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}`;
+        if (selected && names.includes(selected)) select.value = selected;
+      });
+    }
+
+    function renderOutlineGradeDirectories() {
+      const options = allowedGrades.length ? allowedGrades : allGradeOptions;
+      teachingOutlineCategories.forEach((category) => {
+        document.querySelectorAll(`[data-outline-grade-board="${category}"]`).forEach((board) => {
+          const teacher = selectedOutlineTeacher(category);
+          const teacherText = category === "程老师授课大纲"
+            ? "程老师"
+            : teacher || (category === "科学老师授课大纲" ? "全部科学老师" : "全部小课老师");
+          board.innerHTML = options.map((grade) => `
+            <button class="resource-tree-item" type="button" data-outline-grade-entry="${escapeHtml(category)}" data-outline-grade="${escapeHtml(grade)}">
+              <strong>${escapeHtml(grade)}</strong>
+              <span>${escapeHtml(teacherText)} / ${escapeHtml(category)} / 点击查看大纲</span>
+            </button>
+          `).join("");
+        });
+      });
+    }
+
+    function setOutlinePanel(category) {
+      const normalized = normalizeOutlineCategory(category, "课程大纲");
+      document.querySelectorAll("[data-outline-tab]").forEach((button) => {
+        button.classList.toggle("active", normalizeOutlineCategory(button.getAttribute("data-outline-tab"), "课程大纲") === normalized);
+      });
+      document.querySelectorAll("[data-outline-panel]").forEach((panel) => {
+        panel.hidden = normalizeOutlineCategory(panel.getAttribute("data-outline-panel"), "课程大纲") !== normalized;
+      });
+      renderOutlineTeacherSelectors();
+      renderOutlineGradeDirectories();
+    }
+
     function updateCurriculumFilterControls() {
       const teacherFilter = $("curriculumTeacherFilter");
       if (!teacherFilter) return;
       const shouldShowTeacherFilter = ["小课老师授课大纲", "科学老师授课大纲"].includes(activeOutlineFilter);
       teacherFilter.hidden = !shouldShowTeacherFilter;
-      if (!shouldShowTeacherFilter) teacherFilter.value = "";
+      if (!shouldShowTeacherFilter) {
+        teacherFilter.value = "";
+        activeOutlineTeacherFilter = "";
+      }
       applyTeacherOptions();
     }
 
@@ -1526,6 +1588,7 @@
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
     let editingIndex = -1;
     let activeOutlineFilter = "";
+    let activeOutlineTeacherFilter = "";
     let curriculumPreviewObjectUrl = "";
     let curriculumPreviewZoom = 1;
 
@@ -1567,8 +1630,10 @@
       const board = $("curriculumDirectoryBoard");
       if (board) {
         board.innerHTML = `<button class="resource-tree-item" type="button" data-curriculum-grade-dir=""><strong>全部年级</strong><span>查看当前权限范围内全部资料。</span></button>` +
-          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}"><strong>${escapeHtml(grade)}</strong><span>讲义 / 专题资料 / 好题资料 / 试卷 / 课件 / 其他资料</span></button>`).join("");
+          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}"><strong>${escapeHtml(grade)}</strong><span>讲义 / 专题资料 / 好题资料 / 试卷 / 课件 / 其他资料 / 点击查看</span></button>`).join("");
       }
+      renderOutlineTeacherSelectors();
+      renderOutlineGradeDirectories();
     }
 
     function visibleRows() {
@@ -1703,7 +1768,9 @@
 
     function rowMatchesCurriculumFilters(row) {
       const outlineFilter = activeOutlineFilter || $("curriculumOutlineFilter")?.value || "";
-      const teacherFilter = ["小课老师授课大纲", "科学老师授课大纲"].includes(activeOutlineFilter) ? ($("curriculumTeacherFilter")?.value || "") : "";
+      const teacherFilter = ["小课老师授课大纲", "科学老师授课大纲"].includes(activeOutlineFilter)
+        ? (activeOutlineTeacherFilter || $("curriculumTeacherFilter")?.value || "")
+        : "";
       const seasonFilter = $("curriculumSeasonFilter")?.value || "";
       const gradeFilter = $("curriculumGradeFilter")?.value || "";
       if (outlineFilter && normalizeOutlineCategory(row.outlineCategory, row.type) !== outlineFilter) return false;
@@ -1951,6 +2018,7 @@
       const button = event.target.closest("[data-curriculum-grade-dir]");
       if (!button) return;
       activeOutlineFilter = "";
+      activeOutlineTeacherFilter = "";
       updateCurriculumFilterControls();
       const grade = button.getAttribute("data-curriculum-grade-dir") || "";
       if ($("curriculumGradeFilter")) $("curriculumGradeFilter").value = grade;
@@ -1960,10 +2028,47 @@
       setText("curriculumMessage", grade ? `已打开课程资料库：${grade}。` : "已打开课程资料库：全部年级。");
       $("curriculumTableBody")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
+    document.querySelectorAll("[data-outline-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const category = normalizeOutlineCategory(button.getAttribute("data-outline-tab"), "课程大纲");
+        setOutlinePanel(category);
+        setText("curriculumMessage", category === "程老师授课大纲"
+          ? "已打开程老师授课大纲入口，请选择年级。"
+          : `已打开${category}入口，请先选老师，再选择年级。`);
+      });
+    });
+    document.querySelectorAll("[data-outline-grade-board]").forEach((board) => {
+      board.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-outline-grade-entry]");
+        if (!button) return;
+        const category = normalizeOutlineCategory(button.getAttribute("data-outline-grade-entry"), "课程大纲");
+        const grade = button.getAttribute("data-outline-grade") || "";
+        activeOutlineFilter = category;
+        activeOutlineTeacherFilter = selectedOutlineTeacher(category);
+        updateCurriculumFilterControls();
+        if ($("curriculumGradeFilter")) $("curriculumGradeFilter").value = grade;
+        if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = category;
+        if ($("curriculumTypeInput")) $("curriculumTypeInput").value = "课程大纲";
+        if ($("curriculumTeacherFilter") && activeOutlineTeacherFilter) $("curriculumTeacherFilter").value = activeOutlineTeacherFilter;
+        render();
+        const teacherText = activeOutlineTeacherFilter ? `${activeOutlineTeacherFilter} / ` : "";
+        setText("curriculumMessage", `已打开：${teacherText}${category} / ${grade}。`);
+        $("curriculumTableBody")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    });
+    ["curriculumSmallOutlineTeacherSelect", "curriculumScienceOutlineTeacherSelect"].forEach((id) => {
+      $(id)?.addEventListener("change", () => {
+        const category = id === "curriculumScienceOutlineTeacherSelect" ? "科学老师授课大纲" : "小课老师授课大纲";
+        if (activeOutlineFilter === category) activeOutlineTeacherFilter = normalizeName($(id)?.value || "");
+        renderOutlineGradeDirectories();
+      });
+    });
     document.querySelectorAll("[data-outline-filter]").forEach((button) => {
       button.addEventListener("click", () => {
         const category = normalizeOutlineCategory(button.getAttribute("data-outline-filter"), "课程大纲");
         activeOutlineFilter = category;
+        activeOutlineTeacherFilter = "";
+        setOutlinePanel(category);
         updateCurriculumFilterControls();
         if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = category;
         if ($("curriculumTypeInput")) $("curriculumTypeInput").value = "课程大纲";
@@ -2148,6 +2253,7 @@
     applyGradeOptions();
     applyTeacherOptions();
     updateCurriculumFilterControls();
+    setOutlinePanel("程老师授课大纲");
     resetForm();
     render();
     setText("curriculumMessage", gradeScopeText());

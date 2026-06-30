@@ -52,12 +52,19 @@
       .mini-item strong { display: block; margin-bottom: 6px; }
       .resource-tree { display: grid; gap: 10px; margin-top: 14px; }
       .resource-tree-item { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fff; }
+      button.resource-tree-item { width: 100%; text-align: left; cursor: pointer; color: inherit; }
+      button.resource-tree-item:hover, .outline-card:hover { border-color: rgba(37,99,235,0.34); box-shadow: 0 10px 28px rgba(37,99,235,0.08); }
       .resource-tree-item strong { color: var(--ink); }
       .resource-tree-item span { color: var(--muted); line-height: 1.5; }
       .outline-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       .outline-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; color: var(--ink); cursor: pointer; }
+      .outline-card.active { border-color: rgba(37,99,235,0.38); background: var(--brand-soft); }
       .outline-card strong { display: block; margin-bottom: 5px; }
       .outline-card span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .outline-directory-panel { margin-top: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 14px; }
+      .outline-directory-panel h3 { margin-bottom: 4px; }
+      .outline-teacher-picker { margin-top: 12px; max-width: 320px; }
+      .outline-teacher-picker select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .preview-modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.72); }
       .preview-modal[aria-hidden="false"] { display: flex; }
       .preview-dialog { width: min(1120px, 96vw); height: min(92vh, 900px); display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 18px; background: #fff; box-shadow: var(--shadow); padding: 16px; }
@@ -129,10 +136,29 @@
             </div>
             <span class="status-chip">大纲</span>
           </div>
-          <div class="outline-board">
-            <button class="outline-card" type="button" data-outline-filter="程老师授课大纲"><strong>程老师授课大纲</strong><span>统一课型、课堂节奏、核心题型和讲解重点。</span></button>
-            <button class="outline-card" type="button" data-outline-filter="小课老师授课大纲"><strong>小课老师授课大纲</strong><span>按老师、季节和年级归档。</span></button>
-            <button class="outline-card" type="button" data-outline-filter="科学老师授课大纲"><strong>科学老师授课大纲</strong><span>科学老师三位：海滢滢、姚老师、朱永乐。</span></button>
+          <div class="outline-board" id="curriculumOutlineSwitcher">
+            <button class="outline-card active" type="button" data-outline-tab="程老师授课大纲"><strong>程老师授课大纲</strong><span>点开后按一到九年级查看。</span></button>
+            <button class="outline-card" type="button" data-outline-tab="小课老师授课大纲"><strong>小课老师授课大纲</strong><span>先选小课老师，再按一到九年级查看。</span></button>
+            <button class="outline-card" type="button" data-outline-tab="科学老师授课大纲"><strong>科学老师授课大纲</strong><span>先选科学老师，再按一到九年级查看。</span></button>
+          </div>
+          <div class="outline-directory-panel" id="curriculumOutlineDirectoryPanel">
+            <div data-outline-panel="程老师授课大纲">
+              <h3>程老师授课大纲</h3>
+              <p>选择年级后，下方只显示程老师授课大纲对应年级内容。</p>
+              <div class="resource-tree" data-outline-grade-board="程老师授课大纲"></div>
+            </div>
+            <div data-outline-panel="小课老师授课大纲" hidden>
+              <h3>小课老师授课大纲</h3>
+              <p>先选择老师，再选择年级查看对应大纲。</p>
+              <label class="outline-teacher-picker"><span>小课老师</span><select id="curriculumSmallOutlineTeacherSelect"><option value="">全部小课老师</option></select></label>
+              <div class="resource-tree" data-outline-grade-board="小课老师授课大纲"></div>
+            </div>
+            <div data-outline-panel="科学老师授课大纲" hidden>
+              <h3>科学老师授课大纲</h3>
+              <p>先选择科学老师，再选择年级查看对应大纲。</p>
+              <label class="outline-teacher-picker"><span>科学老师</span><select id="curriculumScienceOutlineTeacherSelect"><option value="">全部科学老师</option></select></label>
+              <div class="resource-tree" data-outline-grade-board="科学老师授课大纲"></div>
+            </div>
           </div>
         </article>
         <article class="card">
@@ -184,8 +210,8 @@
         <article class="card">
           <div class="section-head">
             <div>
-              <h2>课程产品台账</h2>
-              <p>按年级、体系、课次和资料类型查询课程资料。</p>
+              <h2>当前目录内容</h2>
+              <p>点击左侧授课大纲或右侧课程资料库入口后，这里显示对应年级的资料。</p>
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
