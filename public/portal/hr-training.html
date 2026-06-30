@@ -60,6 +60,31 @@
       .process-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
       .process-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.65; }
       .process-list strong { color: var(--ink); }
+      .campus-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .campus-column { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,0.72); padding: 16px; }
+      .campus-column__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+      .campus-column__head h3 { font-size: 20px; }
+      .campus-column__head p { margin-top: 4px; font-size: 13px; }
+      .campus-display-grid { display: grid; gap: 12px; }
+      .campus-display-card { border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 15px; }
+      .campus-display-card__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+      .campus-display-card h3 { font-size: 17px; line-height: 1.35; }
+      .campus-display-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+      .campus-display-content { white-space: pre-wrap; color: var(--ink); line-height: 1.8; font-size: 13px; }
+      .campus-display-preview { max-height: 9.2em; overflow: hidden; }
+      .campus-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .campus-empty { border: 1px dashed rgba(23,33,50,0.18); border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.74); color: var(--muted); line-height: 1.7; }
+      .campus-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+      .campus-tools input, .campus-tools select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; background: #fff; }
+      .campus-tools input { flex: 1; min-width: 220px; }
+      .campus-modal[hidden] { display: none !important; }
+      .campus-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 18px; }
+      .campus-modal__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.52); }
+      .campus-modal__panel { position: relative; z-index: 1; width: min(920px, 100%); max-height: min(86vh, 820px); overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 22px; background: #fff; box-shadow: 0 26px 80px rgba(15, 23, 42, 0.30); }
+      .campus-modal__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+      .campus-modal__head h2 { margin-top: 4px; font-size: 24px; line-height: 1.25; }
+      .campus-modal__content { overflow: auto; padding: 20px 22px 26px; white-space: pre-wrap; color: var(--ink); line-height: 1.9; font-size: 15px; }
+      body.campus-modal-open { overflow: hidden; }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
       table { width: 100%; min-width: 860px; border-collapse: collapse; }
@@ -91,8 +116,8 @@
       .role-selected { display: flex; flex-wrap: wrap; gap: 8px; min-height: 42px; padding: 10px 12px; border: 1px dashed rgba(23,33,50,0.16); border-radius: 12px; background: rgba(255,255,255,0.72); }
       .role-empty { padding: 16px; border: 1px dashed rgba(23,33,50,0.16); border-radius: 16px; background: rgba(255,255,255,0.72); color: var(--muted); line-height: 1.7; }
       .admin-editor-toggle[hidden] { display: none !important; }
-      .schedule-editor[hidden], [data-hr-private][hidden] { display: none !important; }
-      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .schedule-editor[hidden], .admin-editor-panel[hidden], [data-hr-private][hidden] { display: none !important; }
+      @media (max-width: 980px) { .hero, .grid, .campus-board { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260628g">
@@ -124,12 +149,17 @@
           <div class="auth-note" data-role-greeting></div>
         </article>
         <article class="card">
-          <h2>三大工作模块</h2>
+          <h2>常用区域</h2>
           <div class="mini-list">
-            <a class="mini-item module-link" href="./campus-operations.html">
-              <strong>校区运营</strong>
-              <p>公告公示类和工作流程类集中展示，方便全员查看安排和制度。</p>
-              <span>进入校区运营</span>
+            <a class="mini-item module-link" href="#campusAnnouncementColumn">
+              <strong>公告公示类</strong>
+              <p>值班表、卫生值日表、学管排班表、招聘情况和临时通知。</p>
+              <span>查看公告</span>
+            </a>
+            <a class="mini-item module-link" href="#campusWorkflowColumn">
+              <strong>工作流程类</strong>
+              <p>招聘、面试、试用淘汰、入职离职和日常制度。</p>
+              <span>查看流程</span>
             </a>
             <a class="mini-item module-link" href="#summerScheduleSection">
               <strong>岗位宣传栏</strong>
@@ -149,18 +179,92 @@
         <div class="section-head">
           <div>
             <h2>校区运营</h2>
-            <p>公告公示类、工作流程类两块展示内容。</p>
+            <p>公告公示和工作流程直接在这里看，不需要再进入单独模块。</p>
           </div>
-          <span class="status-chip">展示栏</span>
+          <span class="status-chip" id="campusDisplayStatus">展示栏</span>
         </div>
-        <ul class="process-list">
-          <li><strong>公告公示类</strong>：值班表、卫生值日表、学管排班表、招聘情况和校区通知集中展示。</li>
-          <li><strong>工作流程类</strong>：招聘、面试、试用淘汰、入职离职和日常制度集中查看。</li>
-          <li><strong>展示为主</strong>：这里不做审批和任务流，普通老师只查看，管理员维护内容。</li>
-        </ul>
-        <div class="actions">
-          <a class="button" href="./campus-operations.html">进入校区运营</a>
+        <div class="campus-tools">
+          <input id="campusFilterInput" placeholder="搜索标题 / 类别 / 正文 / 负责人">
+          <select id="campusCategoryFilter"><option value="">全部类别</option></select>
+          <button class="button secondary" id="campusExportButton" type="button">导出展示内容</button>
+          <button class="button secondary admin-editor-toggle" id="campusEditorToggle" type="button" hidden>编辑校区运营</button>
         </div>
+        <div class="campus-board">
+          <div class="campus-column" id="campusAnnouncementColumn">
+            <div class="campus-column__head">
+              <div>
+                <h3>公告公示类</h3>
+                <p>值班表、卫生值日表、学管排班表、招聘情况和临时通知。</p>
+              </div>
+              <span class="tag green">公告</span>
+            </div>
+            <div class="campus-display-grid" id="campusAnnouncementGrid"></div>
+          </div>
+          <div class="campus-column" id="campusWorkflowColumn">
+            <div class="campus-column__head">
+              <div>
+                <h3>工作流程类</h3>
+                <p>招聘、面试、试用淘汰、入职离职和日常制度。</p>
+              </div>
+              <span class="tag">流程</span>
+            </div>
+            <div class="campus-display-grid" id="campusWorkflowGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="campus-modal" id="campusDetailModal" hidden>
+        <div class="campus-modal__backdrop" data-campus-modal-close></div>
+        <section class="campus-modal__panel" role="dialog" aria-modal="true" aria-labelledby="campusDetailTitle">
+          <div class="campus-modal__head">
+            <div>
+              <p class="eyebrow" id="campusDetailMeta">校区运营</p>
+              <h2 id="campusDetailTitle">展示内容</h2>
+            </div>
+            <button class="button secondary" type="button" data-campus-modal-close>关闭</button>
+          </div>
+          <div class="campus-modal__content" id="campusDetailContent"></div>
+        </section>
+      </div>
+
+      <section class="grid admin-editor-panel" id="campusEditorPanel" hidden>
+        <article class="card">
+          <h2>编辑公告 / 流程</h2>
+          <p>适合把值班表、学管排班表、招聘情况、工作制度和流程说明整理成网页展示。</p>
+          <div class="form-grid">
+            <label class="field"><span>所属板块</span><select id="campusSectionInput"><option>公告公示类</option><option>工作流程类</option></select></label>
+            <label class="field"><span>内容类别</span><input id="campusCategoryInput" list="campusCategoryOptions" placeholder="例如：暑假学管排班 / 招聘流程"></label>
+            <label class="field"><span>标题</span><input id="campusTitleInput" placeholder="例如：2026 暑假学管排班表"></label>
+            <label class="field"><span>适用范围 / 负责人</span><input id="campusOwnerInput" placeholder="例如：全体老师 / 陈雨晴"></label>
+            <label class="field"><span>展示日期</span><input id="campusDateInput" placeholder="例如：2026-07-01 或长期有效"></label>
+            <label class="field"><span>展示排序</span><input id="campusOrderInput" type="number" min="1" step="1" placeholder="数字越小越靠前"></label>
+            <label class="field span-3"><span>展示正文</span><textarea id="campusContentInput" placeholder="可以直接粘贴值班表、招聘情况、工作流程。系统会按换行分段展示。"></textarea></label>
+            <datalist id="campusCategoryOptions"></datalist>
+          </div>
+          <div class="actions">
+            <button class="button" id="campusSaveButton" type="button">保存展示内容</button>
+            <button class="button secondary" id="campusCancelButton" type="button">取消编辑</button>
+            <button class="button secondary" id="campusImportButton" type="button">导入表格</button>
+            <input id="campusImportInput" type="file" accept="application/json,text/csv,text/tab-separated-values,text/plain,.json,.csv,.tsv,.txt" hidden>
+            <button class="button secondary" id="campusResetButton" type="button">清空展示内容</button>
+          </div>
+          <div class="notice" id="campusMessage">普通老师只查看；管理员可以在这里维护公告公示和工作流程。</div>
+        </article>
+
+        <article class="card">
+          <h2>粘贴文字快速生成</h2>
+          <p>把整理好的值班表、招聘情况或流程说明整段粘贴进来，系统会保存为一个展示内容。</p>
+          <div class="form-grid">
+            <label class="field"><span>快速标题</span><input id="campusBulkTitleInput" placeholder="例如：暑假学管排班表"></label>
+            <label class="field"><span>快速板块</span><select id="campusBulkSectionInput"><option>公告公示类</option><option>工作流程类</option></select></label>
+            <label class="field"><span>快速类别</span><input id="campusBulkCategoryInput" list="campusCategoryOptions" placeholder="例如：学管排班表"></label>
+            <label class="field span-3"><span>粘贴正文</span><textarea id="campusBulkTextInput" placeholder="直接粘贴多行文字。第一行也可以是标题，后面是正文。"></textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" id="campusBulkSaveButton" type="button">保存粘贴内容</button>
+          </div>
+          <div class="notice">导入表格字段可用：所属板块、内容类别、标题、适用范围、展示日期、展示正文、展示排序。Excel 可以先另存为 CSV 后导入。</div>
+        </article>
       </section>
 
       <section class="card" id="summerScheduleSection">
@@ -313,7 +417,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260629b"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260629e"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260630c"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>

@@ -3121,11 +3121,12 @@
   }
 
   function initCampusOperations() {
-    if (!$("campusDisplayGrid")) return;
+    if (!$("campusDisplayGrid") && !$("campusAnnouncementGrid") && !$("campusWorkflowGrid")) return;
     const moduleKey = "campus";
     const canManageCoreOps = isCoreOpsAdmin();
     const capabilities = fixedCapabilities(canManageCoreOps);
     const key = "jrc-campus-operations-v2";
+    const campusEmbeddedMode = Boolean($("campusAnnouncementGrid") || $("campusWorkflowGrid"));
     const sectionNames = ["公告公示类", "工作流程类"];
     const categoryMap = {
       公告公示类: ["校区公告", "值班表", "卫生值日表", "学管排班表", "招聘情况", "临时通知"],
@@ -3336,8 +3337,11 @@
     let rows = mergeCampusRows(readStore(key, []));
 
     function allCategories() {
-      const set = new Set([...categoryMap[activeSection]]);
-      rows.filter((row) => row.section === activeSection).forEach((row) => row.category && set.add(row.category));
+      const baseSections = campusEmbeddedMode ? sectionNames : [activeSection];
+      const set = new Set(baseSections.flatMap((section) => categoryMap[section] || []));
+      rows
+        .filter((row) => campusEmbeddedMode || row.section === activeSection)
+        .forEach((row) => row.category && set.add(row.category));
       return [...set].filter(Boolean);
     }
 
@@ -3379,12 +3383,12 @@
       return Number.isFinite(number) && number > 0 ? number : 9999;
     }
 
-    function visibleEntries() {
+    function visibleEntries(section = activeSection) {
       const keyword = $("campusFilterInput")?.value.trim().toLowerCase() || "";
       const category = $("campusCategoryFilter")?.value || "";
       return rows
         .map((row, index) => ({ row, index }))
-        .filter(({ row }) => row.section === activeSection)
+        .filter(({ row }) => row.section === section)
         .filter(({ row }) => !category || row.category === category)
         .filter(({ row }) => rowMatches(row, keyword))
         .sort((left, right) => orderValue(left.row) - orderValue(right.row) || parseDateValue(right.row.updatedAt || right.row.createdAt) - parseDateValue(left.row.updatedAt || left.row.createdAt));
@@ -3433,20 +3437,33 @@
       `;
     }
 
+    function renderGrid(gridId, section) {
+      const grid = $(gridId);
+      if (!grid) return;
+      const entries = visibleEntries(section);
+      grid.innerHTML = entries.length
+        ? entries.map(({ row, index }) => renderCard(row, index)).join("")
+        : `<div class="campus-empty">当前还没有${escapeHtml(section)}内容。管理员可以点击“编辑校区运营”新增内容。</div>`;
+    }
+
     function render() {
       document.querySelectorAll("[data-campus-section]").forEach((button) => {
         const active = button.getAttribute("data-campus-section") === activeSection;
         button.classList.toggle("active", active);
       });
-      setText("campusDisplayStatus", `${activeSection}｜${rows.filter((row) => row.section === activeSection).length} 条`);
+      const noticeCount = rows.filter((row) => row.section === "公告公示类").length;
+      const workflowCount = rows.filter((row) => row.section === "工作流程类").length;
+      setText("campusDisplayStatus", campusEmbeddedMode ? `公告 ${noticeCount} 条｜流程 ${workflowCount} 条` : `${activeSection}｜${rows.filter((row) => row.section === activeSection).length} 条`);
       refreshCategoryControls();
-      const entries = visibleEntries();
       const grid = $("campusDisplayGrid");
       if (grid) {
+        const entries = visibleEntries(activeSection);
         grid.innerHTML = entries.length
           ? entries.map(({ row, index }) => renderCard(row, index)).join("")
           : `<div class="campus-empty">当前还没有${escapeHtml(activeSection)}内容。管理员可以点击“编辑校区运营”新增值班表、学管排班表、招聘情况或工作流程。</div>`;
       }
+      renderGrid("campusAnnouncementGrid", "公告公示类");
+      renderGrid("campusWorkflowGrid", "工作流程类");
       renderAuditLog(moduleKey, "campusAuditTableBody");
     }
 
@@ -3586,39 +3603,45 @@
       setText("campusMessage", "已清空校区运营展示内容。后续可重新新增或导入。");
     });
 
-    $("campusDisplayGrid")?.addEventListener("click", (event) => {
-      const button = event.target.closest("button[data-action]");
-      if (!button) return;
-      const action = button.getAttribute("data-action");
-      const index = Number(button.getAttribute("data-index"));
-      if (action === "view") {
-        openCampusDetail(index);
-        return;
-      }
-      if (action === "edit") {
-        guardAction(capabilities.update, "campusMessage", "修改", () => {
-          editingIndex = index;
-          fillForm(rows[index]);
-          if (campusEditor) campusEditor.hidden = false;
-          setText("campusEditorToggle", "收起编辑");
-          setText("campusSaveButton", "保存修改");
-          setText("campusMessage", `正在编辑：${rows[index].title}。`);
-        });
-      }
-      if (action === "delete") {
-        guardAction(capabilities.delete, "campusMessage", "删除", () => {
-          const removed = rows[index];
-          if (!window.confirm(`确定删除“${removed.title}”吗？`)) return;
-          markRowDeleted(key, removed);
-          rows.splice(index, 1);
-          writeStore(key, rows, { restoreDeleted: false });
-          recordAudit(moduleKey, "删除", removed.title, removed.category);
-          if (editingIndex === index) resetForm();
-          render();
-          setText("campusMessage", `已删除展示内容：${removed.title}。`);
-        });
-      }
-    });
+    function bindCampusGridActions(gridId) {
+      $(gridId)?.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+        const action = button.getAttribute("data-action");
+        const index = Number(button.getAttribute("data-index"));
+        if (action === "view") {
+          openCampusDetail(index);
+          return;
+        }
+        if (action === "edit") {
+          guardAction(capabilities.update, "campusMessage", "修改", () => {
+            editingIndex = index;
+            fillForm(rows[index]);
+            if (campusEditor) campusEditor.hidden = false;
+            setText("campusEditorToggle", "收起编辑");
+            setText("campusSaveButton", "保存修改");
+            setText("campusMessage", `正在编辑：${rows[index].title}。`);
+          });
+        }
+        if (action === "delete") {
+          guardAction(capabilities.delete, "campusMessage", "删除", () => {
+            const removed = rows[index];
+            if (!window.confirm(`确定删除“${removed.title}”吗？`)) return;
+            markRowDeleted(key, removed);
+            rows.splice(index, 1);
+            writeStore(key, rows, { restoreDeleted: false });
+            recordAudit(moduleKey, "删除", removed.title, removed.category);
+            if (editingIndex === index) resetForm();
+            render();
+            setText("campusMessage", `已删除展示内容：${removed.title}。`);
+          });
+        }
+      });
+    }
+
+    bindCampusGridActions("campusDisplayGrid");
+    bindCampusGridActions("campusAnnouncementGrid");
+    bindCampusGridActions("campusWorkflowGrid");
 
     document.querySelectorAll("[data-campus-modal-close]").forEach((node) => {
       node.addEventListener("click", closeCampusDetail);
