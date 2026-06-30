@@ -3399,7 +3399,7 @@
       const modal = $("campusDetailModal");
       if (!row || !modal) return;
       setText("campusDetailTitle", row.title || row.category || "展示内容");
-      setText("campusDetailMeta", `${row.section || "校区运营"} / ${row.category || "未分类"} / ${row.displayDate || "长期有效"}`);
+      setText("campusDetailMeta", row.section || "校区运营");
       const content = $("campusDetailContent");
       if (content) content.textContent = row.content || "内容待补充。";
       modal.hidden = false;
@@ -3414,25 +3414,13 @@
     }
 
     function renderCard(row, index) {
-      const content = row.content || "内容待补充。";
-      const preview = content.length > 260 ? `${content.slice(0, 260)}...` : content;
       return `
         <article class="campus-display-card">
-          <div class="campus-display-card__head">
-            <div>
-              <h3>${escapeHtml(row.title || row.category || "未命名内容")}</h3>
-              <div class="campus-display-meta">
-                ${tag(row.category || activeSection, row.section === "工作流程类" ? "info" : "good")}
-                ${tag(row.displayDate || "长期有效", "neutral")}
-                ${row.owner ? tag(row.owner, "neutral") : ""}
-              </div>
-            </div>
-          </div>
-          <div class="campus-display-content campus-display-preview">${escapeHtml(preview)}</div>
-          <div class="campus-card-actions">
-            <button type="button" data-action="view" data-index="${index}" style="min-height:30px; padding:0 12px; border-radius:999px; border:1px solid rgba(15,118,110,0.20); background:rgba(15,118,110,0.10); color:#0f766e; cursor:pointer; font-weight:800;">查看完整内容</button>
-            ${canEditCampus ? actionButtons(index, capabilities) : ""}
-          </div>
+          <button type="button" data-action="view" data-index="${index}" style="width:100%; display:flex; align-items:center; gap:10px; border:0; background:transparent; padding:0; color:#172132; text-align:left; cursor:pointer;">
+            <span aria-hidden="true" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:999px; background:rgba(15,118,110,0.10); color:#0f766e; font-weight:900; flex:0 0 auto;">›</span>
+            <strong style="font-size:16px; line-height:1.45;">${escapeHtml(row.title || row.category || "未命名内容")}</strong>
+          </button>
+          ${canEditCampus ? `<div class="campus-card-actions">${actionButtons(index, capabilities)}</div>` : ""}
         </article>
       `;
     }
