@@ -418,6 +418,7 @@ export default function Home() {
   const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id || '');
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [leaderboardRows, setLeaderboardRows] = useState([]);
   const [leaderboardSyncState, setLeaderboardSyncState] = useState('本机记录');
   const [currentEmployee, setCurrentEmployee] = useState(null);
@@ -489,6 +490,8 @@ export default function Home() {
       setSelectedTestId(linkedTest.id);
       setTestAnswers({});
       setTestSubmitted(false);
+      setSubmitDialogOpen(false);
+      submittedAttemptRef.current = '';
     }
   };
 
@@ -496,9 +499,26 @@ export default function Home() {
     setSelectedTestId(testId);
     setTestAnswers({});
     setTestSubmitted(false);
+    setSubmitDialogOpen(false);
     submittedAttemptRef.current = '';
     const linkedTest = (trainingProgram.tests || []).find((test) => test.id === testId);
     if (linkedTest) setSelectedLessonId(linkedTest.lessonId);
+  };
+
+  const resetCurrentTest = () => {
+    setTestAnswers({});
+    setTestSubmitted(false);
+    setSubmitDialogOpen(false);
+    submittedAttemptRef.current = '';
+  };
+
+  const scrollToReview = () => {
+    setSubmitDialogOpen(false);
+    if (typeof window === 'undefined') return;
+    window.setTimeout(() => {
+      const target = document.getElementById(wrongQuestions.length ? 'wrongPanel' : 'questionStack');
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 30);
   };
 
   const toggleAnswer = (question, optionIndex) => {
@@ -533,6 +553,7 @@ export default function Home() {
   const submitTest = () => {
     if (!selectedTest) return;
     setTestSubmitted(true);
+    setSubmitDialogOpen(true);
     const employee = currentEmployee || readCurrentEmployee() || {};
     const submittedAt = new Date().toISOString();
     const attemptKey = [
@@ -740,13 +761,6 @@ export default function Home() {
                     <p className="lesson-overview">{selectedLesson.overview}</p>
 
                     <div className="learning-block">
-                      <h3>学习目标</h3>
-                      <ul>
-                        {(selectedLesson.objectives || []).map((item) => <li key={item}>{item}</li>)}
-                      </ul>
-                    </div>
-
-                    <div className="learning-block">
                       <h3>本课完整问答</h3>
                       <div className="qa-stack">
                         {selectedLessonQuestions.map((item) => (
@@ -756,11 +770,6 @@ export default function Home() {
                           </section>
                         ))}
                       </div>
-                    </div>
-
-                    <div className="learning-block">
-                      <h3>本章小结</h3>
-                      <p>{selectedLesson.practice || selectedLesson.overview}</p>
                     </div>
 
                     <div className="learning-block lesson-test-actions">
@@ -821,28 +830,10 @@ export default function Home() {
                     <option key={test.id} value={test.id}>{formatTestTitle(test)}</option>
                   ))}
                 </select>
-                <button type="button" onClick={submitTest}>交卷</button>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => {
-                    setTestAnswers({});
-                    setTestSubmitted(false);
-                    submittedAttemptRef.current = '';
-                  }}
-                >
-                  重做
-                </button>
               </div>
-              {testSubmitted && (
-                <div className="score-card">
-                  <strong>{score}</strong>
-                  <span>总分 {totalScore} · 正确 {correctCount} 题</span>
-                </div>
-              )}
             </div>
 
-            <div className="question-stack">
+            <div className="question-stack" id="questionStack">
               {(selectedTest?.questions || []).map((question, index) => {
                 const selected = testAnswers[question.id];
                 const correctIndexes = getCorrectIndexes(question);
@@ -883,36 +874,15 @@ export default function Home() {
               })}
             </div>
 
-            {testSubmitted && (
-              <section className="submit-success">
-                <div>
-                  <strong>交卷成功，答题辛苦了</strong>
-                  <p>本次得分 {score} 分，答对 {correctCount}/{totalQuestionCount} 题，成绩已进入学管课堂学习榜。</p>
-                </div>
-                <div className="submit-success-actions">
-                  <button type="button" onClick={() => setClassroomView('leaderboard')}>去学习榜</button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setTestAnswers({});
-                      setTestSubmitted(false);
-                      submittedAttemptRef.current = '';
-                    }}
-                  >
-                    重做一次
-                  </button>
-                </div>
-              </section>
+            {!testSubmitted && (
+              <div className="bottom-submit">
+                <button type="button" onClick={submitTest}>提交交卷</button>
+                <span>已答 {totalAnswered}/{totalQuestionCount}，交卷后显示成绩、解析和错题。</span>
+              </div>
             )}
 
-            <div className="bottom-submit">
-              <button type="button" onClick={submitTest}>{testSubmitted ? '再次提交成绩' : '提交完成'}</button>
-              <span>{testSubmitted ? `已得 ${score} 分，成绩已记录到学习榜。` : `已答 ${totalAnswered}/${totalQuestionCount}，提交后显示成绩和错题。`}</span>
-            </div>
-
             {testSubmitted && wrongQuestions.length > 0 && (
-              <section className="wrong-panel">
+              <section className="wrong-panel" id="wrongPanel">
                 <h2>错题订正</h2>
                 {wrongQuestions.map((question, index) => {
                   const correctIndexes = getCorrectIndexes(question);
@@ -925,6 +895,21 @@ export default function Home() {
                   );
                 })}
               </section>
+            )}
+
+            {submitDialogOpen && testSubmitted && (
+              <div className="submit-dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="submitDialogTitle">
+                <section className="submit-dialog">
+                  <strong id="submitDialogTitle">交卷成功，答题辛苦了</strong>
+                  <p>本次得分 {score} 分，答对 {correctCount}/{totalQuestionCount} 题，成绩已进入学管课堂学习榜。</p>
+                  <div className="submit-dialog-actions">
+                    <button type="button" onClick={scrollToReview}>{wrongQuestions.length ? '查看错题' : '查看解析'}</button>
+                    <button type="button" onClick={() => setClassroomView('leaderboard')}>去学习榜</button>
+                    <button type="button" className="ghost" onClick={resetCurrentTest}>重做一次</button>
+                    <button type="button" className="ghost" onClick={() => setSubmitDialogOpen(false)}>关闭</button>
+                  </div>
+                </section>
+              </div>
             )}
           </section>
         )}
@@ -982,7 +967,7 @@ export default function Home() {
           font-size: 16px;
           line-height: 1.7;
         }
-        .portal-button, .search-row button, .test-controls button, .bottom-submit button, .submit-success button {
+        .portal-button, .search-row button, .bottom-submit button, .submit-dialog button {
           min-height: 42px;
           padding: 0 18px;
           border: 0;
@@ -1556,7 +1541,7 @@ export default function Home() {
         }
         .test-toolbar {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) auto auto;
+          grid-template-columns: minmax(0, 1fr) auto;
           gap: 16px;
           align-items: center;
           margin-bottom: 16px;
@@ -1582,62 +1567,6 @@ export default function Home() {
           border-radius: 8px;
           background: #ffffff;
           color: #14213d;
-        }
-        .test-controls .ghost {
-          border: 1px solid #d0dbe7;
-          background: #ffffff;
-          color: #1f3a5f;
-        }
-        .submit-success {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 16px;
-          align-items: center;
-          margin-top: 18px;
-          padding: 18px;
-          border: 1px solid #86efac;
-          border-radius: 8px;
-          background: #f0fdf4;
-          color: #14532d;
-        }
-        .submit-success strong {
-          display: block;
-          font-size: 21px;
-          line-height: 1.25;
-        }
-        .submit-success p {
-          margin: 8px 0 0;
-          color: #166534;
-          line-height: 1.7;
-        }
-        .submit-success-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-        .submit-success .ghost {
-          border: 1px solid #bbf7d0;
-          background: #ffffff;
-          color: #166534;
-        }
-        .score-card {
-          min-width: 150px;
-          padding: 12px 14px;
-          border-radius: 8px;
-          background: #fff7ed;
-          color: #9a3412;
-        }
-        .score-card strong {
-          display: block;
-          font-size: 30px;
-          line-height: 1;
-        }
-        .score-card span {
-          display: block;
-          margin-top: 8px;
-          font-size: 12px;
-          font-weight: 800;
         }
         .test-question {
           padding: 18px;
@@ -1736,6 +1665,44 @@ export default function Home() {
           font-size: 14px;
           line-height: 1.6;
         }
+        .submit-dialog-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          display: grid;
+          place-items: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.42);
+        }
+        .submit-dialog {
+          width: min(520px, 100%);
+          padding: 24px;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
+        }
+        .submit-dialog strong {
+          display: block;
+          color: #14532d;
+          font-size: 25px;
+          line-height: 1.25;
+        }
+        .submit-dialog p {
+          margin: 12px 0 0;
+          color: #334155;
+          line-height: 1.8;
+        }
+        .submit-dialog-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 18px;
+        }
+        .submit-dialog .ghost {
+          border: 1px solid #d0dbe7;
+          background: #ffffff;
+          color: #1f3a5f;
+        }
         .wrong-panel {
           margin-top: 18px;
           padding: 20px;
@@ -1792,19 +1759,10 @@ export default function Home() {
           .test-toolbar {
             grid-template-columns: 1fr;
           }
-          .submit-success {
-            grid-template-columns: 1fr;
-          }
-          .submit-success-actions {
-            justify-content: stretch;
-          }
-          .submit-success-actions button {
-            flex: 1 1 140px;
-          }
           .test-controls {
             justify-content: stretch;
           }
-          .test-controls select, .test-controls button {
+          .test-controls select {
             flex: 1 1 140px;
           }
         }
