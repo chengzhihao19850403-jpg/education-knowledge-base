@@ -3129,7 +3129,7 @@
     const sectionNames = ["公告公示类", "工作流程类"];
     const categoryMap = {
       公告公示类: ["校区公告", "值班表", "卫生值日表", "学管排班表", "招聘情况", "临时通知"],
-      工作流程类: ["招聘流程", "面试流程", "试用淘汰流程", "入职流程", "离职流程", "请假调课制度", "日常工作制度"]
+      工作流程类: ["新教师试岗筛选流程", "招聘流程", "面试流程", "试用淘汰流程", "入职流程", "离职流程", "请假调课制度", "日常工作制度"]
     };
     const legacyTypes = new Set(["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"]);
     let activeSection = sectionNames.includes(localStorage.getItem("jrc-campus-active-section-v1"))
@@ -3149,6 +3149,136 @@
       sortOrder: "",
       content: ""
     };
+    const campusDefaultRows = [{
+      rowId: "campus-flow-new-teacher-3-4-day-screening-v1",
+      section: "工作流程类",
+      category: "新教师试岗筛选流程",
+      title: "新教师 3～4 天极速筛选上岗流程",
+      owner: "招聘及人事负责人 / 教学主管",
+      displayDate: "长期有效",
+      sortOrder: "1",
+      content: `核心目标
+
+3～4 天内判断新教师的学习能力、勤劳度、人品、授课表现力和团队匹配度。合格进入上岗排课，不合格及时淘汰，避免后期用人风险。
+
+总体原则
+
+1. 先刷题，再考试，再试讲，再面谈，再投票。
+2. 每天有任务，每天有结果，不养闲人，不拖时间。
+3. 第 1 个月保底 6000；只有全部达标后才进入正式排课。
+4. 未达标不予上岗、不予录用，不提前形成正式用工依赖。
+
+第 1 天：基础能力 + 学习力 + 勤劳度测试
+
+目标：筛掉基础薄弱、不愿刷题、学习能力弱的人。
+
+执行内容：
+1. 入职当天发放对应学段高频题、易错题、典型题。
+2. 要求当天刷完指定题量，自行整理错题并标注思路。
+
+观察重点：
+1. 是否主动刷题，是否拖延。
+2. 做题速度和正确率。
+3. 遇到不会的题，是放弃，还是钻研或请教。
+
+当天考核：
+晚上进行第一次笔试，内容为当天刷题内容和基础知识点。
+合格线：85 分以上。低于 85 分，直接淘汰，当天结束试用。
+
+第 2 天：专业深化 + 态度人品 + 执行力测试
+
+目标：判断是否勤劳、是否愿意钻研、人品是否端正。
+
+执行内容：
+1. 针对第 1 天错题进行二次讲解与复盘。
+2. 要求新老师独立讲清错题思路，检验吸收能力。
+3. 加量刷题，并完成题型归纳。
+
+观察重点：
+1. 是否主动多做。
+2. 是否抱怨、敷衍、拖延。
+3. 是否懒惰、混日子、玻璃心、情绪不稳定。
+
+主管面谈：
+围绕职业规划、责任心、抗压能力、纪律意识进行一对一沟通，判断价值观、稳定性和团队匹配度。
+
+当天考核：
+晚上进行第二次笔试，难度略提升。
+合格线：80 分以上。不达标直接淘汰。
+
+第 3 天：登台试讲 + 团队评分
+
+目标：检验表现力、控场能力、表达能力、台风和学生接受度。
+
+上午准备：
+给定题目，独立准备 10～15 分钟试讲内容，观察备课效率和认真程度。
+
+下午试讲：
+正式登台试讲，全体老师旁听评分。
+
+评分维度：
+1. 表达清晰流畅。
+2. 逻辑结构完整。
+3. 教态自然大方。
+4. 有互动感和控场能力。
+5. 知识点准确无误。
+6. 课堂节奏把控合理。
+7. 有亲和力和感染力。
+8. 有应变能力。
+9. 备课认真。
+10. 整体匹配学校教学风格。
+
+团队投票：
+当场匿名投票，选项为：同意上岗 / 继续观察 / 淘汰。
+反对票超过 1/3，直接不予录用。
+
+第 4 天：心理沟通 + 最终综合判定
+
+适用情况：需要进一步观察时启用。
+
+主管深度沟通：
+重点看性格、边界感、团队协作、服从管理意识。
+
+重点识别：
+负能量、斤斤计较、心机重、难以管理、稳定性差的人。
+
+综合判定：
+结合两次考试成绩、刷题态度、试讲得分、团队投票、人品与心理状态，当场给出结果。
+
+结果处理：
+合格：进入上岗排课流程，第 1 个月保底 6000。
+不合格：感谢参与，不予录用，当天结束。
+
+最终上岗硬标准
+
+以下条件缺一不可：
+1. 两次笔试成绩达标。
+2. 刷题积极主动，无拖延、无敷衍。
+3. 试讲评分不低于 85 分。
+4. 团队投票通过率不低于 2/3。
+5. 人品端正，态度积极，服从管理。
+6. 表达清晰，课堂表现力合格。
+7. 学习能力强，吸收快，肯钻研。
+
+淘汰原则
+
+只要有一项关键指标不达标，3～4 天内直接淘汰，不进入正式排课，不进入正式用工。
+
+为什么这样做
+
+1. 属于试岗筛选，不合格不录用，风险更低。
+2. 每天有产出、有数据、有评分，淘汰理由充分。
+3. 学习能力弱，用考试筛掉。
+4. 懒惰不钻研，用刷题态度筛掉。
+5. 人品不好、心态差，用面谈和观察筛掉。
+6. 讲课不行，用试讲和投票筛掉。
+
+执行提醒
+
+这套流程对标郑老师当年的考核模式，核心是快速、公开、可量化。招聘及人事负责人、教学主管需要每天记录结果，做到当天任务当天反馈，合格留用，不合格及时结束试岗。`,
+      createdAt: "2026-06-30 00:00:00",
+      updatedAt: "2026-06-30 00:00:00"
+    }];
 
     function normalizeContent(value) {
       return String(value || "")
@@ -3198,7 +3328,12 @@
         .filter((row) => !oldSeedTitles.includes(row.title));
     }
 
-    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+    function mergeCampusRows(input) {
+      const incoming = Array.isArray(input) ? input : [];
+      return filterDeletedRows(key, mergeRowsById(sanitizeRows([...campusDefaultRows, ...incoming]), key));
+    }
+
+    let rows = mergeCampusRows(readStore(key, []));
 
     function allCategories() {
       const set = new Set([...categoryMap[activeSection]]);
@@ -3255,7 +3390,28 @@
         .sort((left, right) => orderValue(left.row) - orderValue(right.row) || parseDateValue(right.row.updatedAt || right.row.createdAt) - parseDateValue(left.row.updatedAt || left.row.createdAt));
     }
 
+    function openCampusDetail(index) {
+      const row = rows[index];
+      const modal = $("campusDetailModal");
+      if (!row || !modal) return;
+      setText("campusDetailTitle", row.title || row.category || "展示内容");
+      setText("campusDetailMeta", `${row.section || "校区运营"} / ${row.category || "未分类"} / ${row.displayDate || "长期有效"}`);
+      const content = $("campusDetailContent");
+      if (content) content.textContent = row.content || "内容待补充。";
+      modal.hidden = false;
+      document.body.classList.add("campus-modal-open");
+    }
+
+    function closeCampusDetail() {
+      const modal = $("campusDetailModal");
+      if (!modal) return;
+      modal.hidden = true;
+      document.body.classList.remove("campus-modal-open");
+    }
+
     function renderCard(row, index) {
+      const content = row.content || "内容待补充。";
+      const preview = content.length > 260 ? `${content.slice(0, 260)}...` : content;
       return `
         <article class="campus-display-card">
           <div class="campus-display-card__head">
@@ -3268,8 +3424,11 @@
               </div>
             </div>
           </div>
-          <div class="campus-display-content">${escapeHtml(row.content || "内容待补充。")}</div>
-          ${canEditCampus ? `<div class="campus-card-actions">${actionButtons(index, capabilities)}</div>` : ""}
+          <div class="campus-display-content campus-display-preview">${escapeHtml(preview)}</div>
+          <div class="campus-card-actions">
+            <button type="button" data-action="view" data-index="${index}" style="min-height:30px; padding:0 12px; border-radius:999px; border:1px solid rgba(15,118,110,0.20); background:rgba(15,118,110,0.10); color:#0f766e; cursor:pointer; font-weight:800;">查看完整内容</button>
+            ${canEditCampus ? actionButtons(index, capabilities) : ""}
+          </div>
         </article>
       `;
     }
@@ -3432,6 +3591,10 @@
       if (!button) return;
       const action = button.getAttribute("data-action");
       const index = Number(button.getAttribute("data-index"));
+      if (action === "view") {
+        openCampusDetail(index);
+        return;
+      }
       if (action === "edit") {
         guardAction(capabilities.update, "campusMessage", "修改", () => {
           editingIndex = index;
@@ -3455,6 +3618,13 @@
           setText("campusMessage", `已删除展示内容：${removed.title}。`);
         });
       }
+    });
+
+    document.querySelectorAll("[data-campus-modal-close]").forEach((node) => {
+      node.addEventListener("click", closeCampusDetail);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !$("campusDetailModal")?.hidden) closeCampusDetail();
     });
 
     bindTableImport({
@@ -3497,8 +3667,8 @@
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
-      rows = mergeRowsById(sanitizeRows(cloudRows), key);
-      if (rows.length !== cloudRows.length) writeStore(key, rows, { replaceMode: "replace" });
+      rows = mergeCampusRows(cloudRows);
+      if (JSON.stringify(rows) !== JSON.stringify(cloudRows)) writeStore(key, rows, { replaceMode: "replace" });
       resetForm();
       render();
       setText("campusMessage", canEditCampus ? "已同步云端展示内容；需要维护时点击“编辑校区运营”。" : "已同步云端展示内容。");

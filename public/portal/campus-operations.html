@@ -63,8 +63,17 @@
       .campus-display-card h3 { font-size: 18px; line-height: 1.35; }
       .campus-display-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
       .campus-display-content { white-space: pre-wrap; color: var(--ink); line-height: 1.85; font-size: 14px; }
+      .campus-display-preview { max-height: 11.2em; overflow: hidden; }
       .campus-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
       .campus-empty { border: 1px dashed rgba(23,33,50,0.18); border-radius: 16px; padding: 18px; background: rgba(255,255,255,0.74); color: var(--muted); line-height: 1.7; }
+      .campus-modal[hidden] { display: none !important; }
+      .campus-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 18px; }
+      .campus-modal__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.52); }
+      .campus-modal__panel { position: relative; z-index: 1; width: min(920px, 100%); max-height: min(86vh, 820px); overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 22px; background: #fff; box-shadow: 0 26px 80px rgba(15, 23, 42, 0.30); }
+      .campus-modal__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+      .campus-modal__head h2 { margin-top: 4px; font-size: 24px; line-height: 1.25; }
+      .campus-modal__content { overflow: auto; padding: 20px 22px 26px; white-space: pre-wrap; color: var(--ink); line-height: 1.9; font-size: 15px; }
+      body.campus-modal-open { overflow: hidden; }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
       table { width: 100%; min-width: 860px; border-collapse: collapse; }
@@ -146,6 +155,20 @@
         <div class="campus-display-grid" id="campusDisplayGrid"></div>
       </section>
 
+      <div class="campus-modal" id="campusDetailModal" hidden>
+        <div class="campus-modal__backdrop" data-campus-modal-close></div>
+        <section class="campus-modal__panel" role="dialog" aria-modal="true" aria-labelledby="campusDetailTitle">
+          <div class="campus-modal__head">
+            <div>
+              <p class="eyebrow" id="campusDetailMeta">校区运营</p>
+              <h2 id="campusDetailTitle">展示内容</h2>
+            </div>
+            <button class="button secondary" type="button" data-campus-modal-close>关闭</button>
+          </div>
+          <div class="campus-modal__content" id="campusDetailContent"></div>
+        </section>
+      </div>
+
       <section class="grid admin-editor-panel" id="campusEditorPanel" hidden>
         <article class="card">
           <h2>编辑展示内容</h2>
@@ -206,7 +229,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260630a"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260630b"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>
