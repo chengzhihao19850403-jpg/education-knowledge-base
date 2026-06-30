@@ -305,50 +305,56 @@ def multiple_option_set(correct_items: list[str], distractors: list[str], seed: 
 
 def build_test_questions(lesson_id: str, lesson_qas: list[dict], all_qas: list[dict]) -> list[dict]:
     questions = []
-    distractor_questions = [qa["q"] for qa in all_qas]
     distractor_answers = [short_text(split_sentences(qa["a"])[0]) for qa in all_qas if split_sentences(qa["a"])]
+    wrong_options = [
+        "先承诺孩子一定能提分或录取，再解释课程安排。",
+        "不确认孩子基础和家长真实问题，直接推荐最高强度班型。",
+        "只截取一句话回复家长，省略原答案中的背景和边界。",
+        "遇到政策、排课、费用等变化信息时，不复核最新口径就直接答复。",
+        "为了促成报名，把课程效果说成确定结果。",
+        "把不同项目、不同班型、不同年级的口径混在一起回答。",
+        "家长提出质疑时，先反驳家长，不做解释和引导。",
+        "只背标题，不回到完整答案理解语境。",
+    ]
 
-    for index in range(30):
-        qa = lesson_qas[index % len(lesson_qas)]
-        sentences = split_sentences(qa["a"])
-        if index % 2 == 0:
-            correct = qa["q"]
-            distractors = [item for item in distractor_questions if item != correct]
-            prompt = f"遇到家长问“{short_text(qa['q'], 48)}”时，应该优先匹配哪一条标准问答？"
-        else:
-            correct = short_text(sentences[0] if sentences else qa["a"])
-            distractors = [item for item in distractor_answers if item != correct]
-            prompt = f"关于“{short_text(qa['q'], 42)}”，以下哪一句最接近标准答案的核心表述？"
-        options, answer_index = option_set(correct, distractors, index + len(lesson_id))
+    def add_multiple(prompt: str, correct_items: list[str], distractors: list[str], explanation: str, seed: int) -> None:
+        options, answer_indexes = multiple_option_set(correct_items, distractors, seed)
         questions.append(
             {
-                "id": f"{lesson_id}-S{index + 1:02d}",
-                "type": "single",
+                "id": f"{lesson_id}-Q{len(questions) + 1:02d}",
+                "type": "multiple",
                 "question": prompt,
                 "options": options,
-                "answerIndex": answer_index,
-                "explanation": f"本题对应知识库条目：{qa['q']}。复习时请回到完整原文，不要只记选项片段。",
+                "answerIndexes": answer_indexes,
+                "explanation": explanation,
             }
         )
 
-    for index in range(20):
-        qa = lesson_qas[index % len(lesson_qas)]
+    for index, qa in enumerate(lesson_qas):
         sentences = split_sentences(qa["a"])
-        correct_items = [
-            short_text(sentences[0] if sentences else qa["a"]),
-            short_text(sentences[1] if len(sentences) > 1 else "回复时应保留原文中的背景、边界和下一步建议，不随意压缩语境。"),
-        ]
-        distractors = [item for item in distractor_answers if item not in correct_items]
-        options, answer_indexes = multiple_option_set(correct_items, distractors, index + 7)
-        questions.append(
-            {
-                "id": f"{lesson_id}-M{index + 1:02d}",
-                "type": "multiple",
-                "question": f"围绕“{short_text(qa['q'], 42)}”，哪些说法符合本节标准话术？",
-                "options": options,
-                "answerIndexes": answer_indexes,
-                "explanation": f"多选题对应知识库条目：{qa['q']}。正确选项来自该条答案原文或保留原文要求。",
-            }
+        answer_core = short_text(sentences[0] if sentences else qa["a"])
+        second_core = short_text(sentences[1] if len(sentences) > 1 else "回复时应保留背景、边界和下一步建议，不随意压缩语境。")
+        third_core = short_text(sentences[2] if len(sentences) > 2 else "遇到不确定或实时变化的信息，要先复核最新口径再回复。")
+        add_multiple(
+            f"围绕家长问题“{short_text(qa['q'], 54)}”，哪些内容属于标准回复要点？",
+            [answer_core, second_core],
+            distractor_answers + wrong_options,
+            "正确选项来自本节完整答案。老师要记住核心表达，同时回到原文理解完整语境。",
+            index + 3,
+        )
+        add_multiple(
+            f"处理“{short_text(qa['q'], 48)}”这类沟通时，哪些做法更合适？",
+            ["先判断家长真正关心的是课程定位、学习效果、费用、政策还是执行细节。", "回复时保留标准话术中的背景、边界和下一步建议，不随意改口径。"],
+            wrong_options,
+            "这题考的是学管老师的沟通动作，不只是背一句答案。",
+            index + 13,
+        )
+        add_multiple(
+            f"复盘“{short_text(qa['q'], 48)}”这条问答时，哪些内容需要重点记住？",
+            [answer_core, third_core],
+            distractor_answers + wrong_options,
+            "复盘题用于帮助老师记住答案重点、风险边界和不能乱答的地方。",
+            index + 23,
         )
 
     return questions
@@ -384,8 +390,9 @@ def build_training_program(blocks: list[dict], source_docx: Path) -> dict:
                 "id": f"T{lesson_index:02d}",
                 "lessonId": lesson_id,
                 "title": f"{title} 阶段测试",
-                "scorePerQuestion": 2,
+                "scoreMode": "percent",
                 "totalScore": 100,
+                "questionCount": len(test_questions),
                 "questions": test_questions,
             }
         )
@@ -397,9 +404,8 @@ def build_training_program(blocks: list[dict], source_docx: Path) -> dict:
         "description": "基于最新版 7.1 学管学堂问答系统整理成 20 节学习课，课堂内容以原问答为核心。",
         "source_file": source_docx.name,
         "testPolicy": {
-            "singleChoiceCount": 30,
-            "multipleChoiceCount": 20,
-            "scorePerQuestion": 2,
+            "mode": "multiple-choice-small-test-by-lesson-content",
+            "description": "每节课按实际问答内容生成全多选小测试，不再硬凑 30 道单选和 20 道多选。",
             "totalScore": 100,
         },
         "lessons": lessons,

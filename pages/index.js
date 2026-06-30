@@ -1,7 +1,7 @@
 'use client';
 
 import Head from 'next/head';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import knowledgeBase from '../data/knowledge_base.json';
 import trainingProgram from '../data/training_program.json';
@@ -113,6 +113,16 @@ function flattenKnowledgeBase() {
 
 const allQuestions = flattenKnowledgeBase();
 const questionMap = new Map(allQuestions.map((item) => [item.id, item]));
+const leaderboardStoreKey = 'jrc-xueguan-training-leaderboard-v1';
+
+function safeJsonParse(raw, fallback) {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed === null || parsed === undefined ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
 
 function scoreQuestion(query, item) {
   const expandedQuery = expandQuery(query);
@@ -240,6 +250,137 @@ function getLessonQuestions(lesson) {
   return (lesson?.questionIds || []).map((id) => questionMap.get(id)).filter(Boolean);
 }
 
+function readCurrentEmployee() {
+  if (typeof window === 'undefined') return null;
+  const direct = window.JRC_CURRENT_EMPLOYEE;
+  if (direct?.name || direct?.username) return direct;
+  const raw = window.localStorage?.getItem('jrc-portal-auth-session') || '';
+  const localSession = safeJsonParse(raw, null);
+  if (localSession?.name || localSession?.username) return localSession;
+  const cookie = document.cookie
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith('jrc-portal-auth-session='))
+    ?.slice('jrc-portal-auth-session='.length) || '';
+  return safeJsonParse(decodeURIComponent(cookie || ''), null);
+}
+
+function readCloudConfig() {
+  if (typeof window === 'undefined') return { enabled: false };
+  const storedConfig = safeJsonParse(window.localStorage?.getItem('jrc-cloud-api-config-v1') || '{}', {});
+  const session = readCurrentEmployee() || {};
+  const isGithubPages = window.location.hostname.endsWith('github.io');
+  const sameOriginApiBase = `${window.location.origin}/api`;
+  const apiBaseUrl = String(storedConfig.apiBaseUrl || (!isGithubPages ? sameOriginApiBase : '')).replace(/\/+$/g, '');
+  return {
+    enabled: Boolean((storedConfig.enabled && storedConfig.apiBaseUrl) || (!isGithubPages && apiBaseUrl)),
+    apiBaseUrl,
+    apiToken: String(storedConfig.apiToken || session.cloudApiToken || ''),
+  };
+}
+
+async function cloudReadModuleData(storeKey) {
+  if (typeof window === 'undefined') return { ok: false, skipped: true };
+  if (window.JRC_CLOUD?.readModuleData) return window.JRC_CLOUD.readModuleData(storeKey);
+  const config = readCloudConfig();
+  if (!config.enabled || !config.apiBaseUrl) return { ok: false, skipped: true };
+  const headers = {};
+  if (config.apiToken) headers.Authorization = `Bearer ${config.apiToken}`;
+  const response = await fetch(`${config.apiBaseUrl}/module-data?storeKey=${encodeURIComponent(storeKey)}`, {
+    method: 'GET',
+    headers,
+    credentials: 'include',
+  });
+  const data = await response.json().catch(() => null);
+  return { ok: response.ok, status: response.status, data };
+}
+
+async function cloudWriteModuleData(storeKey, payload, moduleKey = 'knowledge-training') {
+  if (typeof window === 'undefined') return { ok: false, skipped: true };
+  if (window.JRC_CLOUD?.writeModuleData) return window.JRC_CLOUD.writeModuleData(storeKey, moduleKey, payload);
+  const config = readCloudConfig();
+  if (!config.enabled || !config.apiBaseUrl) return { ok: false, skipped: true };
+  const employee = readCurrentEmployee() || {};
+  const headers = { 'Content-Type': 'application/json' };
+  if (config.apiToken) headers.Authorization = `Bearer ${config.apiToken}`;
+  const response = await fetch(`${config.apiBaseUrl}/module-data`, {
+    method: 'PUT',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify({
+      storeKey,
+      moduleKey,
+      payload,
+      replaceMode: '',
+      operatorName: employee.name || '-',
+      operatorUsername: employee.username || '-',
+    }),
+  });
+  const data = await response.json().catch(() => null);
+  return { ok: response.ok, status: response.status, data };
+}
+
+function normalizeLeaderboardRows(rows) {
+  return Array.isArray(rows)
+    ? rows
+      .filter((row) => row && typeof row === 'object')
+      .map((row) => ({
+        ...row,
+        score: Number(row.score || 0),
+        correctCount: Number(row.correctCount || 0),
+        totalQuestions: Number(row.totalQuestions || 0),
+        totalAnswered: Number(row.totalAnswered || 0),
+      }))
+      .filter((row) => row.username || row.name)
+    : [];
+}
+
+function summarizeLeaderboard(rows) {
+  const byUser = new Map();
+  normalizeLeaderboardRows(rows).forEach((row) => {
+    const key = String(row.username || row.name || 'anonymous').trim().toLowerCase();
+    const current = byUser.get(key) || {
+      username: row.username || '',
+      name: row.name || '未登录老师',
+      completedTests: 0,
+      completedLessons: new Set(),
+      attempts: 0,
+      correctTotal: 0,
+      questionTotal: 0,
+      bestScore: 0,
+      latestAt: '',
+    };
+    current.username = row.username || current.username;
+    current.name = row.name || current.name;
+    current.attempts += 1;
+    current.correctTotal += row.correctCount;
+    current.questionTotal += row.totalQuestions;
+    current.bestScore = Math.max(current.bestScore, row.score);
+    if (row.submittedAt && row.submittedAt > current.latestAt) current.latestAt = row.submittedAt;
+    if (row.score >= 60) {
+      current.completedTests += 1;
+      if (row.lessonId) current.completedLessons.add(row.lessonId);
+    }
+    byUser.set(key, current);
+  });
+
+  return Array.from(byUser.values()).map((item) => {
+    const completedLessons = item.completedLessons.size;
+    const accuracy = item.questionTotal ? Math.round((item.correctTotal / item.questionTotal) * 100) : 0;
+    return {
+      ...item,
+      completedLessons,
+      accuracy,
+      points: completedLessons * 30 + item.completedTests * 12 + item.correctTotal * 2 + item.bestScore,
+    };
+  }).sort((left, right) => (
+    right.points - left.points
+    || right.completedLessons - left.completedLessons
+    || right.accuracy - left.accuracy
+    || String(right.latestAt).localeCompare(String(left.latestAt))
+  ));
+}
+
 function splitAnswerParagraphs(value) {
   const text = String(value || '').trim();
   if (!text) return [];
@@ -277,6 +418,10 @@ export default function Home() {
   const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id || '');
   const [testAnswers, setTestAnswers] = useState({});
   const [testSubmitted, setTestSubmitted] = useState(false);
+  const [leaderboardRows, setLeaderboardRows] = useState([]);
+  const [leaderboardSyncState, setLeaderboardSyncState] = useState('本机记录');
+  const [currentEmployee, setCurrentEmployee] = useState(null);
+  const submittedAttemptRef = useRef('');
 
   const searchResults = useMemo(() => searchKnowledge(query), [query]);
   const selectedQuestion = selectedQuestionId
@@ -286,18 +431,44 @@ export default function Home() {
   const selectedLessonQuestions = getLessonQuestions(selectedLesson);
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
   const selectedTestLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedTest?.lessonId);
-  const totalAnswered = selectedTest?.questions?.filter((question) => testAnswers[question.id] !== undefined).length || 0;
+  const totalAnswered = selectedTest?.questions?.filter((question) => {
+    const answer = testAnswers[question.id];
+    return Array.isArray(answer) ? answer.length > 0 : answer !== undefined;
+  }).length || 0;
   const correctCount = selectedTest?.questions?.filter((question) => {
     const correct = Array.isArray(question.answerIndexes) ? question.answerIndexes : question.answerIndex;
     return isSameAnswer(testAnswers[question.id], correct);
   }).length || 0;
-  const score = correctCount * (selectedTest?.scorePerQuestion || 2);
+  const totalQuestionCount = selectedTest?.questions?.length || 0;
+  const totalScore = selectedTest?.totalScore || 100;
+  const score = totalQuestionCount ? Math.round((correctCount / totalQuestionCount) * totalScore) : 0;
+  const leaderboard = useMemo(() => summarizeLeaderboard(leaderboardRows), [leaderboardRows]);
+  const currentUserKey = String(currentEmployee?.username || currentEmployee?.name || '').trim().toLowerCase();
+  const myRank = currentUserKey
+    ? leaderboard.findIndex((item) => String(item.username || item.name).trim().toLowerCase() === currentUserKey)
+    : -1;
+  const mySummary = myRank >= 0 ? leaderboard[myRank] : null;
   const wrongQuestions = testSubmitted
     ? (selectedTest?.questions || []).filter((question) => {
       const correct = Array.isArray(question.answerIndexes) ? question.answerIndexes : question.answerIndex;
       return !isSameAnswer(testAnswers[question.id], correct);
     })
     : [];
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setCurrentEmployee(readCurrentEmployee());
+    const localRows = normalizeLeaderboardRows(safeJsonParse(window.localStorage?.getItem(leaderboardStoreKey) || '[]', []));
+    setLeaderboardRows(localRows);
+    cloudReadModuleData(leaderboardStoreKey).then((result) => {
+      const remoteRows = normalizeLeaderboardRows(result?.data?.payload);
+      if (!remoteRows.length) return;
+      const merged = mergeLeaderboardRows(localRows, remoteRows);
+      setLeaderboardRows(merged);
+      window.localStorage?.setItem(leaderboardStoreKey, JSON.stringify(merged));
+      setLeaderboardSyncState('云端已同步');
+    }).catch(() => setLeaderboardSyncState('本机记录'));
+  }, []);
 
   const selectResult = (id) => {
     setSelectedQuestionId(id);
@@ -325,6 +496,7 @@ export default function Home() {
     setSelectedTestId(testId);
     setTestAnswers({});
     setTestSubmitted(false);
+    submittedAttemptRef.current = '';
     const linkedTest = (trainingProgram.tests || []).find((test) => test.id === testId);
     if (linkedTest) setSelectedLessonId(linkedTest.lessonId);
   };
@@ -341,6 +513,59 @@ export default function Home() {
       }
       return { ...current, [question.id]: optionIndex };
     });
+  };
+
+  function mergeLeaderboardRows(leftRows, rightRows) {
+    const map = new Map();
+    normalizeLeaderboardRows([...leftRows, ...rightRows]).forEach((row) => {
+      const key = row.id || [
+        row.username || row.name,
+        row.testId,
+        row.submittedAt,
+      ].join('|');
+      map.set(key, { ...row, id: row.id || key });
+    });
+    return Array.from(map.values())
+      .sort((left, right) => String(right.submittedAt || '').localeCompare(String(left.submittedAt || '')))
+      .slice(0, 800);
+  }
+
+  const submitTest = () => {
+    if (!selectedTest) return;
+    setTestSubmitted(true);
+    const employee = currentEmployee || readCurrentEmployee() || {};
+    const submittedAt = new Date().toISOString();
+    const attemptKey = [
+      employee.username || employee.name || 'anonymous',
+      selectedTest.id,
+      Object.entries(testAnswers).map(([key, value]) => `${key}:${Array.isArray(value) ? value.join(',') : value}`).sort().join('|'),
+    ].join('::');
+    if (submittedAttemptRef.current === attemptKey) return;
+    submittedAttemptRef.current = attemptKey;
+    const row = {
+      id: `${selectedTest.id}-${employee.username || employee.name || 'anonymous'}-${Date.now()}`,
+      username: employee.username || '',
+      name: employee.name || '未登录老师',
+      role: employee.role || '',
+      lessonId: selectedTest.lessonId || '',
+      lessonTitle: formatLessonTitle(selectedTestLesson),
+      testId: selectedTest.id,
+      testTitle: formatTestTitle(selectedTest),
+      score,
+      correctCount,
+      totalQuestions: totalQuestionCount,
+      totalAnswered,
+      submittedAt,
+    };
+    const nextRows = mergeLeaderboardRows([row], leaderboardRows);
+    setLeaderboardRows(nextRows);
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem(leaderboardStoreKey, JSON.stringify(nextRows));
+      setLeaderboardSyncState('正在同步');
+      cloudWriteModuleData(leaderboardStoreKey, [row])
+        .then((result) => setLeaderboardSyncState(result?.ok ? '云端已同步' : '本机记录'))
+        .catch(() => setLeaderboardSyncState('本机记录'));
+    }
   };
 
   const renderQuestionDetail = (item) => (
@@ -462,6 +687,24 @@ export default function Home() {
               <div className="classroom-tabs">
                 <button type="button" className={classroomView === 'lessons' ? 'active' : ''} onClick={() => setClassroomView('lessons')}>学习内容</button>
                 <button type="button" className={classroomView === 'tests' ? 'active' : ''} onClick={() => setClassroomView('tests')}>阶段测试</button>
+                <button type="button" className={classroomView === 'leaderboard' ? 'active' : ''} onClick={() => setClassroomView('leaderboard')}>学习榜</button>
+              </div>
+            </section>
+            <section className="leaderboard-summary">
+              <div>
+                <span>我的进度</span>
+                <strong>{mySummary ? `${mySummary.completedLessons}/20 节` : '暂未交卷'}</strong>
+                <p>{mySummary ? `当前第 ${myRank + 1} 名 · 正确率 ${mySummary.accuracy}%` : '完成本节小测试后自动进入榜单'}</p>
+              </div>
+              <div>
+                <span>当前榜首</span>
+                <strong>{leaderboard[0]?.name || '暂无'}</strong>
+                <p>{leaderboard[0] ? `${leaderboard[0].points} 分 · 已学 ${leaderboard[0].completedLessons} 节` : '等待老师完成第一次测试'}</p>
+              </div>
+              <div>
+                <span>榜单状态</span>
+                <strong>{leaderboard.length} 人</strong>
+                <p>{leaderboardSyncState}</p>
               </div>
             </section>
             {classroomView === 'lessons' && (
@@ -541,6 +784,30 @@ export default function Home() {
           </>
         )}
 
+        {activeView === 'classroom' && classroomView === 'leaderboard' && (
+          <section className="leaderboard-panel">
+            <div className="section-head">
+              <h2>学管课堂学习榜</h2>
+              <span>{leaderboardSyncState}</span>
+            </div>
+            <div className="leaderboard-note">按完成课次数、交卷次数、答对题数、最好成绩综合计分。老师可以反复学习、反复测试，系统记录最好表现和学习投入。</div>
+            <div className="rank-list">
+              {leaderboard.length ? leaderboard.map((item, index) => (
+                <div key={item.username || item.name} className={`rank-row ${index < 3 ? 'top' : ''}`}>
+                  <strong>{index + 1}</strong>
+                  <div>
+                    <b>{item.name}</b>
+                    <span>已学 {item.completedLessons}/20 节 · 交卷 {item.attempts} 次 · 正确率 {item.accuracy}% · 最高 {item.bestScore} 分</span>
+                  </div>
+                  <em>{item.points} 分</em>
+                </div>
+              )) : (
+                <div className="empty-rank">暂无学习记录。完成任意一节小测试后会自动生成排行榜。</div>
+              )}
+            </div>
+          </section>
+        )}
+
         {activeView === 'classroom' && classroomView === 'tests' && (
           <section className="test-workspace">
             <div className="test-toolbar">
@@ -554,13 +821,14 @@ export default function Home() {
                     <option key={test.id} value={test.id}>{formatTestTitle(test)}</option>
                   ))}
                 </select>
-                <button type="button" onClick={() => setTestSubmitted(true)}>交卷</button>
+                <button type="button" onClick={submitTest}>交卷</button>
                 <button
                   type="button"
                   className="ghost"
                   onClick={() => {
                     setTestAnswers({});
                     setTestSubmitted(false);
+                    submittedAttemptRef.current = '';
                   }}
                 >
                   重做
@@ -569,7 +837,7 @@ export default function Home() {
               {testSubmitted && (
                 <div className="score-card">
                   <strong>{score}</strong>
-                  <span>总分 100 · 正确 {correctCount} 题</span>
+                  <span>总分 {totalScore} · 正确 {correctCount} 题</span>
                 </div>
               )}
             </div>
@@ -613,6 +881,11 @@ export default function Home() {
                   </section>
                 );
               })}
+            </div>
+
+            <div className="bottom-submit">
+              <button type="button" onClick={submitTest}>{testSubmitted ? '再次提交成绩' : '提交完成'}</button>
+              <span>{testSubmitted ? `已得 ${score} 分，成绩已记录到学习榜。` : `已答 ${totalAnswered}/${totalQuestionCount}，提交后显示成绩和错题。`}</span>
             </div>
 
             {testSubmitted && wrongQuestions.length > 0 && (
@@ -686,7 +959,7 @@ export default function Home() {
           font-size: 16px;
           line-height: 1.7;
         }
-        .portal-button, .search-row button, .test-controls button {
+        .portal-button, .search-row button, .test-controls button, .bottom-submit button {
           min-height: 42px;
           padding: 0 18px;
           border: 0;
@@ -919,7 +1192,7 @@ export default function Home() {
           gap: 18px;
           align-items: start;
         }
-        .result-list, .detail-card, .test-workspace, .wrong-panel {
+        .result-list, .detail-card, .test-workspace, .wrong-panel, .leaderboard-panel {
           border: 1px solid #d9e3ee;
           border-radius: 8px;
           background: #ffffff;
@@ -1013,6 +1286,106 @@ export default function Home() {
           border-radius: 8px;
           background: #ffffff;
           box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+        }
+        .leaderboard-summary {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 14px;
+        }
+        .leaderboard-summary div {
+          min-height: 104px;
+          padding: 16px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 8px 18px rgba(20, 33, 61, 0.04);
+        }
+        .leaderboard-summary span {
+          display: block;
+          color: #0f766e;
+          font-size: 13px;
+          font-weight: 900;
+        }
+        .leaderboard-summary strong {
+          display: block;
+          margin-top: 8px;
+          color: #14213d;
+          font-size: 25px;
+          line-height: 1.1;
+        }
+        .leaderboard-summary p {
+          margin: 8px 0 0;
+          color: #65758b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .leaderboard-panel {
+          margin-top: 16px;
+          padding: 18px;
+        }
+        .leaderboard-note {
+          margin: 0 2px 14px;
+          color: #52627a;
+          line-height: 1.7;
+        }
+        .rank-list {
+          display: grid;
+          gap: 10px;
+        }
+        .rank-row {
+          display: grid;
+          grid-template-columns: 42px minmax(0, 1fr) auto;
+          gap: 12px;
+          align-items: center;
+          padding: 14px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #fbfcfe;
+        }
+        .rank-row.top {
+          border-color: #b7e4dd;
+          background: #f0faf8;
+        }
+        .rank-row > strong {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #1f3a5f;
+          color: #ffffff;
+          font-size: 15px;
+        }
+        .rank-row.top > strong {
+          background: #0f766e;
+        }
+        .rank-row b {
+          display: block;
+          color: #14213d;
+          font-size: 16px;
+        }
+        .rank-row span {
+          display: block;
+          margin-top: 5px;
+          color: #65758b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .rank-row em {
+          color: #9a3412;
+          font-style: normal;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .empty-rank {
+          padding: 28px;
+          border: 1px dashed #b8c8d9;
+          border-radius: 8px;
+          color: #65758b;
+          text-align: center;
+          background: #fbfcfe;
         }
         .lesson-card-grid {
           display: grid;
@@ -1287,6 +1660,26 @@ export default function Home() {
           font-size: 14px;
           line-height: 1.7;
         }
+        .bottom-submit {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          flex-wrap: wrap;
+          margin-top: 18px;
+          padding: 16px;
+          border: 1px solid #b7e4dd;
+          border-radius: 8px;
+          background: #f0faf8;
+        }
+        .bottom-submit button {
+          min-width: 136px;
+        }
+        .bottom-submit span {
+          color: #52627a;
+          font-size: 14px;
+          line-height: 1.6;
+        }
         .wrong-panel {
           margin-top: 18px;
           padding: 20px;
@@ -1327,6 +1720,15 @@ export default function Home() {
           }
           .lesson-card-grid {
             grid-template-columns: 1fr;
+          }
+          .leaderboard-summary {
+            grid-template-columns: 1fr;
+          }
+          .rank-row {
+            grid-template-columns: 38px minmax(0, 1fr);
+          }
+          .rank-row em {
+            grid-column: 2;
           }
           .result-list {
             max-height: none;
