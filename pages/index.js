@@ -368,14 +368,10 @@ export default function Home() {
         {activeView === 'home' && (
           <section className="entry-grid">
             <button type="button" className="entry-card" onClick={() => setActiveView('qa')}>
-              <span>问答查询系统</span>
-              <strong>{knowledgeBase.total} 条完整问答</strong>
-              <p>输入家长原话、关键词或类似问法，查找标准回复话术。</p>
+              <strong>问答查询系统</strong>
             </button>
             <button type="button" className="entry-card" onClick={() => setActiveView('classroom')}>
-              <span>学管课堂系统</span>
-              <strong>{trainingProgram.lessons?.length || 0} 节课 · 20 套测试</strong>
-              <p>按课程学习 49 条问答，并完成阶段测试和错题订正。</p>
+              <strong>学管课堂系统</strong>
             </button>
           </section>
         )}
@@ -714,36 +710,30 @@ export default function Home() {
           margin-top: 18px;
         }
         .entry-card {
-          min-height: 190px;
-          padding: 24px;
+          min-height: 220px;
+          padding: 34px;
           border: 1px solid #d9e3ee;
           border-radius: 8px;
-          background: #ffffff;
-          text-align: left;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+          text-align: center;
           box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
-        }
-        .entry-card span {
-          display: inline-flex;
-          min-height: 28px;
+          display: flex;
           align-items: center;
-          padding: 0 10px;
-          border-radius: 999px;
-          background: #e8f5f2;
-          color: #0f766e;
-          font-size: 13px;
-          font-weight: 900;
+          justify-content: center;
+          cursor: pointer;
+          transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+        }
+        .entry-card:hover {
+          border-color: #2f6fbb;
+          box-shadow: 0 16px 34px rgba(47, 111, 187, 0.14);
+          transform: translateY(-2px);
         }
         .entry-card strong {
           display: block;
-          margin-top: 16px;
+          margin: 0;
           color: #14213d;
-          font-size: 26px;
-          line-height: 1.25;
-        }
-        .entry-card p {
-          margin: 12px 0 0;
-          color: #52627a;
-          line-height: 1.75;
+          font-size: clamp(34px, 5vw, 52px);
+          line-height: 1.15;
         }
         .system-toolbar, .classroom-header {
           display: flex;
