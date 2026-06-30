@@ -2144,9 +2144,9 @@
     const hrTypeGuides = {
       入职: {
         system: "统一登录、人事档案、权限、岗位设置",
-        next: "补齐手机号、微信、岗位权限，确认入职日期和转正日期",
-        notePlaceholder: "建议写清：入职日期、岗位、手机号/微信、初始权限、试用期安排、转正日期和培训安排。",
-        hint: "<strong>入职事项怎么填：</strong>员工姓名可填写新员工；关联系统用于提醒创建登录账号、人事档案、岗位设置和基础权限；下一步写清还差哪些入职资料或权限；事项说明记录入职日期、岗位、试用期和培训安排。"
+        next: "填写登录账号、手机号、岗位、入职日期和转正日期",
+        notePlaceholder: "可选：写试用安排、培训安排或特别说明。",
+        hint: "<strong>入职事项怎么填：</strong>填写姓名、登录账号、手机号、岗位、入职日期即可；系统会按岗位给默认权限，初始密码 10281028。"
       },
       转正: {
         system: "人事档案、权限、财务",
@@ -2270,7 +2270,7 @@
       if (noteInput) noteInput.placeholder = guide.notePlaceholder;
       if (flowHint) {
         const simpleHints = {
-          入职: "入职：填写姓名、手机号、岗位、入职日期即可；系统会按岗位自动给默认权限，并生成员工账号。",
+          入职: "入职：填写姓名、登录账号、手机号、岗位、入职日期即可；登录账号建议用姓名拼音，初始密码 10281028。",
           离职: "离职：从候选名单选择员工姓名，保存后会出现离职清单；清单完成后再归档。",
           转正: "转正：选择员工姓名，简单写转正结论即可；系统会保留记录。",
           权限调整: "权限调整：选择员工姓名，备注写需要开通或关闭的权限即可。",
@@ -2755,6 +2755,7 @@
     function fillForm(row) {
       $("hrTypeInput").value = row.type || "培训记录";
       $("hrEmployeeInput").value = row.employee || "";
+      $("hrUsernameInput").value = row.username || "";
       $("hrPhoneInput").value = row.phone || "";
       $("hrRoleInput").value = row.role || "授课老师";
       $("hrHireDateInput").value = formatDateOnly(row.hireDate) || "";
@@ -2931,12 +2932,13 @@
         return;
       }
       const role = normalizeText($("hrRoleInput")?.value) || "授课老师";
+      const username = normalizeText($("hrUsernameInput")?.value).toLowerCase();
       const phone = normalizeText($("hrPhoneInput")?.value);
       const hireDate = formatDateOnly($("hrHireDateInput")?.value);
       const regularDate = formatDateOnly($("hrRegularDateInput")?.value);
       const note = normalizeText($("hrNoteInput")?.value);
-      if (type === "入职" && !phone) {
-        setText("hrMessage", "入职请填写手机号，系统会用手机号生成登录账号。");
+      if (type === "入职" && !username) {
+        setText("hrMessage", "入职请填写登录账号，建议使用姓名拼音。");
         return;
       }
       let accountMessage = "";
@@ -2944,7 +2946,7 @@
         const result = await window.JRC_UPSERT_EMPLOYEE_FROM_HR({
           name: employee,
           employee,
-          username: phone,
+          username,
           phone,
           role,
           hireDate,
@@ -2977,6 +2979,7 @@
         type,
         employee,
         phone,
+        username,
         role,
         hireDate,
         regularDate,
@@ -3081,6 +3084,7 @@
     $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事管理事项数据.csv", rows, [
       { label: "事项类型", value: "type" },
       { label: "员工姓名", value: "employee" },
+      { label: "登录账号", value: "username" },
       { label: "手机号", value: "phone" },
       { label: "岗位", value: "role" },
       { label: "入职日期", value: "hireDate" },
@@ -3136,6 +3140,7 @@
         return {
           type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "培训记录"), ["入职", "转正", "权限调整", "提成调整", "培训记录", "员工基础档案核对", "系统权限分组"], "培训记录"),
           employee,
+          username: normalizeText(readField(row, ["username", "登录账号", "用户名", "账号"], "")),
           phone: normalizeText(readField(row, ["phone", "手机号", "电话", "联系电话"], "")),
           role: normalizeText(readField(row, ["role", "岗位", "角色"], "")),
           hireDate: formatDateOnly(readField(row, ["hireDate", "入职日期", "入职时间"], "")),
@@ -3173,7 +3178,7 @@
       canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
       buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "清空"]],
-      fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrPhoneInput", "hrRoleInput", "hrHireDateInput", "hrRegularDateInput", "hrNoteInput"]
+      fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrUsernameInput", "hrPhoneInput", "hrRoleInput", "hrHireDateInput", "hrRegularDateInput", "hrNoteInput"]
     });
   }
 

@@ -1742,8 +1742,22 @@ async function jrcUpsertEmployeeFromHr(row = {}, options = {}) {
   const role = String(row.role || "授课老师").trim() || "授课老师";
   const baseUsername = String(row.username || phone || name).trim().toLowerCase().replace(/\s+/g, "");
   const username = baseUsername || `${Date.now()}`;
-  const existing = jrcFindEmployeeByUsername(username) || {};
   const customEmployees = jrcReadCustomEmployees();
+  const customIndexByUsername = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
+  const customIndexByIdentity = customEmployees.findIndex((employee) => {
+    const sameName = String(employee.name || "").trim() === name;
+    const samePhone = phone && String(employee.phone || "").trim() === phone;
+    return sameName || samePhone;
+  });
+  const customIndex = customIndexByUsername >= 0 ? customIndexByUsername : customIndexByIdentity;
+  const existing = jrcFindEmployeeByUsername(username)
+    || (customIndex >= 0 ? customEmployees[customIndex] : null)
+    || jrcGetAllEmployees().find((employee) => {
+      const sameName = String(employee.name || "").trim() === name;
+      const samePhone = phone && String(employee.phone || "").trim() === phone;
+      return sameName || samePhone;
+    })
+    || {};
   const payload = {
     ...existing,
     name,
@@ -1762,8 +1776,7 @@ async function jrcUpsertEmployeeFromHr(row = {}, options = {}) {
     accountStatus: "active",
     permissions: Array.isArray(row.permissions) ? row.permissions : []
   };
-  const index = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
-  if (index >= 0) customEmployees[index] = { ...customEmployees[index], ...payload };
+  if (customIndex >= 0) customEmployees[customIndex] = { ...customEmployees[customIndex], ...payload };
   else customEmployees.push(payload);
   jrcWriteCustomEmployees(customEmployees);
   jrcSyncCustomEmployeesToCloud(customEmployees);

@@ -347,12 +347,13 @@
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>离职</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
             <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" list="hrActiveEmployeeOptions" placeholder="新员工直接填写姓名；老员工可从候选选择"></label>
             <datalist id="hrActiveEmployeeOptions"></datalist>
+            <label class="field"><span>登录账号</span><input id="hrUsernameInput" placeholder="建议填写姓名拼音，例如：zhangsan"></label>
             <label class="field"><span>手机号</span><input id="hrPhoneInput" placeholder="例如：13800000000"></label>
             <label class="field"><span>岗位</span><select id="hrRoleInput"><option>授课老师</option><option>试用期老师</option><option>学管</option><option>试用期学管</option><option>财务</option><option>管理员</option></select></label>
             <label class="field"><span>入职日期</span><input id="hrHireDateInput" type="date"></label>
             <label class="field"><span>转正日期</span><input id="hrRegularDateInput" type="date"></label>
             <label class="field span-3"><span>备注</span><textarea id="hrNoteInput" placeholder="可选：写入职安排、离职原因、转正结论、培训内容等。"></textarea></label>
-            <div class="hr-flow-hint" id="hrFlowHint">入职：填写姓名、手机号、岗位、入职日期即可；系统会按岗位自动给默认权限，并生成员工账号。离职：选择员工姓名后保存，会出现离职清单。转正、培训、权限调整可简单写备注。</div>
+            <div class="hr-flow-hint" id="hrFlowHint">入职：填写姓名、登录账号、手机号、岗位、入职日期即可；登录账号建议用姓名拼音，初始密码 10281028。离职：选择员工姓名后保存，会出现离职清单。转正、培训、权限调整可简单写备注。</div>
           </div>
           <div class="actions">
             <button class="button" id="hrSaveButton" type="button">保存人事管理事项</button>
