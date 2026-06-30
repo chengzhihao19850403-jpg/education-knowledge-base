@@ -3121,35 +3121,201 @@
   }
 
   function initCampusOperations() {
-    if (!$("campusTableBody")) return;
+    if (!$("campusDisplayGrid")) return;
     const moduleKey = "campus";
     const canManageCoreOps = isCoreOpsAdmin();
     const capabilities = fixedCapabilities(canManageCoreOps);
     const key = "jrc-campus-operations-v2";
-    const defaults = {
-      title: "",
-      type: "教室",
-      area: "",
-      owner: currentOperator().name || "",
-      status: "待处理",
-      due: "",
-      note: ""
+    const sectionNames = ["公告公示类", "工作流程类"];
+    const categoryMap = {
+      公告公示类: ["校区公告", "值班表", "卫生值日表", "学管排班表", "招聘情况", "临时通知"],
+      工作流程类: ["招聘流程", "面试流程", "试用淘汰流程", "入职流程", "离职流程", "请假调课制度", "日常工作制度"]
     };
-    function sanitizeRows(input) {
-      const oldSeedTitles = ["教室可用状态核对", "暑假值班表", "门店异常记录"];
-      return (Array.isArray(input) ? input : [])
-        .filter((row) => !oldSeedTitles.includes(row.title))
-        .map((row) => ({
-          ...row,
-          type: ["岗位排班", "暑假排班"].includes(row?.type) ? "值班" : row?.type
-        }));
-    }
-    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+    const legacyTypes = new Set(["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"]);
+    let activeSection = sectionNames.includes(localStorage.getItem("jrc-campus-active-section-v1"))
+      ? localStorage.getItem("jrc-campus-active-section-v1")
+      : "公告公示类";
     let editingIndex = -1;
     const canEditCampus = canManageCoreOps;
     const campusEditor = $("campusEditorPanel");
     const campusEditorToggle = $("campusEditorToggle");
     const campusExportButton = $("campusExportButton");
+    const defaults = {
+      section: activeSection,
+      category: activeSection === "工作流程类" ? "招聘流程" : "校区公告",
+      title: "",
+      owner: "全体老师",
+      displayDate: "长期有效",
+      sortOrder: "",
+      content: ""
+    };
+
+    function normalizeContent(value) {
+      return String(value || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+
+    function normalizeSection(value) {
+      const text = normalizeText(value);
+      return sectionNames.includes(text) ? text : "公告公示类";
+    }
+
+    function normalizeCategory(section, value) {
+      const text = normalizeText(value);
+      if (text) return text;
+      return section === "工作流程类" ? "工作流程" : "校区公告";
+    }
+
+    function normalizeCampusRow(row) {
+      if (!row || typeof row !== "object") return null;
+      const rawType = normalizeText(row.section || row.type || row.category || "");
+      const section = normalizeSection(row.section || (rawType.includes("流程") || rawType.includes("制度") || rawType.includes("面试") || rawType.includes("招聘") && !rawType.includes("情况") ? "工作流程类" : "公告公示类"));
+      const category = normalizeCategory(section, row.category || (legacyTypes.has(rawType) ? (rawType === "暑假排班" || rawType === "岗位排班" || rawType === "值班" ? "值班表" : rawType) : rawType));
+      const title = normalizeName(row.title || row.name || row.item || row.事项名称 || row.标题 || "");
+      const content = normalizeContent(row.content || row.note || row.description || row.展示正文 || row.正文 || row.说明 || row.备注 || "");
+      if (!title && !content) return null;
+      return ensureRowId({
+        ...row,
+        section,
+        category,
+        title: title || category,
+        owner: normalizeText(row.owner || row.scope || row.area || row.适用范围 || row.负责人 || "全体老师") || "全体老师",
+        displayDate: normalizeText(row.displayDate || row.date || row.due || row.展示日期 || row.日期 || "长期有效") || "长期有效",
+        sortOrder: normalizeText(row.sortOrder || row.order || row.展示排序 || row.排序 || ""),
+        content: content || normalizeContent([row.area, row.status, row.due, row.note].filter(Boolean).join("\n")),
+        createdAt: String(row.createdAt || row.创建时间 || nowText()),
+        updatedAt: String(row.updatedAt || row.更新时间 || nowText())
+      }, key);
+    }
+
+    function sanitizeRows(input) {
+      const oldSeedTitles = ["教室可用状态核对", "暑假值班表", "门店异常记录"];
+      return (Array.isArray(input) ? input : [])
+        .map(normalizeCampusRow)
+        .filter(Boolean)
+        .filter((row) => !oldSeedTitles.includes(row.title));
+    }
+
+    let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
+
+    function allCategories() {
+      const set = new Set([...categoryMap[activeSection]]);
+      rows.filter((row) => row.section === activeSection).forEach((row) => row.category && set.add(row.category));
+      return [...set].filter(Boolean);
+    }
+
+    function refreshCategoryControls() {
+      const categories = allCategories();
+      const filter = $("campusCategoryFilter");
+      if (filter) {
+        const current = filter.value;
+        filter.innerHTML = `<option value="">全部类别</option>${categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}`;
+        filter.value = categories.includes(current) ? current : "";
+      }
+      const datalist = $("campusCategoryOptions");
+      if (datalist) {
+        const all = new Set([...categoryMap["公告公示类"], ...categoryMap["工作流程类"]]);
+        rows.forEach((row) => row.category && all.add(row.category));
+        datalist.innerHTML = [...all].map((category) => `<option value="${escapeHtml(category)}"></option>`).join("");
+      }
+    }
+
+    function fillForm(row) {
+      const data = row || defaults;
+      $("campusSectionInput").value = data.section || activeSection;
+      $("campusCategoryInput").value = data.category || "";
+      $("campusTitleInput").value = data.title || "";
+      $("campusOwnerInput").value = data.owner || "";
+      $("campusDateInput").value = data.displayDate || "";
+      $("campusOrderInput").value = data.sortOrder || "";
+      $("campusContentInput").value = data.content || "";
+    }
+
+    function resetForm() {
+      editingIndex = -1;
+      fillForm({ ...defaults, section: activeSection, category: activeSection === "工作流程类" ? "招聘流程" : "校区公告" });
+      setText("campusSaveButton", "保存展示内容");
+    }
+
+    function orderValue(row) {
+      const number = Number(row.sortOrder);
+      return Number.isFinite(number) && number > 0 ? number : 9999;
+    }
+
+    function visibleEntries() {
+      const keyword = $("campusFilterInput")?.value.trim().toLowerCase() || "";
+      const category = $("campusCategoryFilter")?.value || "";
+      return rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => row.section === activeSection)
+        .filter(({ row }) => !category || row.category === category)
+        .filter(({ row }) => rowMatches(row, keyword))
+        .sort((left, right) => orderValue(left.row) - orderValue(right.row) || parseDateValue(right.row.updatedAt || right.row.createdAt) - parseDateValue(left.row.updatedAt || left.row.createdAt));
+    }
+
+    function renderCard(row, index) {
+      return `
+        <article class="campus-display-card">
+          <div class="campus-display-card__head">
+            <div>
+              <h3>${escapeHtml(row.title || row.category || "未命名内容")}</h3>
+              <div class="campus-display-meta">
+                ${tag(row.category || activeSection, row.section === "工作流程类" ? "info" : "good")}
+                ${tag(row.displayDate || "长期有效", "neutral")}
+                ${row.owner ? tag(row.owner, "neutral") : ""}
+              </div>
+            </div>
+          </div>
+          <div class="campus-display-content">${escapeHtml(row.content || "内容待补充。")}</div>
+          ${canEditCampus ? `<div class="campus-card-actions">${actionButtons(index, capabilities)}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function render() {
+      document.querySelectorAll("[data-campus-section]").forEach((button) => {
+        const active = button.getAttribute("data-campus-section") === activeSection;
+        button.classList.toggle("active", active);
+      });
+      setText("campusDisplayStatus", `${activeSection}｜${rows.filter((row) => row.section === activeSection).length} 条`);
+      refreshCategoryControls();
+      const entries = visibleEntries();
+      const grid = $("campusDisplayGrid");
+      if (grid) {
+        grid.innerHTML = entries.length
+          ? entries.map(({ row, index }) => renderCard(row, index)).join("")
+          : `<div class="campus-empty">当前还没有${escapeHtml(activeSection)}内容。管理员可以点击“编辑校区运营”新增值班表、学管排班表、招聘情况或工作流程。</div>`;
+      }
+      renderAuditLog(moduleKey, "campusAuditTableBody");
+    }
+
+    function saveRows(nextRows, options = {}) {
+      rows = mergeRowsById(sanitizeRows(nextRows), key);
+      writeStore(key, rows, options);
+      render();
+    }
+
+    function buildPayloadFromForm() {
+      const section = normalizeSection($("campusSectionInput")?.value);
+      const title = normalizeName($("campusTitleInput")?.value);
+      const content = normalizeContent($("campusContentInput")?.value);
+      if (!title && !content) return null;
+      return ensureRowId({
+        ...(editingIndex >= 0 ? rows[editingIndex] : {}),
+        section,
+        category: normalizeCategory(section, $("campusCategoryInput")?.value),
+        title: title || normalizeCategory(section, $("campusCategoryInput")?.value),
+        owner: normalizeText($("campusOwnerInput")?.value) || "全体老师",
+        displayDate: normalizeText($("campusDateInput")?.value) || "长期有效",
+        sortOrder: normalizeText($("campusOrderInput")?.value),
+        content,
+        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
+        updatedAt: nowText()
+      }, key);
+    }
+
     if (campusEditor) campusEditor.hidden = true;
     if (campusExportButton) campusExportButton.hidden = !canEditCampus;
     if (campusEditorToggle) {
@@ -3161,176 +3327,187 @@
       });
     }
 
-    function fillForm(row) {
-      $("campusTitleInput").value = row.title || "";
-      $("campusTypeInput").value = row.type || "异常记录";
-      $("campusAreaInput").value = row.area || "";
-      $("campusOwnerInput").value = row.owner || "";
-      $("campusStatusInput").value = row.status || "待处理";
-      $("campusDueInput").value = row.due || "";
-      $("campusNoteInput").value = row.note || "";
-    }
-
-    function resetForm() {
-      fillForm(defaults);
-      editingIndex = -1;
-      setText("campusSaveButton", "保存运营事项");
-    }
-
-    function render() {
-      const keyword = $("campusFilterInput")?.value.trim().toLowerCase() || "";
-      const sortValue = $("campusSortSelect")?.value || "newest";
-      const entries = getSortedEntries(rows, keyword, sortValue, (row) => row.status, ["待处理", "处理中", "需复盘", "已完成"]);
-      $("campusTableBody").innerHTML = entries.length ? entries
-        .map(({ row, index }) => `
-          <tr>
-            <td>${escapeHtml(row.title)}</td>
-            <td>${escapeHtml(row.type)}</td>
-            <td>${escapeHtml(row.area)}</td>
-            <td>${escapeHtml(row.owner)}</td>
-            <td>${workStatusTag(row.status)}</td>
-            <td>${escapeHtml(row.due)}</td>
-            <td>${escapeHtml(row.note)}</td>
-            <td>${canEditCampus ? actionButtons(index, capabilities) : tag("仅查看", "neutral")}</td>
-          </tr>
-        `).join("") : `<tr><td colspan="8">暂无校区运营事项。可以新增教室、值班、卫生、安全检查或异常记录。</td></tr>`;
-      setText("campusMetricRoom", rows.filter((row) => row.type === "教室").length);
-      setText("campusMetricDuty", rows.filter((row) => row.type === "值班").length);
-      setText("campusMetricSafety", rows.filter((row) => row.type === "安全检查").length);
-      setText("campusMetricOpen", rows.filter((row) => row.status !== "已完成").length);
-      renderAuditLog(moduleKey, "campusAuditTableBody");
-    }
+    document.querySelectorAll("[data-campus-section]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const section = normalizeSection(button.getAttribute("data-campus-section"));
+        activeSection = section;
+        localStorage.setItem("jrc-campus-active-section-v1", activeSection);
+        resetForm();
+        render();
+      });
+    });
 
     $("campusSaveButton")?.addEventListener("click", () => {
       const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
-      if (!actionAllowed) {
-        denyAction("campusMessage", editingIndex >= 0 ? "修改" : "新增");
+      if (!actionAllowed) return denyAction("campusMessage", editingIndex >= 0 ? "修改" : "新增");
+      const payload = buildPayloadFromForm();
+      if (!payload) {
+        setText("campusMessage", "请至少填写标题或展示正文。");
         return;
       }
-      const title = normalizeName($("campusTitleInput")?.value);
-      if (!title) {
-        setText("campusMessage", "请先填写事项名称。");
-        return;
-      }
-      const payload = {
-        title,
-        type: $("campusTypeInput")?.value || "异常记录",
-        area: normalizeText($("campusAreaInput")?.value) || "-",
-        owner: normalizeName($("campusOwnerInput")?.value) || "-",
-        status: $("campusStatusInput")?.value || "待处理",
-        due: normalizeText($("campusDueInput")?.value) || "-",
-        note: normalizeText($("campusNoteInput")?.value) || "-",
-        createdAt: editingIndex >= 0 ? rows[editingIndex].createdAt : nowText(),
-        updatedAt: nowText()
-      };
       if (editingIndex >= 0) {
         rows[editingIndex] = payload;
-        recordAudit(moduleKey, "更新", title, `${payload.type} / ${payload.status}`);
-        setText("campusMessage", `已更新运营事项：${title}。`);
+        recordAudit(moduleKey, "更新", payload.title, `${payload.section} / ${payload.category}`);
+        setText("campusMessage", `已更新展示内容：${payload.title}。`);
       } else {
         rows.unshift(payload);
-        recordAudit(moduleKey, "新增", title, `${payload.type} / ${payload.status}`);
-        setText("campusMessage", `已保存运营事项：${title}。`);
+        recordAudit(moduleKey, "新增", payload.title, `${payload.section} / ${payload.category}`);
+        setText("campusMessage", `已保存展示内容：${payload.title}。`);
       }
-      writeStore(key, rows);
+      saveRows(rows);
+      activeSection = payload.section;
+      localStorage.setItem("jrc-campus-active-section-v1", activeSection);
       resetForm();
       render();
     });
-    $("campusFilterInput")?.addEventListener("input", render);
-    $("campusSortSelect")?.addEventListener("change", render);
-    $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadCsv("校区运营事项数据.csv", rows, [
-      { label: "事项名称", value: "title" },
-      { label: "类型", value: "type" },
-      { label: "位置/范围", value: "area" },
-      { label: "责任人", value: "owner" },
-      { label: "状态", value: "status" },
-      { label: "截止时间", value: "due" },
-      { label: "说明", value: "note" },
-      { label: "创建时间", value: "createdAt" }
-    ])));
-    $("campusResetButton")?.addEventListener("click", () => {
-      if (!capabilities.reset) {
-        denyAction("campusMessage", "清空");
+
+    $("campusCancelButton")?.addEventListener("click", () => {
+      resetForm();
+      setText("campusMessage", "已取消编辑。");
+    });
+
+    $("campusBulkSaveButton")?.addEventListener("click", () => {
+      if (!capabilities.create) return denyAction("campusMessage", "新增");
+      const rawText = normalizeContent($("campusBulkTextInput")?.value);
+      const titleInput = normalizeName($("campusBulkTitleInput")?.value);
+      if (!rawText && !titleInput) {
+        setText("campusMessage", "请先粘贴正文或填写标题。");
         return;
       }
+      const lines = rawText.split("\n").map((line) => line.trim()).filter(Boolean);
+      const title = titleInput || lines[0] || "校区展示内容";
+      const content = titleInput ? rawText : lines.slice(1).join("\n") || rawText;
+      const section = normalizeSection($("campusBulkSectionInput")?.value);
+      const payload = ensureRowId({
+        section,
+        category: normalizeCategory(section, $("campusBulkCategoryInput")?.value),
+        title,
+        owner: "全体老师",
+        displayDate: "长期有效",
+        sortOrder: "",
+        content: normalizeContent(content),
+        createdAt: nowText(),
+        updatedAt: nowText()
+      }, key);
+      rows.unshift(payload);
+      saveRows(rows);
+      activeSection = section;
+      localStorage.setItem("jrc-campus-active-section-v1", activeSection);
+      $("campusBulkTitleInput").value = "";
+      $("campusBulkCategoryInput").value = "";
+      $("campusBulkTextInput").value = "";
+      recordAudit(moduleKey, "粘贴新增", payload.title, `${payload.section} / ${payload.category}`);
+      setText("campusMessage", `已根据粘贴内容生成展示：${payload.title}。`);
+      render();
+    });
+
+    $("campusFilterInput")?.addEventListener("input", render);
+    $("campusCategoryFilter")?.addEventListener("change", render);
+    $("campusExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "campusMessage", "导出", () => downloadCsv("校区运营展示内容.csv", rows, [
+      { label: "所属板块", value: "section" },
+      { label: "内容类别", value: "category" },
+      { label: "标题", value: "title" },
+      { label: "适用范围/负责人", value: "owner" },
+      { label: "展示日期", value: "displayDate" },
+      { label: "展示排序", value: "sortOrder" },
+      { label: "展示正文", value: "content" },
+      { label: "创建时间", value: "createdAt" },
+      { label: "更新时间", value: "updatedAt" }
+    ])));
+
+    $("campusResetButton")?.addEventListener("click", () => {
+      if (!capabilities.reset) return denyAction("campusMessage", "清空");
+      if (!window.confirm("确定清空全部校区运营展示内容吗？")) return;
       markRowsDeleted(key, rows);
       rows = [];
-      writeStore(key, rows, { restoreDeleted: false });
-      recordAudit(moduleKey, "清空", "校区运营台账", "0 条");
+      writeStore(key, rows, { restoreDeleted: false, replaceMode: "replace" });
+      recordAudit(moduleKey, "清空", "校区运营展示内容", "0 条");
       resetForm();
       render();
-      setText("campusMessage", "已清空本页台账。后续可新增或导入真实校区事项。");
+      setText("campusMessage", "已清空校区运营展示内容。后续可重新新增或导入。");
     });
-    bindRowActions("campusTableBody", {
-      onEdit(index) {
-        editingIndex = index;
-        fillForm(rows[index]);
-        if (campusEditor) campusEditor.hidden = false;
-        setText("campusEditorToggle", "收起编辑");
-        setText("campusSaveButton", "保存修改");
-        setText("campusMessage", `正在编辑 ${rows[index].title}。`);
-      },
-      onDelete(index) {
-        const removed = rows[index];
-        markRowDeleted(key, removed);
-        rows.splice(index, 1);
-        writeStore(key, rows, { restoreDeleted: false });
-        recordAudit(moduleKey, "删除", removed.title, removed.type);
-        if (editingIndex === index) resetForm();
-        render();
-        setText("campusMessage", `已删除运营事项：${removed.title}。`);
+
+    $("campusDisplayGrid")?.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.getAttribute("data-action");
+      const index = Number(button.getAttribute("data-index"));
+      if (action === "edit") {
+        guardAction(capabilities.update, "campusMessage", "修改", () => {
+          editingIndex = index;
+          fillForm(rows[index]);
+          if (campusEditor) campusEditor.hidden = false;
+          setText("campusEditorToggle", "收起编辑");
+          setText("campusSaveButton", "保存修改");
+          setText("campusMessage", `正在编辑：${rows[index].title}。`);
+        });
       }
-    }, capabilities, "campusMessage");
+      if (action === "delete") {
+        guardAction(capabilities.delete, "campusMessage", "删除", () => {
+          const removed = rows[index];
+          if (!window.confirm(`确定删除“${removed.title}”吗？`)) return;
+          markRowDeleted(key, removed);
+          rows.splice(index, 1);
+          writeStore(key, rows, { restoreDeleted: false });
+          recordAudit(moduleKey, "删除", removed.title, removed.category);
+          if (editingIndex === index) resetForm();
+          render();
+          setText("campusMessage", `已删除展示内容：${removed.title}。`);
+        });
+      }
+    });
+
     bindTableImport({
       buttonId: "campusImportButton",
       inputId: "campusImportInput",
       getRows: () => rows,
       setRows(nextRows) {
-        rows = nextRows;
-        writeStore(key, rows);
+        saveRows(nextRows);
         resetForm();
-        render();
       },
       normalizeRow(row) {
-        const title = normalizeName(readField(row, ["title", "事项名称", "事项", "名称"]));
-        if (!title) return null;
-        return {
-          title,
-          type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "异常记录"), ["教室", "卫生", "安全检查", "值班", "岗位排班", "暑假排班", "异常记录"], "异常记录").replace(/岗位排班|暑假排班/g, "值班"),
-          area: normalizeText(readField(row, ["area", "位置 / 范围", "位置", "范围"], "-")) || "-",
-          owner: normalizeName(readField(row, ["owner", "责任人", "负责人"], "-")) || "-",
-          status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成", "需复盘"], "待处理"),
-          due: normalizeText(readField(row, ["due", "截止时间", "截止日期"], "-")) || "-",
-          note: normalizeText(readField(row, ["note", "事项说明", "处理要求", "说明", "备注"], "-")) || "-",
-          createdAt: String(readField(row, ["createdAt", "创建时间", "时间"], nowText())),
+        const section = normalizeSection(readField(row, ["section", "所属板块", "板块", "类型"], activeSection));
+        const title = normalizeName(readField(row, ["title", "标题", "名称", "事项名称"]));
+        const content = normalizeContent(readField(row, ["content", "展示正文", "正文", "内容", "说明", "备注"]));
+        if (!title && !content) return null;
+        return ensureRowId({
+          section,
+          category: normalizeCategory(section, readField(row, ["category", "内容类别", "类别", "分类"], "")),
+          title: title || normalizeCategory(section, readField(row, ["category", "内容类别", "类别", "分类"], "")),
+          owner: normalizeText(readField(row, ["owner", "适用范围", "负责人", "范围"], "全体老师")) || "全体老师",
+          displayDate: normalizeText(readField(row, ["displayDate", "展示日期", "日期", "时间"], "长期有效")) || "长期有效",
+          sortOrder: normalizeText(readField(row, ["sortOrder", "展示排序", "排序"], "")),
+          content,
+          createdAt: String(readField(row, ["createdAt", "创建时间"], nowText())),
           updatedAt: String(readField(row, ["updatedAt", "更新时间"], nowText()))
-        };
+        }, key);
       },
       onDone(count) {
-        recordAudit(moduleKey, "导入", "校区运营台账", `${count} 条`);
+        recordAudit(moduleKey, "导入", "校区运营展示内容", `${count} 条`);
         renderAuditLog(moduleKey, "campusAuditTableBody");
-        setText("campusMessage", `已导入 ${count} 条校区运营事项。`);
+        setText("campusMessage", `已导入 ${count} 条展示内容。`);
       },
       onError() {
-        setText("campusMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。");
+        setText("campusMessage", "导入失败。请上传 CSV/TSV/JSON；Excel 可以先另存为 CSV。字段可用：所属板块、内容类别、标题、适用范围、展示日期、展示正文、展示排序。");
       },
       canUse: () => capabilities.import,
       onDenied: () => denyAction("campusMessage", "导入")
     });
+
     resetForm();
     render();
     readCloudStore(key, (cloudRows) => {
       rows = mergeRowsById(sanitizeRows(cloudRows), key);
-      if (rows.length !== cloudRows.length) writeStore(key, rows);
+      if (rows.length !== cloudRows.length) writeStore(key, rows, { replaceMode: "replace" });
       resetForm();
       render();
-      setText("campusMessage", canEditCampus ? "已同步云端校区运营台账；需要维护时点击“编辑校区运营”。" : "已同步云端校区运营台账。");
+      setText("campusMessage", canEditCampus ? "已同步云端展示内容；需要维护时点击“编辑校区运营”。" : "已同步云端展示内容。");
     });
     applyCapabilityGate({
       canWrite: capabilities.create || capabilities.update,
       messageId: "campusMessage",
-      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "清空"]],
-      fieldIds: ["campusTitleInput", "campusTypeInput", "campusAreaInput", "campusOwnerInput", "campusStatusInput", "campusDueInput", "campusNoteInput"]
+      buttonRules: [["campusSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["campusBulkSaveButton", capabilities.create, "粘贴新增"], ["campusImportButton", capabilities.import, "导入"], ["campusExportButton", capabilities.export, "导出"], ["campusResetButton", capabilities.reset, "清空"]],
+      fieldIds: ["campusSectionInput", "campusCategoryInput", "campusTitleInput", "campusOwnerInput", "campusDateInput", "campusOrderInput", "campusContentInput", "campusBulkTitleInput", "campusBulkSectionInput", "campusBulkCategoryInput", "campusBulkTextInput"]
     });
   }
 

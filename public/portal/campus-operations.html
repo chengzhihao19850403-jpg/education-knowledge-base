@@ -52,6 +52,19 @@
       .mini-list { display: grid; gap: 12px; margin-top: 14px; }
       .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
       .mini-item strong { display: block; margin-bottom: 6px; }
+      .campus-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+      .campus-switch button { min-height: 88px; border: 1px solid var(--line); border-radius: 18px; background: #fff; color: var(--ink); text-align: left; padding: 16px; cursor: pointer; }
+      .campus-switch button strong { display: block; font-size: 20px; margin-bottom: 6px; }
+      .campus-switch button span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .campus-switch button.active { border-color: rgba(15,118,110,0.35); background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(37,99,235,0.08)); box-shadow: 0 12px 26px rgba(15,118,110,0.10); }
+      .campus-display-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+      .campus-display-card { border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 16px; }
+      .campus-display-card__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+      .campus-display-card h3 { font-size: 18px; line-height: 1.35; }
+      .campus-display-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+      .campus-display-content { white-space: pre-wrap; color: var(--ink); line-height: 1.85; font-size: 14px; }
+      .campus-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .campus-empty { border: 1px dashed rgba(23,33,50,0.18); border-radius: 16px; padding: 18px; background: rgba(255,255,255,0.74); color: var(--muted); line-height: 1.7; }
       .section-head { justify-content: space-between; margin-bottom: 14px; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
       table { width: 100%; min-width: 860px; border-collapse: collapse; }
@@ -65,7 +78,7 @@
       .span-3 { grid-column: 1 / -1; }
       .admin-editor-toggle[hidden], .admin-editor-panel[hidden] { display: none !important; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
+      @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid, .campus-switch { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260628g">
   </head>
@@ -86,23 +99,22 @@
         <article class="card">
           <p class="eyebrow">校区运营</p>
           <h1>校区运营</h1>
-          <p class="hero-text">教室、卫生、安全检查、值班和校区异常记录。</p>
+          <p class="hero-text">校区公告、值班表、学管排班表和工作流程统一展示。这里不做审批和任务流，只负责让老师能看清楚安排和制度。</p>
           <div class="tag-row">
-            <span class="tag">教室</span>
-            <span class="tag">卫生</span>
-            <span class="tag red">安全检查</span>
-            <span class="tag">值班</span>
-            <span class="tag green">校区事项</span>
-            <span class="tag">异常记录</span>
+            <span class="tag green">公告公示类</span>
+            <span class="tag">值班表</span>
+            <span class="tag">学管排班表</span>
+            <span class="tag red">工作流程类</span>
+            <span class="tag">招聘 / 面试 / 淘汰</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
         </article>
         <article class="card">
-          <h2>日常管理重点</h2>
+          <h2>这个板块怎么用</h2>
           <div class="mini-list">
-            <div class="mini-item"><strong>和排课联动</strong><p>教室是否可用、岗位值班和校区开放时间会影响排课安排。</p></div>
-            <div class="mini-item"><strong>日常事务留痕</strong><p>卫生、安全、门店异常不能只靠口头提醒，要有记录和责任人。</p></div>
-            <div class="mini-item"><strong>减少临时混乱</strong><p>把教室、值班、异常集中管理，避免信息分散在群聊里。</p></div>
+            <div class="mini-item"><strong>公告公示类</strong><p>放值班表、卫生值日表、暑假学管排班表、招聘情况和校区通知。</p></div>
+            <div class="mini-item"><strong>工作流程类</strong><p>放招聘、面试、试用淘汰、入职离职、请假调课和日常制度流程。</p></div>
+            <div class="mini-item"><strong>编辑权限</strong><p>普通老师只查看；程志豪、陈雨晴等有校区运营管理权限的账号可以维护内容。</p></div>
           </div>
         </article>
       </section>
@@ -110,69 +122,74 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <h2>校区运营总览</h2>
-          <p>教室、值班、卫生、安全检查和异常事项。</p>
+            <h2>校区公共展示栏</h2>
+            <p>先选公告公示或工作流程，再搜索查看具体内容。</p>
           </div>
-          <span class="status-chip">运营台账</span>
+          <span class="status-chip" id="campusDisplayStatus">展示内容</span>
         </div>
-        <div class="metrics">
-          <div class="metric"><span>教室资源</span><strong id="campusMetricRoom">0</strong><p>连接排课占用</p></div>
-          <div class="metric"><span>今日值班</span><strong id="campusMetricDuty">0</strong><p>值班事项</p></div>
-          <div class="metric"><span>安全检查</span><strong id="campusMetricSafety">0</strong><p>每日/每周检查</p></div>
-          <div class="metric"><span>异常事项</span><strong id="campusMetricOpen">0</strong><p>记录、跟进、复盘</p></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h2>校区运营展示</h2>
-            <p>按事项类型、责任人、截止时间和处理状态记录校区日常工作。</p>
-          </div>
+        <div class="campus-switch" role="tablist" aria-label="校区运营展示板块">
+          <button type="button" class="active" data-campus-section="公告公示类">
+            <strong>公告公示类</strong>
+            <span>值班表、卫生值日表、学管排班表、招聘情况和临时通知。</span>
+          </button>
+          <button type="button" data-campus-section="工作流程类">
+            <strong>工作流程类</strong>
+            <span>招聘、面试、试用淘汰、入职离职和日常工作制度。</span>
+          </button>
         </div>
         <div class="actions" style="margin:0 0 14px;">
-          <input id="campusFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索事项 / 类型 / 责任人 / 范围">
-          <select id="campusSortSelect" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="status">未完成优先</option></select>
-          <button class="button secondary" id="campusExportButton" type="button">导出运营数据</button>
+          <input id="campusFilterInput" style="flex:1; min-width:220px; min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px;" placeholder="搜索标题 / 类别 / 正文 / 负责人">
+          <select id="campusCategoryFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部类别</option></select>
+          <button class="button secondary" id="campusExportButton" type="button">导出展示内容</button>
           <button class="button secondary admin-editor-toggle" id="campusEditorToggle" type="button" hidden>编辑校区运营</button>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>事项</th><th>类型</th><th>位置 / 范围</th><th>责任人</th><th>状态</th><th>截止时间</th><th>处理要求</th><th>操作</th></tr>
-            </thead>
-            <tbody id="campusTableBody"></tbody>
-          </table>
-        </div>
+        <div class="campus-display-grid" id="campusDisplayGrid"></div>
       </section>
 
       <section class="grid admin-editor-panel" id="campusEditorPanel" hidden>
         <article class="card">
-          <h2>新增运营事项</h2>
-          <p>适合记录卫生、安全、教室、值班和校区异常。</p>
+          <h2>编辑展示内容</h2>
+          <p>适合把值班表、学管排班表、招聘情况、工作制度和流程说明整理成网页展示。</p>
           <div class="form-grid">
-            <label class="field"><span>事项名称</span><input id="campusTitleInput" placeholder="例如：三楼 5 号教室投影仪维修"></label>
-            <label class="field"><span>事项类型</span><select id="campusTypeInput"><option>教室</option><option>卫生</option><option>安全检查</option><option>值班</option><option>异常记录</option></select></label>
-            <label class="field"><span>位置 / 范围</span><input id="campusAreaInput" placeholder="例如：三楼 5 号教室"></label>
-            <label class="field"><span>责任人</span><input id="campusOwnerInput" placeholder="填写责任人"></label>
-            <label class="field"><span>处理状态</span><select id="campusStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option><option>需复盘</option></select></label>
-            <label class="field"><span>截止时间</span><input id="campusDueInput" placeholder="例如：本周五前"></label>
-            <label class="field span-3"><span>事项说明</span><textarea id="campusNoteInput" placeholder="记录发生时间、地点、影响范围、处理要求和是否需要通知家长或老师。"></textarea></label>
+            <label class="field"><span>所属板块</span><select id="campusSectionInput"><option>公告公示类</option><option>工作流程类</option></select></label>
+            <label class="field"><span>内容类别</span><input id="campusCategoryInput" list="campusCategoryOptions" placeholder="例如：暑假学管排班 / 招聘流程"></label>
+            <label class="field"><span>标题</span><input id="campusTitleInput" placeholder="例如：2026 暑假学管排班表"></label>
+            <label class="field"><span>适用范围 / 负责人</span><input id="campusOwnerInput" placeholder="例如：全体老师 / 陈雨晴"></label>
+            <label class="field"><span>展示日期</span><input id="campusDateInput" placeholder="例如：2026-07-01 或长期有效"></label>
+            <label class="field"><span>展示排序</span><input id="campusOrderInput" type="number" min="1" step="1" placeholder="数字越小越靠前"></label>
+            <label class="field span-3"><span>展示正文</span><textarea id="campusContentInput" placeholder="可以直接粘贴值班表、招聘情况、工作流程。系统会按换行分段展示。"></textarea></label>
+            <datalist id="campusCategoryOptions"></datalist>
           </div>
           <div class="actions">
-            <button class="button" id="campusSaveButton" type="button">保存运营事项</button>
-            <button class="button secondary" id="campusImportButton" type="button">导入数据</button>
+            <button class="button" id="campusSaveButton" type="button">保存展示内容</button>
+            <button class="button secondary" id="campusCancelButton" type="button">取消编辑</button>
+            <button class="button secondary" id="campusImportButton" type="button">导入表格</button>
             <input id="campusImportInput" type="file" accept="application/json,text/csv,text/tab-separated-values,text/plain,.json,.csv,.tsv,.txt" hidden>
-            <button class="button secondary" id="campusResetButton" type="button">清空台账</button>
+            <button class="button secondary" id="campusResetButton" type="button">清空展示内容</button>
           </div>
-          <div class="notice" id="campusMessage">值班、卫生、安全、教室事项在这里形成待办和运营日志。</div>
+          <div class="notice" id="campusMessage">普通老师只查看；管理员可以在这里维护公告公示和工作流程。</div>
         </article>
 
         <article class="card">
+          <h2>粘贴文字快速生成</h2>
+          <p>把你整理好的值班表、招聘情况或流程说明整段粘贴进来，系统会保存为一个展示内容。</p>
+          <div class="form-grid">
+            <label class="field"><span>快速标题</span><input id="campusBulkTitleInput" placeholder="例如：暑假学管排班表"></label>
+            <label class="field"><span>快速板块</span><select id="campusBulkSectionInput"><option>公告公示类</option><option>工作流程类</option></select></label>
+            <label class="field"><span>快速类别</span><input id="campusBulkCategoryInput" list="campusCategoryOptions" placeholder="例如：学管排班表"></label>
+            <label class="field span-3"><span>粘贴正文</span><textarea id="campusBulkTextInput" placeholder="直接粘贴多行文字。第一行也可以是标题，后面是正文。"></textarea></label>
+          </div>
+          <div class="actions">
+            <button class="button" id="campusBulkSaveButton" type="button">保存粘贴内容</button>
+          </div>
+          <div class="notice">导入表格字段可用：所属板块、内容类别、标题、适用范围、展示日期、展示正文、展示排序。Excel 可以先另存为 CSV 后导入。</div>
+        </article>
+
+        <article class="card span-3">
           <div class="section-head">
             <div>
               <h2>操作日志</h2>
-              <p>记录新增、修改、删除、导入和清空操作。</p>
+              <p>记录新增、修改、删除、导入和清空操作，仅管理员查看。</p>
             </div>
           </div>
           <div class="table-wrap">
@@ -189,7 +206,7 @@
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
     <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260623g"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260630a"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>
