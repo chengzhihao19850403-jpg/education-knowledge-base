@@ -270,6 +270,7 @@ function AnswerText({ value, className = 'answer-text' }) {
 export default function Home() {
   const [activeView, setActiveView] = useState('home');
   const [classroomView, setClassroomView] = useState('lessons');
+  const [lessonMode, setLessonMode] = useState('list');
   const [query, setQuery] = useState('');
   const [selectedQuestionId, setSelectedQuestionId] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id || '');
@@ -311,6 +312,7 @@ export default function Home() {
 
   const selectLesson = (lessonId) => {
     setSelectedLessonId(lessonId);
+    setLessonMode('detail');
     const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === lessonId);
     if (linkedTest) {
       setSelectedTestId(linkedTest.id);
@@ -463,70 +465,78 @@ export default function Home() {
               </div>
             </section>
             {classroomView === 'lessons' && (
-          <section className="workspace-grid">
-            <div className="result-list">
-              <div className="section-head">
-                <h2>学习内容</h2>
-                <span>{trainingProgram.lessons?.length || 0} 节</span>
-              </div>
-              {(trainingProgram.lessons || []).map((lesson) => (
-                <button
-                  key={lesson.id}
-                  type="button"
-                  className={`lesson-button ${lesson.id === selectedLesson?.id ? 'active' : ''}`}
-                  onClick={() => selectLesson(lesson.id)}
-                >
-                  <span>学管课堂</span>
-                  <strong>{formatLessonTitle(lesson)}</strong>
-                </button>
-              ))}
-            </div>
-
-            {selectedLesson && (
-              <article className="detail-card">
-                <div className="detail-meta">
-                  <span>{selectedLesson.category}</span>
-                  <span>{selectedLesson.duration}</span>
-                </div>
-                <h2>{formatLessonTitle(selectedLesson)}</h2>
-                <p className="lesson-overview">{selectedLesson.overview}</p>
-
-                <div className="learning-block">
-                  <h3>学习目标</h3>
-                  <ul>
-                    {(selectedLesson.objectives || []).map((item) => <li key={item}>{item}</li>)}
-                  </ul>
-                </div>
-
-                <div className="learning-block">
-                  <h3>本课完整问答</h3>
-                  <div className="qa-stack">
-                    {selectedLessonQuestions.map((item) => (
-                      <section key={item.id} className="qa-card">
-                        <div className="qa-question">{item.q}</div>
-                        <AnswerText value={item.a} className="qa-answer" />
-                      </section>
+              lessonMode === 'list' ? (
+                <section className="lesson-directory">
+                  <div className="section-head">
+                    <h2>学习内容</h2>
+                    <span>{trainingProgram.lessons?.length || 0} 节</span>
+                  </div>
+                  <div className="lesson-card-grid">
+                    {(trainingProgram.lessons || []).map((lesson) => (
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        className="lesson-card-button"
+                        onClick={() => selectLesson(lesson.id)}
+                      >
+                        <strong>{formatLessonTitle(lesson)}</strong>
+                        <span>进入学习</span>
+                      </button>
                     ))}
                   </div>
-                </div>
+                </section>
+              ) : (
+                selectedLesson && (
+                  <article className="detail-card lesson-detail-page">
+                    <button type="button" className="back-link" onClick={() => setLessonMode('list')}>返回学习内容</button>
+                    <div className="detail-meta">
+                      <span>{selectedLesson.category}</span>
+                      <span>{selectedLesson.duration}</span>
+                    </div>
+                    <h2>{formatLessonTitle(selectedLesson)}</h2>
+                    <p className="lesson-overview">{selectedLesson.overview}</p>
 
-                <div className="learning-block">
-                  <h3>本节小测试</h3>
-                  <button
-                    type="button"
-                    className="lesson-test-button"
-                    onClick={() => {
-                      const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === selectedLesson.id);
-                      if (linkedTest) selectTest(linkedTest.id);
-                      setClassroomView('tests');
-                    }}
-                  >
-                    开始本节小测试
-                  </button>
-                </div>
-              </article>
-            )}
-          </section>
+                    <div className="learning-block">
+                      <h3>学习目标</h3>
+                      <ul>
+                        {(selectedLesson.objectives || []).map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+
+                    <div className="learning-block">
+                      <h3>本课完整问答</h3>
+                      <div className="qa-stack">
+                        {selectedLessonQuestions.map((item) => (
+                          <section key={item.id} className="qa-card">
+                            <div className="qa-question">{item.q}</div>
+                            <AnswerText value={item.a} className="qa-answer" />
+                          </section>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="learning-block">
+                      <h3>本章小结</h3>
+                      <p>{selectedLesson.practice || selectedLesson.overview}</p>
+                    </div>
+
+                    <div className="learning-block lesson-test-actions">
+                      <h3>本节小测试</h3>
+                      <button
+                        type="button"
+                        className="lesson-test-button"
+                        onClick={() => {
+                          const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === selectedLesson.id);
+                          if (linkedTest) selectTest(linkedTest.id);
+                          setClassroomView('tests');
+                        }}
+                      >
+                        开始本节小测试
+                      </button>
+                    </div>
+                  </article>
+                )
+              )
             )}
           </>
         )}
@@ -996,8 +1006,54 @@ export default function Home() {
           color: #1f3a5f;
           font-weight: 800;
         }
+        .lesson-directory {
+          margin-top: 16px;
+          padding: 18px;
+          border: 1px solid #d9e3ee;
+          border-radius: 8px;
+          background: #ffffff;
+          box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+        }
+        .lesson-card-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+        .lesson-card-button {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-height: 72px;
+          padding: 16px;
+          border: 1px solid #e3eaf2;
+          border-radius: 8px;
+          background: #fbfcfe;
+          text-align: left;
+        }
+        .lesson-card-button:hover {
+          border-color: #0f766e;
+          background: #f0faf8;
+        }
+        .lesson-card-button strong {
+          color: #14213d;
+          font-size: 16px;
+          line-height: 1.45;
+        }
+        .lesson-card-button span {
+          flex: 0 0 auto;
+          color: #0f766e;
+          font-size: 13px;
+          font-weight: 900;
+        }
         .detail-card {
           padding: clamp(18px, 3vw, 30px);
+        }
+        .lesson-detail-page {
+          margin-top: 16px;
+        }
+        .lesson-detail-page > .back-link {
+          margin-bottom: 16px;
         }
         .detail-meta {
           display: flex;
@@ -1072,6 +1128,16 @@ export default function Home() {
           background: #0f766e;
           color: #ffffff;
           font-weight: 900;
+        }
+        .lesson-test-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .lesson-test-actions h3 {
+          margin-bottom: 0;
         }
         .qa-stack, .question-stack {
           display: grid;
@@ -1259,6 +1325,9 @@ export default function Home() {
           .entry-grid {
             grid-template-columns: 1fr;
           }
+          .lesson-card-grid {
+            grid-template-columns: 1fr;
+          }
           .result-list {
             max-height: none;
           }
@@ -1287,6 +1356,10 @@ export default function Home() {
           }
           .view-tabs button {
             flex: 1 1 100%;
+          }
+          .lesson-card-button {
+            display: grid;
+            justify-content: stretch;
           }
           .option-button {
             grid-template-columns: 26px 1fr;

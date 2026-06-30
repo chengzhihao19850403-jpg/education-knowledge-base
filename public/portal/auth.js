@@ -432,6 +432,8 @@ const JRC_SUPER_ADMIN_NAMES = ["程志豪", "陈雨晴", "海滢滢"];
 const JRC_FINANCE_ADMIN_USERNAMES = ["chenyuqing", "liudajun", "chengzhihao"];
 const JRC_PAIKE_ADMIN_USERNAMES = ["zhoushan", "chenyuqing", "chengzhihao"];
 const JRC_KNOWLEDGE_ADMIN_USERNAMES = ["yanyuhan", "gaofangyan", "chengzhihao"];
+const JRC_ROLE_DIRECTORY_STORAGE_KEY = "jrc-hr-role-directory-v1";
+const JRC_ROLE_DIRECTORY_KNOWLEDGE_MEMBER_NAMES = ["颜雨涵", "高芳燕", "周珊", "李舒", "刘大君", "叶源泽", "赵萱", "郑嘉艺", "陈雨晴"];
 const JRC_SUGGESTION_ADMIN_USERNAMES = ["yeyuanze", "zhaoxuan", "chengzhihao"];
 const JRC_ADMISSIONS_ADMIN_USERNAMES = ["chenyuqing", "chengzhihao", "yanyuhan", "gaofangyan"];
 const JRC_CURRICULUM_ADMIN_USERNAMES = ["zhaoxuan", "chengzhihao"];
@@ -514,6 +516,26 @@ function jrcSafeStorageRemove(key) {
   } catch {
     // Ignore storage failures; cookie fallback still handles login state.
   }
+}
+
+function jrcReadRoleDirectoryRows() {
+  try {
+    const parsed = JSON.parse(jrcSafeStorageGet(JRC_ROLE_DIRECTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function jrcRoleDirectoryMemberNames() {
+  const names = new Set(JRC_ROLE_DIRECTORY_KNOWLEDGE_MEMBER_NAMES.map(jrcNormalizeName).filter(Boolean));
+  jrcReadRoleDirectoryRows().forEach((row) => {
+    const values = Array.isArray(row?.members)
+      ? row.members
+      : String(row?.membersText || row?.employee || "").split(/[、,，/]+/);
+    values.map(jrcNormalizeName).filter(Boolean).forEach((name) => names.add(name));
+  });
+  return names;
 }
 
 function jrcReadCookie(name) {
@@ -1046,6 +1068,10 @@ function jrcGetPermissions(subject) {
   permissions.add("campus.access");
 
   if (subject.role === "学管") {
+    permissions.add("knowledge.access");
+  }
+
+  if (jrcRoleDirectoryMemberNames().has(jrcNormalizeName(subject.name))) {
     permissions.add("knowledge.access");
   }
 
