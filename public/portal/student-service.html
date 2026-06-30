@@ -291,21 +291,21 @@
           <span class="status-chip">第一阶段</span>
         </div>
         <div class="phase-entry-grid">
-          <a class="phase-entry-card" href="#studentServiceModuleChooser">
-            <strong>1. 选择学生群体</strong>
-            <span>程老师班课、小班课、科学课先分开，再进入点名和反馈。</span>
-          </a>
           <a class="phase-entry-card" href="#attendanceSection">
-            <strong>2. 今日点名</strong>
-            <span>选日期、时间、老师、班级，也可以手工录入班级点名表。</span>
+            <strong>1. 今日点名</strong>
+            <span>先选日期，再点当天班级卡片进入点名，学生状态默认空白。</span>
           </a>
-          <a class="phase-entry-card" href="#attendanceFollowupSection">
-            <strong>3. 缺勤处理</strong>
-            <span>保存点名后，只处理请假、缺席、未点名等异常学生。</span>
+          <a class="phase-entry-card" href="#attendanceClassMaintainPanel">
+            <strong>2. 新建/维护班级</strong>
+            <span>手工录入班级点名表，支持粘贴名单、上传 Excel、临时加减人员。</span>
           </a>
-          <a class="phase-entry-card" href="#studentFeedbackTimelineSection" data-open-target="studentFeedbackTimelineSection">
-            <strong>4. 课堂反馈记录</strong>
-            <span>查看课堂反馈AI助手已经归档的反馈内容。</span>
+          <a class="phase-entry-card" href="#attendanceHistoryPanel">
+            <strong>3. 历史点名与补登</strong>
+            <span>查看已保存点名，必要时补登到当前点名表继续处理。</span>
+          </a>
+          <a class="phase-entry-card" href="#classSummaryPanel">
+            <strong>4. 班级汇总看板</strong>
+            <span>按班级看出勤、出门测、异常、作业提醒和学管下一步。</span>
           </a>
         </div>
       </section>
@@ -399,7 +399,7 @@
             <div class="attendance-class-grid" id="attendanceClassCardGrid"></div>
           </div>
         </div>
-        <div class="attendance-entry-panel">
+        <div class="attendance-entry-panel" id="attendanceClassMaintainPanel">
           <div class="section-head">
             <div>
               <h3>录入班级点名表</h3>
@@ -459,6 +459,14 @@
             <tbody id="attendanceRosterBody"></tbody>
           </table>
         </div>
+        <div class="section-head" id="attendanceHistoryPanel" style="margin-top:18px;">
+          <div>
+            <p class="eyebrow">历史点名与补登</p>
+            <h2>历史点名与补登</h2>
+            <p>按当前服务台显示最近保存的点名记录。需要补登时，点“补登到当前表”带回名单继续处理。</p>
+          </div>
+          <span class="status-chip">按班级查看</span>
+        </div>
         <div class="table-wrap phase-secondary-section" style="margin-top:16px;">
           <table>
             <thead>
@@ -466,6 +474,14 @@
             </thead>
             <tbody id="attendanceHistoryBody"></tbody>
           </table>
+        </div>
+        <div class="section-head" id="classSummaryPanel" style="margin-top:18px;">
+          <div>
+            <p class="eyebrow">班级汇总看板</p>
+            <h2>班级汇总看板</h2>
+            <p>按月份和老师汇总点名、有效到课、待追踪和结算口径，先看班级整体再处理个人。</p>
+          </div>
+          <span class="status-chip">汇总</span>
         </div>
         <div class="table-wrap phase-secondary-section" style="margin-top:16px;">
           <table>
@@ -495,6 +511,35 @@
               <tr><th>学生</th><th>本节课</th><th>异常</th><th>处理</th></tr>
             </thead>
             <tbody id="attendanceFollowupBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="homeworkReminderSection">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">作业提醒</p>
+            <h2>作业提交提醒</h2>
+            <p>记录哪些学生本次作业需要提醒家长或老师复查，避免只点名不跟作业。</p>
+          </div>
+          <span class="status-chip">学管跟进</span>
+        </div>
+        <div class="form-grid">
+          <label class="field"><span>学生姓名</span><input id="homeworkStudentInput" placeholder="填写学生姓名"></label>
+          <label class="field"><span>班级 / 课程</span><input id="homeworkClassInput" placeholder="例如 五年级数学小班"></label>
+          <label class="field"><span>提醒日期</span><input id="homeworkDueInput" type="date"></label>
+          <label class="field span-3"><span>提醒内容</span><textarea id="homeworkContentInput" placeholder="例如：今晚 21:00 前提交订正；明天上课前老师复查。"></textarea></label>
+        </div>
+        <div class="actions">
+          <button class="button" id="homeworkSaveButton" type="button">保存作业提醒</button>
+          <button class="button secondary" id="homeworkClearDoneButton" type="button">隐藏已完成</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>学生</th><th>班级 / 课程</th><th>提醒日期</th><th>内容</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody id="homeworkReminderBody"></tbody>
           </table>
         </div>
       </section>
@@ -692,6 +737,93 @@
             </tr>
           `).join("");
         };
+        window.addEventListener("jrc-student-service-module-changed", render);
+        render();
+      })();
+    </script>
+    <script>
+      (function () {
+        const STORE_KEY = "jrc-student-homework-reminders-v1";
+        const byId = (id) => document.getElementById(id);
+        const body = byId("homeworkReminderBody");
+        if (!body) return;
+        const escapeHtml = (value) => String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        const readRows = () => {
+          try {
+            const parsed = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        };
+        const writeRows = (rows) => {
+          localStorage.setItem(STORE_KEY, JSON.stringify(rows));
+          window.JRC_CLOUD?.writeModuleData?.(STORE_KEY, "studentService", rows).catch(() => {});
+        };
+        const activeModule = () => {
+          const moduleKey = localStorage.getItem("jrc-student-service-active-module-v1") || "cheng";
+          return ["cheng", "small", "science"].includes(moduleKey) ? moduleKey : "cheng";
+        };
+        const currentEmployee = () => window.JRC_CURRENT_EMPLOYEE || {};
+        const canEdit = () => !window.jrcHasPermission || window.jrcHasPermission("studentService.edit", currentEmployee()) || window.jrcHasPermission("studentService.access", currentEmployee());
+        const render = () => {
+          const moduleKey = activeModule();
+          const rows = readRows().filter((row) => row.serviceModule === moduleKey && row.status !== "已完成");
+          if (!rows.length) {
+            body.innerHTML = `<tr><td colspan="6">当前服务台暂无作业提醒。需要跟进作业时，在上方保存一条即可。</td></tr>`;
+            return;
+          }
+          body.innerHTML = rows.map((row) => `
+            <tr>
+              <td><strong>${escapeHtml(row.studentName)}</strong></td>
+              <td>${escapeHtml(row.className || "-")}</td>
+              <td>${escapeHtml(row.dueDate || "-")}</td>
+              <td>${escapeHtml(row.content || "-")}</td>
+              <td><span class="tag warn">${escapeHtml(row.status || "待提醒")}</span></td>
+              <td><button class="button secondary" type="button" data-homework-done="${escapeHtml(row.id)}">标记完成</button></td>
+            </tr>
+          `).join("");
+        };
+        byId("homeworkSaveButton")?.addEventListener("click", () => {
+          if (!canEdit()) return;
+          const studentName = byId("homeworkStudentInput")?.value.trim() || "";
+          const className = byId("homeworkClassInput")?.value.trim() || "";
+          const dueDate = byId("homeworkDueInput")?.value || "";
+          const content = byId("homeworkContentInput")?.value.trim() || "";
+          if (!studentName || !content) {
+            body.innerHTML = `<tr><td colspan="6">请至少填写学生姓名和提醒内容。</td></tr>`;
+            return;
+          }
+          const row = {
+            id: `homework-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+            studentName,
+            className,
+            dueDate,
+            content,
+            serviceModule: activeModule(),
+            status: "待提醒",
+            createdAt: new Date().toISOString(),
+            createdBy: currentEmployee().name || "未登录"
+          };
+          writeRows([row, ...readRows()]);
+          byId("homeworkStudentInput").value = "";
+          byId("homeworkClassInput").value = "";
+          byId("homeworkContentInput").value = "";
+          render();
+        });
+        body.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-homework-done]");
+          if (!button) return;
+          const id = button.getAttribute("data-homework-done") || "";
+          writeRows(readRows().map((row) => row.id === id ? { ...row, status: "已完成", completedAt: new Date().toISOString(), completedBy: currentEmployee().name || "未登录" } : row));
+          render();
+        });
+        byId("homeworkClearDoneButton")?.addEventListener("click", render);
         window.addEventListener("jrc-student-service-module-changed", render);
         render();
       })();
@@ -2031,7 +2163,7 @@
                   ${canManageAll() && (session.reviewStatus || "待复核") !== "已确认" ? `<br><button class="button secondary" type="button" data-confirm-attendance="${escapeHtml(session.id)}">确认复核</button>` : ""}
                 </td>
                 <td>${escapeHtml(special)}</td>
-                <td>${escapeHtml(new Date(session.createdAt).toLocaleString("zh-CN"))}</td>
+                <td>${escapeHtml(new Date(session.createdAt).toLocaleString("zh-CN"))}<br><button class="button secondary" type="button" data-reload-attendance="${escapeHtml(session.id)}">补登到当前表</button></td>
               </tr>
             `;
           }).join("");
@@ -2534,6 +2666,33 @@
           select?.addEventListener("change", renderFollowups);
         });
         historyBody.addEventListener("click", (event) => {
+          const reloadButton = event.target.closest("[data-reload-attendance]");
+          if (reloadButton) {
+            const sessionId = reloadButton.getAttribute("data-reload-attendance");
+            const session = readVisibleRows().find((item) => item.id === sessionId);
+            if (!session) return;
+            if (fields.date) fields.date.value = session.date || fields.date.value || today();
+            if (fields.className) fields.className.value = session.className || "";
+            if (fields.teacher && session.teacher) fields.teacher.value = session.teacher;
+            if (fields.timeSlot) {
+              const timeText = [session.startTime, session.endTime].filter(Boolean).join("-");
+              if (timeText) fields.timeSlot.innerHTML = `<option value="${escapeHtml(timeText)}">${escapeHtml(timeText)}</option>`;
+              if (timeText) fields.timeSlot.value = timeText;
+            }
+            draftRows = (session.rows || []).map((row) => ({
+              ...row,
+              status: row.status || UNMARKED_STATUS,
+              followup: row.followup || defaultFollowup(row.status || UNMARKED_STATUS)
+            }));
+            if (fields.rosterInput) {
+              fields.rosterInput.value = draftRows.map((row) => [row.studentName, row.exitScore || ""].filter(Boolean).join("\t")).join("\n");
+            }
+            renderRoster();
+            renderAttendanceNextStep(session);
+            setMessage(`已带回 ${session.className || "该班级"} 的 ${draftRows.length} 人名单，可继续补登或核对后保存。`);
+            byId("attendanceSection")?.scrollIntoView({ block: "start", behavior: "smooth" });
+            return;
+          }
           const button = event.target.closest("[data-confirm-attendance]");
           if (!button || !canManageAll()) return;
           confirmAttendanceSession(button.getAttribute("data-confirm-attendance"));

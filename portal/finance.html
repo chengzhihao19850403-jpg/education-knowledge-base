@@ -173,6 +173,37 @@
         color: var(--ink);
         font-size: 22px;
       }
+      .attendance-group-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .attendance-group-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.82);
+        padding: 14px;
+      }
+      .attendance-group-card strong {
+        display: block;
+        font-size: 18px;
+      }
+      .attendance-group-card span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      details.card summary {
+        cursor: pointer;
+        font-weight: 900;
+        color: var(--ink);
+      }
+      details.card summary + * {
+        margin-top: 16px;
+      }
       .attendance-decision-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1182,6 +1213,7 @@
         .workbench-strip,
         .finance-command-grid,
         .attendance-decision-grid,
+        .attendance-group-grid,
         .attendance-filter-bar,
         .source-explain,
         .excel-finance-toolbar,
@@ -1536,12 +1568,14 @@
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>学生</th><th>实收金额</th><th>渠道</th><th>招生顾问</th><th>试听老师</th><th>财务状态</th><th>操作</th></tr></thead><tbody id="admissionsFinanceCandidateBody"></tbody></table></div>
       </section>
 
-      <section class="card" id="financeReconciliationSection">
+      <details class="card" id="financeReconciliationSection">
+        <summary>AI 财务核对草稿（默认收起）</summary>
         <p class="eyebrow">AI 核对</p>
         <h2>AI 财务核对草稿</h2>
+        <p class="hero-text">只保留有金额、课时、缺项或风险线索的草稿；没有实质内容的行会自动隐藏。</p>
         <div class="compare-grid" id="financeReconciliationGrid"></div>
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>月份</th><th>老师</th><th>标题</th><th>金额线索</th><th>课时线索</th><th>缺失字段</th><th>风险点</th><th>状态</th><th>来源时间</th><th>操作</th></tr></thead><tbody id="financeReconciliationBody"></tbody></table></div>
-      </section>
+      </details>
 
       <section class="card" id="excelReconciliationSection">
         <p class="eyebrow">对账</p>
@@ -1573,6 +1607,7 @@
           <div class="settlement-summary-card"><span>待追踪</span><strong id="attendanceFinanceFollowup">0</strong></div>
         </div>
         <div class="attendance-decision-grid" id="attendanceDecisionGrid"></div>
+        <div class="attendance-group-grid" id="attendanceFinanceGroupGrid"></div>
         <div class="attendance-filter-bar">
           <label>筛选老师<select id="attendanceFinanceTeacherFilter"><option value="">全部老师</option></select></label>
           <label>查看类型<select id="attendanceFinanceViewFilter">
@@ -1593,31 +1628,6 @@
         <div class="table-wrap" style="margin-top: 16px;"><table><thead><tr><th>日期</th><th>老师</th><th>学生</th><th>班级 / 课程来源</th><th>点名 / 出门测</th><th>财务人次</th><th>单独结算</th><th>异常处理</th><th>复核</th></tr></thead><tbody id="attendanceDetailFinanceBody"></tbody></table></div>
       </section>
 
-      <section class="grid" id="monthlySection">
-        <article class="card">
-          <p class="eyebrow">月结</p>
-          <h2>月度收入与老师结算成本</h2>
-          <div class="tag-row" style="margin-bottom: 12px;"><span class="tag" id="periodReviewStatus">草稿</span></div>
-          <form id="monthlyForm" class="form-grid">
-            <label class="field">课时总收入<input name="lessonIncome" type="number" min="0" step="0.01"></label>
-            <label class="field">其他收入<input name="otherIncome" type="number" min="0" step="0.01"></label>
-            <label class="field">分红比例（%）<input name="dividendRate" type="number" min="0" max="100" step="0.01"></label>
-            <label class="field">基础工资<input name="baseSalary" type="number" min="0" step="0.01"></label>
-            <label class="field">社保<input name="socialInsurance" type="number" min="0" step="0.01"></label>
-            <label class="field">公积金<input name="housingFund" type="number" min="0" step="0.01"></label>
-            <label class="field">课时提成<input name="teachingCommission" type="number" min="0" step="0.01"></label>
-            <label class="field">补课提成<input name="makeupCommission" type="number" min="0" step="0.01"></label>
-            <label class="field">答疑提成<input name="qaCommission" type="number" min="0" step="0.01"></label>
-            <label class="field">补贴<input name="subsidy" type="number" min="0" step="0.01"></label>
-            <label class="field">其他老师结算成本<input name="otherTeacherCost" type="number" min="0" step="0.01"></label>
-            <label class="field">课时剩余（Excel 原值）<input name="classHourBalance" type="number" step="0.01"></label>
-          </form>
-          <div class="actions"><button class="button" type="button" id="saveMonthlyButton">保存本月数据</button><button class="button secondary" type="button" id="confirmMonthlyReviewButton">确认本月复核</button><button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button></div>
-          <div class="auth-note" id="financeSaveMessage">财务数据保存后默认进入“待复核”。</div>
-        </article>
-        <aside class="card"><p class="eyebrow">口径</p><h2>月结口径</h2><div class="mini-list"><div class="mini-item"><strong>收入</strong><p>课时总收入、其他收入、课时剩余。</p></div><div class="mini-item"><strong>成本</strong><p>工资、社保、公积金、提成、补贴、日常支出。</p></div><div class="mini-item"><strong>分红</strong><p>按经营毛利润计算分红池和留存利润。</p></div></div></aside>
-      </section>
-
       <section class="card" id="expenseSection">
         <p class="eyebrow">支出</p>
         <h2>日常支出 / 报销 / 工作成本</h2>
@@ -1633,6 +1643,33 @@
         <div class="actions"><button class="button" type="button" id="addExpenseButton">新增支出</button><button class="button secondary" type="button" id="exportExpensesButton">导出支出 CSV</button></div>
         <div class="table-wrap"><table><thead><tr><th>日期</th><th>类别</th><th>金额</th><th>经办/报销人</th><th>状态</th><th>复核</th><th>说明</th><th>操作</th></tr></thead><tbody id="expenseTableBody"></tbody></table></div>
       </section>
+
+      <section class="grid" id="monthlySection">
+        <article class="card">
+          <p class="eyebrow">月结</p>
+          <h2>月度收入与老师结算成本</h2>
+          <div class="tag-row" style="margin-bottom: 12px;"><span class="tag" id="periodReviewStatus">草稿</span></div>
+          <form id="monthlyForm" class="form-grid">
+            <label class="field">课时总收入<input name="lessonIncome" type="number" min="0" step="0.01"></label>
+            <label class="field">其他收入<input name="otherIncome" type="number" min="0" step="0.01"></label>
+            <label class="field">其他经营成本<input name="otherExpense" type="number" min="0" step="0.01"></label>
+            <label class="field">分红比例（%）<input name="dividendRate" type="number" min="0" max="100" step="0.01"></label>
+            <label class="field">基础工资<input name="baseSalary" type="number" min="0" step="0.01"></label>
+            <label class="field">社保<input name="socialInsurance" type="number" min="0" step="0.01"></label>
+            <label class="field">公积金<input name="housingFund" type="number" min="0" step="0.01"></label>
+            <label class="field">课时提成<input name="teachingCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">补课提成<input name="makeupCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">答疑提成<input name="qaCommission" type="number" min="0" step="0.01"></label>
+            <label class="field">补贴<input name="subsidy" type="number" min="0" step="0.01"></label>
+            <label class="field">其他老师结算成本<input name="otherTeacherCost" type="number" min="0" step="0.01"></label>
+            <label class="field">课时剩余（Excel 原值）<input name="classHourBalance" type="number" step="0.01"></label>
+          </form>
+          <div class="actions"><button class="button" type="button" id="saveMonthlyButton">保存本月数据</button><button class="button secondary" type="button" id="confirmMonthlyReviewButton">确认本月复核</button><button class="button secondary" type="button" id="exportSummaryButton">导出月度汇总 CSV</button></div>
+          <div class="auth-note" id="financeSaveMessage">财务数据保存后默认进入“待复核”。</div>
+        </article>
+        <aside class="card"><p class="eyebrow">口径</p><h2>月结口径</h2><div class="mini-list"><div class="mini-item"><strong>收入</strong><p>课时总收入、其他收入、课时剩余。</p></div><div class="mini-item"><strong>成本</strong><p>工资、社保、公积金、提成、补贴、日常支出、其他经营成本。</p></div><div class="mini-item"><strong>分红</strong><p>按经营毛利润计算分红池和留存利润。</p></div></div></aside>
+      </section>
+
       </details>
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
@@ -1653,6 +1690,7 @@
       const MONEY_FIELDS = [
         "lessonIncome",
         "otherIncome",
+        "otherExpense",
         "dividendRate",
         "baseSalary",
         "socialInsurance",
@@ -1713,6 +1751,7 @@
           reviewStatus: "草稿",
           lessonIncome: 0,
           otherIncome: 0,
+          otherExpense: 0,
           dividendRate: defaultDividendRate(periodName),
           baseSalary: 0,
           socialInsurance: 0,
@@ -2623,7 +2662,8 @@
         const pendingExpenseTotal = (period.expenses || [])
           .filter((expense) => expense.status === "待审核")
           .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-        const costTotal = teacherCost + confirmedExpenseTotal;
+        const otherExpense = toNumber(period.otherExpense);
+        const costTotal = teacherCost + confirmedExpenseTotal + otherExpense;
         const grossProfit = incomeTotal - costTotal;
         const dividendRate = toNumber(period.dividendRate);
         const dividendPool = Math.max(0, grossProfit) * dividendRate / 100;
@@ -2631,6 +2671,7 @@
         return {
           incomeTotal,
           teacherCost,
+          otherExpense,
           confirmedExpenseTotal,
           pendingExpenseTotal,
           costTotal,
@@ -3449,7 +3490,9 @@
         const body = byId("financeReconciliationBody");
         if (!grid && !body) return;
         const bundle = readPreimportBundle();
-        const rows = Array.isArray(bundle.reconciliationIssues) ? [...bundle.reconciliationIssues] : [];
+        const hasUsefulClue = (row) => [row.amountClues, row.hourClues, row.missingFields, row.riskPoints, row.detail, row.title]
+          .some((value) => String(value || "").replace(/[-—无暂无\s]/g, "").trim());
+        const rows = Array.isArray(bundle.reconciliationIssues) ? [...bundle.reconciliationIssues].filter(hasUsefulClue) : [];
         const currentRows = rows.filter((row) => !row.period || row.period === currentPeriod)
           .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
         const pendingCount = currentRows.filter((row) => String(row.status || "").includes("待")).length;
@@ -4052,6 +4095,42 @@
         `).join("");
       }
 
+      function renderAttendanceGroupGrid(rows = deriveAttendanceSettlementRows()) {
+        const holder = byId("attendanceFinanceGroupGrid");
+        if (!holder) return;
+        const groups = [
+          {
+            key: "cheng",
+            title: "程老师",
+            match: (row) => /程志豪|程老师/.test(String(row.teacher || ""))
+          },
+          {
+            key: "small",
+            title: "小班课老师",
+            match: (row) => !/程志豪|程老师/.test(String(row.teacher || ""))
+          }
+        ].map((group) => {
+          const groupRows = rows.filter(group.match);
+          const teachers = [...new Set(groupRows.map((row) => row.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+          return {
+            ...group,
+            rows: groupRows,
+            teachers,
+            lessons: groupRows.reduce((sum, row) => sum + row.lessons, 0),
+            totalStudents: groupRows.reduce((sum, row) => sum + row.totalStudents, 0),
+            financePresent: groupRows.reduce((sum, row) => sum + row.financePresent, 0),
+            followupCount: groupRows.reduce((sum, row) => sum + row.followupCount, 0)
+          };
+        });
+        holder.innerHTML = groups.map((group) => `
+          <div class="attendance-group-card">
+            <strong>${escapeHtml(group.title)}</strong>
+            <span>老师：${group.teachers.length ? escapeHtml(group.teachers.join("、")) : "暂无"}</span>
+            <span>课程 ${group.lessons} 节｜总人次 ${group.totalStudents}｜普通财务人次 ${group.financePresent}｜待追踪 ${group.followupCount}</span>
+          </div>
+        `).join("");
+      }
+
       function attendanceSettlementReviewFor(row) {
         const period = getPeriod(row.period || currentPeriod);
         const id = attendanceSettlementId(row);
@@ -4130,6 +4209,7 @@
         const rows = deriveAttendanceSettlementRows();
         syncAttendanceFinanceFilters(rows);
         renderAttendanceDecisionGrid(rows);
+        renderAttendanceGroupGrid(rows);
         const visibleRows = filteredAttendanceSettlementRows(rows);
         const totals = rows.reduce((acc, row) => {
           acc.lessons += row.lessons;
@@ -5073,7 +5153,7 @@
           return acc;
         }, { lessons: 0, financePresent: 0, specialPresent: 0, followupCount: 0 });
         downloadCsv(`财务月度汇总-${currentPeriod}.csv`, [
-          ["月份", "复核状态", "复核人", "课时总收入", "其他收入", "老师结算成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
+          ["月份", "复核状态", "复核人", "课时总收入", "其他收入", "老师结算成本", "其他经营成本", "已确认日常支出", "待审核支出", "收入合计", "成本合计", "经营毛利润", "分红比例", "分红池", "留存利润", "课时剩余Excel原值"],
           [
             currentPeriod,
             period.reviewStatus || "草稿",
@@ -5081,6 +5161,7 @@
             period.lessonIncome,
             period.otherIncome,
             totals.teacherCost,
+            totals.otherExpense,
             totals.confirmedExpenseTotal,
             totals.pendingExpenseTotal,
             totals.incomeTotal,

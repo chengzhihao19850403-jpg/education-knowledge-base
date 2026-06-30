@@ -193,6 +193,7 @@
             <label class="field"><span>课堂时间规范</span><input id="scoreTime" type="number" min="0" max="100" value="86"></label>
             <label class="field"><span>授课服务仪态</span><input id="scoreService" type="number" min="0" max="100" value="86"></label>
             <label class="field"><span>课堂记录图片</span><input id="inspectionAttachment" value="板书照片 / 课堂记录截图"></label>
+            <label class="field"><span>上传附件</span><input id="inspectionAttachmentFile" type="file" accept="image/*,.pdf,.doc,.docx"></label>
             <label class="field"><span>是否重点整改</span><select id="inspectionFocus"><option>否</option><option>是</option></select></label>
             <label class="field span-3"><span>巡课备注</span><textarea id="inspectionNote">记录课堂亮点、扣分原因和教务建议。</textarea></label>
           </div>
@@ -205,6 +206,23 @@
           <h2>问卷模板</h2>
           <div class="mini-list" id="templateList"></div>
         </article>
+      </section>
+
+      <section class="card" id="surveyImportCard">
+        <div class="section-head">
+          <div>
+            <h2>问卷结果导入与分析</h2>
+            <p>当前先做校内结果导入，不做外部公开填写链接；避免家长端链接权限、隐私和重复提交还没理清就上线。</p>
+          </div>
+          <span class="status-chip">郑老师反馈说明</span>
+        </div>
+        <div class="warning">给郑老师的说明：外部填写问卷链接暂不做，是因为需要先确认家长身份、学生归属、重复提交、防误填和隐私授权。现阶段先导入老师整理好的问卷结果，保证系统内分析准确。</div>
+        <div class="form-grid">
+          <label class="field"><span>问卷类型</span><select id="surveyImportType"><option>学生匿名问卷</option><option>在读家长问卷</option><option>试听家长问卷</option></select></label>
+          <label class="field span-2"><span>上传问卷结果 CSV/Excel</span><input id="surveyImportInput" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls"></label>
+        </div>
+        <div class="actions"><button class="button" id="surveyImportButton" type="button">导入问卷结果</button></div>
+        <div class="mini-list" id="surveyAnalysisList"></div>
       </section>
 
       <section class="grid">
@@ -254,6 +272,7 @@
 
 
     <script src="/jrcedu/portal/auth.js?v=20260629a"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
       const STORAGE_KEY = "jrc-teaching-quality-system-v2-demo";
       const LEGACY_INSPECTION_CLASSES = new Set(["初三数学冲刺班", "初一数学暑假预备班", "科学三升四小班", "六年级数学复习班", "二年级数学提升班", "校长示范课"]);
@@ -580,7 +599,7 @@
           ? visibleItems.map((item) => `<tr><td><button class="button small secondary" data-select-teacher="${item.teacher}" type="button" ${canViewFullQuality() ? "" : "disabled"}>${item.teacher}</button></td><td>${scoreCell(item.total)}</td><td>${item.grade ? `<span class="grade ${item.grade.toLowerCase()}">${item.grade}</span>` : `<span class="tag">采集中</span>`}</td><td>${canViewFullQuality() ? (item.coefficient ?? "待确认") : "本人可见"}</td><td>${formatScore(item.inspection)}</td><td>${formatScore(item.studentSurvey)}</td><td>${formatScore(item.parentSurvey)}</td><td>${formatScore(item.objective)}</td><td>${item.advice}</td></tr>`).join("")
           : `<tr><td colspan="9">当前账号还没有匹配到个人教学质量档案，请联系人事管理员补齐姓名和任课信息。</td></tr>`;
         byId("inspectionBody").innerHTML = visibleInspections.map((r) => `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.className}<br>${r.lessonType}</td><td>${scoreCell(inspectionAvg(r))}</td><td>${(r.tags || []).map((tag) => `<span class="tag ${tag === "重点整改" ? "red" : "amber"}">${tag}</span>`).join(" ") || "常规抽样"}</td><td>${r.note}<br>附件：${r.attachment || "无"}</td></tr>`).join("") || `<tr><td colspan="6">当前账号暂无巡课记录。</td></tr>`;
-        byId("templateList").innerHTML = state.templates.map((t) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p></div>`).join("");
+        byId("templateList").innerHTML = state.templates.map((t, index) => `<div class="mini-item"><strong>${t.type}</strong><p>状态：${t.enabled ? "自动推送已开" : "已关闭"}</p><p>推送：${t.sendAfter}</p><p>题目：${t.questions}</p><button class="button small secondary" type="button" data-template-edit="${index}" ${canEdit() ? "" : "disabled"}>编辑模板</button></div>`).join("");
         byId("ticketBody").innerHTML = visibleTickets.map((t) => `<tr><td>${t.id}<br>${t.problem}<br>截止：${t.dueDate}</td><td>${t.teacher}</td><td><span class="tag ${t.status.includes("已闭环") ? "green" : "amber"}">${t.status}</span></td><td><button class="button small secondary" data-ticket-plan="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>补整改</button><button class="button small" data-ticket-close="${t.id}" type="button" ${canEdit() ? "" : "disabled"}>复查通过</button></td></tr>`).join("") || `<tr><td colspan="4">当前账号暂无整改工单。</td></tr>`;
         state.selectedTeacher = selected;
         const weakTag = getWeakTag(selected);
@@ -594,6 +613,7 @@
         byId("inspectionEntryCard").hidden = !canEdit();
         byId("qualityEditWarning").hidden = canEdit();
         document.querySelectorAll("#saveInspectionButton, #inspectionTeacher, #inspectionClass, #inspectionType, #inspectionDate, #scoreLogic, #scoreInteraction, #scoreOrder, #scoreTime, #scoreService, #inspectionAttachment, #inspectionFocus, #inspectionNote").forEach((node) => node.disabled = !canEdit());
+        renderSurveyAnalysis();
         bindDynamicActions();
       }
       function getWeakTag(teacher) {
@@ -601,11 +621,137 @@
         state.parentSurveys.filter((r) => r.teacher === teacher).forEach((r) => (r.tags || []).forEach((tag) => count.set(tag, (count.get(tag) || 0) + 1)));
         return Array.from(count.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
       }
+      function renderSurveyAnalysis() {
+        const holder = byId("surveyAnalysisList");
+        if (!holder) return;
+        const rows = [...state.studentSurveys.map((row) => ({ ...row, kind: "学生问卷" })), ...state.parentSurveys.map((row) => ({ ...row, kind: "家长问卷" }))];
+        if (!rows.length) {
+          holder.innerHTML = `<div class="mini-item"><strong>暂无导入结果</strong><p>导入后会显示老师均分、样本数和高频薄弱标签。</p></div>`;
+          return;
+        }
+        const map = new Map();
+        rows.forEach((row) => {
+          const teacher = row.teacher || "未填老师";
+          const item = map.get(teacher) || { teacher, count: 0, total: 0, tags: new Map() };
+          item.count += 1;
+          item.total += Number(row.score || 0);
+          (row.tags || []).forEach((tag) => item.tags.set(tag, (item.tags.get(tag) || 0) + 1));
+          map.set(teacher, item);
+        });
+        holder.innerHTML = [...map.values()].sort((a, b) => b.count - a.count).map((item) => {
+          const weak = [...item.tags.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
+          return `<div class="mini-item"><strong>${item.teacher}</strong><p>样本 ${item.count} 条｜平均 ${Math.round(item.total / Math.max(1, item.count))} 分｜高频薄弱：${weak}</p></div>`;
+        }).join("");
+      }
       function bindDynamicActions() {
         document.querySelectorAll("[data-select-teacher]").forEach((button) => button.onclick = () => { state.selectedTeacher = button.dataset.selectTeacher; renderAll(); });
         document.querySelectorAll("[data-ticket-close]").forEach((button) => button.onclick = () => { const ticket = state.tickets.find((t) => t.id === button.dataset.ticketClose); if (ticket && canEdit()) { ticket.status = "已闭环"; renderAll(); } });
         document.querySelectorAll("[data-ticket-plan]").forEach((button) => button.onclick = () => { const ticket = state.tickets.find((t) => t.id === button.dataset.ticketPlan); if (ticket && canEdit()) { ticket.status = "整改中"; renderAll(); } });
+        document.querySelectorAll("[data-template-edit]").forEach((button) => button.onclick = () => {
+          if (!canEdit()) return;
+          const index = Number(button.dataset.templateEdit);
+          const template = state.templates[index];
+          if (!template) return;
+          const questions = window.prompt("编辑题目与分值说明", template.questions || "");
+          if (questions == null) return;
+          const sendAfter = window.prompt("编辑推送时机", template.sendAfter || "");
+          if (sendAfter == null) return;
+          state.templates[index] = { ...template, questions, sendAfter };
+          persist();
+          renderAll();
+        });
       }
+      function parseSurveyCsv(text) {
+        const rows = [];
+        let row = [];
+        let current = "";
+        let quoted = false;
+        const source = String(text || "").replace(/^\uFEFF/, "");
+        for (let index = 0; index < source.length; index += 1) {
+          const char = source[index];
+          const next = source[index + 1];
+          if (char === '"' && quoted && next === '"') {
+            current += '"';
+            index += 1;
+            continue;
+          }
+          if (char === '"') {
+            quoted = !quoted;
+            continue;
+          }
+          if ((char === "," || char === "\t") && !quoted) {
+            row.push(current.trim());
+            current = "";
+            continue;
+          }
+          if ((char === "\n" || char === "\r") && !quoted) {
+            if (char === "\r" && next === "\n") index += 1;
+            row.push(current.trim());
+            if (row.some(Boolean)) rows.push(row);
+            row = [];
+            current = "";
+            continue;
+          }
+          current += char;
+        }
+        row.push(current.trim());
+        if (row.some(Boolean)) rows.push(row);
+        if (!rows.length) return [];
+        const headers = rows[0].map((item) => String(item || "").trim());
+        return rows.slice(1).map((values) => {
+          const record = {};
+          headers.forEach((header, index) => record[header] = values[index] || "");
+          return record;
+        });
+      }
+      function fieldOf(row, names) {
+        const entries = Object.entries(row || {});
+        for (const name of names) {
+          const found = entries.find(([key]) => String(key).replace(/\s+/g, "").toLowerCase() === String(name).replace(/\s+/g, "").toLowerCase());
+          if (found && String(found[1] || "").trim()) return String(found[1]).trim();
+        }
+        return "";
+      }
+      async function readSurveyFile(file) {
+        const lower = String(file?.name || "").toLowerCase();
+        if ((lower.endsWith(".xlsx") || lower.endsWith(".xls")) && window.XLSX) {
+          const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          return parseSurveyCsv(window.XLSX.utils.sheet_to_csv(sheet));
+        }
+        if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) throw new Error("Excel 解析组件还没加载完成，请稍后再试，或另存为 CSV 上传。");
+        return parseSurveyCsv(await file.text());
+      }
+      byId("surveyImportButton")?.addEventListener("click", async () => {
+        if (!canEdit()) return;
+        const file = byId("surveyImportInput")?.files?.[0];
+        if (!file) {
+          renderSurveyAnalysis();
+          return;
+        }
+        try {
+          const type = byId("surveyImportType")?.value || "在读家长问卷";
+          const rows = await readSurveyFile(file);
+          const mapped = rows.map((row) => {
+            const tagText = fieldOf(row, ["薄弱项", "标签", "问题标签", "tags"]);
+            return {
+              id: `survey-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              teacher: fieldOf(row, ["老师", "教师", "授课老师", "teacher"]) || state.selectedTeacher || "未填老师",
+              score: Number(fieldOf(row, ["得分", "分数", "score"]) || 0),
+              tags: tagText ? tagText.split(/[、,，/]/).map((item) => item.trim()).filter(Boolean) : [],
+              type,
+              sourceFile: file.name,
+              createdAt: new Date().toISOString()
+            };
+          }).filter((row) => row.teacher && Number.isFinite(row.score) && row.score > 0);
+          if (type.includes("学生")) state.studentSurveys = mergeQualityRows("tq-student", mapped, state.studentSurveys);
+          else state.parentSurveys = mergeQualityRows("tq-parent", mapped, state.parentSurveys);
+          persist();
+          renderAll();
+        } catch (error) {
+          byId("surveyAnalysisList").innerHTML = `<div class="mini-item"><strong>导入失败</strong><p>${String(error.message || error)}</p></div>`;
+        }
+      });
       byId("saveInspectionButton").addEventListener("click", () => {
         if (!canEdit()) return;
         const scores = ["scoreLogic", "scoreInteraction", "scoreOrder", "scoreTime", "scoreService"].map((id) => clamp(byId(id).value));
@@ -617,7 +763,7 @@
           scores,
           note: byId("inspectionNote").value.trim() || "常规抽样巡课。",
           tags: byId("inspectionFocus").value === "是" || avg(scores) < 75 ? ["重点整改"] : [],
-          attachment: byId("inspectionAttachment").value.trim() || "无"
+          attachment: byId("inspectionAttachmentFile")?.files?.[0]?.name || byId("inspectionAttachment").value.trim() || "无"
         };
         state.inspections.unshift(record);
         state.selectedTeacher = record.teacher;

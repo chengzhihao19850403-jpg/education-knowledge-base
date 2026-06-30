@@ -741,6 +741,43 @@
       .admin-details summary + * {
         margin-top: 14px;
       }
+      .pending-pool-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .pending-pool-grid label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .pending-pool-grid input,
+      .pending-pool-grid select,
+      .pending-pool-grid textarea,
+      .room-inline-input {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+      }
+      .pending-pool-grid textarea { min-height: 72px; resize: vertical; }
+      .room-inline-action {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .room-inline-action .button {
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+      }
       @media (max-width: 960px) {
         .hero,
         .quick-grid,
@@ -758,6 +795,7 @@
         .teacher-workbench-stats,
         .schedule-workflow,
         .read-guide,
+        .pending-pool-grid,
         .admission-link-item {
           grid-template-columns: 1fr;
         }
@@ -883,6 +921,28 @@
             <a class="button secondary" href="/jrcedu/advice-system/index.html">打开招生系统</a>
           </div>
           <div class="admission-link-list" id="admissionScheduleList"></div>
+        </div>
+        <div class="admission-link-panel" id="pendingSchedulePoolPanel">
+          <div class="admission-link-head">
+            <div>
+              <strong>未排课名单 / 待排课池</strong>
+              <p>临时新报名、试听后待找班、老师口头交代的排课需求，先放在这里，不混进原始 Excel 表。</p>
+            </div>
+            <span class="tag warn" id="pendingSchedulePoolCount">0 条待排</span>
+          </div>
+          <div class="pending-pool-grid">
+            <label>学生 / 班级<input id="pendingScheduleStudentInput" placeholder="例如：张同学 / 五年级数学小班"></label>
+            <label>课程类型<select id="pendingScheduleCourseInput"><option>数学小班课</option><option>科学小班课</option><option>程老师班课</option><option>数学一对一</option><option>科学一对一</option><option>其他</option></select></label>
+            <label>目标老师<input id="pendingScheduleTeacherInput" placeholder="可先填意向老师"></label>
+            <label>可排时间<input id="pendingScheduleTimeInput" placeholder="例如：周六 16:40-18:10"></label>
+            <label>学习内容<input id="pendingScheduleContentInput" placeholder="例如：有理数 / 小升初衔接"></label>
+            <label>备注<textarea id="pendingScheduleNoteInput" placeholder="说明来源、家长时间、是否急排。"></textarea></label>
+          </div>
+          <div class="section-actions" style="margin-top:12px;">
+            <button class="button" id="addPendingScheduleButton" type="button">加入待排课池</button>
+            <button class="button secondary" id="exportPendingScheduleButton" type="button">导出待排课 CSV</button>
+          </div>
+          <div class="admission-link-list" id="pendingSchedulePoolList"></div>
         </div>
         <div id="teacherSheetSummary" class="excel-summary"></div>
         <div class="notice" id="teacherSheetMessage" hidden></div>
@@ -1033,7 +1093,8 @@
         regular: "paike-june-system-v1",
         preimport: "jrc-paike-finance-preimport-2026-06-22",
         attendance: "jrc-class-attendance-v1",
-        admissions: "advice-system-stage-prototype"
+        admissions: "advice-system-stage-prototype",
+        pendingPool: "jrc-paike-pending-pool-v1"
       };
       let paikeRows = [];
       let paikeReviewRows = [];
@@ -1366,6 +1427,15 @@
 
       function scheduleEntriesFromRegular(data) {
         return Array.isArray(data?.scheduleEntries) ? data.scheduleEntries : [];
+      }
+
+      function readPendingSchedulePool() {
+        return readLocal(stores.pendingPool, []);
+      }
+
+      function writePendingSchedulePool(rows) {
+        localStorage.setItem(stores.pendingPool, JSON.stringify(rows));
+        window.JRC_CLOUD?.writeModuleData?.(stores.pendingPool, "paike", rows, { replaceMode: "replace" }).catch(() => {});
       }
 
       function attendanceRowsFromData(data) {
@@ -1761,28 +1831,82 @@
         }).join("");
       }
 
+      async function saveRoomForScheduleRow(row, roomName) {
+        if (!roomName) return;
+        const regularState = normalizeRegularState(readLocal(stores.regular, {}));
+        const entry = {
+          id: `room-fix-${scheduleSourceKey(row).replace(/[^\w\u4e00-\u9fa5-]/g, "-")}`,
+          date: row.date,
+          teacher: row.teacher,
+          teacherName: row.teacher,
+          studentName: row.student || row.lessonType || "未填学生/班级",
+          className: row.student || row.lessonType || "未填学生/班级",
+          time: timeSlotLabel(row),
+          startTime: row.startTime || String(timeSlotLabel(row)).split("-")[0] || "",
+          endTime: row.endTime || String(timeSlotLabel(row)).split("-")[1] || "",
+          classroomName: roomName,
+          roomName,
+          lessonTypeRaw: row.lessonType || row.rawText || "",
+          rawText: row.rawText || "",
+          status: "补写教室",
+          period: row.period || String(row.date || "").slice(0, 7),
+          updatedAt: new Date().toISOString(),
+          updatedBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录"
+        };
+        const nextEntries = mergeRows("formal", regularState.scheduleEntries || [], [entry]);
+        const nextState = {
+          ...regularState,
+          scheduleEntries: nextEntries,
+          updatedAt: new Date().toISOString(),
+          lastRoomFixAt: new Date().toISOString()
+        };
+        localStorage.setItem(stores.regular, JSON.stringify(nextState));
+        if (window.JRC_CLOUD?.writeModuleData) {
+          await window.JRC_CLOUD.writeModuleData(stores.regular, "paike", nextState, { replaceMode: "replace" });
+        }
+        await initPaikeDashboard();
+        setTeacherSheetMessage(`已补写教室：${row.teacher || "-"} ${dateLabel(row.date)} ${timeSlotLabel(row)} -> ${roomName}`);
+      }
+
+      function renderPendingSchedulePool() {
+        const list = byId("pendingSchedulePoolList");
+        const count = byId("pendingSchedulePoolCount");
+        if (!list) return;
+        const rows = readPendingSchedulePool().filter((row) => row.status !== "已排课");
+        if (count) count.textContent = `${rows.length} 条待排`;
+        if (!rows.length) {
+          list.innerHTML = `<div class="empty">当前没有手工待排课。招生已报名但未排课的学生会显示在上方“招生报名待排课”。</div>`;
+          return;
+        }
+        list.innerHTML = rows.map((row) => `
+          <article class="admission-link-item">
+            <div>
+              <strong>${escapeHtml(row.studentName || "-")}</strong>
+              <span>${escapeHtml([row.courseType, row.learningContent].filter(Boolean).join("｜") || "待补课程信息")}</span>
+            </div>
+            <div>
+              <span>目标老师：${escapeHtml(row.targetTeacher || "待定")}｜可排时间：${escapeHtml(row.availableTime || "待定")}</span>
+              <small>${escapeHtml(row.note || "暂无备注")}</small>
+            </div>
+            <div class="admission-link-actions">
+              <button class="button secondary" type="button" data-pending-schedule-locate="${escapeHtml(row.id)}">定位老师课表</button>
+              <button class="button secondary" type="button" data-pending-schedule-done="${escapeHtml(row.id)}">标记已排</button>
+            </div>
+          </article>
+        `).join("");
+      }
+
       function timeSlotSortValue(label) {
         return timeMinutes(String(label || "").split("-")[0]);
       }
 
       const COMMON_TIME_SLOTS = [
-        "08:00-10:00",
         "08:30-10:00",
-        "08:30-10:20",
         "10:10-11:40",
-        "10:30-12:00",
-        "12:30-14:30",
         "13:00-14:30",
-        "13:00-15:00",
-        "14:30-16:30",
-        "14:40-16:10",
         "15:00-16:30",
-        "16:10-17:40",
-        "16:30-18:00",
-        "17:00-18:30",
-        "18:30-20:00",
-        "18:30-20:30",
-        "19:00-20:30"
+        "16:40-18:10",
+        "18:30-20:00"
       ];
 
       function isValidTimeSlot(label) {
@@ -2154,6 +2278,12 @@
                       <strong>${escapeHtml(row.student || row.lessonType || "未填学生")}</strong>
                       <small>${escapeHtml(row.lessonType || row.rawText || "课程")}</small>
                       <small>${escapeHtml(row.room && row.room !== "-" ? row.room : "未写教室")}｜${escapeHtml(scheduleStatus(row).label)}</small>
+                      ${(!row.room || row.room === "-") ? `
+                        <div class="room-inline-action">
+                          <input class="room-inline-input" data-room-fix-input="${escapeHtml(scheduleConflictRowKey(row))}" placeholder="补教室">
+                          <button class="button secondary" type="button" data-room-fix-row="${escapeHtml(scheduleConflictRowKey(row))}">保存</button>
+                        </div>
+                      ` : ""}
                       <a class="lesson-link" href="${escapeHtml(attendanceHrefForRow(row))}">去点名</a>
                     </div>
                   `).join("") || `<span class="room-free">可排</span>`}</td>`;
@@ -2771,6 +2901,7 @@
         paikeRows = normalizedScheduleRows({ regularEntries, scheduleSessions });
         setupTeacherSheetFilters();
         renderTeacherSheet();
+        renderPendingSchedulePool();
         renderWorkbenchFilters();
         renderWorkbench();
         renderCommandCenter();
@@ -2827,6 +2958,77 @@
         const button = event.target.closest("[data-teacher-workbench-action]");
         if (!button) return;
         applyTeacherSheetQuick(button.getAttribute("data-teacher-workbench-action") || "");
+      });
+      byId("teacherSheetTable")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-room-fix-row]");
+        if (!button) return;
+        if (window.jrcHasPermission && !window.jrcHasPermission("paike.edit")) {
+          setTeacherSheetMessage("当前账号没有排课修改权限，不能补写教室。");
+          return;
+        }
+        const key = button.getAttribute("data-room-fix-row") || "";
+        const row = paikeRows.find((item) => scheduleConflictRowKey(item) === key);
+        const input = document.querySelector(`[data-room-fix-input="${CSS.escape(key)}"]`);
+        const roomName = input?.value.trim() || "";
+        if (!row || !roomName) {
+          setTeacherSheetMessage("请先填写教室名称。");
+          return;
+        }
+        try {
+          await saveRoomForScheduleRow(row, roomName);
+        } catch (error) {
+          console.error(error);
+          setTeacherSheetMessage("补写教室失败，请稍后重试。");
+        }
+      });
+      byId("addPendingScheduleButton")?.addEventListener("click", () => {
+        const row = {
+          id: `pending-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          studentName: byId("pendingScheduleStudentInput")?.value.trim() || "",
+          courseType: byId("pendingScheduleCourseInput")?.value || "",
+          targetTeacher: byId("pendingScheduleTeacherInput")?.value.trim() || "",
+          availableTime: byId("pendingScheduleTimeInput")?.value.trim() || "",
+          learningContent: byId("pendingScheduleContentInput")?.value.trim() || "",
+          note: byId("pendingScheduleNoteInput")?.value.trim() || "",
+          status: "待排课",
+          createdAt: new Date().toISOString(),
+          createdBy: window.JRC_CURRENT_EMPLOYEE?.name || "未登录"
+        };
+        if (!row.studentName) {
+          setTeacherSheetMessage("请先填写学生或班级名称。");
+          return;
+        }
+        writePendingSchedulePool([row, ...readPendingSchedulePool()]);
+        ["pendingScheduleStudentInput", "pendingScheduleTeacherInput", "pendingScheduleTimeInput", "pendingScheduleContentInput", "pendingScheduleNoteInput"].forEach((id) => {
+          const node = byId(id);
+          if (node) node.value = "";
+        });
+        renderPendingSchedulePool();
+        setTeacherSheetMessage(`已加入待排课池：${row.studentName}`);
+      });
+      byId("exportPendingScheduleButton")?.addEventListener("click", () => {
+        const rows = readPendingSchedulePool().filter((row) => row.status !== "已排课");
+        downloadCsv("排课-待排课池.csv", [
+          ["学生/班级", "课程类型", "目标老师", "可排时间", "学习内容", "备注", "状态"],
+          ...rows.map((row) => [row.studentName, row.courseType, row.targetTeacher, row.availableTime, row.learningContent, row.note, row.status])
+        ]);
+      });
+      byId("pendingSchedulePoolList")?.addEventListener("click", (event) => {
+        const locateButton = event.target.closest("[data-pending-schedule-locate]");
+        const doneButton = event.target.closest("[data-pending-schedule-done]");
+        const id = locateButton?.getAttribute("data-pending-schedule-locate") || doneButton?.getAttribute("data-pending-schedule-done") || "";
+        if (!id) return;
+        const rows = readPendingSchedulePool();
+        const target = rows.find((row) => row.id === id);
+        if (!target) return;
+        if (doneButton) {
+          writePendingSchedulePool(rows.map((row) => row.id === id ? { ...row, status: "已排课", completedAt: new Date().toISOString() } : row));
+          renderPendingSchedulePool();
+          return;
+        }
+        if (target.targetTeacher) selectTeacherSheetTeacher(target.targetTeacher, { scroll: false });
+        byId("teacherSheetTable")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        setTeacherSheetMessage(`${target.studentName} 待排课：先看 ${target.targetTeacher || "目标老师"} 课表空档，再看教室表。`);
       });
       byId("exportTeacherSheetButton")?.addEventListener("click", exportTeacherSheet);
       byId("exportTeacherDayButton")?.addEventListener("click", exportTeacherDay);

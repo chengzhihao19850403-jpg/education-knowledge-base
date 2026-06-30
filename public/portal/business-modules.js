@@ -1341,14 +1341,20 @@
     const maxLocalFileBytes = 8 * 1024 * 1024;
     const maxCloudFileBytes = 30 * 1024 * 1024;
     const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
-    const gradeExpertRules = window.JRC_CURRICULUM_GRADE_EXPERTS || {};
-    const gradeExpertRule = gradeExpertRules[String(currentEmployee.username || "").toLowerCase()] || null;
+    const defaultGradeExpertRules = {
+      liudajun: { grades: ["初一", "初二", "初三"], subject: "数学" },
+      "刘大君": { grades: ["初一", "初二", "初三"], subject: "数学" },
+      zhaoxuan: { grades: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"], subject: "数学" },
+      "赵萱": { grades: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"], subject: "数学" }
+    };
+    const gradeExpertRules = { ...defaultGradeExpertRules, ...(window.JRC_CURRICULUM_GRADE_EXPERTS || {}) };
+    const gradeExpertRule = gradeExpertRules[String(currentEmployee.username || "").toLowerCase()] || gradeExpertRules[String(currentEmployee.name || "").trim()] || null;
     const allGradeOptions = ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "初一", "初二", "初三"];
     const defaultOutlineCategory = "普通课程资料";
     const outlineCategoryOptions = [defaultOutlineCategory, "程老师授课大纲", "科学老师授课大纲", "小课老师授课大纲"];
     const seasonOptions = ["春季", "暑假", "秋季", "寒假", "通用"];
     const scienceOutlineTeachers = ["海滢滢", "姚老师", "朱永乐"];
-    const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit") || currentEmployee.role !== "授课老师";
+    const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit");
     const isGradeRestricted = !canViewAllGrades;
     const allowedGrades = isGradeRestricted ? (gradeExpertRule?.grades || []) : allGradeOptions;
     const allowedSubject = isGradeRestricted ? String(gradeExpertRule?.subject || "").trim() : "";
@@ -1384,6 +1390,20 @@
       if (text.includes("小课")) return "小课老师授课大纲";
       if (normalizeText(type) === "课程大纲") return "小课老师授课大纲";
       return defaultOutlineCategory;
+    }
+
+    function normalizeResourceType(value) {
+      const text = normalizeText(value);
+      if (/大纲/.test(text)) return "课程大纲";
+      if (/讲义|word/i.test(text)) return "讲义";
+      if (/专题/.test(text)) return "专题资料";
+      if (/好题|题库|题目/.test(text)) return "好题资料";
+      if (/试卷|测试/.test(text)) return "试卷";
+      if (/课件|ppt|pdf/i.test(text)) return "课件";
+      if (/答案/.test(text)) return "老师版答案";
+      if (/板书/.test(text)) return "板书照片";
+      if (["讲义", "专题资料", "好题资料", "试卷", "课件", "课程大纲", "老师版答案", "板书照片", "其他资料"].includes(text)) return text;
+      return "其他资料";
     }
 
     function normalizeSeason(value) {
@@ -1499,7 +1519,8 @@
           outlineCategory: normalizeOutlineCategory(row.outlineCategory || row.outlineType || row.category, row.type),
           season: normalizeSeason(row.season || row.term || row.classType),
           teacherName: normalizeName(row.teacherName || row.teacher || row.instructor || ""),
-          formula: normalizeText(row.formula || row.keyFormula || row.corePoints || "")
+          formula: normalizeText(row.formula || row.keyFormula || row.corePoints || ""),
+          type: normalizeResourceType(row.type)
         }));
     }
     let rows = mergeRowsById(sanitizeRows(readStore(key, [])), key);
@@ -1542,6 +1563,11 @@
       const gradeFilter = $("curriculumGradeFilter");
       if (gradeFilter) {
         gradeFilter.innerHTML = `<option value="">全部年级</option>${options.map((grade) => `<option>${escapeHtml(grade)}</option>`).join("")}`;
+      }
+      const board = $("curriculumDirectoryBoard");
+      if (board) {
+        board.innerHTML = `<button class="resource-tree-item" type="button" data-curriculum-grade-dir=""><strong>全部年级</strong><span>查看当前权限范围内全部资料。</span></button>` +
+          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}"><strong>${escapeHtml(grade)}</strong><span>讲义 / 专题资料 / 好题资料 / 试卷 / 课件 / 其他资料</span></button>`).join("");
       }
     }
 
@@ -1837,9 +1863,17 @@
         setText("curriculumMessage", "当前账号只能上传自己负责年级的课程资料。");
         return;
       }
-      const selectedType = $("curriculumTypeInput")?.value || "备课资料";
+      const selectedType = normalizeResourceType($("curriculumTypeInput")?.value || "其他资料");
       const selectedOutlineCategory = normalizeOutlineCategory($("curriculumOutlineCategoryInput")?.value, selectedType);
       const selectedTeacherName = normalizeName($("curriculumTeacherInput")?.value) || "";
+      if (!selectedGrade) {
+        setText("curriculumMessage", "请先选择年级，资料会按年级目录归档。");
+        return;
+      }
+      if (selectedOutlineCategory === defaultOutlineCategory && !selectedType) {
+        setText("curriculumMessage", "请先选择资料类型：讲义、专题资料、好题资料、试卷、课件或其他资料。");
+        return;
+      }
       const basePayload = {
         subject: normalizeSubjectForScope($("curriculumSubjectInput")?.value, selectedGrade),
         grade: selectedGrade || "-",
@@ -1902,7 +1936,10 @@
         return;
       }
       recordAudit(moduleKey, addedCount && updatedCount ? "批量保存" : updatedCount ? "更新" : "新增", name, `新增 ${addedCount} 条 / 更新 ${updatedCount} 条`);
-      setText("curriculumMessage", `已保存：新增 ${addedCount} 条，更新 ${updatedCount} 条。重复资料已自动升级版本。`);
+      const directoryText = selectedOutlineCategory === defaultOutlineCategory
+        ? `课程资料库 / ${selectedGrade} / ${selectedType}`
+        : `授课大纲 / ${selectedOutlineCategory} / ${normalizeSeason($("curriculumSeasonInput")?.value)} / ${selectedGrade}`;
+      setText("curriculumMessage", `已保存到：${directoryText}。新增 ${addedCount} 条，更新 ${updatedCount} 条；重复资料已自动升级版本。`);
       writeStore(key, rows);
       applyTeacherOptions();
       updateCurriculumFilterControls();
@@ -1910,6 +1947,19 @@
       render();
     });
     $("curriculumFilterInput")?.addEventListener("input", render);
+    $("curriculumDirectoryBoard")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-curriculum-grade-dir]");
+      if (!button) return;
+      activeOutlineFilter = "";
+      updateCurriculumFilterControls();
+      const grade = button.getAttribute("data-curriculum-grade-dir") || "";
+      if ($("curriculumGradeFilter")) $("curriculumGradeFilter").value = grade;
+      if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = defaultOutlineCategory;
+      if ($("curriculumTypeInput") && $("curriculumTypeInput").value === "课程大纲") $("curriculumTypeInput").value = "讲义";
+      render();
+      setText("curriculumMessage", grade ? `已打开课程资料库：${grade}。` : "已打开课程资料库：全部年级。");
+      $("curriculumTableBody")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
     document.querySelectorAll("[data-outline-filter]").forEach((button) => {
       button.addEventListener("click", () => {
         const category = normalizeOutlineCategory(button.getAttribute("data-outline-filter"), "课程大纲");

@@ -205,7 +205,6 @@
                 <option value="">全部草稿</option>
                 <option value="open">未归档</option>
                 <option value="archived">已归档</option>
-                <option value="needs">待补完整</option>
               </select>
             </div>
             <div class="draft-list" id="aiDraftList"></div>
@@ -656,36 +655,7 @@
       }
 
       function missingCompletionItems(value) {
-        const text = String(value || "");
-        const items = [];
-        const add = (label) => {
-          if (label && !items.includes(label)) items.push(label);
-        };
-        if (/某某的家长|^某某/.test(text)) add("开头学生姓名还是“某某”，需要改成真实学生姓名");
-        if (/第\s*(?:__|＿+|[xX])\s*次/.test(text)) add("开头第几次课没有补完整");
-        const homeworkMatch = text.match(/五、课后作业：([\s\S]*)$/);
-        const homeworkText = homeworkMatch ? homeworkMatch[1] : "";
-        if (/《\s*(?:__|＿+|[xX]+|待补充|待填写)?\s*》做完|待老师(补充|确认|填写)|请老师(补充|确认|填写)|待补充字段|待补内容/.test(homeworkText)) add("五、课后作业没有补完整");
-        const contentSection = extractTemplateSection(text, "二、本次课上课内容：", ["三、知识点要点：", "四、学习掌握情况：", "五、课后作业："]);
-        const knowledgeSection = extractTemplateSection(text, "三、知识点要点：", ["四、学习掌握情况：", "五、课后作业："]);
-        const masterySection = extractTemplateSection(text, "四、学习掌握情况：", ["五、课后作业："]);
-        [
-          ["二、本次课上课内容", contentSection],
-          ["三、知识点要点", knowledgeSection],
-          ["四、学习掌握情况", masterySection]
-        ].forEach(([sectionName, sectionText]) => {
-          String(sectionText || "").split(/\n+/).forEach((line) => {
-            const trimmed = line.trim();
-            if (!trimmed) return;
-            const number = (trimmed.match(/^(\d+)\./) || [])[1];
-            if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|待老师(补充|确认|填写)|请老师(补充|确认|填写)|待补充字段|待补内容|本节课上课内容待老师补充|知识点待老师补充/.test(trimmed)) {
-              add(`${sectionName}${number ? `第 ${number} 条` : ""}需要补充`);
-            }
-          });
-        });
-        if (/(^|[^A-Za-z0-9])_{2,}|＿{2,}|—{2,}|-{3,}|\[\s*\]|\(\s*\)|《\s*[_＿xX\s]*\s*》/.test(text)) add("正文里还有横线、空白或占位符");
-        if (/(^|[^A-Za-z])x{1,2}([^A-Za-z]|$)|待老师(补充|确认|填写)|待补充字段|待补内容|请老师(补充|确认|填写)|本节课.*待老师补充|知识点.*待老师补充/.test(text) && !items.length) add("正文里还有明确待补提示");
-        return [...new Set(items)];
+        return [];
       }
 
       function feedbackCrossNameItems(value, target = "") {
@@ -710,20 +680,15 @@
       }
 
       function feedbackReviewItems(value, target = "") {
-        return [
-          ...missingCompletionItems(value),
-          ...feedbackCrossNameItems(value, target),
-          ...feedbackQualityItems(value)
-        ];
+        return [];
       }
 
       function completionClass(value, target = "") {
-        return feedbackReviewItems(value, target).length ? " needs-completion" : "";
+        return "";
       }
 
       function completionWarningHtml(value, target = "") {
-        const items = feedbackReviewItems(value, target);
-        return `<div class="completion-warning" data-completion-warning ${items.length ? "" : "hidden"}>${items.length ? completionWarningContent(items) : ""}</div>`;
+        return "";
       }
 
       function completionWarningContent(items) {
@@ -733,13 +698,12 @@
 
       function updateCompletionWarning(textarea) {
         if (!textarea) return [];
-        const target = textarea.dataset.feedbackTarget || byId("aiTargetInput")?.value || "";
-        const items = feedbackReviewItems(textarea.value, target);
-        textarea.classList.toggle("needs-completion", items.length > 0);
+        const items = [];
+        textarea.classList.remove("needs-completion");
         const warning = textarea.parentElement?.querySelector("[data-completion-warning]");
         if (warning) {
-          warning.hidden = items.length === 0;
-          warning.innerHTML = items.length ? completionWarningContent(items) : "";
+          warning.hidden = true;
+          warning.innerHTML = "";
         }
         return items;
       }
@@ -813,7 +777,6 @@
             if (keyword && !haystack.includes(keyword)) return false;
             if (statusFilter === "archived") return Boolean(row.archivedAt || row.archivedStudentServiceId);
             if (statusFilter === "open") return !row.archivedAt && !row.archivedStudentServiceId;
-            if (statusFilter === "needs") return missingCompletionItems(text).length > 0;
             return true;
           })
           .slice(0, 50);
@@ -1174,7 +1137,7 @@
             polishedText: !result.polishedText || result.polishedText === parentMessage ? formatted : result.polishedText,
             internalNote: result.internalNote || (hasTemplate
               ? "MiniMax 已主写课堂反馈，系统仅做称呼与段落格式校验。"
-              : "MiniMax 已返回课堂反馈正文，但模板栏目不完整；系统保留模型原文，请老师按黄色提醒补齐后再归档。")
+              : "MiniMax 已返回课堂反馈正文，系统保留模型原文，老师可直接编辑后保存或归档。")
           };
         }
         return result;
@@ -1262,8 +1225,8 @@
         };
         latestBatchResults = rows;
         byId("aiResultBox").innerHTML = `
-          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>MiniMax 已按每个学生直接写出完整草稿；网页端只做姓名隔离、格式检查和保存。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
-          <div class="result-item"><strong>下一步</strong><p>先检查每一份是否有黄色提醒和串名，再点“批量保存多学生草稿”；之后到草稿库逐个精修并归档学生服务。</p></div>
+          <div class="result-item"><strong>已生成 ${latestBatchResults.length} 份课堂反馈</strong><p>MiniMax 已按每个学生直接写出完整草稿；网页端只做姓名隔离、段落格式和保存。每一份都可以直接修改，点“保存草稿”会保存全部草稿。</p></div>
+          <div class="result-item"><strong>下一步</strong><p>先检查每一份是否只写本学生内容，再点“批量保存多学生草稿”；之后到草稿库逐个精修并归档学生服务。</p></div>
           ${latestBatchResults.map((item, index) => `
             <div class="result-item">
               <strong>${escapeHtml(item.title || `第 ${index + 1} 份课堂反馈`)}</strong>
@@ -1667,12 +1630,6 @@
         const resolvedCourseName = ["feedback", "classFeedback"].includes(mode)
           ? feedbackCourseLabel({ lessonSeason: resolvedLessonSeason, lessonNumber: resolvedLessonNumber }, feedbackText).replace(/课堂反馈$/, "")
           : latestResult.className || latestResult.courseName || "-";
-        const reviewItems = ["feedback", "classFeedback"].includes(mode) ? feedbackReviewItems(feedbackText, student) : [];
-        if (reviewItems.length) {
-          byId("aiMessage").textContent = `还有需要补齐或复核的内容：${reviewItems.join("、")}。请在右侧整理结果里处理后再归档。`;
-          document.querySelectorAll("[data-result-field]").forEach((textarea) => updateCompletionWarning(textarea));
-          return;
-        }
         const now = new Date().toISOString();
         let serviceRow = {
           id: `ai-feedback-${Date.now()}`,
