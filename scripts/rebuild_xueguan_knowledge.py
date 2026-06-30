@@ -306,6 +306,25 @@ def multiple_option_set(correct_items: list[str], distractors: list[str], seed: 
 def build_test_questions(lesson_id: str, lesson_qas: list[dict], all_qas: list[dict]) -> list[dict]:
     questions = []
     distractor_answers = [short_text(split_sentences(qa["a"])[0]) for qa in all_qas if split_sentences(qa["a"])]
+    advantage_keywords = [
+        "匠人程",
+        "程老师",
+        "宁波",
+        "本地",
+        "名校",
+        "蛟川",
+        "宁外",
+        "强基",
+        "考情",
+        "出题",
+        "经验",
+        "分层",
+        "因材施教",
+        "适配",
+        "冲刺",
+        "押中",
+        "体系",
+    ]
     wrong_options = [
         "先承诺孩子一定能提分或录取，再解释课程安排。",
         "不确认孩子基础和家长真实问题，直接推荐最高强度班型。",
@@ -330,11 +349,25 @@ def build_test_questions(lesson_id: str, lesson_qas: list[dict], all_qas: list[d
             }
         )
 
+    def advantage_sentences(sentences: list[str], fallback_items: list[str]) -> list[str]:
+        matched = [sentence for sentence in sentences if any(keyword in sentence for keyword in advantage_keywords)]
+        return unique_texts(
+            matched
+            + fallback_items
+            + [
+                "突出匠人程对宁波本地考情、名校节奏和孩子分层适配的理解。",
+                "强调课程建议要结合孩子基础、目标学校和实际课堂表现，不做空泛承诺。",
+            ]
+        )
+
     for index, qa in enumerate(lesson_qas):
         sentences = split_sentences(qa["a"])
         answer_core = short_text(sentences[0] if sentences else qa["a"])
         second_core = short_text(sentences[1] if len(sentences) > 1 else "回复时应保留背景、边界和下一步建议，不随意压缩语境。")
         third_core = short_text(sentences[2] if len(sentences) > 2 else "遇到不确定或实时变化的信息，要先复核最新口径再回复。")
+        fourth_core = short_text(sentences[3] if len(sentences) > 3 else "要把孩子基础、课程匹配和家长真实顾虑放在一起判断。")
+        fifth_core = short_text(sentences[4] if len(sentences) > 4 else "表达时既要突出优势，也要保留事实边界，不做绝对化承诺。")
+        advantage_cores = advantage_sentences(sentences, [answer_core, second_core, third_core])
         add_multiple(
             f"围绕家长问题“{short_text(qa['q'], 54)}”，哪些内容属于标准回复要点？",
             [answer_core, second_core],
@@ -355,6 +388,27 @@ def build_test_questions(lesson_id: str, lesson_qas: list[dict], all_qas: list[d
             distractor_answers + wrong_options,
             "复盘题用于帮助老师记住答案重点、风险边界和不能乱答的地方。",
             index + 23,
+        )
+        add_multiple(
+            f"回答“{short_text(qa['q'], 48)}”时，哪些表达更能突出匠人程的优势？",
+            [advantage_cores[0], advantage_cores[1]],
+            distractor_answers + wrong_options,
+            "这题专门帮助老师记住匠人程的核心优势，答家长时要说出具体价值，不要只说空话。",
+            index + 31,
+        )
+        add_multiple(
+            f"为了帮助老师记住“{short_text(qa['q'], 48)}”的完整话术，哪些细节不该漏掉？",
+            [second_core, fourth_core],
+            distractor_answers + wrong_options,
+            "记忆题用于把原答案里的关键细节留下来，避免只记标题、忘了支撑理由。",
+            index + 41,
+        )
+        add_multiple(
+            f"家长继续追问“{short_text(qa['q'], 44)}”时，哪些回应更稳妥、更专业？",
+            [third_core, fifth_core],
+            distractor_answers + wrong_options,
+            "追问题考的是现场表达：既要讲清优势，也要保留边界，不能乱承诺。",
+            index + 53,
         )
 
     return questions
@@ -404,8 +458,8 @@ def build_training_program(blocks: list[dict], source_docx: Path) -> dict:
         "description": "基于最新版 7.1 学管学堂问答系统整理成 20 节学习课，课堂内容以原问答为核心。",
         "source_file": source_docx.name,
         "testPolicy": {
-            "mode": "multiple-choice-small-test-by-lesson-content",
-            "description": "每节课按实际问答内容生成全多选小测试，不再硬凑 30 道单选和 20 道多选。",
+            "mode": "multiple-choice-memory-test-by-lesson-content",
+            "description": "每节课按现有题量翻倍生成全多选记忆测试，重点帮助老师记住标准话术和匠人程优势。",
             "totalScore": 100,
         },
         "lessons": lessons,

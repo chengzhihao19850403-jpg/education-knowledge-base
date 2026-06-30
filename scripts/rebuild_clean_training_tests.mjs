@@ -98,6 +98,36 @@ function lessonWrongOptions(seed = 0) {
   return pickDistractors(generalWrongOptions, [], 4, seed);
 }
 
+const advantageKeywords = [
+  '匠人程',
+  '程老师',
+  '宁波',
+  '本地',
+  '名校',
+  '蛟川',
+  '宁外',
+  '强基',
+  '考情',
+  '出题',
+  '经验',
+  '分层',
+  '因材施教',
+  '适配',
+  '冲刺',
+  '押中',
+  '体系',
+];
+
+function pickAdvantageSentences(sentences, fallbackItems = []) {
+  const matched = sentences.filter((sentence) => advantageKeywords.some((keyword) => sentence.includes(keyword)));
+  return unique([
+    ...matched,
+    ...fallbackItems,
+    '突出匠人程对宁波本地考情、名校节奏和孩子分层适配的理解。',
+    '强调课程建议要结合孩子基础、目标学校和实际课堂表现，不做空泛承诺。',
+  ]);
+}
+
 function buildTestQuestions(test, lesson) {
   const lessonItems = (lesson.questionIds || []).map((id) => questionById.get(id)).filter(Boolean);
   const answerPool = allQuestions.flatMap((item) => splitSentences(item.a).slice(0, 2));
@@ -118,6 +148,9 @@ function buildTestQuestions(test, lesson) {
     const answerCore = sentences[0] || item.a;
     const secondCore = sentences[1] || '回复时应保留背景、边界和下一步建议，不随意压缩语境。';
     const thirdCore = sentences[2] || '遇到不确定或实时变化的信息，要先复核最新口径再回复。';
+    const fourthCore = sentences[3] || '要把孩子基础、课程匹配和家长真实顾虑放在一起判断。';
+    const fifthCore = sentences[4] || '表达时既要突出优势，也要保留事实边界，不做绝对化承诺。';
+    const advantageCores = pickAdvantageSentences(sentences, [answerCore, secondCore, thirdCore]);
 
     add(makeMultiple(
       '',
@@ -147,6 +180,33 @@ function buildTestQuestions(test, lesson) {
       [...answerPool, ...lessonWrongOptions(index + 17)],
       `复盘题用于帮助老师记住答案重点、风险边界和不能乱答的地方。`,
       index + 23,
+    ));
+
+    add(makeMultiple(
+      '',
+      `回答“${compact(item.q, 48)}”时，哪些表达更能突出匠人程的优势？`,
+      [advantageCores[0], advantageCores[1]],
+      [...answerPool, ...lessonWrongOptions(index + 29)],
+      `这题专门帮助老师记住匠人程的核心优势，答家长时要说出具体价值，不要只说空话。`,
+      index + 31,
+    ));
+
+    add(makeMultiple(
+      '',
+      `为了帮助老师记住“${compact(item.q, 48)}”的完整话术，哪些细节不该漏掉？`,
+      [secondCore, fourthCore],
+      [...answerPool, ...lessonWrongOptions(index + 37)],
+      `记忆题用于把原答案里的关键细节留下来，避免只记标题、忘了支撑理由。`,
+      index + 41,
+    ));
+
+    add(makeMultiple(
+      '',
+      `家长继续追问“${compact(item.q, 44)}”时，哪些回应更稳妥、更专业？`,
+      [thirdCore, fifthCore],
+      [...answerPool, ...lessonWrongOptions(index + 43)],
+      `追问题考的是现场表达：既要讲清优势，也要保留边界，不能乱承诺。`,
+      index + 53,
     ));
   });
 
@@ -179,11 +239,11 @@ training.tests = (training.tests || []).map((test) => {
 });
 
 training.testPolicy = {
-  mode: 'multiple-choice-small-test-by-lesson-content',
-  description: '每节课按实际问答内容生成全多选小测试，不再硬凑 30 道单选和 20 道多选。',
+  mode: 'multiple-choice-memory-test-by-lesson-content',
+  description: '每节课按现有题量翻倍生成全多选记忆测试，重点帮助老师记住标准话术和匠人程优势。',
   totalScore: 100,
 };
-training.version = 'xueguan-training-2026-07-01-multiple-tests';
+training.version = 'xueguan-training-2026-07-01-memory-tests';
 training.updated_at = '2026-06-30';
 
 fs.writeFileSync(trainingPath, `${JSON.stringify(training, null, 2)}\n`);

@@ -883,6 +883,29 @@ export default function Home() {
               })}
             </div>
 
+            {testSubmitted && (
+              <section className="submit-success">
+                <div>
+                  <strong>交卷成功，答题辛苦了</strong>
+                  <p>本次得分 {score} 分，答对 {correctCount}/{totalQuestionCount} 题，成绩已进入学管课堂学习榜。</p>
+                </div>
+                <div className="submit-success-actions">
+                  <button type="button" onClick={() => setClassroomView('leaderboard')}>去学习榜</button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      setTestAnswers({});
+                      setTestSubmitted(false);
+                      submittedAttemptRef.current = '';
+                    }}
+                  >
+                    重做一次
+                  </button>
+                </div>
+              </section>
+            )}
+
             <div className="bottom-submit">
               <button type="button" onClick={submitTest}>{testSubmitted ? '再次提交成绩' : '提交完成'}</button>
               <span>{testSubmitted ? `已得 ${score} 分，成绩已记录到学习榜。` : `已答 ${totalAnswered}/${totalQuestionCount}，提交后显示成绩和错题。`}</span>
@@ -959,7 +982,7 @@ export default function Home() {
           font-size: 16px;
           line-height: 1.7;
         }
-        .portal-button, .search-row button, .test-controls button, .bottom-submit button {
+        .portal-button, .search-row button, .test-controls button, .bottom-submit button, .submit-success button {
           min-height: 42px;
           padding: 0 18px;
           border: 0;
@@ -1565,6 +1588,39 @@ export default function Home() {
           background: #ffffff;
           color: #1f3a5f;
         }
+        .submit-success {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 16px;
+          align-items: center;
+          margin-top: 18px;
+          padding: 18px;
+          border: 1px solid #86efac;
+          border-radius: 8px;
+          background: #f0fdf4;
+          color: #14532d;
+        }
+        .submit-success strong {
+          display: block;
+          font-size: 21px;
+          line-height: 1.25;
+        }
+        .submit-success p {
+          margin: 8px 0 0;
+          color: #166534;
+          line-height: 1.7;
+        }
+        .submit-success-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .submit-success .ghost {
+          border: 1px solid #bbf7d0;
+          background: #ffffff;
+          color: #166534;
+        }
         .score-card {
           min-width: 150px;
           padding: 12px 14px;
@@ -1735,6 +1791,15 @@ export default function Home() {
           }
           .test-toolbar {
             grid-template-columns: 1fr;
+          }
+          .submit-success {
+            grid-template-columns: 1fr;
+          }
+          .submit-success-actions {
+            justify-content: stretch;
+          }
+          .submit-success-actions button {
+            flex: 1 1 140px;
           }
           .test-controls {
             justify-content: stretch;
