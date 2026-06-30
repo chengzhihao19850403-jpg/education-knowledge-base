@@ -250,7 +250,6 @@ export default function Home() {
   const [classroomView, setClassroomView] = useState('lessons');
   const [query, setQuery] = useState('');
   const [selectedQuestionId, setSelectedQuestionId] = useState('');
-  const [selectedCategoryName, setSelectedCategoryName] = useState(knowledgeBase.categories?.[0]?.name || '');
   const [selectedLessonId, setSelectedLessonId] = useState(trainingProgram.lessons?.[0]?.id || '');
   const [selectedTestId, setSelectedTestId] = useState(trainingProgram.tests?.[0]?.id || '');
   const [testAnswers, setTestAnswers] = useState({});
@@ -260,12 +259,6 @@ export default function Home() {
   const selectedQuestion = selectedQuestionId
     ? allQuestions.find((item) => item.id === selectedQuestionId)
     : searchResults.items[0] || allQuestions[0];
-  const selectedCategory = (knowledgeBase.categories || []).find((category) => category.name === selectedCategoryName) || knowledgeBase.categories?.[0];
-  const selectedCategoryQuestions = (selectedCategory?.questions || []).map((item) => ({
-    ...item,
-    category: selectedCategory.name,
-    categoryDescription: selectedCategory.description,
-  }));
   const selectedLesson = (trainingProgram.lessons || []).find((lesson) => lesson.id === selectedLessonId) || trainingProgram.lessons?.[0];
   const selectedLessonQuestions = getLessonQuestions(selectedLesson);
   const selectedTest = (trainingProgram.tests || []).find((test) => test.id === selectedTestId) || trainingProgram.tests?.[0];
@@ -285,12 +278,6 @@ export default function Home() {
 
   const selectResult = (id) => {
     setSelectedQuestionId(id);
-    setActiveView('qa');
-  };
-
-  const selectCategory = (categoryName) => {
-    setSelectedCategoryName(categoryName);
-    setSelectedQuestionId('');
     setActiveView('qa');
   };
 
@@ -369,9 +356,11 @@ export default function Home() {
           <section className="entry-grid">
             <button type="button" className="entry-card" onClick={() => setActiveView('qa')}>
               <strong>问答查询系统</strong>
+              <span>点击进入</span>
             </button>
             <button type="button" className="entry-card" onClick={() => setActiveView('classroom')}>
               <strong>学管课堂系统</strong>
+              <span>点击进入</span>
             </button>
           </section>
         )}
@@ -382,6 +371,10 @@ export default function Home() {
               <button type="button" className="back-link" onClick={() => setActiveView('home')}>返回学管知识库系统</button>
               <strong>问答查询系统</strong>
             </div>
+          <div className="query-intro">
+            <h2>输入问题，查找答案</h2>
+            <p>老师可以直接输入关键词，也可以粘贴家长原话，系统会自动匹配相近问答。</p>
+          </div>
           <div className="search-row">
             <input
               value={query}
@@ -398,72 +391,39 @@ export default function Home() {
             />
             <button type="button" onClick={() => searchResults.items[0] && selectResult(searchResults.items[0].id)}>查询</button>
           </div>
-          <div className="metric-grid">
-            <div><strong>{knowledgeBase.total}</strong><span>完整问答</span></div>
-            <div><strong>{knowledgeBase.categories?.length || 0}</strong><span>问答分类</span></div>
-            <div><strong>强</strong><span>模糊匹配</span></div>
-          </div>
         </section>
         )}
 
-        {activeView === 'qa' && (
+        {activeView === 'qa' && query.trim() && (
           <section className="workspace-grid">
             <div className="result-list">
               <div className="section-head">
-                <h2>{query.trim() ? '匹配结果' : '问答分类'}</h2>
-                {query.trim() && (
-                  <span>{searchResults.isFallback ? '相似匹配' : `${searchResults.items.length} 条结果`}</span>
-                )}
+                <h2>匹配结果</h2>
+                <span>{searchResults.isFallback ? '相似答案' : `${searchResults.items.length} 条结果`}</span>
               </div>
 
-              {query.trim() ? (
-                searchResults.items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`result-button ${selectedQuestion?.id === item.id ? 'active' : ''}`}
-                    onClick={() => selectResult(item.id)}
-                  >
-                    <span>{item.category}</span>
-                    <strong>{item.q}</strong>
-                  </button>
-                ))
-              ) : (
-                (knowledgeBase.categories || []).map((category) => (
-                  <div key={category.name} className={`category-card ${selectedCategoryName === category.name ? 'active' : ''}`}>
-                    <div>
-                      <strong>{category.name}</strong>
-                      <span>{category.questions.length} 条问答</span>
-                    </div>
-                    <button type="button" onClick={() => selectCategory(category.name)}>
-                      查看
-                    </button>
-                  </div>
-                ))
-              )}
+              {searchResults.items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`result-button ${selectedQuestion?.id === item.id ? 'active' : ''}`}
+                  onClick={() => selectResult(item.id)}
+                >
+                  <span>{item.category}</span>
+                  <strong>{item.q}</strong>
+                </button>
+              ))}
             </div>
             <div>
-              {query.trim() ? (
-                selectedQuestion && renderQuestionDetail(selectedQuestion)
-              ) : (
-                <article className="detail-card">
-                  <div className="detail-meta">
-                    <span>{selectedCategory?.name}</span>
-                    <span>{selectedCategoryQuestions.length} 条完整问答</span>
-                  </div>
-                  <h2>{selectedCategory?.name}</h2>
-                  <p className="lesson-overview">以下为本分类下全部标准问答，老师可以逐条查看和学习。</p>
-                  <div className="qa-stack">
-                    {selectedCategoryQuestions.map((item) => (
-                      <section key={item.id} className="qa-card">
-                        <div className="qa-question">{item.q}</div>
-                        <AnswerText value={item.a} className="qa-answer" />
-                      </section>
-                    ))}
-                  </div>
-                </article>
-              )}
+              {selectedQuestion && renderQuestionDetail(selectedQuestion)}
             </div>
+          </section>
+        )}
+
+        {activeView === 'qa' && !query.trim() && (
+          <section className="search-empty">
+            <strong>先输入问题，再查看答案</strong>
+            <p>可以直接粘贴家长原话，也可以输入关键词，例如“学费太贵”“孩子跟不上”“请假补课”。</p>
           </section>
         )}
 
@@ -712,28 +672,47 @@ export default function Home() {
         .entry-card {
           min-height: 220px;
           padding: 34px;
-          border: 1px solid #d9e3ee;
+          border: 0;
           border-radius: 8px;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+          background: linear-gradient(135deg, #0f766e 0%, #1f8a80 100%);
           text-align: center;
-          box-shadow: 0 10px 24px rgba(20, 33, 61, 0.05);
+          box-shadow: 0 16px 34px rgba(15, 118, 110, 0.20);
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 16px;
           cursor: pointer;
-          transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+          transition: box-shadow .18s ease, transform .18s ease, filter .18s ease;
+        }
+        .entry-card:nth-child(2) {
+          background: linear-gradient(135deg, #11675f 0%, #238f72 100%);
+          box-shadow: 0 16px 34px rgba(17, 103, 95, 0.20);
         }
         .entry-card:hover {
-          border-color: #2f6fbb;
-          box-shadow: 0 16px 34px rgba(47, 111, 187, 0.14);
+          box-shadow: 0 20px 44px rgba(20, 33, 61, 0.20);
+          filter: brightness(1.03);
           transform: translateY(-2px);
         }
         .entry-card strong {
           display: block;
           margin: 0;
-          color: #14213d;
+          color: #ffffff;
           font-size: clamp(34px, 5vw, 52px);
           line-height: 1.15;
+        }
+        .entry-card span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 34px;
+          padding: 0 18px;
+          border: 1px solid rgba(255, 255, 255, 0.55);
+          border-radius: 999px;
+          color: #ffffff;
+          font-size: 15px;
+          font-weight: 900;
+          background: rgba(255, 255, 255, 0.14);
         }
         .system-toolbar, .classroom-header {
           display: flex;
@@ -746,6 +725,20 @@ export default function Home() {
         .system-toolbar strong {
           color: #14213d;
           font-size: 18px;
+        }
+        .query-intro {
+          margin-bottom: 14px;
+        }
+        .query-intro h2 {
+          margin: 0;
+          color: #14213d;
+          font-size: clamp(24px, 3vw, 34px);
+          line-height: 1.2;
+        }
+        .query-intro p {
+          margin: 8px 0 0;
+          color: #52627a;
+          line-height: 1.7;
         }
         .back-link {
           min-height: 36px;
@@ -813,6 +806,25 @@ export default function Home() {
         .search-row input:focus {
           border-color: #0f766e;
           box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+        }
+        .search-empty {
+          margin-top: 16px;
+          padding: 34px;
+          border: 1px dashed #b8c8d9;
+          border-radius: 8px;
+          background: #ffffff;
+          text-align: center;
+        }
+        .search-empty strong {
+          display: block;
+          color: #14213d;
+          font-size: 24px;
+        }
+        .search-empty p {
+          max-width: 680px;
+          margin: 12px auto 0;
+          color: #52627a;
+          line-height: 1.8;
         }
         .metric-grid {
           display: grid;
