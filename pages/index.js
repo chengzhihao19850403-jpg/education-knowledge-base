@@ -214,6 +214,28 @@ function formatChoice(index) {
   return String.fromCharCode(65 + index);
 }
 
+function formatSectionNumber(index) {
+  const labels = ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节', '第七节', '第八节', '第九节', '第十节', '第十一节', '第十二节', '第十三节', '第十四节', '第十五节', '第十六节', '第十七节', '第十八节', '第十九节', '第二十节'];
+  if (index < 0) return '';
+  return labels[index] || `第${index + 1}节`;
+}
+
+function getLessonIndex(lessonId) {
+  return (trainingProgram.lessons || []).findIndex((lesson) => lesson.id === lessonId);
+}
+
+function formatLessonTitle(lesson) {
+  const index = getLessonIndex(lesson?.id);
+  return `${formatSectionNumber(index)} ${lesson?.title || ''}`.trim();
+}
+
+function formatTestTitle(test) {
+  const index = getLessonIndex(test?.lessonId);
+  const lesson = (trainingProgram.lessons || []).find((item) => item.id === test?.lessonId);
+  const prefix = formatSectionNumber(index);
+  return `${prefix ? `${prefix}阶段测试：` : ''}${lesson?.title || test?.title || ''}`;
+}
+
 function getLessonQuestions(lesson) {
   return (lesson?.questionIds || []).map((id) => questionMap.get(id)).filter(Boolean);
 }
@@ -455,7 +477,7 @@ export default function Home() {
                   onClick={() => selectLesson(lesson.id)}
                 >
                   <span>学管课堂</span>
-                  <strong>{lesson.title}</strong>
+                  <strong>{formatLessonTitle(lesson)}</strong>
                 </button>
               ))}
             </div>
@@ -466,7 +488,7 @@ export default function Home() {
                   <span>{selectedLesson.category}</span>
                   <span>{selectedLesson.duration}</span>
                 </div>
-                <h2>{selectedLesson.title}</h2>
+                <h2>{formatLessonTitle(selectedLesson)}</h2>
                 <p className="lesson-overview">{selectedLesson.overview}</p>
 
                 <div className="learning-block">
@@ -489,8 +511,18 @@ export default function Home() {
                 </div>
 
                 <div className="learning-block">
-                  <h3>课后练习</h3>
-                  <p>{selectedLesson.practice}</p>
+                  <h3>本节小测试</h3>
+                  <button
+                    type="button"
+                    className="lesson-test-button"
+                    onClick={() => {
+                      const linkedTest = (trainingProgram.tests || []).find((test) => test.lessonId === selectedLesson.id);
+                      if (linkedTest) selectTest(linkedTest.id);
+                      setClassroomView('tests');
+                    }}
+                  >
+                    开始本节小测试
+                  </button>
                 </div>
               </article>
             )}
@@ -503,13 +535,13 @@ export default function Home() {
           <section className="test-workspace">
             <div className="test-toolbar">
               <div>
-                <h2>{selectedTest?.title}</h2>
-                <p>{selectedTestLesson?.title} · 已答 {totalAnswered}/{selectedTest?.questions?.length || 0}</p>
+                <h2>{formatTestTitle(selectedTest)}</h2>
+                <p>{formatLessonTitle(selectedTestLesson)} · 已答 {totalAnswered}/{selectedTest?.questions?.length || 0}</p>
               </div>
               <div className="test-controls">
                 <select value={selectedTestId} onChange={(event) => selectTest(event.target.value)}>
                   {(trainingProgram.tests || []).map((test) => (
-                    <option key={test.id} value={test.id}>{test.title}</option>
+                    <option key={test.id} value={test.id}>{formatTestTitle(test)}</option>
                   ))}
                 </select>
                 <button type="button" onClick={() => setTestSubmitted(true)}>交卷</button>
@@ -1031,6 +1063,15 @@ export default function Home() {
           padding-left: 22px;
           color: #334155;
           line-height: 1.8;
+        }
+        .lesson-test-button {
+          min-height: 44px;
+          padding: 0 20px;
+          border: 0;
+          border-radius: 8px;
+          background: #0f766e;
+          color: #ffffff;
+          font-weight: 900;
         }
         .qa-stack, .question-stack {
           display: grid;
