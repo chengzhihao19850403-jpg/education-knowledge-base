@@ -39,6 +39,88 @@ const moduleOwnerPermissionRules = {
   lishu: ["ai.access"],
   zhengjiayi: ["teachingQuality.access", "teachingQuality.edit"]
 };
+const superAdminUsernames = ["chengzhihao", "czh", "chenyuqing", "haiyingying"];
+const roleDefaultPermissions = {
+  管理员: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "suggestions.access",
+    "teachingQuality.access",
+    "teachingQuality.edit",
+    "studentService.access",
+    "studentService.edit",
+    "curriculum.access",
+    "curriculum.edit",
+    "hr.access",
+    "hr.edit",
+    "campus.access",
+    "campus.edit",
+    "admin.access"
+  ],
+  学管: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "admissions.edit",
+    "admissions.import",
+    "admissions.export",
+    "teachingQuality.access",
+    "teachingQuality.edit",
+    "studentService.access",
+    "studentService.edit",
+    "curriculum.access",
+    "campus.access",
+    "campus.edit"
+  ],
+  财务: [
+    "portal.access",
+    "ai.access",
+    "suggestions.access",
+    "finance.access",
+    "finance.edit"
+  ],
+  授课老师: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "suggestions.access",
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access",
+    "curriculum.create",
+    "curriculum.update",
+    "curriculum.import",
+    "curriculum.export",
+    "campus.access"
+  ],
+  试用期老师: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access",
+    "campus.access"
+  ],
+  试用期学管: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access",
+    "campus.access"
+  ]
+};
 const allowedOrigins = (process.env.JRC_ALLOWED_ORIGINS || "https://jrc-edu.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",")
   .map((origin) => origin.trim())
@@ -247,6 +329,33 @@ function toEmployee(row, permissions = []) {
 
 function makeId(prefix) {
   return `${prefix}-${crypto.randomBytes(4).toString("hex")}-${Date.now().toString(36)}`;
+}
+
+function normalizeUsername(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizePermissionKeys(value) {
+  return Array.from(new Set((Array.isArray(value) ? value : [])
+    .map((key) => String(key || "").trim())
+    .filter(Boolean)));
+}
+
+function defaultPermissionsForRole(role) {
+  return normalizePermissionKeys(roleDefaultPermissions[String(role || "").trim()] || []);
+}
+
+function numberFromPercent(value) {
+  const text = String(value ?? "").replace("%", "").trim();
+  if (!text) return null;
+  const number = Number(text);
+  return Number.isFinite(number) ? number : null;
+}
+
+function canManageEmployees(authorization) {
+  if (authorization?.kind === "api-token") return true;
+  const username = normalizeUsername(authorization?.payload?.sub);
+  return superAdminUsernames.includes(username);
 }
 
 function parseCsvRecords(text) {
@@ -622,6 +731,116 @@ async function handleEmployees(res, headers) {
   send(res, 200, {
     employees: employees.rows.map((row) => toEmployee(row, permissionMap.get(row.username) || []))
   }, headers);
+}
+
+async function handleUpsertEmployee(req, res, headers, authorization) {
+  if (!canManageEmployees(authorization)) {
+    send(res, 403, { ok: false, error: "forbidden", message: "只有总管理员可以新增或修改员工账号。" }, headers);
+    return;
+  }
+  const body = await readJson(req);
+  const username = normalizeUsername(body.username);
+  const name = String(body.name || "").trim();
+  const role = String(body.role || "授课老师").trim() || "授课老师";
+  if (!username || !name) {
+    send(res, 400, { ok: false, error: "missing_employee_fields", message: "老师姓名和用户名拼音必须填写。" }, headers);
+    return;
+  }
+  const basePermissions = defaultPermissionsForRole(role);
+  const customPermissions = normalizePermissionKeys(body.permissions);
+  const permissionSet = new Set([...basePermissions, ...customPermissions]);
+  (moduleOwnerPermissionRules[username] || []).forEach((permissionKey) => permissionSet.add(permissionKey));
+  const commissionRate = numberFromPercent(body.commissionRate);
+  const resetPassword = body.resetPassword !== false;
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    const existing = await client.query(`
+      select id, password_hash
+      from employees
+      where username = $1
+      limit 1
+    `, [username]);
+    const hasExistingPassword = Boolean(existing.rows[0]?.password_hash);
+    const result = await client.query(`
+      insert into employees (
+        name, username, password_hash, role, phone, wechat, subject, scope,
+        hire_date, regular_date, commission_rate, status, metadata, updated_at
+      )
+      values (
+        $1, $2, crypt($11, gen_salt('bf')), $3, $4, $5, $6, $7,
+        nullif($8, '')::date, nullif($9, '')::date, $10, 'active',
+        jsonb_build_object('source', 'portal employee form', 'initialPasswordPolicy', $11),
+        now()
+      )
+      on conflict (username) do update set
+        name = excluded.name,
+        password_hash = case when $12::boolean or not $13::boolean then crypt($11, gen_salt('bf')) else employees.password_hash end,
+        role = excluded.role,
+        phone = excluded.phone,
+        wechat = excluded.wechat,
+        subject = excluded.subject,
+        scope = excluded.scope,
+        hire_date = excluded.hire_date,
+        regular_date = excluded.regular_date,
+        commission_rate = excluded.commission_rate,
+        status = 'active',
+        metadata = employees.metadata || excluded.metadata,
+        updated_at = now()
+      returning id
+    `, [
+      name,
+      username,
+      role,
+      String(body.phone || "").trim(),
+      String(body.wechat || "").trim(),
+      String(body.subject || "").trim(),
+      String(body.scope || "").trim(),
+      String(body.hireDate || "").trim(),
+      String(body.regularDate || "").trim(),
+      commissionRate,
+      String(body.password || "10281028"),
+      resetPassword,
+      hasExistingPassword
+    ]);
+    const employeeId = result.rows[0].id;
+    if (superAdminUsernames.includes(username)) {
+      const catalog = await client.query("select permission_key from permission_catalog");
+      catalog.rows.forEach((row) => permissionSet.add(row.permission_key));
+    }
+    const permissions = normalizePermissionKeys(Array.from(permissionSet));
+    await client.query("delete from employee_permissions where employee_id = $1", [employeeId]);
+    for (const permissionKey of permissions) {
+      await client.query(`
+        insert into employee_permissions (employee_id, permission_key, note)
+        select $1, permission_catalog.permission_key, 'employee form default/custom permission'
+        from permission_catalog
+        where permission_catalog.permission_key = $2
+        on conflict (employee_id, permission_key) do nothing
+      `, [employeeId, permissionKey]);
+    }
+    await client.query(`
+      insert into audit_logs (
+        module_key, action_key, target_type, target_id, summary,
+        operator_name, operator_username, operator_role, created_at
+      )
+      values ('hr', 'employee.upsert', 'employee', $1, $2, $3, $4, $5, now())
+    `, [
+      username,
+      `新增/更新员工账号：${name}（${role}）`,
+      authorization?.payload?.name || "api-token",
+      authorization?.payload?.sub || "api-token",
+      authorization?.payload?.role || ""
+    ]);
+    await client.query("commit");
+    const employee = await employeeWithPermissions(username);
+    send(res, 200, { ok: true, employee }, headers);
+  } catch (error) {
+    await client.query("rollback").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function handlePermissions(res, headers) {
@@ -1696,6 +1915,7 @@ async function route(req, res) {
   try {
     if (req.method === "GET" && url.pathname === "/health") return await handleHealth(res, headers);
     if (req.method === "GET" && url.pathname === "/employees") return await handleEmployees(res, headers);
+    if (req.method === "POST" && url.pathname === "/employees") return await handleUpsertEmployee(req, res, headers, authorization);
     if (req.method === "GET" && url.pathname === "/permissions") return await handlePermissions(res, headers);
     if (req.method === "POST" && url.pathname === "/change-password") return await handleChangePassword(req, res, headers, authorization);
     if (req.method === "POST" && url.pathname === "/ai-assistant") return await handleAiAssistant(req, res, headers, authorization);

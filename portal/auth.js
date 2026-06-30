@@ -192,6 +192,29 @@ const JRC_ROLE_PERMISSIONS = {
     "curriculum.import",
     "curriculum.export",
     "campus.access"
+  ],
+  试用期老师: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access",
+    "campus.access"
+  ],
+  试用期学管: [
+    "portal.access",
+    "ai.access",
+    "paike.access",
+    "knowledge.access",
+    "suggestions.access",
+    "admissions.access",
+    "teachingQuality.access",
+    "studentService.access",
+    "curriculum.access",
+    "campus.access"
   ]
 };
 
@@ -617,6 +640,18 @@ function jrcSyncCustomEmployeesToCloud(employees) {
   });
 }
 
+async function jrcSyncEmployeeAccountToCloud(employee, options = {}) {
+  if (!window.JRC_CLOUD?.upsertEmployee) return { ok: false, skipped: true, reason: "cloud-upsert-unavailable" };
+  try {
+    return await window.JRC_CLOUD.upsertEmployee(employee, {
+      resetPassword: Boolean(options.resetPassword)
+    });
+  } catch (error) {
+    console.warn("Failed to sync employee account", error);
+    return { ok: false, error: String(error?.message || error) };
+  }
+}
+
 async function jrcHydrateCustomEmployeesFromCloud() {
   if (!window.JRC_CLOUD?.readModuleData) return;
   try {
@@ -655,6 +690,11 @@ function jrcWriteSession(employee, extras = {}) {
     username: employee.username,
     name: employee.name,
     role: employee.role,
+    phone: employee.phone || "",
+    wechat: employee.wechat || "",
+    subject: employee.subject || "",
+    scope: employee.scope || "",
+    permissions: Array.isArray(employee.permissions) ? employee.permissions : [],
     loginAt: new Date().toISOString(),
     cloudApiToken: extras.cloudApiToken || "",
     cloudTokenExpiresAt: extras.cloudTokenExpiresAt || null,
@@ -1048,7 +1088,20 @@ function jrcFindEmployeeByUsername(username) {
 function jrcResolveCurrentEmployee() {
   const session = jrcReadSession();
   if (!session?.username) return null;
-  return jrcFindEmployeeByUsername(session.username) || null;
+  const username = jrcNormalizeUsername(session.username);
+  if (JRC_DEPARTED_EMPLOYEE_USERNAMES.has(username)) return null;
+  const employee = jrcFindEmployeeByUsername(username);
+  if (employee) return employee;
+  return {
+    username,
+    name: session.name || username,
+    role: session.role || "授课老师",
+    phone: session.phone || "",
+    wechat: session.wechat || "",
+    subject: session.subject || "",
+    scope: session.scope || "",
+    permissions: Array.isArray(session.permissions) ? session.permissions : []
+  };
 }
 
 function jrcGetPermissions(subject) {
@@ -1426,8 +1479,10 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
         <option value="">全部岗位</option>
         <option value="管理员">管理员</option>
         <option value="学管">学管</option>
+        <option value="试用期学管">试用期学管</option>
         <option value="财务">财务</option>
         <option value="授课老师">授课老师</option>
+        <option value="试用期老师">试用期老师</option>
       </select>
     </div>
     <div class="jrc-employee-grid">${rows}</div>
@@ -1448,8 +1503,10 @@ function jrcRenderEmployeeDirectory(currentEmployee = jrcResolveCurrentEmployee(
           <label><span>岗位</span>
             <select name="role">
               <option value="学管">学管</option>
+              <option value="试用期学管">试用期学管</option>
               <option value="财务">财务</option>
               <option value="授课老师">授课老师</option>
+              <option value="试用期老师">试用期老师</option>
               <option value="管理员">管理员</option>
             </select>
           </label>
@@ -1575,7 +1632,7 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
     });
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
     const editingUsername = String(form.dataset.editingUsername || "").trim().toLowerCase();
@@ -1591,6 +1648,10 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
       return;
     }
 
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "正在保存...";
+    }
     const customEmployees = jrcReadCustomEmployees();
     const permissions = formData.getAll("permissions").map((permission) => String(permission).trim()).filter(Boolean);
     const existing = jrcFindEmployeeByUsername(username) || {};
@@ -1614,8 +1675,14 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
     else customEmployees.push(row);
     jrcWriteCustomEmployees(customEmployees);
     jrcSyncCustomEmployeesToCloud(customEmployees);
+    const cloudResult = await jrcSyncEmployeeAccountToCloud(row, { resetPassword: !editingUsername });
     window.JRC_EMPLOYEES = jrcGetAllEmployees();
-    message.textContent = editingUsername ? `已保存 ${name} 的员工资料。` : `已新增 ${name}，初始密码 10281028。`;
+    const cloudMessage = cloudResult?.ok
+      ? "云端登录账号已同步。"
+      : cloudResult?.skipped
+        ? "云端账号接口未启用，已先保存到员工名单。"
+        : "员工名单已保存，但云端登录账号同步失败，请稍后再保存一次。";
+    message.textContent = editingUsername ? `已保存 ${name} 的员工资料。${cloudMessage}` : `已新增 ${name}，初始密码 10281028。${cloudMessage}`;
     form.reset();
     form.dataset.editingUsername = "";
     jrcEnsureEmployeeSummary();
@@ -1623,6 +1690,10 @@ function jrcBindEmployeeAddForm(currentEmployee = jrcResolveCurrentEmployee()) {
     jrcBindEmployeeDirectoryToggle();
     jrcBindEmployeeDirectoryFilters();
     jrcBindEmployeeAddForm(currentEmployee);
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "保存新增员工";
+    }
   });
 }
 

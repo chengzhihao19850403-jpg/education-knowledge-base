@@ -196,6 +196,16 @@
     return request("/permissions");
   }
 
+  async function upsertEmployee(employee = {}, options = {}) {
+    return request("/employees", {
+      method: "POST",
+      body: {
+        ...employee,
+        resetPassword: Boolean(options.resetPassword)
+      }
+    });
+  }
+
   async function login(username, password) {
     const config = readConfig();
     if (!config.enabled) return { ok: false, skipped: true, reason: "cloud-disabled" };
@@ -348,6 +358,7 @@
     recordBackupExport,
     listEmployees,
     listPermissions,
+    upsertEmployee,
     login,
     changePassword,
     readModuleData,

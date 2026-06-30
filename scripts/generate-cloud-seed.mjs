@@ -63,6 +63,43 @@ function actionFromPermission(permissionKey) {
   return String(permissionKey || "").split(".").slice(1).join(".") || "access";
 }
 
+function normalizePermissions(permissions) {
+  return Array.from(new Set((Array.isArray(permissions) ? permissions : [])
+    .map((key) => String(key || "").trim())
+    .filter(Boolean))).sort();
+}
+
+function permissionsForRole(role) {
+  const permissions = new Set(seed.rolePermissions[role] || []);
+  if (role === "学管") {
+    [
+      "admissions.access",
+      "admissions.edit",
+      "admissions.import",
+      "admissions.export",
+      "teachingQuality.access",
+      "teachingQuality.edit",
+      "studentService.access",
+      "studentService.edit",
+      "curriculum.access",
+      "campus.access",
+      "campus.edit"
+    ].forEach((key) => permissions.add(key));
+  }
+  if (role === "授课老师") {
+    [
+      "studentService.access",
+      "curriculum.access",
+      "curriculum.create",
+      "curriculum.update",
+      "curriculum.import",
+      "curriculum.export",
+      "campus.access"
+    ].forEach((key) => permissions.add(key));
+  }
+  return normalizePermissions(Array.from(permissions));
+}
+
 function permissionsForEmployee(employee) {
   const permissions = new Set(seed.rolePermissions[employee.role] || []);
   const username = employee.username;
@@ -72,6 +109,25 @@ function permissionsForEmployee(employee) {
   if (employee.role === "授课老师") {
     permissions.add("studentService.access");
     permissions.add("curriculum.access");
+  }
+  if (employee.role === "试用期老师") {
+    [
+      "knowledge.access",
+      "teachingQuality.access",
+      "studentService.access",
+      "curriculum.access",
+      "campus.access"
+    ].forEach((key) => permissions.add(key));
+  }
+  if (employee.role === "试用期学管") {
+    [
+      "knowledge.access",
+      "admissions.access",
+      "teachingQuality.access",
+      "studentService.access",
+      "curriculum.access",
+      "campus.access"
+    ].forEach((key) => permissions.add(key));
   }
   if (employee.role === "学管") {
     [
@@ -130,6 +186,9 @@ function permissionsForEmployee(employee) {
 }
 
 const allPermissionKeys = new Map(seed.permissionOptions.map(([key, label]) => [key, label]));
+Object.values(seed.rolePermissions).flat().forEach((key) => {
+  if (!allPermissionKeys.has(key)) allPermissionKeys.set(key, key);
+});
 seed.employees.forEach((employee) => {
   permissionsForEmployee(employee).forEach((key) => {
     if (!allPermissionKeys.has(key)) allPermissionKeys.set(key, key);
@@ -153,6 +212,20 @@ lines.push("  module_key = excluded.module_key,");
 lines.push("  action_key = excluded.action_key,");
 lines.push("  display_name = excluded.display_name,");
 lines.push("  description = excluded.description;");
+lines.push("");
+
+lines.push("delete from role_permission_defaults;");
+lines.push("");
+lines.push("insert into role_permission_defaults (role, permission_key)");
+lines.push("values");
+const rolePermissionRows = [];
+Object.entries(seed.rolePermissions).forEach(([role, permissions]) => {
+  permissionsForRole(role).forEach((permissionKey) => {
+    rolePermissionRows.push(`  (${sql(role)}, ${sql(permissionKey)})`);
+  });
+});
+lines.push(rolePermissionRows.join(",\n"));
+lines.push("on conflict (role, permission_key) do nothing;");
 lines.push("");
 
 lines.push("insert into employees (name, username, password_hash, role, phone, wechat, subject, scope, hire_date, regular_date, commission_rate, status, metadata)");
