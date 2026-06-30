@@ -2130,10 +2130,14 @@
     const defaults = {
       type: "入职",
       employee: "",
-      system: "",
+      phone: "",
+      role: "授课老师",
+      hireDate: "",
+      regularDate: "",
+      system: "员工档案、登录账号、岗位权限",
       status: "待处理",
       owner: currentOperator().name || "",
-      next: "",
+      next: "保存后自动同步员工名单和默认权限",
       note: ""
     };
     const departedEmployeePattern = /离职|停用|禁用|已离开|departed|inactive|disabled/i;
@@ -2261,18 +2265,20 @@
     function updateHrTypeGuidance(options = {}) {
       const type = $("hrTypeInput")?.value || "入职";
       const flowHint = $("hrFlowHint");
-      const systemInput = $("hrSystemInput");
-      const nextInput = $("hrNextInput");
       const noteInput = $("hrNoteInput");
       const guide = hrTypeGuides[type] || hrTypeGuides.培训记录;
-      if (systemInput && (!systemInput.value.trim() || options.forceDefaults)) {
-        systemInput.value = guide.system;
-      }
-      if (nextInput && (!nextInput.value.trim() || options.forceDefaults)) {
-        nextInput.value = guide.next;
-      }
       if (noteInput) noteInput.placeholder = guide.notePlaceholder;
-      if (flowHint) flowHint.innerHTML = guide.hint;
+      if (flowHint) {
+        const simpleHints = {
+          入职: "入职：填写姓名、手机号、岗位、入职日期即可；系统会按岗位自动给默认权限，并生成员工账号。",
+          离职: "离职：从候选名单选择员工姓名，保存后会出现离职清单；清单完成后再归档。",
+          转正: "转正：选择员工姓名，简单写转正结论即可；系统会保留记录。",
+          权限调整: "权限调整：选择员工姓名，备注写需要开通或关闭的权限即可。",
+          提成调整: "提成调整：选择员工姓名，备注写调整口径和生效月份即可。",
+          培训记录: "培训记录：写员工姓名和培训内容即可。"
+        };
+        flowHint.innerHTML = simpleHints[type] || guide.hint;
+      }
     }
 
     function applyHrVisibility() {
@@ -2749,10 +2755,10 @@
     function fillForm(row) {
       $("hrTypeInput").value = row.type || "培训记录";
       $("hrEmployeeInput").value = row.employee || "";
-      $("hrSystemInput").value = row.system || "";
-      $("hrStatusInput").value = row.status || "待处理";
-      $("hrOwnerInput").value = row.owner || "";
-      $("hrNextInput").value = row.next || "";
+      $("hrPhoneInput").value = row.phone || "";
+      $("hrRoleInput").value = row.role || "授课老师";
+      $("hrHireDateInput").value = formatDateOnly(row.hireDate) || "";
+      $("hrRegularDateInput").value = formatDateOnly(row.regularDate) || "";
       $("hrNoteInput").value = row.note || "";
       updateHrTypeGuidance();
     }
@@ -2885,13 +2891,12 @@
           <tr>
             <td>${escapeHtml(row.type)}</td>
             <td>${escapeHtml(row.employee)}</td>
-            <td>${escapeHtml(row.system)}</td>
+            <td>${escapeHtml([row.role, row.phone].map(normalizeText).filter(Boolean).join(" / ") || "-")}</td>
             <td>${workStatusTag(row.status)}${isOffboardingReady(row) && row.status !== "已完成" ? "<br><span class=\"tag green\">可完成</span>" : ""}</td>
-            <td>${escapeHtml(row.owner)}</td>
-            <td>${escapeHtml(row.next)}<br>${escapeHtml(row.note)}${offboardingProgress(row) ? `<br><span class="tag green">${escapeHtml(offboardingProgress(row))}</span>` : ""}${renderOffboardingChecklist(row, index)}</td>
+            <td>${escapeHtml([row.hireDate ? `入职：${row.hireDate}` : "", row.regularDate ? `转正：${row.regularDate}` : "", row.note].filter(Boolean).join("；") || row.next || "-")}${offboardingProgress(row) ? `<br><span class="tag green">${escapeHtml(offboardingProgress(row))}</span>` : ""}${renderOffboardingChecklist(row, index)}</td>
             <td>${actionButtons(index, capabilities)}</td>
           </tr>
-        `).join("") : `<tr><td colspan="7">暂无人事事项。员工基础名单已在上方，全员名单可展开查看；新增培训、转正、权限调整后会显示在这里。</td></tr>`;
+        `).join("") : `<tr><td colspan="6">暂无人事事项。新增入职、离职、转正或培训后会显示在这里。</td></tr>`;
       const employees = Array.isArray(window.JRC_EMPLOYEES) ? window.JRC_EMPLOYEES : [];
       renderHrEmployeeOptions();
       setText("hrMetricEmployees", employees.length || 0);
@@ -2908,7 +2913,7 @@
       showRegularizationEmployee();
     });
 
-    $("hrSaveButton")?.addEventListener("click", () => {
+    $("hrSaveButton")?.addEventListener("click", async () => {
       const actionAllowed = editingIndex >= 0 ? capabilities.update : capabilities.create;
       if (!actionAllowed) {
         denyAction("hrMessage", editingIndex >= 0 ? "修改" : "新增");
@@ -2925,14 +2930,61 @@
         setText("hrMessage", `${type}事项请从在职员工候选里选择完整员工姓名。可以输入姓氏或名字后，在弹出的候选里点选。`);
         return;
       }
+      const role = normalizeText($("hrRoleInput")?.value) || "授课老师";
+      const phone = normalizeText($("hrPhoneInput")?.value);
+      const hireDate = formatDateOnly($("hrHireDateInput")?.value);
+      const regularDate = formatDateOnly($("hrRegularDateInput")?.value);
+      const note = normalizeText($("hrNoteInput")?.value);
+      if (type === "入职" && !phone) {
+        setText("hrMessage", "入职请填写手机号，系统会用手机号生成登录账号。");
+        return;
+      }
+      let accountMessage = "";
+      if (type === "入职" && typeof window.JRC_UPSERT_EMPLOYEE_FROM_HR === "function") {
+        const result = await window.JRC_UPSERT_EMPLOYEE_FROM_HR({
+          name: employee,
+          employee,
+          username: phone,
+          phone,
+          role,
+          hireDate,
+          regularDate,
+          permissions: []
+        });
+        if (!result.ok) {
+          setText("hrMessage", result.message || "员工账号保存失败，请核对姓名和手机号。");
+          return;
+        }
+        accountMessage = result.message || "";
+      }
+      const systemByType = {
+        入职: "员工档案、登录账号、岗位权限",
+        离职: "员工档案、登录账号、权限、财务结算",
+        转正: "员工档案、转正记录",
+        权限调整: "员工档案、系统权限",
+        提成调整: "员工档案、财务提成",
+        培训记录: "人事培训"
+      };
+      const nextByType = {
+        入职: "已按岗位生成默认权限，后续可在全员名单微调",
+        离职: "按离职清单逐项确认",
+        转正: "已记录转正结果",
+        权限调整: "按备注调整权限",
+        提成调整: "同步财务核对",
+        培训记录: "培训记录已归档"
+      };
       const payload = {
         type,
         employee,
-        system: normalizeText($("hrSystemInput")?.value) || "-",
-        status: $("hrStatusInput")?.value || "待处理",
-        owner: normalizeName($("hrOwnerInput")?.value) || "-",
-        next: normalizeText($("hrNextInput")?.value) || "-",
-        note: normalizeText($("hrNoteInput")?.value) || "-",
+        phone,
+        role,
+        hireDate,
+        regularDate,
+        system: systemByType[type] || "-",
+        status: type === "离职" ? "处理中" : "已完成",
+        owner: currentOperator().name || "-",
+        next: nextByType[type] || "-",
+        note: note || "-",
         offboardingChecklist: type === "离职"
           ? editingIndex >= 0 && Array.isArray(rows[editingIndex].offboardingChecklist)
             ? rows[editingIndex].offboardingChecklist
@@ -2948,7 +3000,7 @@
       } else {
         rows.unshift(payload);
         recordAudit(moduleKey, "新增", employee, `${payload.type} / ${payload.status}`);
-        setText("hrMessage", type === "离职" ? `已创建 ${employee} 的离职流程。清单全部确认后，会出现“完成离职并归档”按钮。` : `已保存 ${employee} 的事项。`);
+        setText("hrMessage", type === "离职" ? `已创建 ${employee} 的离职流程。清单全部确认后，会出现“完成离职并归档”按钮。` : `${accountMessage || `已保存 ${employee} 的事项。`}`);
       }
       writeStore(key, rows);
       resetForm();
@@ -3028,12 +3080,13 @@
     });
     $("hrExportButton")?.addEventListener("click", () => guardAction(capabilities.export, "hrMessage", "导出", () => downloadCsv("人事管理事项数据.csv", rows, [
       { label: "事项类型", value: "type" },
-      { label: "员工/对象", value: "employee" },
-      { label: "关联系统", value: "system" },
+      { label: "员工姓名", value: "employee" },
+      { label: "手机号", value: "phone" },
+      { label: "岗位", value: "role" },
+      { label: "入职日期", value: "hireDate" },
+      { label: "转正日期", value: "regularDate" },
       { label: "状态", value: "status" },
-      { label: "负责人", value: "owner" },
-      { label: "下一步", value: "next" },
-      { label: "说明", value: "note" },
+      { label: "备注", value: "note" },
       { label: "创建时间", value: "createdAt" }
     ])));
     $("hrResetButton")?.addEventListener("click", () => {
@@ -3083,6 +3136,10 @@
         return {
           type: normalizeStatus(readField(row, ["type", "事项类型", "类型"], "培训记录"), ["入职", "转正", "权限调整", "提成调整", "培训记录", "员工基础档案核对", "系统权限分组"], "培训记录"),
           employee,
+          phone: normalizeText(readField(row, ["phone", "手机号", "电话", "联系电话"], "")),
+          role: normalizeText(readField(row, ["role", "岗位", "角色"], "")),
+          hireDate: formatDateOnly(readField(row, ["hireDate", "入职日期", "入职时间"], "")),
+          regularDate: formatDateOnly(readField(row, ["regularDate", "转正日期", "转正时间"], "")),
           system: normalizeText(readField(row, ["system", "关联系统", "系统"], "-")) || "-",
           status: normalizeStatus(readField(row, ["status", "处理状态", "状态"], "待处理"), ["待处理", "处理中", "已完成"], "待处理"),
           owner: normalizeName(readField(row, ["owner", "负责人"], "-")) || "-",
@@ -3116,7 +3173,7 @@
       canWrite: capabilities.create || capabilities.update,
       messageId: "hrMessage",
       buttonRules: [["hrSaveButton", capabilities.create || capabilities.update, "新增或修改"], ["hrImportButton", capabilities.import, "导入"], ["hrExportButton", capabilities.export, "导出"], ["hrResetButton", capabilities.reset, "清空"]],
-      fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrSystemInput", "hrStatusInput", "hrOwnerInput", "hrNextInput", "hrNoteInput"]
+      fieldIds: ["hrTypeInput", "hrEmployeeInput", "hrPhoneInput", "hrRoleInput", "hrHireDateInput", "hrRegularDateInput", "hrNoteInput"]
     });
   }
 

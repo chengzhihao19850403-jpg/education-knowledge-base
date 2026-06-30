@@ -1735,6 +1735,55 @@ function jrcMarkEmployeeDeparted(employeeName, options = {}) {
   return { ok: true, employee: row, message: `${name} 已从在职员工名单移出，并标记为离职。` };
 }
 
+async function jrcUpsertEmployeeFromHr(row = {}, options = {}) {
+  const name = String(row.name || row.employee || "").trim();
+  if (!name) return { ok: false, message: "员工姓名不能为空。" };
+  const phone = String(row.phone || "").trim();
+  const role = String(row.role || "授课老师").trim() || "授课老师";
+  const baseUsername = String(row.username || phone || name).trim().toLowerCase().replace(/\s+/g, "");
+  const username = baseUsername || `${Date.now()}`;
+  const existing = jrcFindEmployeeByUsername(username) || {};
+  const customEmployees = jrcReadCustomEmployees();
+  const payload = {
+    ...existing,
+    name,
+    username,
+    password: existing.password || JRC_INITIAL_PASSWORD,
+    role,
+    phone,
+    wechat: String(row.wechat || existing.wechat || "").trim(),
+    scope: String(row.scope || existing.scope || "").trim(),
+    subject: String(row.subject || existing.subject || "").trim(),
+    hireDate: String(row.hireDate || existing.hireDate || "").trim(),
+    regularDate: String(row.regularDate || existing.regularDate || "").trim(),
+    commissionRate: String(row.commissionRate || existing.commissionRate || "").trim(),
+    employmentStatus: "active",
+    status: "在职",
+    accountStatus: "active",
+    permissions: Array.isArray(row.permissions) ? row.permissions : []
+  };
+  const index = customEmployees.findIndex((employee) => String(employee.username || "").trim().toLowerCase() === username);
+  if (index >= 0) customEmployees[index] = { ...customEmployees[index], ...payload };
+  else customEmployees.push(payload);
+  jrcWriteCustomEmployees(customEmployees);
+  jrcSyncCustomEmployeesToCloud(customEmployees);
+  const cloudResult = await jrcSyncEmployeeAccountToCloud(payload, { resetPassword: options.resetPassword !== false && !existing.username });
+  window.JRC_EMPLOYEES = jrcGetAllEmployees();
+  const currentEmployee = jrcResolveCurrentEmployee();
+  jrcEnsureEmployeeSummary();
+  jrcRenderEmployeeDirectory(currentEmployee);
+  jrcBindEmployeeDirectoryToggle();
+  jrcBindEmployeeDirectoryFilters();
+  jrcBindEmployeeAddForm(currentEmployee);
+  window.dispatchEvent(new CustomEvent("jrc-employee-directory-updated", { detail: { action: "upsert", employee: payload } }));
+  return {
+    ok: true,
+    employee: payload,
+    cloudResult,
+    message: `${name} 已加入全员名单，登录账号 ${username}，初始密码 ${JRC_INITIAL_PASSWORD}。`
+  };
+}
+
 function jrcApplyPermissionDecorations(currentEmployee) {
   document.querySelectorAll("[data-requires-permission]").forEach((node) => {
     const permission = node.getAttribute("data-requires-permission");
@@ -2578,6 +2627,7 @@ function jrcBootstrapAuth() {
   window.JRC_ROLE_PERMISSIONS = JRC_ROLE_PERMISSIONS;
   window.jrcHasPermission = jrcHasPermission;
   window.JRC_MARK_EMPLOYEE_DEPARTED = jrcMarkEmployeeDeparted;
+  window.JRC_UPSERT_EMPLOYEE_FROM_HR = jrcUpsertEmployeeFromHr;
   const currentEmployee = jrcResolveCurrentEmployee();
   jrcRenderEmployeeDirectory(currentEmployee);
   jrcBindEmployeeDirectoryToggle();

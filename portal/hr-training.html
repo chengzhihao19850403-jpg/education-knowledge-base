@@ -29,7 +29,7 @@
       .nav-link, .button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px; border-radius: 999px; text-decoration: none; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 13px; }
       .nav-link.active, .button { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; border-color: transparent; }
       .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
-      .hero, .grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr); gap: 18px; }
+      .hero, .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
       .card { padding: 22px; }
       .card + .card, .grid + .card, .card + .grid { margin-top: 18px; }
       .eyebrow { margin: 0 0 10px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -51,15 +51,6 @@
       .metric strong { display: block; margin-top: 8px; font-size: 28px; }
       .metric-detail { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.55; word-break: break-word; }
       .metric-detail.warning { color: var(--amber); font-weight: 700; }
-      .mini-list { display: grid; gap: 12px; margin-top: 14px; }
-      .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
-      .mini-item strong { display: block; margin-bottom: 6px; }
-      .module-link { display: grid; gap: 6px; color: inherit; text-decoration: none; transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; }
-      .module-link:hover { transform: translateY(-1px); border-color: rgba(124,58,237,0.28); box-shadow: 0 10px 28px rgba(23,33,50,0.08); }
-      .module-link span { color: var(--brand-dark); font-size: 12px; font-weight: 800; }
-      .process-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
-      .process-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); line-height: 1.65; }
-      .process-list strong { color: var(--ink); }
       .campus-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
       .campus-column { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,0.72); padding: 16px; }
       .campus-column__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
@@ -147,31 +138,6 @@
             <span class="tag">培训记录</span>
           </div>
           <div class="auth-note" data-role-greeting></div>
-        </article>
-        <article class="card">
-          <h2>常用区域</h2>
-          <div class="mini-list">
-            <a class="mini-item module-link" href="#campusAnnouncementColumn">
-              <strong>公告公示类</strong>
-              <p>值班表、卫生值日表、学管排班表、招聘情况和临时通知。</p>
-              <span>查看公告</span>
-            </a>
-            <a class="mini-item module-link" href="#campusWorkflowColumn">
-              <strong>工作流程类</strong>
-              <p>招聘、面试、试用淘汰、入职离职和日常制度。</p>
-              <span>查看流程</span>
-            </a>
-            <a class="mini-item module-link" href="#summerScheduleSection">
-              <strong>岗位宣传栏</strong>
-              <p>展示各专责负责人、岗位名称和职责说明。</p>
-              <span>查看岗位宣传栏</span>
-            </a>
-            <a class="mini-item module-link" data-hr-private hidden href="#hrManagementSection">
-              <strong>人事管理</strong>
-              <p>员工档案、岗位权限、入职转正、培训记录和提成档位。</p>
-              <span>进入人事管理</span>
-            </a>
-          </div>
         </article>
       </section>
 
@@ -355,7 +321,7 @@
           <div class="section-head">
             <div>
               <h2>人事管理事项</h2>
-          <p>用于人事权限、转正、培训和提成调整留痕。</p>
+          <p>用于入职、离职、转正和培训留痕，表格只展示关键处理结果。</p>
             </div>
           </div>
           <div class="actions" style="margin:0 0 14px;">
@@ -367,7 +333,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>事项</th><th>对象</th><th>关联系统</th><th>状态</th><th>负责人</th><th>下一步</th><th>操作</th></tr>
+                <tr><th>事项</th><th>员工</th><th>岗位 / 电话</th><th>状态</th><th>说明</th><th>操作</th></tr>
               </thead>
               <tbody id="hrTaskTableBody"></tbody>
             </table>
@@ -376,17 +342,17 @@
 
         <article class="card">
           <h2>新增人事管理事项</h2>
-          <p>记录人事调整、权限调整、培训安排和离职交接。</p>
+          <p>入职只填基础信息，系统会按岗位给默认权限；离职、转正等事项也尽量少填。</p>
           <div class="form-grid">
             <label class="field"><span>事项类型</span><select id="hrTypeInput"><option>入职</option><option>转正</option><option>离职</option><option>权限调整</option><option>提成调整</option><option>培训记录</option></select></label>
-            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" list="hrActiveEmployeeOptions" placeholder="输入姓氏或名字检索在职员工"></label>
+            <label class="field"><span>员工姓名</span><input id="hrEmployeeInput" list="hrActiveEmployeeOptions" placeholder="新员工直接填写姓名；老员工可从候选选择"></label>
             <datalist id="hrActiveEmployeeOptions"></datalist>
-            <label class="field"><span>关联系统</span><input id="hrSystemInput" placeholder="例如：财务 / 排课 / 学管知识库"></label>
-            <label class="field"><span>处理状态</span><select id="hrStatusInput"><option>待处理</option><option>处理中</option><option>已完成</option></select></label>
-            <label class="field"><span>负责人</span><input id="hrOwnerInput" placeholder="填写负责人"></label>
-            <label class="field"><span>下一步</span><input id="hrNextInput" placeholder="例如：补齐信息并归档"></label>
-            <label class="field span-3"><span>事项说明</span><textarea id="hrNoteInput" placeholder="记录调整原因、执行时间和是否需要财务同步。"></textarea></label>
-            <div class="hr-flow-hint" id="hrFlowHint">这里是人事事项留痕：事项类型说明发生什么事；员工姓名是处理对象；关联系统说明哪些系统要同步；处理状态和负责人用于闭环；下一步写下一件必须完成的动作；事项说明记录原因、时间和交接细节。</div>
+            <label class="field"><span>手机号</span><input id="hrPhoneInput" placeholder="例如：13800000000"></label>
+            <label class="field"><span>岗位</span><select id="hrRoleInput"><option>授课老师</option><option>试用期老师</option><option>学管</option><option>试用期学管</option><option>财务</option><option>管理员</option></select></label>
+            <label class="field"><span>入职日期</span><input id="hrHireDateInput" type="date"></label>
+            <label class="field"><span>转正日期</span><input id="hrRegularDateInput" type="date"></label>
+            <label class="field span-3"><span>备注</span><textarea id="hrNoteInput" placeholder="可选：写入职安排、离职原因、转正结论、培训内容等。"></textarea></label>
+            <div class="hr-flow-hint" id="hrFlowHint">入职：填写姓名、手机号、岗位、入职日期即可；系统会按岗位自动给默认权限，并生成员工账号。离职：选择员工姓名后保存，会出现离职清单。转正、培训、权限调整可简单写备注。</div>
           </div>
           <div class="actions">
             <button class="button" id="hrSaveButton" type="button">保存人事管理事项</button>
@@ -416,8 +382,8 @@
     </main>
     <script src="/jrcedu/portal/cloud-api.js?v=20260623b"></script>
 
-    <script src="/jrcedu/portal/auth.js?v=20260629b"></script>
-    <script src="/jrcedu/portal/business-modules.js?v=20260630c"></script>
+    <script src="/jrcedu/portal/auth.js?v=20260630c"></script>
+    <script src="/jrcedu/portal/business-modules.js?v=20260630d"></script>
     <script src="/jrcedu/portal/mobile-unified.js?v=20260629a"></script>
   </body>
 </html>
