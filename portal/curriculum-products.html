@@ -43,6 +43,7 @@
       .tag.green { background: rgba(15,118,110,0.10); color: var(--green); }
       .auth-note, .notice { margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); border: 1px solid rgba(37,99,235,0.16); color: var(--muted); }
       .notice { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.16); }
+      .notice { white-space: pre-line; }
       .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
       .metric { padding: 16px; }
       .metric span { color: var(--muted); font-size: 13px; }
@@ -50,10 +51,12 @@
       .mini-list { display: grid; gap: 12px; margin-top: 14px; }
       .mini-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
       .mini-item strong { display: block; margin-bottom: 6px; }
-      .resource-tree { display: grid; gap: 10px; margin-top: 14px; }
-      .resource-tree-item { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fff; }
+      .resource-tree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .resource-tree-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 16px; padding: 13px 14px; background: linear-gradient(180deg, #fff 0%, #f8fbff 100%); }
       button.resource-tree-item { width: 100%; text-align: left; cursor: pointer; color: inherit; }
       button.resource-tree-item:hover, .outline-card:hover { border-color: rgba(37,99,235,0.34); box-shadow: 0 10px 28px rgba(37,99,235,0.08); }
+      .folder-icon { width: 42px; height: 32px; border-radius: 8px 8px 10px 10px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); position: relative; box-shadow: inset 0 -8px 14px rgba(180,83,9,0.14); }
+      .folder-icon::before { content: ""; position: absolute; left: 4px; top: -7px; width: 19px; height: 9px; border-radius: 7px 7px 0 0; background: #fcd34d; }
       .resource-tree-item strong { color: var(--ink); }
       .resource-tree-item span { color: var(--muted); line-height: 1.5; }
       .outline-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
@@ -65,6 +68,8 @@
       .outline-directory-panel h3 { margin-bottom: 4px; }
       .outline-teacher-picker { margin-top: 12px; max-width: 320px; }
       .outline-teacher-picker select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
+      .folder-breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+      .folder-breadcrumb strong { color: var(--ink); font-size: 16px; }
       .preview-modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.72); }
       .preview-modal[aria-hidden="false"] { display: flex; }
       .preview-dialog { width: min(1120px, 96vw); height: min(92vh, 900px); display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 18px; background: #fff; box-shadow: var(--shadow); padding: 16px; }
@@ -84,9 +89,9 @@
       .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--ink); background: #fff; }
       .field textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
       .span-3 { grid-column: 1 / -1; }
-      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics, .outline-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics, .outline-board, .resource-tree { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
-      @media (max-width: 720px) { .outline-board { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { .outline-board, .resource-tree { grid-template-columns: 1fr; } }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260628g">
   </head>
@@ -119,10 +124,9 @@
         <article class="card">
           <h2>资料库结构</h2>
           <div class="resource-tree">
-            <div class="resource-tree-item"><strong>授课大纲</strong><span>程老师 / 小课老师 / 科学老师，按春夏秋冬和年级归档。</span></div>
-            <div class="resource-tree-item"><strong>课程资料库</strong><span>一到九年级目录，资料和大纲分开存放。</span></div>
-            <div class="resource-tree-item"><strong>资料文件夹</strong><span>讲义、专题资料、好题资料、试卷、课件、其他资料。</span></div>
-            <div class="resource-tree-item"><strong>权限</strong><span>刘大君看 7-9 年级；赵萱看 1-6 年级；年级专家只看对应年级。</span></div>
+            <div class="resource-tree-item"><span class="folder-icon" aria-hidden="true"></span><span><strong>授课大纲</strong><br>程老师 / 小课老师 / 科学老师，按老师和年级归档。</span></div>
+            <div class="resource-tree-item"><span class="folder-icon" aria-hidden="true"></span><span><strong>课程资料库</strong><br>一到九年级文件夹，资料和大纲分开存放。</span></div>
+            <div class="resource-tree-item"><span class="folder-icon" aria-hidden="true"></span><span><strong>权限</strong><br>年级专家只显示自己负责年级文件夹。</span></div>
           </div>
         </article>
       </section>
@@ -144,7 +148,7 @@
           <div class="outline-directory-panel" id="curriculumOutlineDirectoryPanel">
             <div data-outline-panel="程老师授课大纲">
               <h3>程老师授课大纲</h3>
-              <p>选择年级后，下方只显示程老师授课大纲对应年级内容。</p>
+              <p>程老师授课大纲默认覆盖一到九年级；选择年级后进入对应文件夹。</p>
               <div class="resource-tree" data-outline-grade-board="程老师授课大纲"></div>
             </div>
             <div data-outline-panel="小课老师授课大纲" hidden>
@@ -164,8 +168,8 @@
         <article class="card">
           <div class="section-head">
             <div>
-              <h2>课程资料库入口</h2>
-              <p>资料按年级目录和资料类型归档，上传时必须选清楚。</p>
+            <h2>课程资料库入口</h2>
+              <p>按年级文件夹进入资料库；年级专家只看到自己负责的年级。</p>
             </div>
             <span class="status-chip">资料库</span>
           </div>
@@ -210,10 +214,11 @@
         <article class="card">
           <div class="section-head">
             <div>
-              <h2>当前目录内容</h2>
-              <p>点击左侧授课大纲或右侧课程资料库入口后，这里显示对应年级的资料。</p>
+            <h2>当前目录内容</h2>
+              <p>打开文件夹后，这里显示该文件夹内的最新版本资料。</p>
             </div>
           </div>
+          <div class="folder-breadcrumb" id="curriculumFolderBreadcrumb"><strong>当前文件夹</strong><span>请先点击上方文件夹入口。</span></div>
           <div class="actions" style="margin:0 0 14px;">
             <select id="curriculumTeacherFilter" hidden style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部授课老师</option></select>
             <select id="curriculumSeasonFilter" style="min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:#fff;"><option value="">全部季节</option><option>春季</option><option>暑假</option><option>秋季</option><option>寒假</option><option>通用</option></select>
@@ -245,7 +250,7 @@
             <label class="field"><span>课次 / 专题</span><input id="curriculumLessonInput" placeholder="例如：第 1 讲 / 分数应用题"></label>
             <label class="field"><span>当前版本</span><input id="curriculumVersionInput" placeholder="V1.0"></label>
             <label class="field"><span>负责人</span><input id="curriculumOwnerInput" placeholder="填写负责人"></label>
-            <label class="field span-3"><span>上传文件</span><input id="curriculumFileInput" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.heic,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="file-note">可批量选择；重复文件会更新版本，不会重复生成多条。</div><div class="file-preview" id="curriculumFilePreview">尚未选择文件。</div></label>
+            <label class="field span-3"><span>上传文件</span><input id="curriculumFileInput" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.heic,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="file-note">可批量选择；保存时必须先上传服务器并生成即时备份，备份失败不会保存台账。重复文件会更新版本，不会重复生成多条。</div><div class="file-preview" id="curriculumFilePreview">尚未选择文件。</div></label>
             <label class="field span-3"><span>公式 / 定义 / 核心重点</span><textarea id="curriculumFormulaInput" placeholder="例如：平行四边形性质、判定方法、面积公式、实验公式、易错提醒等。"></textarea></label>
             <label class="field span-3"><span>版本说明</span><textarea id="curriculumNoteInput" placeholder="说明适用对象、重点难点和老师使用注意事项。"></textarea></label>
           </div>
@@ -254,7 +259,7 @@
             <button class="button secondary" id="curriculumExportButton" type="button">导出课程资料</button>
             <button class="button secondary" id="curriculumResetButton" type="button">清空台账</button>
           </div>
-          <div class="notice" id="curriculumMessage">课程资料、版本、负责人和适用班型在这里维护。</div>
+          <div class="notice" id="curriculumMessage">课程资料、版本、负责人和适用班型在这里维护。新上传资料会先保存到服务器并即时备份。</div>
         </article>
       </section>
 

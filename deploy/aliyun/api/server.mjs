@@ -9,6 +9,7 @@ const port = Number(process.env.PORT || 3000);
 const siteId = process.env.JRC_SITE_ID || "jrcedu-main";
 const publicApiToken = process.env.JRC_API_TOKEN || "";
 const uploadDir = process.env.JRC_UPLOAD_DIR || "/opt/jrcedu-uploads";
+const curriculumBackupDir = process.env.JRC_CURRICULUM_BACKUP_DIR || "/opt/jrcedu-backups/curriculum";
 const uploadMaxBytes = Number(process.env.JRC_UPLOAD_MAX_BYTES || 30 * 1024 * 1024);
 const jsonMaxBytes = Number(process.env.JRC_JSON_MAX_BYTES || 72 * 1024 * 1024);
 const minimaxApiKey = process.env.JRC_MINIMAX_API_KEY || process.env.MINIMAX_API_KEY || "";
@@ -281,6 +282,16 @@ function resolveUploadPath(storageKey) {
   const absolutePath = path.resolve(uploadDir, normalizedKey);
   const rootPath = path.resolve(uploadDir);
   if (!absolutePath.startsWith(`${rootPath}${path.sep}`)) return null;
+  return absolutePath;
+}
+
+function resolveCurriculumLiveBackupPath(storageKey) {
+  const normalizedKey = path.posix.normalize(String(storageKey || "").replace(/^\/+/g, ""));
+  if (!normalizedKey || normalizedKey.startsWith("../") || normalizedKey.includes("/../")) return null;
+  if (!normalizedKey.startsWith("curriculum/")) return null;
+  const liveRoot = path.resolve(curriculumBackupDir, "live");
+  const absolutePath = path.resolve(liveRoot, normalizedKey);
+  if (!absolutePath.startsWith(`${liveRoot}${path.sep}`)) return null;
   return absolutePath;
 }
 
@@ -1197,8 +1208,13 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
   const storedFileName = curriculumVersionFileName(originalFileName, extension);
   const storageKey = `${curriculumStorageFolder(metadata)}/${storedFileName}`;
   const absolutePath = resolveUploadPath(storageKey);
+  const backupAbsolutePath = resolveCurriculumLiveBackupPath(storageKey);
   if (!absolutePath) {
     send(res, 500, { ok: false, error: "invalid_storage_key" }, headers);
+    return;
+  }
+  if (!backupAbsolutePath) {
+    send(res, 500, { ok: false, error: "invalid_backup_path" }, headers);
     return;
   }
 
@@ -1212,7 +1228,7 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
   const uploadedByUsername = authorization?.payload?.sub || body.operatorUsername || "-";
   const contentSha256 = crypto.createHash("sha256").update(decoded.buffer).digest("hex");
   const versionId = crypto.createHash("sha256").update(`${storageKey}:${contentSha256}`).digest("hex").slice(0, 16);
-  await fs.writeFile(`${absolutePath}.metadata.json`, JSON.stringify({
+  const metadataPayload = {
     versionId,
     storageKey,
     originalFileName,
@@ -1223,7 +1239,31 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
     uploadedByName,
     uploadedByUsername,
     metadata
-  }, null, 2), { flag: "wx" });
+  };
+  await fs.writeFile(`${absolutePath}.metadata.json`, JSON.stringify(metadataPayload, null, 2), { flag: "wx" });
+
+  const backupStorageKey = `live/${storageKey}`;
+  const backupCreatedAt = new Date().toISOString();
+  try {
+    await fs.mkdir(path.dirname(backupAbsolutePath), { recursive: true });
+    await fs.writeFile(backupAbsolutePath, decoded.buffer, { flag: "wx" });
+    await fs.writeFile(`${backupAbsolutePath}.metadata.json`, JSON.stringify({
+      ...metadataPayload,
+      backupOf: storageKey,
+      backupStorageKey,
+      backupCreatedAt
+    }, null, 2), { flag: "wx" });
+  } catch (error) {
+    await Promise.allSettled([
+      fs.rm(absolutePath, { force: true }),
+      fs.rm(`${absolutePath}.metadata.json`, { force: true }),
+      fs.rm(backupAbsolutePath, { force: true }),
+      fs.rm(`${backupAbsolutePath}.metadata.json`, { force: true })
+    ]);
+    const wrapped = new Error(`curriculum_backup_failed: ${error?.message || error}`);
+    wrapped.statusCode = 500;
+    throw wrapped;
+  }
   send(res, 200, {
     ok: true,
     file: {
@@ -1234,6 +1274,11 @@ async function handleUploadCurriculumFile(req, res, headers, authorization) {
       fileUrl,
       fileStorageKey: storageKey,
       storageKind: "ecs-file",
+      serverStoragePath: absolutePath,
+      backupStorageKey,
+      backupKind: "ecs-live-backup",
+      backupStoragePath: backupAbsolutePath,
+      backupCreatedAt,
       contentSha256,
       uploadedAt,
       uploadedByName,

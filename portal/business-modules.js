@@ -1338,9 +1338,9 @@
     const moduleKey = "curriculum";
     const capabilities = moduleCapabilities(moduleKey);
     const key = "jrc-curriculum-products-v2";
-    const maxLocalFileBytes = 8 * 1024 * 1024;
     const maxCloudFileBytes = 30 * 1024 * 1024;
     const currentEmployee = window.JRC_CURRENT_EMPLOYEE || {};
+    const isChengOperator = ["chengzhihao", "czh"].includes(String(currentEmployee.username || "").toLowerCase()) || normalizeName(currentEmployee.name) === "程志豪";
     const defaultGradeExpertRules = {
       liudajun: { grades: ["初一", "初二", "初三"], subject: "数学" },
       "刘大君": { grades: ["初一", "初二", "初三"], subject: "数学" },
@@ -1355,6 +1355,14 @@
     const teachingOutlineCategories = ["程老师授课大纲", "小课老师授课大纲", "科学老师授课大纲"];
     const seasonOptions = ["春季", "暑假", "秋季", "寒假", "通用"];
     const scienceOutlineTeachers = ["海滢滢", "姚老师", "朱永乐"];
+    const teacherOutlineGradeDefaults = {
+      "程老师": allGradeOptions,
+      "程志豪": allGradeOptions,
+      "海滢滢": ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"],
+      "姚老师": ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"],
+      "朱永乐": ["初一", "初二", "初三"]
+    };
+    const teacherOutlineGrades = { ...teacherOutlineGradeDefaults, ...(window.JRC_CURRICULUM_TEACHER_GRADES || {}) };
     const canViewAllGrades = hasPermission("admin.access") || hasPermission("curriculum.edit");
     const isGradeRestricted = !canViewAllGrades;
     const allowedGrades = isGradeRestricted ? (gradeExpertRule?.grades || []) : allGradeOptions;
@@ -1380,7 +1388,11 @@
       fileDataUrl: "",
       fileUrl: "",
       fileStorageKey: "",
-      storageKind: ""
+      storageKind: "",
+      backupStorageKey: "",
+      backupKind: "",
+      serverStoragePath: "",
+      backupStoragePath: ""
     };
 
     function normalizeOutlineCategory(value, type = "") {
@@ -1482,6 +1494,47 @@
       return id ? normalizeName($(id)?.value || "") : "";
     }
 
+    function folderIconHtml() {
+      return `<span class="folder-icon" aria-hidden="true"></span>`;
+    }
+
+    function folderCount({ category = "", grade = "", teacher = "" } = {}) {
+      return rows.filter((row) => {
+        if (!rowVisibleToCurrentUser(row)) return false;
+        if (category) {
+          if (normalizeOutlineCategory(row.outlineCategory, row.type) !== category) return false;
+        } else if (isTeachingOutline(row)) {
+          return false;
+        }
+        if (grade && row.grade !== grade) return false;
+        if (teacher && normalizeName(row.teacherName || row.owner) !== teacher) return false;
+        return true;
+      }).length;
+    }
+
+    function gradesForTeacherFolder(category, teacher) {
+      const options = allowedGrades.length ? allowedGrades : allGradeOptions;
+      if (category === "程老师授课大纲") return options;
+      if (!teacher) return options;
+      const uploadedGrades = rows
+        .filter((row) => rowVisibleToCurrentUser(row))
+        .filter((row) => normalizeOutlineCategory(row.outlineCategory, row.type) === category)
+        .filter((row) => normalizeName(row.teacherName || row.owner) === teacher)
+        .map((row) => row.grade)
+        .filter((grade) => options.includes(grade));
+      const uploadedUnique = [...new Set(uploadedGrades)];
+      if (uploadedUnique.length) return uploadedUnique;
+      const configured = teacherOutlineGrades[teacher] || teacherOutlineGrades[normalizeName(teacher)];
+      const teacherGrades = Array.isArray(configured) && configured.length ? configured : [];
+      return teacherGrades.filter((grade) => options.includes(grade));
+    }
+
+    function setActiveFolderLabel(label) {
+      activeFolderLabel = label || "请先点击上方文件夹入口。";
+      const node = $("curriculumFolderBreadcrumb");
+      if (node) node.innerHTML = `<strong>当前文件夹</strong><span>${escapeHtml(activeFolderLabel)}</span>`;
+    }
+
     function renderOutlineTeacherSelectors() {
       [
         ["小课老师授课大纲", "curriculumSmallOutlineTeacherSelect", "全部小课老师"],
@@ -1500,19 +1553,19 @@
     }
 
     function renderOutlineGradeDirectories() {
-      const options = allowedGrades.length ? allowedGrades : allGradeOptions;
       teachingOutlineCategories.forEach((category) => {
         document.querySelectorAll(`[data-outline-grade-board="${category}"]`).forEach((board) => {
           const teacher = selectedOutlineTeacher(category);
           const teacherText = category === "程老师授课大纲"
             ? "程老师"
             : teacher || (category === "科学老师授课大纲" ? "全部科学老师" : "全部小课老师");
-          board.innerHTML = options.map((grade) => `
+          const options = gradesForTeacherFolder(category, teacher);
+          board.innerHTML = options.length ? options.map((grade) => `
             <button class="resource-tree-item" type="button" data-outline-grade-entry="${escapeHtml(category)}" data-outline-grade="${escapeHtml(grade)}">
-              <strong>${escapeHtml(grade)}</strong>
-              <span>${escapeHtml(teacherText)} / ${escapeHtml(category)} / 点击查看大纲</span>
+              ${folderIconHtml()}
+              <span><strong>${escapeHtml(grade)}</strong><br>${escapeHtml(teacherText)} / ${escapeHtml(category)} / ${folderCount({ category, grade, teacher })} 条</span>
             </button>
-          `).join("");
+          `).join("") : `<div class="resource-tree-item">${folderIconHtml()}<span><strong>暂无年级文件夹</strong><br>这个老师暂未配置或上传年级大纲。</span></div>`;
         });
       });
     }
@@ -1589,6 +1642,7 @@
     let editingIndex = -1;
     let activeOutlineFilter = "";
     let activeOutlineTeacherFilter = "";
+    let activeFolderLabel = "请先点击上方文件夹入口。";
     let curriculumPreviewObjectUrl = "";
     let curriculumPreviewZoom = 1;
 
@@ -1629,8 +1683,8 @@
       }
       const board = $("curriculumDirectoryBoard");
       if (board) {
-        board.innerHTML = `<button class="resource-tree-item" type="button" data-curriculum-grade-dir=""><strong>全部年级</strong><span>查看当前权限范围内全部资料。</span></button>` +
-          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}"><strong>${escapeHtml(grade)}</strong><span>讲义 / 专题资料 / 好题资料 / 试卷 / 课件 / 其他资料 / 点击查看</span></button>`).join("");
+        board.innerHTML = `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="">${folderIconHtml()}<span><strong>全部年级</strong><br>查看当前权限范围内全部资料 / ${folderCount()} 条</span></button>` +
+          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}">${folderIconHtml()}<span><strong>${escapeHtml(grade)}</strong><br>课程资料库 / ${folderCount({ grade })} 条</span></button>`).join("");
       }
       renderOutlineTeacherSelectors();
       renderOutlineGradeDirectories();
@@ -1794,6 +1848,60 @@
       return rows.findIndex((row, index) => index !== editingIndex && curriculumDuplicateKey(row, row.fileName) === keyText);
     }
 
+    function curriculumServerFilePath(row = {}) {
+      if (row.serverStoragePath) return row.serverStoragePath;
+      return row.fileStorageKey ? `/opt/jrcedu-uploads/${row.fileStorageKey}` : "";
+    }
+
+    function curriculumBackupFilePath(row = {}) {
+      if (row.backupStoragePath) return row.backupStoragePath;
+      return row.backupStorageKey ? `/opt/jrcedu-backups/curriculum/${row.backupStorageKey}` : "";
+    }
+
+    function shellQuoted(value) {
+      return String(value || "").replace(/(["\\$`])/g, "\\$1");
+    }
+
+    function curriculumCopyCommand(row = {}) {
+      const source = curriculumServerFilePath(row);
+      if (!source) return "";
+      const targetName = row.fileName || "课程资料";
+      return `sudo cp "${shellQuoted(source)}" "/目标文件夹/${shellQuoted(targetName)}"`;
+    }
+
+    function fileStorageTags(row = {}) {
+      if (row.storageKind === "ecs-file") {
+        return row.backupStorageKey || row.backupStoragePath
+          ? `${tag("服务器已备份", "good")}`
+          : `${tag("服务器已上传", "info")}`;
+      }
+      if (row.fileDataUrl) return `${tag("旧本地资料", "warn")}`;
+      return "";
+    }
+
+    function curriculumUploadStorageMessage(uploadedRows = []) {
+      const serverRows = uploadedRows.filter((row) => row?.fileStorageKey);
+      if (!serverRows.length) return "";
+      const lines = [
+        `本次 ${serverRows.length} 份文件已上传服务器，并已生成即时备份。`
+      ];
+      if (!isChengOperator) {
+        lines.push("服务器已完成保存和即时备份；如需拷贝服务器原文件，请联系程老师或管理员。");
+        return lines.join("\n");
+      }
+      serverRows.slice(0, 3).forEach((row, index) => {
+        lines.push(`${index + 1}. ${row.fileName || "课程资料"}`);
+        lines.push(`主文件：${curriculumServerFilePath(row)}`);
+        lines.push(`即时备份：${curriculumBackupFilePath(row) || "/opt/jrcedu-backups/curriculum/live"}`);
+      });
+      if (serverRows.length > 3) lines.push(`其余 ${serverRows.length - 3} 份文件同样已按年级、体系和月份存入服务器。`);
+      lines.push("每日压缩备份目录：/opt/jrcedu-backups/curriculum");
+      lines.push("程老师拷贝方法：");
+      serverRows.slice(0, 3).forEach((row) => lines.push(curriculumCopyCommand(row)));
+      lines.push("把 /目标文件夹/ 替换成要拷贝到的真实目录；也可以在网页里点“下载”或“打开图片”后另存。");
+      return lines.join("\n");
+    }
+
     async function selectedFilePayload(existing = {}, metadata = {}, fileOverride = null) {
       const file = fileOverride || $("curriculumFileInput")?.files?.[0];
       if (!file) {
@@ -1804,37 +1912,37 @@
           fileDataUrl: existing.fileDataUrl || "",
           fileUrl: existing.fileUrl || "",
           fileStorageKey: existing.fileStorageKey || "",
-          storageKind: existing.storageKind || ""
+          storageKind: existing.storageKind || "",
+          backupStorageKey: existing.backupStorageKey || "",
+          backupKind: existing.backupKind || "",
+          backupCreatedAt: existing.backupCreatedAt || "",
+          serverStoragePath: existing.serverStoragePath || "",
+          backupStoragePath: existing.backupStoragePath || ""
         };
       }
-      if (window.JRC_CLOUD?.isEnabled?.() && window.JRC_CLOUD?.uploadCurriculumFile) {
-        if (file.size > maxCloudFileBytes) {
-          throw new Error(`文件超过 ${formatFileSize(maxCloudFileBytes)}。请先压缩或拆分后上传。`);
-        }
-        setText("curriculumMessage", `正在上传 ${file.name}...`);
-        const result = await window.JRC_CLOUD.uploadCurriculumFile(file, metadata);
-        if (result.ok && result.data?.file) {
-          return {
-            ...result.data.file,
-            fileDataUrl: ""
-          };
-        }
-        if (file.size > maxLocalFileBytes) {
-          throw new Error("云端上传失败，较大文件不能临时保存在浏览器。请稍后重试。");
-        }
+      if (!window.JRC_CLOUD?.isEnabled?.() || !window.JRC_CLOUD?.uploadCurriculumFile) {
+        throw new Error("资料必须先上传并备份到服务器。当前云端上传未连接，请刷新页面或联系管理员后重试。");
       }
-      if (file.size > maxLocalFileBytes) {
-        throw new Error(`文件超过 ${formatFileSize(maxLocalFileBytes)}。当前网络未连接云端上传，不能临时保存大文件。`);
+      if (file.size > maxCloudFileBytes) {
+        throw new Error(`文件超过 ${formatFileSize(maxCloudFileBytes)}。请先压缩或拆分后上传。`);
       }
-      const dataUrl = await readFileAsDataUrl(file);
+      setText("curriculumMessage", `正在上传并即时备份 ${file.name}...`);
+      let result = null;
+      try {
+        result = await window.JRC_CLOUD.uploadCurriculumFile(file, metadata);
+      } catch (error) {
+        throw new Error(`资料必须先备份到服务器。本次云端上传失败：${error?.message || error}。请检查网络或联系管理员后重试。`);
+      }
+      if (!result.ok || !result.data?.file) {
+        const message = result.data?.message || result.data?.error || result.error || `HTTP ${result.status || "-"}`;
+        throw new Error(`资料必须先备份到服务器。本次云端上传失败：${message}。请检查网络或联系管理员后重试。`);
+      }
+      const uploaded = result.data.file;
       return {
-        fileName: file.name,
-        fileType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        fileDataUrl: dataUrl,
-        fileUrl: "",
-        fileStorageKey: "",
-        storageKind: "browser-data-url"
+        ...uploaded,
+        fileDataUrl: "",
+        serverStoragePath: curriculumServerFilePath(uploaded),
+        backupStoragePath: curriculumBackupFilePath(uploaded)
       };
     }
 
@@ -1842,12 +1950,14 @@
       if (!row.fileName) return `${tag("未上传", "neutral")}`;
       const canDownload = row.fileDataUrl || row.fileStorageKey || row.fileUrl;
       if (!canDownload) return `<div style="display:grid; gap:6px;">${tag("待上传", "warn")}<span>${escapeHtml(row.fileName)}</span></div>`;
+      const storageTags = fileStorageTags(row);
       if (isImageFile(row)) {
         return `
           <div style="display:grid; gap:6px;">
             <button type="button" data-preview-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">打开图片</button>
             <span>${escapeHtml(row.fileName)}</span>
             <small>${formatFileSize(row.fileSize)}</small>
+            ${storageTags ? `<div>${storageTags}</div>` : ""}
           </div>
         `;
       }
@@ -1856,8 +1966,13 @@
           <button type="button" data-download-curriculum="${index}" style="min-height:30px; padding:0 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.18); background:rgba(37,99,235,0.10); color:#1d4ed8; cursor:pointer;">下载</button>
           <span>${escapeHtml(row.fileName)}</span>
           <small>${formatFileSize(row.fileSize)}</small>
+          ${storageTags ? `<div>${storageTags}</div>` : ""}
         </div>
       `;
+    }
+
+    function curriculumDeleteBlockedMessage() {
+      return "课程资料上传后不能直接删除。如果要改进教案，请更新版本后重新放入；如果是误传需要删除，请联系初中教研专责刘大君或小学教研专责赵萱处理。";
     }
 
     function render() {
@@ -1894,6 +2009,8 @@
       setText("curriculumMetricMaterials", scopedRows.filter((row) => ["课件PDF", "讲义Word", "题目图片", "老师版答案", "题库"].includes(row.type)).length);
       setText("curriculumMetricProducts", new Set(scopedRows.map((row) => `${row.grade || ""}|${row.track || ""}`).filter(Boolean)).size);
       setText("curriculumMetricPreparation", scopedRows.filter((row) => row.fileName).length);
+      setActiveFolderLabel(activeFolderLabel);
+      renderOutlineGradeDirectories();
       renderAuditLog(moduleKey, "curriculumAuditTableBody");
     }
 
@@ -1908,7 +2025,7 @@
         const totalSize = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
         preview.textContent = files.length === 1
           ? `已选择：${files[0].name}（${formatFileSize(files[0].size)}）`
-          : `已选择 ${files.length} 个文件，总计 ${formatFileSize(totalSize)}。保存后逐个上传。`;
+          : `已选择 ${files.length} 个文件，总计 ${formatFileSize(totalSize)}。保存后逐个上传并即时备份。`;
       }
     });
 
@@ -1961,6 +2078,7 @@
       const uploadFiles = files.length ? files : [null];
       let addedCount = 0;
       let updatedCount = 0;
+      const uploadedFileRows = [];
       try {
         for (const file of uploadFiles) {
           const rowName = inputName || (file ? fileBaseName(file.name) : name);
@@ -1976,6 +2094,9 @@
             createdAt: existing.createdAt || nowText()
           };
           const filePayload = await selectedFilePayload(existing, rowBase, file);
+          if (file && filePayload.fileStorageKey) {
+            uploadedFileRows.push({ ...rowBase, ...filePayload });
+          }
           const payload = {
             ...rowBase,
             ...filePayload,
@@ -2006,7 +2127,11 @@
       const directoryText = selectedOutlineCategory === defaultOutlineCategory
         ? `课程资料库 / ${selectedGrade} / ${selectedType}`
         : `授课大纲 / ${selectedOutlineCategory} / ${normalizeSeason($("curriculumSeasonInput")?.value)} / ${selectedGrade}`;
-      setText("curriculumMessage", `已保存到：${directoryText}。新增 ${addedCount} 条，更新 ${updatedCount} 条；重复资料已自动升级版本。`);
+      const storageMessage = curriculumUploadStorageMessage(uploadedFileRows);
+      setText("curriculumMessage", [
+        `已保存到：${directoryText}。新增 ${addedCount} 条，更新 ${updatedCount} 条；重复资料已自动升级版本。`,
+        storageMessage
+      ].filter(Boolean).join("\n"));
       writeStore(key, rows);
       applyTeacherOptions();
       updateCurriculumFilterControls();
@@ -2023,8 +2148,10 @@
       const grade = button.getAttribute("data-curriculum-grade-dir") || "";
       if ($("curriculumGradeFilter")) $("curriculumGradeFilter").value = grade;
       if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = defaultOutlineCategory;
+      if ($("curriculumGradeInput") && grade) $("curriculumGradeInput").value = grade;
       if ($("curriculumTypeInput") && $("curriculumTypeInput").value === "课程大纲") $("curriculumTypeInput").value = "讲义";
       render();
+      setActiveFolderLabel(grade ? `课程资料库 / ${grade}` : "课程资料库 / 全部年级");
       setText("curriculumMessage", grade ? `已打开课程资料库：${grade}。` : "已打开课程资料库：全部年级。");
       $("curriculumTableBody")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
@@ -2049,9 +2176,12 @@
         if ($("curriculumGradeFilter")) $("curriculumGradeFilter").value = grade;
         if ($("curriculumOutlineCategoryInput")) $("curriculumOutlineCategoryInput").value = category;
         if ($("curriculumTypeInput")) $("curriculumTypeInput").value = "课程大纲";
+        if ($("curriculumGradeInput")) $("curriculumGradeInput").value = grade;
+        if ($("curriculumTeacherInput") && activeOutlineTeacherFilter) $("curriculumTeacherInput").value = activeOutlineTeacherFilter;
         if ($("curriculumTeacherFilter") && activeOutlineTeacherFilter) $("curriculumTeacherFilter").value = activeOutlineTeacherFilter;
         render();
         const teacherText = activeOutlineTeacherFilter ? `${activeOutlineTeacherFilter} / ` : "";
+        setActiveFolderLabel(`授课大纲 / ${teacherText}${category} / ${grade}`);
         setText("curriculumMessage", `已打开：${teacherText}${category} / ${grade}。`);
         $("curriculumTableBody")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
@@ -2106,6 +2236,8 @@
       { label: "文件大小", value: (row) => row.fileName ? formatFileSize(row.fileSize) : "" },
       { label: "文件地址", value: "fileUrl" },
       { label: "存储方式", value: "storageKind" },
+      { label: "服务器主路径", value: (row) => curriculumServerFilePath(row) },
+      { label: "即时备份路径", value: (row) => curriculumBackupFilePath(row) },
       { label: "说明", value: "note" },
       { label: "创建时间", value: "createdAt" }
     ])));
@@ -2130,14 +2262,8 @@
         setText("curriculumMessage", `正在编辑 ${rows[index].name}。`);
       },
       onDelete(index) {
-        const removed = rows[index];
-        markRowDeleted(key, removed);
-        rows.splice(index, 1);
-        writeStore(key, rows, { restoreDeleted: false });
-        recordAudit(moduleKey, "删除", removed.name, removed.type);
-        if (editingIndex === index) resetForm();
-        render();
-        setText("curriculumMessage", `已删除 ${removed.name}。`);
+        alert(curriculumDeleteBlockedMessage());
+        setText("curriculumMessage", curriculumDeleteBlockedMessage());
       }
     }, capabilities, "curriculumMessage");
     $("curriculumTableBody")?.addEventListener("click", async (event) => {
