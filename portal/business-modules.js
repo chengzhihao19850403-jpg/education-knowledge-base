@@ -1686,8 +1686,9 @@
       }
       const board = $("curriculumDirectoryBoard");
       if (board) {
-        board.innerHTML = `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="">${folderIconHtml()}<span><strong>全部年级</strong><br>查看当前权限范围内全部资料 / ${folderCount()} 条</span></button>` +
-          options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}">${folderIconHtml()}<span><strong>${escapeHtml(grade)}</strong><br>课程资料库 / ${folderCount({ grade })} 条</span></button>`).join("");
+        board.innerHTML = options.length
+          ? options.map((grade) => `<button class="resource-tree-item" type="button" data-curriculum-grade-dir="${escapeHtml(grade)}">${folderIconHtml()}<span><strong>${escapeHtml(grade)}</strong><br>课程资料库 / ${folderCount({ grade })} 条</span></button>`).join("")
+          : `<div class="resource-tree-item">${folderIconHtml()}<span><strong>暂无年级文件夹</strong><br>当前账号还没有配置负责年级。</span></div>`;
       }
       renderOutlineTeacherSelectors();
       renderOutlineGradeDirectories();
@@ -2020,6 +2021,35 @@
         : `<tr><td colspan="9">${escapeHtml(emptyMessage)}</td></tr>`;
     }
 
+    function curriculumFileCardHtml(row, index) {
+      return `
+        <article class="folder-file-card">
+          <div>
+            <h3>${escapeHtml(row.name || row.fileName || "未命名资料")}</h3>
+            <p>${escapeHtml(row.subject || row.grade || "-")}</p>
+          </div>
+          <div class="meta">
+            ${tag(row.grade || "-", "neutral")}
+            ${tag(normalizeSeason(row.season || row.classType), "neutral")}
+            ${tag(normalizeOutlineCategory(row.outlineCategory, row.type), isTeachingOutline(row) ? "good" : "info")}
+            ${tag(row.type || "资料", "info")}
+            ${tag(row.version || "V1.0", "neutral")}
+          </div>
+          <div class="file-area">${fileCell(row, index)}</div>
+          <p>${escapeHtml(row.lesson || "-")}｜${escapeHtml(row.teacherName || row.owner || "-")}</p>
+          ${row.formula ? `<p><strong>公式重点：</strong>${escapeHtml(row.formula)}</p>` : ""}
+          ${row.note ? `<p>${escapeHtml(row.note)}</p>` : ""}
+          <div>${curriculumActionButtons(index)}</div>
+        </article>
+      `;
+    }
+
+    function curriculumFileCardsHtml(entries, emptyMessage = "这个文件夹里还没有资料。") {
+      return entries.length
+        ? entries.map(({ row, index }) => curriculumFileCardHtml(row, index)).join("")
+        : `<div class="folder-empty">${escapeHtml(emptyMessage)}</div>`;
+    }
+
     function curriculumActionButtons(index) {
       const buttons = [];
       if (capabilities.update) {
@@ -2049,13 +2079,13 @@
     }
 
     function renderCurriculumFolderModal() {
-      const body = $("curriculumFolderTableBody");
-      if (!body) return;
+      const list = $("curriculumFolderFileList");
+      if (!list) return;
       const needsSeason = folderContextNeedsSeason(activeFolderUploadContext);
       const entries = needsSeason ? [] : curriculumEntries({ sortValue: "newest" });
-      body.innerHTML = needsSeason
-        ? `<tr><td colspan="9">请先点击上方季节子文件夹，再查看或上传对应大纲。</td></tr>`
-        : curriculumRowsHtml(entries, "这个文件夹里还没有资料。");
+      list.innerHTML = needsSeason
+        ? `<div class="folder-empty">请先点击上方季节子文件夹，再查看或上传对应大纲。</div>`
+        : curriculumFileCardsHtml(entries);
       setText("curriculumFolderModalTitle", activeFolderModalTitle);
       setText("curriculumFolderModalMeta", needsSeason ? `${activeFolderModalTitle}｜请选择季节子文件夹` : `${activeFolderModalTitle}｜${entries.length} 条最新版本资料`);
       const subfolderBoard = $("curriculumFolderSubfolders");
@@ -2348,7 +2378,7 @@
     $("curriculumDirectoryBoard")?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-curriculum-grade-dir]");
       if (!button) return;
-      activeOutlineFilter = "";
+      activeOutlineFilter = defaultOutlineCategory;
       activeOutlineTeacherFilter = "";
       updateCurriculumFilterControls();
       const grade = button.getAttribute("data-curriculum-grade-dir") || "";
@@ -2488,7 +2518,7 @@
       onDelete: deleteCurriculumRow
     };
     bindRowActions("curriculumTableBody", curriculumRowHandlers, capabilities, "curriculumMessage");
-    bindRowActions("curriculumFolderTableBody", curriculumRowHandlers, capabilities, "curriculumMessage");
+    bindRowActions("curriculumFolderFileList", curriculumRowHandlers, capabilities, "curriculumMessage");
 
     async function handleCurriculumFileTableClick(event) {
       const previewButton = event.target.closest("[data-preview-curriculum]");
@@ -2537,7 +2567,7 @@
     }
 
     $("curriculumTableBody")?.addEventListener("click", handleCurriculumFileTableClick);
-    $("curriculumFolderTableBody")?.addEventListener("click", handleCurriculumFileTableClick);
+    $("curriculumFolderFileList")?.addEventListener("click", handleCurriculumFileTableClick);
     $("curriculumFolderModalCloseButton")?.addEventListener("click", closeCurriculumFolderModal);
     $("curriculumFolderSubfolders")?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-curriculum-season-folder]");
