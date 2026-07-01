@@ -2021,25 +2021,52 @@
         : `<tr><td colspan="9">${escapeHtml(emptyMessage)}</td></tr>`;
     }
 
+    function folderImageSrc(row = {}) {
+      if (!isImageFile(row)) return "";
+      if (row.fileDataUrl) return row.fileDataUrl;
+      const fileUrl = String(row.fileUrl || "").trim();
+      if (fileUrl.startsWith("/")) return fileUrl;
+      return "";
+    }
+
+    function fileExtensionLabel(row = {}) {
+      const fileName = String(row.fileName || row.name || "");
+      const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
+      if (extension) return extension.slice(0, 5).toUpperCase();
+      if (isImageFile(row)) return "IMG";
+      return "FILE";
+    }
+
+    function curriculumFolderAdminButtons(index) {
+      const buttons = [];
+      if (capabilities.update) {
+        buttons.push(`<button type="button" data-action="edit" data-index="${index}">编辑</button>`);
+      }
+      if (capabilities.delete) {
+        buttons.push(`<button type="button" data-action="delete" data-index="${index}">误传联系管理员</button>`);
+      }
+      return buttons.length ? `<div class="folder-file-admin">${buttons.join("")}</div>` : "";
+    }
+
     function curriculumFileCardHtml(row, index) {
+      const imageSrc = folderImageSrc(row);
+      const fileName = row.fileName || row.name || "未命名资料";
+      const openButton = isImageFile(row)
+        ? `<button type="button" data-preview-curriculum="${index}">打开</button>`
+        : "";
+      const thumb = imageSrc
+        ? `<button class="folder-file-thumb" type="button" data-preview-curriculum="${index}" aria-label="打开 ${escapeHtml(fileName)}"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(fileName)}"></button>`
+        : `<button class="folder-file-thumb" type="button" ${isImageFile(row) ? `data-preview-curriculum="${index}"` : `data-download-curriculum="${index}"`} aria-label="${isImageFile(row) ? "打开" : "下载"} ${escapeHtml(fileName)}"><span class="folder-file-icon"><span>${escapeHtml(fileExtensionLabel(row))}</span></span></button>`;
       return `
         <article class="folder-file-card">
-          <div>
-            <h3>${escapeHtml(row.name || row.fileName || "未命名资料")}</h3>
-            <p>${escapeHtml(row.subject || row.grade || "-")}</p>
+          ${thumb}
+          <div class="folder-file-name">${escapeHtml(fileName)}</div>
+          <div class="folder-file-size">${row.fileSize ? escapeHtml(formatFileSize(row.fileSize)) : "文件"}</div>
+          <div class="folder-file-actions">
+            ${openButton}
+            <button type="button" data-download-curriculum="${index}">下载</button>
           </div>
-          <div class="meta">
-            ${tag(row.grade || "-", "neutral")}
-            ${tag(normalizeSeason(row.season || row.classType), "neutral")}
-            ${tag(normalizeOutlineCategory(row.outlineCategory, row.type), isTeachingOutline(row) ? "good" : "info")}
-            ${tag(row.type || "资料", "info")}
-            ${tag(row.version || "V1.0", "neutral")}
-          </div>
-          <div class="file-area">${fileCell(row, index)}</div>
-          <p>${escapeHtml(row.lesson || "-")}｜${escapeHtml(row.teacherName || row.owner || "-")}</p>
-          ${row.formula ? `<p><strong>公式重点：</strong>${escapeHtml(row.formula)}</p>` : ""}
-          ${row.note ? `<p>${escapeHtml(row.note)}</p>` : ""}
-          <div>${curriculumActionButtons(index)}</div>
+          ${curriculumFolderAdminButtons(index)}
         </article>
       `;
     }

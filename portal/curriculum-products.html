@@ -90,11 +90,19 @@
       .folder-dropzone.dragging { border-color: var(--brand); background: rgba(37,99,235,0.12); }
       .folder-dropzone strong { color: var(--ink); }
       .folder-subfolders { margin-bottom: 12px; }
-      .folder-file-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
-      .folder-file-card { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 14px; }
-      .folder-file-card h3 { font-size: 16px; }
-      .folder-file-card .meta { display: flex; flex-wrap: wrap; gap: 6px; }
-      .folder-file-card .file-area { border-radius: 12px; background: #f8fafc; padding: 10px; }
+      .folder-file-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding: 14px; align-content: start; }
+      .folder-file-card { position: relative; display: grid; gap: 8px; justify-items: center; border: 1px solid transparent; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: center; }
+      .folder-file-card:hover { border-color: rgba(37,99,235,0.18); background: rgba(37,99,235,0.04); }
+      .folder-file-thumb { width: 118px; height: 92px; display: grid; place-items: center; border: 0; border-radius: 12px; background: #f8fafc; cursor: pointer; overflow: hidden; }
+      .folder-file-thumb img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+      .folder-file-icon { width: 72px; height: 88px; border-radius: 10px; background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%); border: 1px solid rgba(37,99,235,0.16); position: relative; box-shadow: 0 10px 24px rgba(23,33,50,0.08); }
+      .folder-file-icon::before { content: ""; position: absolute; right: -1px; top: -1px; border-style: solid; border-width: 0 22px 22px 0; border-color: transparent #dbeafe transparent transparent; }
+      .folder-file-icon span { position: absolute; left: 8px; right: 8px; bottom: 10px; color: var(--brand-dark); font-size: 11px; font-weight: 800; }
+      .folder-file-name { width: 100%; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.35; word-break: break-word; }
+      .folder-file-size { color: var(--muted); font-size: 12px; }
+      .folder-file-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+      .folder-file-actions button, .folder-file-admin button { min-height: 28px; padding: 0 9px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.18); background: rgba(37,99,235,0.08); color: var(--brand-dark); cursor: pointer; font-size: 12px; }
+      .folder-file-admin { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; opacity: 0.72; }
       .folder-empty { padding: 24px; color: var(--muted); text-align: center; }
       .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
       table { width: 100%; min-width: 980px; border-collapse: collapse; }
@@ -108,7 +116,7 @@
       .span-3 { grid-column: 1 / -1; }
       @media (max-width: 980px) { .hero, .grid { grid-template-columns: 1fr; } .metrics, .outline-board, .resource-tree { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .metrics, .form-grid { grid-template-columns: 1fr; } .span-3 { grid-column: auto; } }
-      @media (max-width: 720px) { .outline-board, .resource-tree, .folder-file-list { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { .outline-board, .resource-tree { grid-template-columns: 1fr; } .folder-file-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     </style>
     <link rel="stylesheet" href="/jrcedu/portal/mobile-unified.css?v=20260628g">
   </head>
