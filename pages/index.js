@@ -21,6 +21,14 @@ const synonymGroups = [
   ['反馈', '课堂反馈', '学习情况', '课后辅导', '家长沟通'],
   ['红榜', '牛娃', '成绩榜', '推荐'],
   ['班型', '一班', '二班', '三班', '分班', '适合哪个班'],
+  ['低年级', '二年级', '三年级', '四年级', '提前学', '计算体系'],
+  ['粗心', '马虎', '审题', '计算错', '简单题错', '看错题'],
+  ['跳级', '升班', '调班', '快班', '慢班', '知识断层'],
+  ['作业', '作业量', '预习作业', '课后习题'],
+  ['推荐', '转介绍', '推同学', '老带新'],
+  ['免费答疑', '资料赠送', '习题资料', '分享群', '视频讲解'],
+  ['物理化学', '理科', '初中理化', '理科思维'],
+  ['高中提前学', '初一学高中', '初二学高中', '高中预习'],
 ];
 
 function normalizeText(value) {
@@ -178,6 +186,36 @@ function scoreQuestion(query, item) {
     { pattern: /请假|补课|课冲突|缺课/, ids: ['XG046'] },
     { pattern: /红榜|牛娃|只关注自己/, ids: ['XG024'] },
     { pattern: /课内成绩.*下降|成绩反而下降|奥数.*下降/, ids: ['XG007'] },
+    { pattern: /二年级|简单题.*错|难题.*会|基础题.*错/, ids: ['XG050', 'XG072'] },
+    { pattern: /低年级.*提前|提前学.*跟得上|思维逻辑.*要求/, ids: ['XG051', 'XG052', 'XG070'] },
+    { pattern: /班级最多|班额|分班.*考试|分班是否/, ids: ['XG053'] },
+    { pattern: /几年级.*奥数|奥数.*几年级|计算体系|乘法口诀/, ids: ['XG054'] },
+    { pattern: /辅导.*累|身心俱疲|家长辅导|发脾气/, ids: ['XG055'] },
+    { pattern: /四年级.*暑假|暑假.*学完|完整本.*课程/, ids: ['XG056'] },
+    { pattern: /一周一次|同步上课|提前学.*奥数|奥数.*同步/, ids: ['XG057'] },
+    { pattern: /适合奥数|应试路线|思维能力|判断孩子/, ids: ['XG058'] },
+    { pattern: /提升数学|打牢基础|数学基础/, ids: ['XG059'] },
+    { pattern: /拓展学习|校内成绩|明显提升/, ids: ['XG060'] },
+    { pattern: /小学毕业.*进度|快慢班|慢班|快班/, ids: ['XG061', 'XG076'] },
+    { pattern: /适配班次|课程包含奥数|冲刺蛟川|冲刺.*贯通/, ids: ['XG062'] },
+    { pattern: /课程进度|跟不上进度|补差|精品小班/, ids: ['XG063'] },
+    { pattern: /初中知识.*结束|后面.*强基|初中内容.*规划/, ids: ['XG064'] },
+    { pattern: /作业|作业量|预习任务|每节课作业/, ids: ['XG065'] },
+    { pattern: /推.*同学|推荐.*同学|老带新|转介绍/, ids: ['XG066'] },
+    { pattern: /基础薄弱|基础弱.*程老师|不适合上程老师/, ids: ['XG067'] },
+    { pattern: /不走竞赛|只搞校内|只学校内|有没有必要学奥数/, ids: ['XG068'] },
+    { pattern: /免费答疑|额外习题|资料赠送|分享群/, ids: ['XG069'] },
+    { pattern: /透支.*兴趣|学习兴趣|大量提前学/, ids: ['XG070'] },
+    { pattern: /物理化学|初中理化|理科.*帮助/, ids: ['XG071'] },
+    { pattern: /数学拖后腿|语文英语.*好|补习规划/, ids: ['XG073'] },
+    { pattern: /出门测.*低|分数低|没听懂/, ids: ['XG074'] },
+    { pattern: /跳级|知识断层|高阶内容/, ids: ['XG075'] },
+    { pattern: /调慢班|打击.*自信|自信心/, ids: ['XG076'] },
+    { pattern: /只考基础|难题.*不会|提升难题/, ids: ['XG077'] },
+    { pattern: /只刷题|不锻炼思维|后劲不足/, ids: ['XG078'] },
+    { pattern: /普通奥数|几年级.*强基|强基.*区别/, ids: ['XG079'] },
+    { pattern: /高中提前学|初一.*高中|初二.*高中|什么时候启动/, ids: ['XG080'] },
+    { pattern: /粗心|马虎|审题|计算错|看错|漏条件/, ids: ['XG081'] },
   ];
 
   for (const rule of strongIntentRules) {
@@ -224,10 +262,23 @@ function formatChoice(index) {
   return String.fromCharCode(65 + index);
 }
 
+function toChineseNumber(value) {
+  const digits = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return String(value || '');
+  if (number <= 10) return number === 10 ? '十' : digits[number];
+  if (number < 20) return `十${digits[number - 10]}`;
+  if (number < 100) {
+    const tens = Math.floor(number / 10);
+    const ones = number % 10;
+    return `${digits[tens]}十${ones ? digits[ones] : ''}`;
+  }
+  return String(number);
+}
+
 function formatSectionNumber(index) {
-  const labels = ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节', '第七节', '第八节', '第九节', '第十节', '第十一节', '第十二节', '第十三节', '第十四节', '第十五节', '第十六节', '第十七节', '第十八节', '第十九节', '第二十节'];
   if (index < 0) return '';
-  return labels[index] || `第${index + 1}节`;
+  return `第${toChineseNumber(index + 1)}节`;
 }
 
 function getLessonIndex(lessonId) {
@@ -443,6 +494,7 @@ export default function Home() {
   const totalQuestionCount = selectedTest?.questions?.length || 0;
   const totalScore = selectedTest?.totalScore || 100;
   const score = totalQuestionCount ? Math.round((correctCount / totalQuestionCount) * totalScore) : 0;
+  const lessonCount = trainingProgram.lessons?.length || 0;
   const leaderboard = useMemo(() => summarizeLeaderboard(leaderboardRows), [leaderboardRows]);
   const currentUserKey = String(currentEmployee?.username || currentEmployee?.name || '').trim().toLowerCase();
   const myRank = currentUserKey
@@ -703,7 +755,7 @@ export default function Home() {
               <div>
                 <button type="button" className="back-link" onClick={() => setActiveView('home')}>返回学管知识库系统</button>
                 <h2>学管课堂系统</h2>
-                <p>先学习 20 节课，再进入阶段测试。学习和测试在这个系统内完成，不和问答查询混在一起。</p>
+                <p>先学习 {lessonCount} 节课，再进入阶段测试。学习和测试在这个系统内完成，不和问答查询混在一起。</p>
               </div>
               <div className="classroom-tabs">
                 <button type="button" className={classroomView === 'lessons' ? 'active' : ''} onClick={() => setClassroomView('lessons')}>学习内容</button>
@@ -714,7 +766,7 @@ export default function Home() {
             <section className="leaderboard-summary">
               <div>
                 <span>我的进度</span>
-                <strong>{mySummary ? `${mySummary.completedLessons}/20 节` : '暂未交卷'}</strong>
+                <strong>{mySummary ? `${mySummary.completedLessons}/${lessonCount} 节` : '暂未交卷'}</strong>
                 <p>{mySummary ? `当前第 ${myRank + 1} 名 · 正确率 ${mySummary.accuracy}%` : '完成本节小测试后自动进入榜单'}</p>
               </div>
               <div>
@@ -806,7 +858,7 @@ export default function Home() {
                   <strong>{index + 1}</strong>
                   <div>
                     <b>{item.name}</b>
-                    <span>已学 {item.completedLessons}/20 节 · 交卷 {item.attempts} 次 · 正确率 {item.accuracy}% · 最高 {item.bestScore} 分</span>
+                    <span>已学 {item.completedLessons}/{lessonCount} 节 · 交卷 {item.attempts} 次 · 正确率 {item.accuracy}% · 最高 {item.bestScore} 分</span>
                   </div>
                   <em>{item.points} 分</em>
                 </div>
